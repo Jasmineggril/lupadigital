@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import {
   ClipboardList,
   UserCheck,
   History,
+  Heart,
   Trash2,
   ChevronRight,
   X,
@@ -58,6 +59,8 @@ import {
   type UserProfile,
   type ChecklistItem,
 } from "@/lib/agents";
+import { extractTextFromPdf, type PdfStructuredData } from "@/lib/pdf";
+import { salvarAnalise, atualizarAnalise, listarAnalises, excluirAnalise, limparAnalises, type AnaliseSalva } from "@/services/analisesService";
 
 // ── Icon map ────────────────────────────────────────────────────
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -68,6 +71,76 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   ClipboardList: <ClipboardList className="w-5 h-5" />,
   UserCheck: <UserCheck className="w-5 h-5" />,
 };
+
+function getSimplifiedText(result: AgentResult) {
+  switch (result.type) {
+    case "simples":
+      return result.resumo;
+    case "analista":
+      return [
+        result.tipoEdital ? `Tipo: ${result.tipoEdital}.` : "",
+        result.instituicao ? `Instituição: ${result.instituicao}.` : "",
+        result.prazo ? `Prazo(s): ${result.prazo}.` : "",
+        result.publicoAlvo ? `Público: ${result.publicoAlvo}.` : "",
+        result.valor ? `Valor / Benefício: ${result.valor}.` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    case "estrategica":
+      return result.oportunidade;
+    case "acompanhamento":
+      return result.observacao;
+    case "documentacao":
+      return `Checklist: ${result.checklist.map((item) => item.doc).join(", ")}. ${result.dica}`;
+    case "elegibilidade":
+      return `${result.recomendacao} ${result.proximosPassos.join(" ")}`;
+    default:
+      return "";
+  }
+}
+
+function computeTextIndicators(text: string) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const words = normalized.split(" ").filter(Boolean);
+  const sentences = normalized.split(/[.!?]+/).map((segment) => segment.trim()).filter(Boolean);
+  const wordCount = words.length;
+  const sentenceCount = Math.max(sentences.length, 1);
+  const avgWords = wordCount / sentenceCount;
+  const longWords = words.filter((word) => word.length > 7).length;
+  const longWordRatio = wordCount ? longWords / wordCount : 0;
+
+  const clarity = Math.round(
+    Math.max(20, Math.min(100, 110 - avgWords * 3 - longWordRatio * 35))
+  );
+  const complexity = Math.round(
+    Math.max(0, Math.min(100, avgWords * 4 + longWordRatio * 40))
+  );
+  const transparency = Math.round(
+    Math.max(
+      20,
+      Math.min(
+        100,
+        20 +
+          (/(prazo|inscrição|inscrições|site|portal|www\.|http|valor|benefício|documento|requisito)/i.test(normalized) ? 30 : 0) +
+          (/(órgão|secretaria|ministério|fundação|universidade|instituto|autarquia)/i.test(normalized) ? 20 : 0)
+      )
+    )
+  );
+  const accessibility = Math.round(
+    Math.max(20, Math.min(100, 100 - longWordRatio * 25 - Math.max(0, avgWords - 14) * 2))
+  );
+  const legibility = Math.round(
+    Math.max(20, Math.min(100, 120 - avgWords * 2 - longWordRatio * 25))
+  );
+
+  return {
+    clareza: clarity,
+    complexidade: complexity,
+    transparencia: transparency,
+    acessibilidade: accessibility,
+    legibilidade: legibility,
+  };
+}
 
 // ── PDF export ───────────────────────────────────────────────────
 async function exportToPDF(element: HTMLElement, title: string) {
@@ -645,7 +718,8 @@ type DateFilter = "todos" | "hoje" | "semana" | "mes";
 
 type UnifiedItem =
   | { kind: "agent"; data: AgentResultRecord }
-  | { kind: "legacy"; data: SavedEdital };
+  | { kind: "legacy"; data: SavedEdital }
+  | { kind: "supabase"; data: AnaliseSalva };
 
 const AGENT_BADGE: Record<string, { label: string; color: string }> = {
   simples:        { label: "Simples",        color: "bg-blue-100 text-blue-700" },
@@ -659,10 +733,12 @@ const AGENT_BADGE: Record<string, { label: string; color: string }> = {
 function HistoryPanel({
   onSelect,
   onSelectAgent,
+  onSelectSupabase,
   onClose,
 }: {
   onSelect: (item: SavedEdital) => void;
   onSelectAgent: (item: AgentResultRecord) => void;
+  onSelectSupabase: (item: AnaliseSalva) => void;
   onClose: () => void;
 }) {
   const { data: agentHistory, isLoading: agentLoading } = useListAgentHistory();
@@ -673,39 +749,82 @@ function HistoryPanel({
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("todos");
+  const [supabaseItems, setSupabaseItems] = useState<AnaliseSalva[]>([]);
+  const [supabaseLoading, setSupabaseLoading] = useState(true);
 
-  const isLoading = agentLoading || legacyLoading;
+  const isLoading = agentLoading || legacyLoading || supabaseLoading;
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
+  useEffect(() => {
+    let ignore = false;
+    const loadSupabase = async () => {
+      try {
+        const data = await listarAnalises();
+        if (!ignore) setSupabaseItems(data as AnaliseSalva[]);
+      } catch {
+        if (!ignore) setSupabaseItems([]);
+      } finally {
+        if (!ignore) setSupabaseLoading(false);
+      }
+    };
+    void loadSupabase();
+    return () => { ignore = true; };
+  }, []);
+
   const unified = useMemo<UnifiedItem[]>(() => {
     const now = new Date();
     const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const sow = new Date(sod); sow.setDate(sod.getDate() - sod.getDay());
+    const sow = new Date(sod);
+    sow.setDate(sod.getDate() - sod.getDay());
     const som = new Date(now.getFullYear(), now.getMonth(), 1);
     const q = search.toLowerCase().trim();
 
-    const matchDate = (d: string) => {
-      const dt = new Date(d);
+    const matchDate = (d?: string) => {
+      const dt = new Date(d ?? new Date().toISOString());
       if (dateFilter === "hoje") return dt >= sod;
       if (dateFilter === "semana") return dt >= sow;
       if (dateFilter === "mes") return dt >= som;
       return true;
     };
 
+    const normalizeSearch = (item: SavedEdital | AgentResultRecord | AnaliseSalva) => {
+      const title = "title" in item ? item.title ?? "" : item.titulo ?? "";
+      const original = "originalText" in item ? item.originalText ?? "" : item.conteudo_original ?? "";
+      const summary = "resumo" in item ? item.resumo ?? "" : "conteudo_simplificado" in item ? item.conteudo_simplificado ?? "" : "";
+      return [title, original, summary].join(" ").toLowerCase();
+    };
+
+    const parseDate = (item: SavedEdital | AgentResultRecord | AnaliseSalva) => {
+      const dateValue = "createdAt" in item
+        ? item.createdAt ?? new Date().toISOString()
+        : "created_at" in item
+        ? item.created_at ?? new Date().toISOString()
+        : new Date().toISOString();
+      return new Date(dateValue).getTime();
+    };
+
+    const matches = (item: SavedEdital | AgentResultRecord | AnaliseSalva) => {
+      return q.length === 0 || normalizeSearch(item).includes(q);
+    };
+
     const agentItems: UnifiedItem[] = (agentHistory ?? [])
-      .filter((i) => matchDate(i.createdAt) && (!q || i.title.toLowerCase().includes(q)))
-      .map((i) => ({ kind: "agent", data: i }));
+      .filter((item: AgentResultRecord) => matchDate(item.createdAt) && matches(item))
+      .map((data: AgentResultRecord) => ({ kind: "agent", data }));
 
     const legacyItems: UnifiedItem[] = (legacyHistory ?? [])
-      .filter((i) => matchDate(i.createdAt) && (!q || i.title.toLowerCase().includes(q) || i.resumo.toLowerCase().includes(q)))
-      .map((i) => ({ kind: "legacy", data: i }));
+      .filter((item: SavedEdital) => matchDate(item.createdAt) && matches(item))
+      .map((data: SavedEdital) => ({ kind: "legacy", data }));
 
-    return [...agentItems, ...legacyItems].sort(
-      (a, b) => new Date(b.data.createdAt).getTime() - new Date(a.data.createdAt).getTime()
+    const supabaseItemsUnified: UnifiedItem[] = supabaseItems
+      .filter((item) => matchDate(item.created_at) && matches(item))
+      .map((data) => ({ kind: "supabase", data }));
+
+    return [...agentItems, ...legacyItems, ...supabaseItemsUnified].sort(
+      (a, b) => parseDate(b.data) - parseDate(a.data)
     );
-  }, [agentHistory, legacyHistory, search, dateFilter]);
+  }, [agentHistory, legacyHistory, supabaseItems, search, dateFilter]);
 
   const handleDeleteAgent = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -716,6 +835,17 @@ function HistoryPanel({
       },
       onError: () => toast({ title: "Erro", description: "Não foi possível remover.", variant: "destructive" }),
     });
+  };
+
+  const handleDeleteSupabase = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await excluirAnalise(id);
+      setSupabaseItems((prev) => prev.filter((item) => item.id !== id));
+      toast({ title: "Removido", description: "Análise removida do histórico." });
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível remover a análise.", variant: "destructive" });
+    }
   };
 
   const handleDeleteLegacy = (id: number, e: React.MouseEvent) => {
@@ -729,6 +859,16 @@ function HistoryPanel({
     });
   };
 
+  const handleClearSupabaseHistory = async () => {
+    try {
+      await limparAnalises();
+      setSupabaseItems([]);
+      toast({ title: "Histórico limpo", description: "As análises salvas foram removidas." });
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível limpar o histórico.", variant: "destructive" });
+    }
+  };
+
   const handleExportCSV = () => {
     if (unified.length === 0) {
       toast({ title: "Nada para exportar", description: "O histórico está vazio.", variant: "destructive" });
@@ -736,10 +876,16 @@ function HistoryPanel({
     }
     const headers = ["Data", "Agente", "Título", "Texto (início)"];
     const rows = unified.map((item) => {
-      const date = new Date(item.data.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-      const agente = item.kind === "agent" ? (AGENT_BADGE[item.data.agentId]?.label ?? item.data.agentId) : "Simples (legado)";
-      const titulo = item.data.title;
-      const texto = item.data.originalText.slice(0, 120).replace(/\n/g, " ");
+      const date = new Date(
+        item.kind === "supabase"
+          ? item.data.created_at ?? new Date().toISOString()
+          : item.data.createdAt ?? new Date().toISOString()
+      ).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      const agente = item.kind === "agent" ? (AGENT_BADGE[item.data.agentId]?.label ?? item.data.agentId) : item.kind === "supabase" ? "Supabase" : "Simples (legado)";
+      const titulo = item.kind === "supabase" ? (item.data.titulo ?? "Análise salva") : item.data.title;
+      const texto = item.kind === "supabase"
+        ? (item.data.conteudo_original ?? "").slice(0, 120).replace(/\n/g, " ")
+        : item.data.originalText.slice(0, 120).replace(/\n/g, " ");
       return [date, agente, titulo, texto];
     });
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -753,7 +899,7 @@ function HistoryPanel({
     toast({ title: "CSV exportado!", description: `${unified.length} análise(s) baixadas.` });
   };
 
-  const totalCount = (agentHistory?.length ?? 0) + (legacyHistory?.length ?? 0);
+  const totalCount = (agentHistory?.length ?? 0) + (legacyHistory?.length ?? 0) + supabaseItems.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
@@ -770,6 +916,9 @@ function HistoryPanel({
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-lg" onClick={handleExportCSV} disabled={isLoading || totalCount === 0}>
               <Download className="w-3.5 h-3.5" />CSV
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-lg" onClick={handleClearSupabaseHistory} disabled={isLoading || supabaseItems.length === 0}>
+              <Trash2 className="w-3.5 h-3.5" />Limpar
             </Button>
             <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5" /></Button>
           </div>
@@ -822,6 +971,30 @@ function HistoryPanel({
                 </button>
               );
             }
+            if (item.kind === "supabase") {
+              return (
+                <div key={`supabase-${item.data.id}`} className="w-full p-4 rounded-xl border bg-card hover:bg-accent/5 transition-all group">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Supabase</span>
+                      </div>
+                      <p className="text-sm font-medium truncate pr-2">{item.data.titulo ?? "Análise salva"}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.data.conteudo_simplificado ?? item.data.conteudo_original ?? "Análise salva no histórico."}</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1.5 flex items-center gap-1"><Clock className="w-3 h-3" />{formatDate(item.data.created_at ?? new Date().toISOString())}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                      <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]" onClick={(e) => { e.stopPropagation(); onSelectSupabase(item.data); }}>
+                        Visualizar
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={(e) => handleDeleteSupabase(item.data.id ?? "", e)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
             return (
               <button key={`legacy-${item.data.id}`} onClick={() => onSelect(item.data)} className="w-full text-left p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-primary/20 transition-all group">
                 <div className="flex items-start gap-3">
@@ -861,10 +1034,14 @@ export default function TestarIA() {
   const [showHistory, setShowHistory] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [savedThisResult, setSavedThisResult] = useState(false);
+  const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [showShareLink, setShowShareLink] = useState(false);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [pdfStructuredData, setPdfStructuredData] = useState<PdfStructuredData | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const printRef = useRef<HTMLDivElement | null>(null);
   const { toast } = useToast();
@@ -879,6 +1056,83 @@ export default function TestarIA() {
   const applyResult = (result: AgentResult) => {
     setAgentResult(result);
     if (result.type === "documentacao") setChecklistState(result.checklist);
+  };
+
+  const buildAnalysisPayload = (result: AgentResult | null, favorito = false): AnaliseSalva => {
+    const simplifiedText = result
+      ? (() => {
+          if (result.type === "simples") {
+            return [result.resumo, result.objetivo, result.prazo].filter(Boolean).join(" ");
+          }
+          if (result.type === "documentacao") {
+            return [result.dica, result.checklist?.map((item) => item.doc).join(", ")].filter(Boolean).join(" ");
+          }
+          if (result.type === "elegibilidade") {
+            return [result.recomendacao, result.proximosPassos?.join(" • ")].filter(Boolean).join(" ");
+          }
+          return JSON.stringify(result);
+        })()
+      : "Análise concluída.";
+
+    const indicators = result
+      ? {
+          tipo: result.type,
+          ...(result.type === "simples" ? { scoreOportunidade: result.scoreOportunidade, categoria: result.categoria, prazo: result.prazo } : {}),
+          ...(result.type === "analista" ? { tipoEdital: result.tipoEdital, instituicao: result.instituicao, prazo: result.prazo, publicoAlvo: result.publicoAlvo, valor: result.valor } : {}),
+          ...(result.type === "estrategica" ? { score: result.score, oportunidade: result.oportunidade, recomendacao: result.recomendacao } : {}),
+          ...(result.type === "acompanhamento" ? { timeline: result.timeline.length, observacao: result.observacao } : {}),
+          ...(result.type === "documentacao" ? { checklist: result.checklist.length, dica: result.dica } : {}),
+          ...(result.type === "elegibilidade" ? { score: result.score, recomendacao: result.recomendacao } : {}),
+        }
+      : { tipo: selectedAgent };
+
+    const timeline = result
+      ? {
+          etapa: "Análise concluída",
+          ...(result.type === "simples" ? { prazo: result.prazo, objetivo: result.objetivo } : {}),
+          ...(result.type === "elegibilidade" ? { proximosPassos: result.proximosPassos } : {}),
+        }
+      : { etapa: "Processamento do edital" };
+
+    const recomendacoes = result
+      ? {
+          ...(result.type === "simples" ? { ondeInscrever: result.ondeInscrever, publicoAlvo: result.publicoAlvo } : {}),
+          ...(result.type === "documentacao" ? { dica: result.dica } : {}),
+          ...(result.type === "elegibilidade" ? { recomendacao: result.recomendacao, proximosPassos: result.proximosPassos } : {}),
+        }
+      : { recomendacao: "Revise o conteúdo e confirme os detalhes do edital." };
+
+    return {
+      id: currentSavedId ?? undefined,
+      titulo: text.trim().slice(0, 80).replace(/\n/g, " ") || `Análise ${currentAgentMeta.name}`,
+      conteudo_original: text,
+      conteudo_simplificado: simplifiedText,
+      categoria: (result as { categoria?: string } | null)?.categoria ?? currentAgentMeta.name,
+      modo_analise: currentAgentMeta.name,
+      indicadores: indicators,
+      timeline,
+      recomendacoes,
+      favorito: favorito,
+    };
+  };
+
+  const persistCurrentAnalysis = async (result: AgentResult | null) => {
+    try {
+      const payload = buildAnalysisPayload(result, isFavorite);
+      let saved;
+      if (currentSavedId) {
+        payload.id = currentSavedId;
+        saved = await atualizarAnalise(payload);
+      } else {
+        saved = await salvarAnalise(payload);
+      }
+      setSavedThisResult(Boolean(saved));
+      setCurrentSavedId(saved?.id ?? null);
+      setIsFavorite(Boolean(saved?.favorito));
+      return saved;
+    } catch {
+      return null;
+    }
   };
 
   const handleAnalyze = () => {
@@ -898,14 +1152,18 @@ export default function TestarIA() {
         },
       },
       {
-        onSuccess: (data) => {
-          applyResult(data as unknown as AgentResult);
+        onSuccess: async (data) => {
+          const result = data as unknown as AgentResult;
+          applyResult(result);
+          await persistCurrentAnalysis(result);
+          toast({ title: "Análise concluída", description: "A análise foi salva no histórico e está pronta para revisão." });
         },
         onError: () => {
           // Fallback: run local keyword-based simulation
           try {
             const result = runAgent(selectedAgent, text, profile);
             applyResult(result);
+            void persistCurrentAnalysis(result);
             toast({
               title: "Análise simulada",
               description: "IA temporariamente indisponível. Usando análise por palavras-chave.",
@@ -916,6 +1174,32 @@ export default function TestarIA() {
         },
       }
     );
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!agentResult) {
+      toast({ title: "Sem análise ativa", description: "Execute uma análise antes de favoritar.", variant: "destructive" });
+      return;
+    }
+
+    const nextFavorite = !isFavorite;
+    setIsFavorite(nextFavorite);
+
+    if (currentSavedId) {
+      try {
+        const payload = buildAnalysisPayload(agentResult, nextFavorite);
+        payload.id = currentSavedId;
+        const updated = await atualizarAnalise(payload);
+        setCurrentSavedId(updated.id ?? currentSavedId);
+        setIsFavorite(Boolean(updated.favorito));
+        toast({ title: nextFavorite ? "Favorito adicionado" : "Favorito removido", description: "O histórico foi atualizado." });
+      } catch {
+        setIsFavorite(!nextFavorite);
+        toast({ title: "Erro", description: "Não foi possível atualizar o favorito.", variant: "destructive" });
+      }
+    } else {
+      toast({ title: nextFavorite ? "Favorito marcado" : "Favorito desmarcado", description: "Salve a análise para persistir este favorito." });
+    }
   };
 
   const handleCheckToggle = (index: number) => {
@@ -930,30 +1214,24 @@ export default function TestarIA() {
 
   const handlePdfUpload = async (file: File) => {
     setIsPdfLoading(true);
+    setPdfError(null);
+    setPdfStructuredData(null);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const BASE = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
-      const res = await fetch(`${BASE}/api/edital/extract-pdf`, {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error ?? "Erro ao extrair PDF");
-      }
-      const { text: extracted } = await res.json() as { text: string };
-      if (!extracted?.trim()) throw new Error("Nenhum texto encontrado no PDF");
+      const { text: extracted, structured } = await extractTextFromPdf(file);
+      if (!extracted?.trim()) throw new Error("Nenhum texto legível encontrado no PDF.");
       setText(extracted.trim());
+      setPdfStructuredData(structured);
       setActiveTab("pdf");
       setAgentResult(null);
       setShareToken(null);
       setShowShareLink(false);
-      toast({ title: "PDF lido com sucesso", description: "Revise o texto extraído e clique em Analisar." });
+      toast({ title: "PDF processado com sucesso.", description: "O texto legível foi extraído e está pronto para análise." });
     } catch (err) {
+      setPdfStructuredData(null);
+      setPdfError(err instanceof Error ? err.message : "Não foi possível extrair o texto deste PDF.");
       toast({
-        title: "Erro ao ler PDF",
-        description: err instanceof Error ? err.message : "Verifique se o PDF contém texto (não é uma imagem escaneada).",
+        title: "Não foi possível extrair o texto deste PDF.",
+        description: "Verifique se o arquivo contém texto legível e tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -1025,20 +1303,24 @@ export default function TestarIA() {
     }).catch(() => {});
   };
 
-  const handleSaveAgent = () => {
+  const handleSaveAgent = async () => {
     if (!agentResult || !text.trim()) return;
-    const title = text.trim().slice(0, 80).replace(/\n/g, " ") + ` [${currentAgentMeta.name}]`;
-    saveAgentResultMutation.mutate(
-      { data: { agentId: selectedAgent, title, originalText: text, resultJson: agentResult as unknown as Record<string, unknown> } },
-      {
-        onSuccess: () => {
-          setSavedThisResult(true);
-          queryClient.invalidateQueries({ queryKey: getListAgentHistoryQueryKey() });
-          toast({ title: "Análise salva!", description: "Disponível no Histórico de Análises." });
-        },
-        onError: () => toast({ title: "Erro", description: "Não foi possível salvar a análise.", variant: "destructive" }),
+    try {
+      const payload = buildAnalysisPayload(agentResult, isFavorite);
+      let saved;
+      if (currentSavedId) {
+        payload.id = currentSavedId;
+        saved = await atualizarAnalise(payload);
+      } else {
+        saved = await salvarAnalise(payload);
       }
-    );
+      setSavedThisResult(Boolean(saved));
+      setCurrentSavedId(saved?.id ?? null);
+      setIsFavorite(Boolean(saved?.favorito));
+      toast({ title: "Análise salva!", description: "Disponível no Histórico de Análises." });
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível salvar a análise.", variant: "destructive" });
+    }
   };
 
   const handleExportPDF = async () => {
@@ -1055,7 +1337,7 @@ export default function TestarIA() {
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(34,67,142,0.08),transparent)]">
-      {showHistory && <HistoryPanel onSelect={handleHistorySelect} onSelectAgent={handleAgentHistorySelect} onClose={() => setShowHistory(false)} />}
+      {showHistory && <HistoryPanel onSelect={handleHistorySelect} onSelectAgent={handleAgentHistorySelect} onSelectSupabase={(item) => { setText(item.conteudo_original ?? ""); setSavedThisResult(true); setShowHistory(false); toast({ title: "Análise carregada", description: "O texto original foi restaurado no editor." }); }} onClose={() => setShowHistory(false)} />}
 
       <main className="container mx-auto px-4 py-8 max-w-7xl flex-1">
         {/* Header row */}
@@ -1164,10 +1446,51 @@ export default function TestarIA() {
                         )}
                       </div>
                       {text && activeTab === "pdf" && (
-                        <p className="text-xs text-emerald-600 font-medium flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Texto extraído com sucesso ({text.length} caracteres). Revise e clique em Analisar.
-                        </p>
+                        <div className="space-y-2">
+                          <p className="text-xs text-emerald-600 font-medium flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            PDF processado com sucesso. Texto legível extraído ({text.length} caracteres).
+                          </p>
+                          {pdfStructuredData && (
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 space-y-2 text-sm">
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Título</p>
+                                  <p className="text-foreground">{pdfStructuredData.title}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Categoria</p>
+                                  <p className="text-foreground">{pdfStructuredData.categoria}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Resumo</p>
+                                  <p className="text-foreground">{pdfStructuredData.resumo}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Prazo</p>
+                                  <p className="text-foreground">{pdfStructuredData.prazo}</p>
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Requisitos</p>
+                                <ul className="mt-1 list-disc pl-5 text-foreground/90 space-y-1">
+                                  {pdfStructuredData.requisitos.length > 0 ? pdfStructuredData.requisitos.map((item) => <li key={item}>{item}</li>) : <li>Nenhum requisito identificado automaticamente.</li>}
+                                </ul>
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Indicadores</p>
+                                <div className="mt-1 flex flex-wrap gap-2">
+                                  {Object.entries(pdfStructuredData.indicadores).map(([key, value]) => (
+                                    <Badge key={key} variant="secondary" className="rounded-full">{key}: {String(value)}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {pdfError && (
+                            <p className="text-xs text-destructive font-medium">{pdfError}</p>
+                          )}
+                        </div>
                       )}
                     </div>
                   </CardContent>
@@ -1179,7 +1502,7 @@ export default function TestarIA() {
             <div className="flex flex-wrap gap-3">
               <Button
                 size="lg"
-                className={`rounded-xl h-12 px-6 text-sm font-semibold shadow-sm flex-1 sm:flex-none ${currentAgentMeta.textColor.replace("text-", "bg-").replace("-600", "-600")} text-white hover:opacity-90`}
+                className={`rounded-xl h-12 px-6 text-base shadow-sm flex-1 sm:flex-none ${currentAgentMeta.textColor.replace("text-", "bg-").replace("-600", "-600")} text-white`}
                 style={{}}
                 onClick={handleAnalyze}
                 disabled={isAnalyzing || !text.trim()}
@@ -1188,48 +1511,58 @@ export default function TestarIA() {
                 {isAnalyzing ? (
                   <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />Analisando...</>
                 ) : (
-                  <>{ICON_MAP[currentAgentMeta.iconName] && <span className="mr-2 opacity-90">{ICON_MAP[currentAgentMeta.iconName]}</span>}Analisar com {currentAgentMeta.name}</>
+                  <>Analisar Edital</>
                 )}
               </Button>
-
-              {agentResult && !isAnalyzing && (
-                <>
-                  <Button size="lg" variant="outline" className="rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in" onClick={handleExportPDF} disabled={isExporting}>
-                    {isExporting ? <><div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />PDF...</> : <><Download className="w-4 h-4" />Exportar PDF</>}
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant={savedThisResult ? "ghost" : "outline"}
-                    className={`rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in ${savedThisResult ? "text-emerald-600 border-emerald-200 bg-emerald-50" : ""}`}
-                    onClick={handleSaveAgent}
-                    disabled={savedThisResult || saveAgentResultMutation.isPending}
-                  >
-                    {saveAgentResultMutation.isPending ? (
-                      <><div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />Salvando...</>
-                    ) : savedThisResult ? (
-                      <><Sparkles className="w-4 h-4" />Salvo</>
-                    ) : (
-                      <><History className="w-4 h-4" />Salvar análise</>
-                    )}
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in border-primary/20 hover:bg-primary/5"
-                    onClick={showShareLink ? handleCopyShareLink : handleShare}
-                    disabled={isSharing}
-                  >
-                    {isSharing ? (
-                      <><div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />Gerando...</>
-                    ) : showShareLink ? (
-                      <><Copy className="w-4 h-4 text-primary" />Copiar link</>
-                    ) : (
-                      <><Share2 className="w-4 h-4 text-primary" />Compartilhar</>
-                    )}
-                  </Button>
-                </>
-              )}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">Agente selecionado: <strong>{currentAgentMeta.name}</strong></p>
+
+            {agentResult && !isAnalyzing && (
+              <div className="flex flex-wrap gap-3 mt-3 items-center">
+                <Button size="lg" variant="outline" className="rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in" onClick={handleExportPDF} disabled={isExporting}>
+                  {isExporting ? <><div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />PDF...</> : <><Download className="w-4 h-4" />Exportar PDF</>}
+                </Button>
+                <Button
+                  size="lg"
+                  variant={isFavorite ? "default" : "outline"}
+                  className={`rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in ${isFavorite ? "bg-rose-600 text-white" : ""}`}
+                  onClick={handleToggleFavorite}
+                >
+                  <Heart className="w-4 h-4" />
+                  {isFavorite ? "Favorito" : "Favoritar"}
+                </Button>
+                <Button
+                  size="lg"
+                  variant={savedThisResult ? "ghost" : "outline"}
+                  className={`rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in ${savedThisResult ? "text-emerald-600 border-emerald-200 bg-emerald-50" : ""}`}
+                  onClick={handleSaveAgent}
+                  disabled={savedThisResult || saveAgentResultMutation.isPending}
+                >
+                  {saveAgentResultMutation.isPending ? (
+                    <><div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />Salvando...</>
+                  ) : savedThisResult ? (
+                    <><Sparkles className="w-4 h-4" />Salvo</>
+                  ) : (
+                    <><History className="w-4 h-4" />Salvar análise</>
+                  )}
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in border-primary/20 hover:bg-primary/5"
+                  onClick={showShareLink ? handleCopyShareLink : handleShare}
+                  disabled={isSharing}
+                >
+                  {isSharing ? (
+                    <><div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />Gerando...</>
+                  ) : showShareLink ? (
+                    <><Copy className="w-4 h-4 text-primary" />Copiar link</>
+                  ) : (
+                    <><Share2 className="w-4 h-4 text-primary" />Compartilhar</>
+                  )}
+                </Button>
+              </div>
+            )}
 
             {/* Agent description banner */}
             {!agentResult && !isAnalyzing && (
@@ -1271,7 +1604,39 @@ export default function TestarIA() {
             )}
 
             {agentResult && !isAnalyzing && (
-              <AgentResultPanel result={agentResult} onCheckToggle={handleCheckToggle} printRef={printRef} />
+              <>
+                <AgentResultPanel result={agentResult} onCheckToggle={handleCheckToggle} printRef={printRef} />
+                <div className="mt-6 space-y-4">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <Card className="rounded-2xl shadow-sm border-border">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold">Texto Original</CardTitle>
+                      </CardHeader>
+                      <CardContent className="max-h-72 overflow-y-auto text-sm leading-relaxed whitespace-pre-line">{text || "Não há texto original disponível."}</CardContent>
+                    </Card>
+                    <Card className="rounded-2xl shadow-sm border-border">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold">Texto Simplificado</CardTitle>
+                      </CardHeader>
+                      <CardContent className="max-h-72 overflow-y-auto text-sm leading-relaxed">{getSimplifiedText(agentResult)}</CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="rounded-2xl border border-border bg-card p-4">
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(computeTextIndicators(text)).map(([label, value]) => (
+                        <div key={label} className="flex-1 min-w-[130px] rounded-2xl bg-background p-3">
+                          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-muted-foreground mb-2">{label}</p>
+                          <div className="mb-2 h-2 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-primary" style={{ width: `${value}%` }} />
+                          </div>
+                          <p className="text-xs font-semibold">{value}%</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
           </section>
         </div>

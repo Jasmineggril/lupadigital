@@ -4,35 +4,35 @@ export default function FAQ() {
   const faqs = [
     {
       q: "O que é o Lupa Pública IA?",
-      a: "O Lupa Pública IA é uma plataforma que utiliza Inteligência Artificial para ler editais governamentais complexos e gerar resumos claros, estruturados e em linguagem simples, facilitando o entendimento por qualquer cidadão."
+      a: "O Lupa Pública IA é uma plataforma para tornar editais públicos mais compreensíveis. Ela reúne leitura de PDF, extração de texto, análise guiada e organização de informações importantes em linguagem simples."
     },
     {
-      q: "Como funciona a simplificação?",
-      a: "Basta colar o texto do edital ou fornecer o link público dele. Nossa IA analisa o texto, identifica as informações mais importantes (como prazos, requisitos e objetivos) e as reescreve de forma didática e direta."
+      q: "Como funciona a análise de um edital?",
+      a: "Você pode colar o texto, usar uma URL pública ou enviar um PDF. O sistema extrai o conteúdo legível, organiza os dados principais e gera uma análise com resumo, categoria, prazo, requisitos e indicadores."
     },
     {
-      q: "É gratuito?",
-      a: "Sim, o uso da plataforma para simplificação de editais é 100% gratuito para os cidadãos."
+      q: "O upload de PDF funciona mesmo para arquivos escaneados?",
+      a: "A extração funciona melhor quando o PDF contém texto legível. Se o arquivo não tiver texto selecionável, a leitura pode falhar e o sistema mostra a mensagem de erro correspondente."
     },
     {
-      q: "Os meus dados ficam seguros?",
-      a: "Nós processamos apenas o texto do edital fornecido. Não exigimos cadastro ou login para uso básico, e nenhum dado pessoal seu é armazenado ou associado às simplificações."
+      q: "O uso é gratuito?",
+      a: "Sim. A plataforma é voltada para apoiar cidadãos na leitura de editais públicos e o uso básico para análise e simplificação continua gratuito."
     },
     {
-      q: "A IA substitui a leitura humana?",
-      a: "Não. A IA é uma ferramenta de apoio para ajudar você a entender rapidamente se o edital é para você e quais as regras principais. Recomendamos sempre a leitura do edital oficial antes de assinar contratos ou tomar decisões definitivas."
-    },
-    {
-      q: "Quais tipos de editais posso simplificar?",
-      a: "Qualquer tipo! Editais de concursos públicos, processos seletivos universitários (Sisu, Prouni), leis de fomento à cultura, licitações, programas de moradia e benefícios sociais."
+      q: "Onde ficam salvas as análises?",
+      a: "As análises podem ser salvas no histórico da aplicação. Quando o Supabase estiver configurado, elas ficam persistidas no banco; caso contrário, a aplicação usa o armazenamento local do navegador como fallback."
     },
     {
       q: "Posso exportar o resultado?",
-      a: "Sim! Após a simplificação, você pode clicar no botão 'Exportar PDF' para baixar um arquivo limpo e organizado com o resumo estruturado."
+      a: "Sim. Após a análise, você pode exportar o resultado em PDF para guardar ou compartilhar com outras pessoas."
     },
     {
-      q: "Como salvo um edital para consultar depois?",
-      a: "Depois de simplificar, basta clicar no botão 'Salvar no histórico'. O edital processado é salvo no servidor e fica disponível para consulta a qualquer momento na sessão atual, com suporte a busca por palavra-chave e filtro por data."
+      q: "A IA substitui a leitura do edital oficial?",
+      a: "Não. A IA ajuda a organizar e resumir as informações, mas o edital oficial continua sendo a fonte principal para decisões e inscrições."
+    },
+    {
+      q: "Quais tipos de editais posso analisar?",
+      a: "A plataforma é útil para concursos, processos seletivos, licitações, programas de apoio, editais acadêmicos, bolsas e outras oportunidades públicas com linguagem complexa."
     }
   ];
 

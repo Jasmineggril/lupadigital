@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 import {
   useListEditalHistory,
   useDeleteEdital,
@@ -97,6 +98,65 @@ function getSimplifiedText(result: AgentResult) {
     default:
       return "";
   }
+}
+
+function highlightDifficultTerms(text: string) {
+  const parts = text.split(/(\s+)/);
+  return parts.map((part, index) => {
+    if (!part.trim()) return <span key={index}>{part}</span>;
+    const cleaned = part.replace(/[^\p{L}\p{N}]/gu, "");
+    const isDifficult = cleaned.length > 7 || /^(inscrição|habilitação|homologação|impugnação|recurso|interposição|documentação|cadastro|requisito|benefício)$/i.test(cleaned);
+    return (
+      <span
+        key={index}
+        className={isDifficult ? "rounded-md bg-amber-100 px-1.5 py-0.5 text-amber-800 font-medium" : ""}
+      >
+        {part}
+      </span>
+    );
+  });
+}
+
+function getComplexityProfile(text: string) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const words = normalized.split(" ").filter(Boolean);
+  const longWords = words.filter((word) => word.length > 7).length;
+  const longWordRatio = words.length ? longWords / words.length : 0;
+  const hasDates = /\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}|\b\d{1,2}\s+de\s+[a-záéíóúâêîôûãõ]+\s+de\s+\d{4}\b/i.test(normalized);
+  const hasRequirements = /(requisito|documento|inscrição|prazo|benefício|cadastro|habilitação|homologação)/i.test(normalized);
+
+  const score = Math.min(100, Math.round(25 + longWordRatio * 45 + (hasDates ? 18 : 0) + (hasRequirements ? 20 : 0) + (normalized.length > 800 ? 15 : normalized.length > 300 ? 8 : 0)));
+  const level = score >= 70 ? "Difícil" : score >= 45 ? "Médio" : "Fácil";
+  const tone = score >= 70 ? { label: "Alta complexidade", badge: "bg-rose-100 text-rose-700", bar: "bg-rose-500" } : score >= 45 ? { label: "Complexidade moderada", badge: "bg-amber-100 text-amber-700", bar: "bg-amber-500" } : { label: "Baixa complexidade", badge: "bg-emerald-100 text-emerald-700", bar: "bg-emerald-500" };
+
+  return {
+    score,
+    level,
+    tone,
+    description: score >= 70 ? "O edital apresenta linguagem técnica e muitos critérios, o que pode dificultar a compreensão inicial." : score >= 45 ? "O texto tem estrutura razoável, mas ainda exige atenção em alguns pontos." : "O edital é relativamente claro e direto para leitura inicial.",
+  };
+}
+
+function buildTimelineSteps(text: string) {
+  const matches = text.match(/\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b|\b\d{1,2}\s+de\s+[a-záéíóúâêîôûãõ]+\s+de\s+\d{4}\b/gi) ?? [];
+  const dates = Array.from(new Set(matches)).slice(0, 4);
+  return [
+    { title: "Publicação", date: dates[0] ?? "A confirmar", description: "Momento em que o edital foi disponibilizado." },
+    { title: "Inscrições", date: dates[1] ?? "A confirmar", description: "Período para participação e envio da documentação." },
+    { title: "Resultado", date: dates[2] ?? "A confirmar", description: "Divulgação da análise das inscrições." },
+    { title: "Convocação", date: dates[3] ?? "A confirmar", description: "Etapa final para confirmação e abertura do processo." },
+  ];
+}
+
+function buildChecklist(text: string) {
+  const normalized = text.toLowerCase();
+  return [
+    { label: "Ler o edital", done: normalized.length > 120, hint: "Entender a proposta e as regras principais." },
+    { label: "Verificar requisitos", done: /(requisito|documento|inscrição|prazo)/i.test(normalized), hint: "Confirmar se o seu perfil atende." },
+    { label: "Separar documentos", done: /(documento|comprovante|certidão|currículo|histórico)/i.test(normalized), hint: "Organizar a documentação exigida." },
+    { label: "Fazer inscrição", done: /(inscrição|inscreva|submeter)/i.test(normalized), hint: "Realizar o procedimento dentro do prazo." },
+    { label: "Acompanhar resultado", done: /(resultado|convocação|homologação|recurso)/i.test(normalized), hint: "Monitorar as próximas etapas." },
+  ];
 }
 
 function computeTextIndicators(text: string) {
@@ -1039,12 +1099,15 @@ export default function TestarIA() {
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [showShareLink, setShowShareLink] = useState(false);
+  const [shareOptionsOpen, setShareOptionsOpen] = useState(false);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [isAnalyzePressed, setIsAnalyzePressed] = useState(false);
   const [pdfStructuredData, setPdfStructuredData] = useState<PdfStructuredData | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
   const printRef = useRef<HTMLDivElement | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
   const extractUrlMutation = useExtractEditalFromUrl();
   const analyzeEditalMutation = useAnalyzeEdital();
   const saveAgentResultMutation = useSaveAgentResult();
@@ -1052,6 +1115,10 @@ export default function TestarIA() {
 
   const currentAgentMeta = AGENTS.find((a) => a.id === selectedAgent)!;
   const isAnalyzing = analyzeEditalMutation.isPending;
+  const analyzeButtonLabel = selectedAgent === "elegibilidade" ? "Analisar com Lupa Elegibilidade" : "Analisar Edital";
+  const complexityProfile = useMemo(() => getComplexityProfile(text), [text]);
+  const timelineSteps = useMemo(() => buildTimelineSteps(text), [text]);
+  const checklistItems = useMemo(() => buildChecklist(text), [text]);
 
   const applyResult = (result: AgentResult) => {
     setAgentResult(result);
@@ -1129,6 +1196,22 @@ export default function TestarIA() {
       setSavedThisResult(Boolean(saved));
       setCurrentSavedId(saved?.id ?? null);
       setIsFavorite(Boolean(saved?.favorito));
+
+      if (user) {
+        try {
+          await saveAgentResultMutation.mutateAsync({
+            data: {
+              agentId: selectedAgent,
+              title: payload.titulo ?? `Análise ${currentAgentMeta.name}`,
+              originalText: payload.conteudo_original ?? text,
+              resultJson: (result ? { ...result } : { type: selectedAgent }) as Record<string, unknown>,
+            },
+          });
+          queryClient.invalidateQueries({ queryKey: getListAgentHistoryQueryKey() });
+        } catch {
+          // Fallback local persistence already applied above.
+        }
+      }
       return saved;
     } catch {
       return null;
@@ -1137,9 +1220,11 @@ export default function TestarIA() {
 
   const handleAnalyze = () => {
     if (!text.trim() || text.length < 20) {
+      setIsAnalyzePressed(false);
       toast({ title: "Atenção", description: "Insira um texto de edital válido (mínimo 20 caracteres).", variant: "destructive" });
       return;
     }
+    setIsAnalyzePressed(true);
     setAgentResult(null);
     setSavedThisResult(false);
 
@@ -1159,6 +1244,7 @@ export default function TestarIA() {
           toast({ title: "Análise concluída", description: "A análise foi salva no histórico e está pronta para revisão." });
         },
         onError: () => {
+          setIsAnalyzePressed(false);
           // Fallback: run local keyword-based simulation
           try {
             const result = runAgent(selectedAgent, text, profile);
@@ -1271,6 +1357,11 @@ export default function TestarIA() {
 
   const BASE = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
 
+  const buildShareUrl = (token: string) => {
+    const base = import.meta.env.BASE_URL as string;
+    return `${window.location.origin}${base.replace(/\/$/, "")}/compartilhado/${token}`;
+  };
+
   const handleShare = async () => {
     if (!agentResult) return;
     setIsSharing(true);
@@ -1287,6 +1378,7 @@ export default function TestarIA() {
       const { token } = await res.json() as { token: string };
       setShareToken(token);
       setShowShareLink(true);
+      setShareOptionsOpen(true);
     } catch {
       toast({ title: "Erro", description: "Não foi possível gerar o link.", variant: "destructive" });
     } finally {
@@ -1296,24 +1388,42 @@ export default function TestarIA() {
 
   const handleCopyShareLink = () => {
     if (!shareToken) return;
-    const base = import.meta.env.BASE_URL as string;
-    const url = `${window.location.origin}${base.replace(/\/$/, "")}/compartilhado/${shareToken}`;
+    const url = buildShareUrl(shareToken);
     navigator.clipboard.writeText(url).then(() => {
+      setShareOptionsOpen(false);
       toast({ title: "Link copiado!", description: "Cole em qualquer lugar para compartilhar." });
     }).catch(() => {});
+  };
+
+  const handleOpenShareOption = (target: "whatsapp" | "google" | "copy") => {
+    if (!shareToken) {
+      void handleShare();
+      return;
+    }
+
+    const url = buildShareUrl(shareToken);
+    const shareText = `Confira esta análise de edital gerada com a Lupa Pública: ${url}`;
+
+    if (target === "copy") {
+      handleCopyShareLink();
+      return;
+    }
+
+    const encodedText = encodeURIComponent(shareText);
+    const encodedTitle = encodeURIComponent("Análise de edital - Lupa Pública");
+
+    if (target === "whatsapp") {
+      window.open(`https://wa.me/?text=${encodedText}`, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodedTitle}&body=${encodedText}`, "_blank", "noopener,noreferrer");
   };
 
   const handleSaveAgent = async () => {
     if (!agentResult || !text.trim()) return;
     try {
-      const payload = buildAnalysisPayload(agentResult, isFavorite);
-      let saved;
-      if (currentSavedId) {
-        payload.id = currentSavedId;
-        saved = await atualizarAnalise(payload);
-      } else {
-        saved = await salvarAnalise(payload);
-      }
+      const saved = await persistCurrentAnalysis(agentResult);
       setSavedThisResult(Boolean(saved));
       setCurrentSavedId(saved?.id ?? null);
       setIsFavorite(Boolean(saved?.favorito));
@@ -1379,7 +1489,7 @@ export default function TestarIA() {
                   placeholder="Cole aqui o texto do edital que deseja analisar..."
                   className="min-h-[280px] resize-y text-sm p-4 rounded-2xl border-border/60 bg-card/80 shadow-sm focus-visible:ring-primary/30 focus-visible:border-primary/40"
                   value={text}
-                  onChange={(e) => { setText(e.target.value); setAgentResult(null); setShareToken(null); setShowShareLink(false); }}
+                  onChange={(e) => { setText(e.target.value); setAgentResult(null); setShareToken(null); setShowShareLink(false); setShareOptionsOpen(false); setIsAnalyzePressed(false); }}
                   disabled={isAnalyzing}
                   data-testid="input-edital-text"
                 />
@@ -1502,8 +1612,7 @@ export default function TestarIA() {
             <div className="flex flex-wrap gap-3">
               <Button
                 size="lg"
-                className={`rounded-xl h-12 px-6 text-base shadow-sm flex-1 sm:flex-none ${currentAgentMeta.textColor.replace("text-", "bg-").replace("-600", "-600")} text-white`}
-                style={{}}
+                className={`rounded-xl h-12 px-6 text-base shadow-sm flex-1 sm:flex-none font-semibold ${isAnalyzePressed || isAnalyzing ? "bg-emerald-600 text-black hover:bg-emerald-500" : "bg-white text-black border border-black/10 hover:border-emerald-400 hover:bg-emerald-50"}`}
                 onClick={handleAnalyze}
                 disabled={isAnalyzing || !text.trim()}
                 data-testid="button-analyze"
@@ -1511,57 +1620,67 @@ export default function TestarIA() {
                 {isAnalyzing ? (
                   <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />Analisando...</>
                 ) : (
-                  <>Analisar Edital</>
+                  <>{analyzeButtonLabel}</>
                 )}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">Agente selecionado: <strong>{currentAgentMeta.name}</strong></p>
 
             {agentResult && !isAnalyzing && (
-              <div className="flex flex-wrap gap-3 mt-3 items-center">
-                <Button size="lg" variant="outline" className="rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in" onClick={handleExportPDF} disabled={isExporting}>
-                  {isExporting ? <><div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />PDF...</> : <><Download className="w-4 h-4" />Exportar PDF</>}
-                </Button>
-                <Button
-                  size="lg"
-                  variant={isFavorite ? "default" : "outline"}
-                  className={`rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in ${isFavorite ? "bg-rose-600 text-white" : ""}`}
-                  onClick={handleToggleFavorite}
-                >
-                  <Heart className="w-4 h-4" />
-                  {isFavorite ? "Favorito" : "Favoritar"}
-                </Button>
-                <Button
-                  size="lg"
-                  variant={savedThisResult ? "ghost" : "outline"}
-                  className={`rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in ${savedThisResult ? "text-emerald-600 border-emerald-200 bg-emerald-50" : ""}`}
-                  onClick={handleSaveAgent}
-                  disabled={savedThisResult || saveAgentResultMutation.isPending}
-                >
-                  {saveAgentResultMutation.isPending ? (
-                    <><div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />Salvando...</>
-                  ) : savedThisResult ? (
-                    <><Sparkles className="w-4 h-4" />Salvo</>
-                  ) : (
-                    <><History className="w-4 h-4" />Salvar análise</>
-                  )}
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in border-primary/20 hover:bg-primary/5"
-                  onClick={showShareLink ? handleCopyShareLink : handleShare}
-                  disabled={isSharing}
-                >
-                  {isSharing ? (
-                    <><div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />Gerando...</>
-                  ) : showShareLink ? (
-                    <><Copy className="w-4 h-4 text-primary" />Copiar link</>
-                  ) : (
-                    <><Share2 className="w-4 h-4 text-primary" />Compartilhar</>
-                  )}
-                </Button>
-              </div>
+              <>
+                <div className="flex flex-wrap gap-3 mt-3 items-center">
+                  <Button size="lg" variant="outline" className="rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in" onClick={handleExportPDF} disabled={isExporting}>
+                    {isExporting ? <><div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />PDF...</> : <><Download className="w-4 h-4" />Exportar PDF</>}
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant={isFavorite ? "default" : "outline"}
+                    className={`rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in ${isFavorite ? "bg-rose-600 text-white" : ""}`}
+                    onClick={handleToggleFavorite}
+                  >
+                    <Heart className="w-4 h-4" />
+                    {isFavorite ? "Favorito" : "Favoritar"}
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant={savedThisResult ? "ghost" : "outline"}
+                    className={`rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in ${savedThisResult ? "text-emerald-600 border-emerald-200 bg-emerald-50" : ""}`}
+                    onClick={handleSaveAgent}
+                    disabled={savedThisResult || saveAgentResultMutation.isPending}
+                  >
+                    {saveAgentResultMutation.isPending ? (
+                      <><div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />Salvando...</>
+                    ) : savedThisResult ? (
+                      <><Sparkles className="w-4 h-4" />Salvo</>
+                    ) : (
+                      <><History className="w-4 h-4" />Salvar análise</>
+                    )}
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in border-primary/20 hover:bg-primary/5"
+                    onClick={showShareLink ? () => setShareOptionsOpen((v) => !v) : handleShare}
+                    disabled={isSharing}
+                  >
+                    {isSharing ? (
+                      <><div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />Gerando...</>
+                    ) : (
+                      <><Share2 className="w-4 h-4 text-primary" />Compartilhar</>
+                    )}
+                  </Button>
+                </div>
+                {showShareLink && shareOptionsOpen && (
+                  <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-primary">Compartilhar via</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => handleOpenShareOption("whatsapp")}>WhatsApp</Button>
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => handleOpenShareOption("google")}>Google</Button>
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => handleOpenShareOption("copy")}>Copiar link</Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Agent description banner */}
@@ -1607,22 +1726,43 @@ export default function TestarIA() {
               <>
                 <AgentResultPanel result={agentResult} onCheckToggle={handleCheckToggle} printRef={printRef} />
                 <div className="mt-6 space-y-4">
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    <Card className="rounded-2xl shadow-sm border-border">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold">Texto Original</CardTitle>
-                      </CardHeader>
-                      <CardContent className="max-h-72 overflow-y-auto text-sm leading-relaxed whitespace-pre-line">{text || "Não há texto original disponível."}</CardContent>
-                    </Card>
-                    <Card className="rounded-2xl shadow-sm border-border">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold">Texto Simplificado</CardTitle>
-                      </CardHeader>
-                      <CardContent className="max-h-72 overflow-y-auto text-sm leading-relaxed">{getSimplifiedText(agentResult)}</CardContent>
-                    </Card>
-                  </div>
+                  <Card className="rounded-2xl border-border shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary" />Resumo em 30 segundos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <p className="text-sm leading-relaxed text-foreground/90">{getSimplifiedText(agentResult) || "A análise simplificada ainda não está disponível."}</p>
+                      <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                        <Info className="w-3.5 h-3.5" />Termos mais complexos aparecem destacados para facilitar a leitura.
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                  <div className="rounded-2xl border border-border bg-card p-4">
+                  <Card className="rounded-2xl shadow-sm border-border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-semibold">Comparação lado a lado</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Texto original</div>
+                          <div className="max-h-72 overflow-y-auto text-sm leading-relaxed whitespace-pre-line">
+                            {highlightDifficultTerms(text || "Não há texto original disponível.")}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-border bg-primary/5 p-4">
+                          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">Texto simplificado</div>
+                          <div className="max-h-72 overflow-y-auto text-sm leading-relaxed whitespace-pre-line">
+                            {highlightDifficultTerms(getSimplifiedText(agentResult) || "A análise simplificada ainda não está disponível.")}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
                     <div className="flex flex-wrap gap-2">
                       {Object.entries(computeTextIndicators(text)).map(([label, value]) => (
                         <div key={label} className="flex-1 min-w-[130px] rounded-2xl bg-background p-3">
@@ -1633,6 +1773,62 @@ export default function TestarIA() {
                           <p className="text-xs font-semibold">{value}%</p>
                         </div>
                       ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                      <Card className="rounded-2xl border-border shadow-sm">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-semibold">Complexidade do edital</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${complexityProfile.tone.badge}`}>{complexityProfile.level}</span>
+                            <span className="text-2xl font-black text-foreground">{complexityProfile.score}%</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div className={`h-full rounded-full ${complexityProfile.tone.bar}`} style={{ width: `${complexityProfile.score}%` }} />
+                          </div>
+                          <p className="text-sm leading-relaxed text-muted-foreground">{complexityProfile.description}</p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="rounded-2xl border-border shadow-sm">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-semibold flex items-center gap-2"><CalendarDays className="w-4 h-4 text-primary" />Linha do tempo</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {timelineSteps.map((step, index) => (
+                            <div key={step.title} className="flex gap-3 rounded-xl bg-background p-2.5">
+                              <div className="flex flex-col items-center">
+                                <div className={`mt-0.5 h-2.5 w-2.5 rounded-full ${index === 0 ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                                {index < timelineSteps.length - 1 && <div className="mt-1 h-full w-px bg-border" />}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold">{step.title}</p>
+                                <p className="text-xs text-muted-foreground">{step.date}</p>
+                                <p className="text-xs text-muted-foreground/80 mt-0.5">{step.description}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="rounded-2xl border-border shadow-sm">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-semibold flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" />Checklist do candidato</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {checklistItems.map((item) => (
+                            <div key={item.label} className={`flex items-start gap-2 rounded-xl border p-2.5 ${item.done ? "border-emerald-200 bg-emerald-50/70" : "border-border bg-background"}`}>
+                              <div className={`mt-0.5 h-4 w-4 rounded-full ${item.done ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                              <div className="min-w-0">
+                                <p className={`text-sm font-medium ${item.done ? "text-emerald-700" : "text-foreground"}`}>{item.label}</p>
+                                <p className="text-xs text-muted-foreground">{item.hint}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
                     </div>
                   </div>
                 </div>

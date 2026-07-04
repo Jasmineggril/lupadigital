@@ -10,3 +10,29 @@ export const supabase = supabaseUrl && supabaseAnonKey
   : null;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+export async function checkSupabaseConnection() {
+  if (!isSupabaseConfigured || !supabase) {
+    return {
+      connected: false,
+      message: "Supabase não está configurado neste ambiente.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("edital_analises")
+    .select("id", { head: true, count: "exact" })
+    .limit(1);
+
+  if (error) {
+    return {
+      connected: false,
+      message: error.message,
+    };
+  }
+
+  return {
+    connected: true,
+    message: "Conectado ao Supabase.",
+  };
+}

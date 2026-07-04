@@ -15,6 +15,7 @@ if (Number.isNaN(port) || port <= 0) {
 
 export default defineConfig({
   base: basePath,
+  envPrefix: ['VITE_', 'SUPABASE_'],
   plugins: [
     react(),
     tailwindcss(),

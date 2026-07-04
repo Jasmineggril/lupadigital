@@ -61,6 +61,7 @@ import {
   type ChecklistItem,
 } from "@/lib/agents";
 import { extractTextFromPdf, type PdfStructuredData } from "@/lib/pdf";
+import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
 import { salvarAnalise, atualizarAnalise, listarAnalises, excluirAnalise, limparAnalises, type AnaliseSalva } from "@/services/analisesService";
 
 // ── Icon map ────────────────────────────────────────────────────
@@ -203,29 +204,343 @@ function computeTextIndicators(text: string) {
 }
 
 // ── PDF export ───────────────────────────────────────────────────
-async function exportToPDF(element: HTMLElement, title: string) {
-  const { default: html2canvas } = await import("html2canvas");
+async function exportToPDF(result: AgentResult, title: string) {
   const { default: jsPDF } = await import("jspdf");
-  const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
-  const imgData = canvas.toDataURL("image/png");
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 10;
-  const imgWidth = pageWidth - margin * 2;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
-  let heightLeft = imgHeight;
-  let position = margin;
-  pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
-  heightLeft -= pageHeight - margin * 2;
-  while (heightLeft > 0) {
-    pdf.addPage();
-    position = -(pageHeight - margin * 2) + (imgHeight - heightLeft);
-    pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight - margin * 2;
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2;
+  const bottomLimit = pageHeight - margin;
+  const agentMeta = AGENTS.find((agent) => agent.id === result.type) ?? AGENTS[0];
+  const normalizedTitle = title.slice(0, 40).replace(/[^a-zA-Z0-9\u00C0-\u017F\s]/g, "").trim();
+
+  let cursorY = margin;
+
+  const themeByAgent: Record<AgentId, { accent: [number, number, number]; title: string; subtitle: string; summary: string }> = {
+    simples: {
+      accent: [37, 99, 235],
+      title: "Resumo fácil",
+      subtitle: "Leitura rápida e direta do edital",
+      summary: result.type === "simples" ? result.resumo : "",
+    },
+    analista: {
+      accent: [124, 58, 237],
+      title: "Indicadores-chave",
+      subtitle: "Visão técnica dos dados mais importantes",
+      summary: result.type === "analista" ? [result.tipoEdital, result.instituicao, result.prazo].filter(Boolean).join(" • ") : "",
+    },
+    estrategica: {
+      accent: [16, 185, 129],
+      title: "Análise de oportunidade",
+      subtitle: "Leitura estratégica para tomada de decisão",
+      summary: result.type === "estrategica" ? result.oportunidade : "",
+    },
+    acompanhamento: {
+      accent: [217, 119, 6],
+      title: "Linha do tempo",
+      subtitle: "Organização das etapas e prazos",
+      summary: result.type === "acompanhamento" ? result.observacao : "",
+    },
+    documentacao: {
+      accent: [225, 29, 72],
+      title: "Checklist de docs",
+      subtitle: "Lista prática para separar a documentação",
+      summary: result.type === "documentacao" ? result.dica : "",
+    },
+    elegibilidade: {
+      accent: [20, 184, 166],
+      title: "Elegibilidade",
+      subtitle: "Aderência do perfil aos critérios do edital",
+      summary: result.type === "elegibilidade" ? result.recomendacao : "",
+    },
+  };
+
+  const theme = themeByAgent[result.type];
+
+  const ensureSpace = (neededHeight: number) => {
+    if (cursorY + neededHeight > bottomLimit) {
+      pdf.addPage();
+      cursorY = margin;
+      drawSectionHeader();
+    }
+  };
+
+  const writeText = (text: string, size = 11, options: { bold?: boolean; color?: [number, number, number] } = {}) => {
+    pdf.setFont("helvetica", options.bold ? "bold" : "normal");
+    pdf.setFontSize(size);
+    pdf.setTextColor(...(options.color ?? [34, 34, 34]));
+    const lines = pdf.splitTextToSize(text, contentWidth);
+    const lineHeight = size * 0.45 + 3;
+    ensureSpace(lines.length * lineHeight + 2);
+    pdf.text(lines, margin, cursorY);
+    cursorY += lines.length * lineHeight;
+  };
+
+  const writeCard = (label: string, value: string, accent: [number, number, number]) => {
+    const cardHeight = 18;
+    ensureSpace(cardHeight + 2);
+    pdf.setDrawColor(accent[0], accent[1], accent[2]);
+    pdf.setFillColor(248, 250, 252);
+    pdf.roundedRect(margin, cursorY, contentWidth, cardHeight, 3, 3, "FD");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(accent[0], accent[1], accent[2]);
+    pdf.text(label, margin + 3, cursorY + 6);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10.5);
+    pdf.setTextColor(34, 34, 34);
+    const lines = pdf.splitTextToSize(value || "Não informado.", contentWidth - 6);
+    pdf.text(lines.slice(0, 2), margin + 3, cursorY + 11);
+    cursorY += cardHeight + 3;
+  };
+
+  const writeSectionTitle = (text: string, accent: [number, number, number]) => {
+    ensureSpace(10);
+    pdf.setFillColor(accent[0], accent[1], accent[2]);
+    pdf.roundedRect(margin, cursorY - 0.5, 3, 3, 1, 1, "F");
+    writeText(text, 12, { bold: true, color: accent });
+    cursorY += 0.5;
+  };
+
+  const writeBullets = (items: string[], accent: [number, number, number]) => {
+    items.forEach((item) => {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10.5);
+      pdf.setTextColor(accent[0], accent[1], accent[2]);
+      const lines = pdf.splitTextToSize(`• ${item}`, contentWidth);
+      const lineHeight = 5.3;
+      ensureSpace(lines.length * lineHeight + 1);
+      pdf.text(lines, margin, cursorY);
+      cursorY += lines.length * lineHeight;
+    });
+  };
+
+  const addPageFooter = (pageNumber: number) => {
+    pdf.setDrawColor(226, 232, 240);
+    pdf.line(margin, pageHeight - 13, pageWidth - margin, pageHeight - 13);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(100, 116, 139);
+    pdf.text(`Lupa Pública IA • ${agentMeta.name}`, margin, pageHeight - 7);
+    pdf.setFillColor(theme.accent[0], theme.accent[1], theme.accent[2]);
+    pdf.roundedRect(pageWidth - margin - 20, pageHeight - 11, 20, 6, 2, 2, "F");
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.text(`P${pageNumber}`, pageWidth - margin - 10, pageHeight - 6.7, { align: "center" });
+  };
+
+  const drawSectionHeader = () => {
+    pdf.setFillColor(15, 23, 42);
+    pdf.rect(0, 0, pageWidth, 28, "F");
+    pdf.setFillColor(theme.accent[0], theme.accent[1], theme.accent[2]);
+    pdf.circle(pageWidth - margin - 8, 14, 5.2, "F");
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(16);
+    pdf.text("Lupa Pública IA", margin, 12);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9.5);
+    pdf.text(`Relatório gerado pela ${agentMeta.name}`, margin, 19);
+    pdf.text(theme.title, pageWidth - margin, 19, { align: "right" });
+    pdf.setDrawColor(theme.accent[0], theme.accent[1], theme.accent[2]);
+    pdf.line(margin, 29.5, pageWidth - margin, 29.5);
+    cursorY = 36;
+  };
+
+  const drawCover = () => {
+    pdf.setFillColor(theme.accent[0], theme.accent[1], theme.accent[2]);
+    pdf.rect(0, 0, pageWidth, pageHeight, "F");
+
+    pdf.setFillColor(255, 255, 255);
+    pdf.roundedRect(margin, 18, contentWidth, 44, 6, 6, "F");
+    pdf.setFillColor(theme.accent[0], theme.accent[1], theme.accent[2]);
+    pdf.circle(pageWidth - margin - 15, 32, 9, "F");
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.text("LP", pageWidth - margin - 15, 34, { align: "center" });
+    pdf.setTextColor(theme.accent[0], theme.accent[1], theme.accent[2]);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(20);
+    pdf.text("Lupa Pública IA", margin + 8, 34);
+    pdf.setFontSize(13);
+    pdf.text(theme.title, margin + 8, 42);
+    pdf.setFillColor(248, 250, 252);
+    pdf.roundedRect(margin + 8, 45, 42, 7, 3, 3, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7.8);
+    pdf.setTextColor(theme.accent[0], theme.accent[1], theme.accent[2]);
+    pdf.text(agentMeta.name, margin + 29, 49.8, { align: "center" });
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text(agentMeta.description, margin + 8, 55, { maxWidth: contentWidth - 38 });
+
+    pdf.setFillColor(255, 255, 255);
+    pdf.roundedRect(margin, 72, contentWidth, 82, 6, 6, "F");
+    pdf.setTextColor(30, 41, 59);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    pdf.text("Resumo executivo", margin + 8, 84);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10.5);
+    pdf.text(theme.subtitle, margin + 8, 92);
+    pdf.setFillColor(theme.accent[0], theme.accent[1], theme.accent[2]);
+    pdf.roundedRect(margin + 8, 96, 28, 6, 3, 3, "F");
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.text("PDF EXPORT", margin + 22, 100.2, { align: "center" });
+
+    const coverSummary = theme.summary || normalizedTitle || `Análise ${agentMeta.name}`;
+    const coverLines = pdf.splitTextToSize(coverSummary, contentWidth - 16);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10.5);
+    pdf.setTextColor(30, 41, 59);
+    pdf.text(coverLines.slice(0, 4), margin + 8, 109);
+
+    const metricY = 130;
+    const metricWidth = (contentWidth - 8) / 2;
+    const metricHeight = 18;
+    const scoreLabel = result.type === "simples"
+      ? `${result.scoreOportunidade}/100`
+      : result.type === "analista"
+      ? result.tipoEdital
+      : result.type === "estrategica"
+      ? `${result.score}/100`
+      : result.type === "acompanhamento"
+      ? `${result.timeline.length} etapas`
+      : result.type === "documentacao"
+      ? `${result.checklist.length} docs`
+      : `${result.score}%`;
+    const secondaryLabel = result.type === "simples"
+      ? result.categoria
+      : result.type === "analista"
+      ? result.instituicao
+      : result.type === "estrategica"
+      ? "Oportunidade"
+      : result.type === "acompanhamento"
+      ? "Cronograma"
+      : result.type === "documentacao"
+      ? "Checklist"
+      : "Aderência";
+
+    const drawMetric = (x: number, label: string, value: string) => {
+      pdf.setDrawColor(theme.accent[0], theme.accent[1], theme.accent[2]);
+      pdf.setFillColor(250, 250, 250);
+      pdf.roundedRect(x, metricY, metricWidth, metricHeight, 4, 4, "FD");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8);
+      pdf.setTextColor(theme.accent[0], theme.accent[1], theme.accent[2]);
+      pdf.text(label, x + 3, metricY + 6);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(11);
+      pdf.setTextColor(15, 23, 42);
+      pdf.text(value, x + 3, metricY + 13);
+    };
+
+    drawMetric(margin, "Destaque principal", scoreLabel);
+    drawMetric(margin + metricWidth + 8, "Contexto", secondaryLabel);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, margin, pageHeight - 10);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(theme.title, pageWidth - margin, pageHeight - 10, { align: "right" });
+  };
+
+  drawCover();
+  pdf.addPage();
+  drawSectionHeader();
+
+  writeText(normalizedTitle || `Análise ${agentMeta.name}`, 14, { bold: true });
+  writeText(agentMeta.description, 10.5, { color: [71, 85, 105] });
+  cursorY += 1;
+
+  if (result.type === "simples") {
+    writeSectionTitle("Resumo fácil", theme.accent);
+    writeCard("Score de oportunidade", `${result.scoreOportunidade}/100`, theme.accent);
+    writeCard("Categoria", result.categoria, theme.accent);
+    writeCard("Público-alvo", result.publicoAlvo, theme.accent);
+    writeSectionTitle("Resumo", theme.accent);
+    writeText(result.resumo, 11);
+    writeSectionTitle("Objetivo", theme.accent);
+    writeText(result.objetivo, 11);
+    writeSectionTitle("Prazo", theme.accent);
+    writeText(result.prazo, 11);
+    writeSectionTitle("Requisitos", theme.accent);
+    writeBullets(result.requisitos.length > 0 ? result.requisitos : ["Nenhum requisito identificado automaticamente."], theme.accent);
+    writeSectionTitle("Onde se inscrever", theme.accent);
+    writeText(result.ondeInscrever, 11);
+    writeSectionTitle("Observação", theme.accent);
+    writeText(result.observacao, 10.5, { color: [120, 53, 15] });
+  } else if (result.type === "analista") {
+    writeSectionTitle("Indicadores-chave", theme.accent);
+    writeCard("Tipo de edital", result.tipoEdital, theme.accent);
+    writeCard("Instituição", result.instituicao, theme.accent);
+    writeCard("Prazo(s)", result.prazo, theme.accent);
+    writeCard("Público-alvo", result.publicoAlvo, theme.accent);
+    writeCard("Valor / Benefício", result.valor, theme.accent);
+    writeSectionTitle("Requisitos identificados", theme.accent);
+    writeBullets(result.requisitos.length > 0 ? result.requisitos : ["Nenhum requisito identificado automaticamente."], theme.accent);
+    writeSectionTitle("Documentos necessários", theme.accent);
+    writeBullets(result.documentos.length > 0 ? result.documentos : ["Nenhum documento identificado automaticamente."], theme.accent);
+  } else if (result.type === "estrategica") {
+    writeSectionTitle("Análise de oportunidade", theme.accent);
+    writeCard("Score", `${result.score}/100`, theme.accent);
+    writeText(result.oportunidade, 11);
+    writeSectionTitle("Vantagens", theme.accent);
+    writeBullets(result.vantagens, theme.accent);
+    writeSectionTitle("Pontos de atenção", [245, 158, 11]);
+    writeBullets(result.pontosAtencao, [180, 83, 9]);
+    writeSectionTitle("Riscos", [220, 38, 38]);
+    writeBullets(result.riscos, [220, 38, 38]);
+    writeSectionTitle("Recomendação", theme.accent);
+    writeText(result.recomendacao, 11);
+  } else if (result.type === "acompanhamento") {
+    writeSectionTitle("Linha do tempo", theme.accent);
+    result.timeline.forEach((item, index) => {
+      writeCard(`${index + 1}. ${item.fase}`, item.periodo, theme.accent);
+      writeText(item.descricao, 10.5, { color: [71, 85, 105] });
+      cursorY += 1;
+    });
+    writeSectionTitle("Observação", theme.accent);
+    writeText(result.observacao, 10.5);
+  } else if (result.type === "documentacao") {
+    writeSectionTitle("Checklist de docs", theme.accent);
+    result.checklist.forEach((item, index) => {
+      const status = item.checked ? "Concluído" : "Pendente";
+      writeCard(`${index + 1}. ${item.doc}`, status, theme.accent);
+      writeText(item.observacao, 10, { color: [71, 85, 105] });
+      cursorY += 1;
+    });
+    writeSectionTitle("Dica", theme.accent);
+    writeText(result.dica, 10.5);
+  } else {
+    writeSectionTitle("Elegibilidade", theme.accent);
+    writeCard("Score de aderência", `${result.score}%`, theme.accent);
+    writeText(result.recomendacao, 11);
+    writeSectionTitle("Critérios analisados", theme.accent);
+    result.criterios.forEach((criterio, index) => {
+      const status = criterio.atende === true ? "Atende" : criterio.atende === "parcial" ? "Parcial" : "Não atende";
+      writeCard(`${index + 1}. ${criterio.criterio}`, status, theme.accent);
+      writeText(criterio.observacao, 10, { color: [71, 85, 105] });
+      cursorY += 1;
+    });
+    writeSectionTitle("Próximos passos", theme.accent);
+    writeBullets(result.proximosPassos, theme.accent);
   }
-  const filename = title.slice(0, 40).replace(/[^a-zA-Z0-9\u00C0-\u017F\s]/g, "").trim();
-  pdf.save(`${filename || "lupa-publica"}.pdf`);
+
+  pdf.setPage(1);
+  addPageFooter(1);
+  for (let page = 2; page <= pdf.getNumberOfPages(); page += 1) {
+    pdf.setPage(page);
+    addPageFooter(page);
+  }
+
+  pdf.save(`${normalizedTitle || `lupa-${result.type}`}.pdf`);
 }
 
 // ── Score Gauge ─────────────────────────────────────────────────
@@ -1104,6 +1419,10 @@ export default function TestarIA() {
   const [isAnalyzePressed, setIsAnalyzePressed] = useState(false);
   const [pdfStructuredData, setPdfStructuredData] = useState<PdfStructuredData | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [supabaseStatus, setSupabaseStatus] = useState<{ state: "checking" | "connected" | "disconnected" | "not-configured"; message: string }>({
+    state: "checking",
+    message: "Verificando Supabase...",
+  });
 
   const printRef = useRef<HTMLDivElement | null>(null);
   const { toast } = useToast();
@@ -1112,6 +1431,36 @@ export default function TestarIA() {
   const analyzeEditalMutation = useAnalyzeEdital();
   const saveAgentResultMutation = useSaveAgentResult();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const verifySupabase = async () => {
+      if (!isSupabaseConfigured) {
+        if (!cancelled) {
+          setSupabaseStatus({
+            state: "not-configured",
+            message: "Supabase não configurado; usando armazenamento local.",
+          });
+        }
+        return;
+      }
+
+      const result = await checkSupabaseConnection();
+      if (!cancelled) {
+        setSupabaseStatus({
+          state: result.connected ? "connected" : "disconnected",
+          message: result.message,
+        });
+      }
+    };
+
+    void verifySupabase();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const currentAgentMeta = AGENTS.find((a) => a.id === selectedAgent)!;
   const isAnalyzing = analyzeEditalMutation.isPending;
@@ -1362,8 +1711,8 @@ export default function TestarIA() {
     return `${window.location.origin}${base.replace(/\/$/, "")}/compartilhado/${token}`;
   };
 
-  const handleShare = async () => {
-    if (!agentResult) return;
+  const generateShareToken = async () => {
+    if (!agentResult) return null;
     setIsSharing(true);
     try {
       const title = agentResult.type === "simples"
@@ -1379,33 +1728,33 @@ export default function TestarIA() {
       setShareToken(token);
       setShowShareLink(true);
       setShareOptionsOpen(true);
+      return token;
     } catch {
       toast({ title: "Erro", description: "Não foi possível gerar o link.", variant: "destructive" });
+      return null;
     } finally {
       setIsSharing(false);
     }
   };
 
-  const handleCopyShareLink = () => {
-    if (!shareToken) return;
-    const url = buildShareUrl(shareToken);
-    navigator.clipboard.writeText(url).then(() => {
-      setShareOptionsOpen(false);
-      toast({ title: "Link copiado!", description: "Cole em qualquer lugar para compartilhar." });
-    }).catch(() => {});
+  const handleShare = async () => {
+    await generateShareToken();
   };
 
-  const handleOpenShareOption = (target: "whatsapp" | "google" | "copy") => {
-    if (!shareToken) {
-      void handleShare();
+  const handleOpenShareOption = async (target: "whatsapp" | "google" | "copy") => {
+    const token = shareToken ?? await generateShareToken();
+    if (!token) {
       return;
     }
 
-    const url = buildShareUrl(shareToken);
+    const url = buildShareUrl(token);
     const shareText = `Confira esta análise de edital gerada com a Lupa Pública: ${url}`;
 
     if (target === "copy") {
-      handleCopyShareLink();
+      navigator.clipboard.writeText(url).then(() => {
+        setShareOptionsOpen(false);
+        toast({ title: "Link copiado!", description: "Cole em qualquer lugar para compartilhar." });
+      }).catch(() => {});
       return;
     }
 
@@ -1434,10 +1783,10 @@ export default function TestarIA() {
   };
 
   const handleExportPDF = async () => {
-    if (!printRef.current || !agentResult) return;
+    if (!agentResult) return;
     setIsExporting(true);
     try {
-      await exportToPDF(printRef.current, `lupa-${selectedAgent}`);
+      await exportToPDF(agentResult, `lupa-${agentResult.type}-${currentAgentMeta.name}`);
     } catch {
       toast({ title: "Erro", description: "Não foi possível gerar o PDF.", variant: "destructive" });
     } finally {
@@ -1625,6 +1974,10 @@ export default function TestarIA() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">Agente selecionado: <strong>{currentAgentMeta.name}</strong></p>
+            <p className={`text-xs mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 w-fit ${supabaseStatus.state === "connected" ? "bg-emerald-100 text-emerald-700" : supabaseStatus.state === "disconnected" ? "bg-rose-100 text-rose-700" : supabaseStatus.state === "not-configured" ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"}`}>
+              <span className="font-semibold">Supabase:</span>
+              <span>{supabaseStatus.message}</span>
+            </p>
 
             {agentResult && !isAnalyzing && (
               <>

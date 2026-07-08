@@ -1,7 +1,6 @@
 import { Link } from "wouter";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
 import { saveLattesProfile, saveAiAnalysis } from "@/services/analisesService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -119,18 +118,9 @@ export default function ELattes() {
       // Auto-save: if user authenticated in Supabase, persist profile and AI analysis
       (async () => {
         try {
-          const session = await supabase?.auth.getSession();
-          const token = session?.data?.session?.access_token;
-          if (!token) {
-            toast({ title: "Não autenticado", description: "Login necessário para salvar a análise automaticamente.", variant: "default" });
-            return;
-          }
-
-          // Save Lattes profile (minimal fields)
           const profilePayload = { name: undefined, lattes_xml: null, summary: s, metadata: { generatedAt: new Date().toISOString() } };
           await saveLattesProfile(profilePayload as any);
 
-          // Save AI analysis record
           const aiPayload = { model: "local-elattes", input: text.slice(0, 2000), output: { summary: s, timeline: t, competencies: comps, publications: pubs, areas: ars, suggestions: sugg }, metadata: { source: "elattes" } };
           await saveAiAnalysis(aiPayload as any);
 

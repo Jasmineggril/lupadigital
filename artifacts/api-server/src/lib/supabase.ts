@@ -72,7 +72,7 @@ export function requireAuth(): RequestHandler {
 }
 
 export function getReqUserId(req: any) {
-  return req.user?.id ?? req.supabaseUser?.sub ?? null;
+  return req?.user?.id ?? req?.supabaseUser?.sub ?? null;
 }
 
 export default getSupabaseAdmin;

@@ -21,10 +21,10 @@ export default function Home() {
       <header className="bg-background border-b">
         <div className="container mx-auto px-4 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <img src="/logo.png" alt="NIASci" className="h-16 w-auto object-contain" />
+            <img src="/logo.png" alt="LUPA Digital" className="h-16 w-auto object-contain" />
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold">NIASci</h1>
-              <p className="text-sm text-muted-foreground">Assistente Inteligente para Ciência — Dashboard</p>
+              <h1 className="text-2xl md:text-3xl font-bold">LUPA Digital</h1>
+              <p className="text-sm text-muted-foreground">Plataforma inteligente do NIASci para apoio à ciência</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -88,8 +88,8 @@ export default function Home() {
       {/* Modules grid */}
       <main className="container mx-auto px-4 pb-12">
         <div className="max-w-3xl mx-auto text-center mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold">Módulos do NIASci</h2>
-          <p className="text-muted-foreground mt-2">Acesse rapidamente as funcionalidades essenciais da plataforma.</p>
+          <h2 className="text-2xl md:text-3xl font-bold">Módulos do LUPA Digital</h2>
+          <p className="text-muted-foreground mt-2">Acesse rapidamente as ferramentas do NIASci para apoiar pesquisa, ensino e gestão.</p>
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">

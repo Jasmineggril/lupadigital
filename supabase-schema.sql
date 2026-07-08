@@ -33,17 +33,21 @@ using (true);
 -- AI usage logs for metrics and auditing
 create table if not exists public.ai_usage_logs (
   id uuid primary key default gen_random_uuid(),
-  created_at timestamp with time zone default now(),
-  module text not null,
-  model text not null,
-  agent_id text,
   user_id text,
   document_id text,
+  module text not null,
+  model text not null,
   latency_ms integer,
+  input_tokens integer,
+  output_tokens integer,
+  total_tokens integer,
   success boolean default false,
   error_message text,
-  tokens_used integer,
-  meta jsonb
+  created_at timestamp with time zone default now()
 );
+
+create index if not exists idx_ai_usage_logs_user_id on public.ai_usage_logs (user_id);
+create index if not exists idx_ai_usage_logs_module on public.ai_usage_logs (module);
+create index if not exists idx_ai_usage_logs_created_at on public.ai_usage_logs (created_at desc);
 
 alter table public.ai_usage_logs enable row level security;

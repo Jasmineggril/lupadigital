@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import getSupabaseAdmin, { requireAuth } from "../lib/supabase";
+import getSupabaseAdmin, { getReqUserId, requireAuth } from "../lib/supabase";
 import { z } from "zod";
 
 const router = Router();
@@ -141,7 +141,7 @@ router.get("/resources/:table/:id", async (req: Request, res: Response): Promise
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
-  const userId = (req as any).user?.id;
+  const userId = getReqUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Authentication required" });
     return;
@@ -214,7 +214,7 @@ router.delete("/resources/:table/:id", async (req: Request, res: Response): Prom
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
-  const userId = (req as any).user?.id;
+  const userId = getReqUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Authentication required" });
     return;

@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured, getSupabaseSessionToken } from "@/lib/supabase";
 import type {
   AIAnalysis,
   LattesProfile,
@@ -38,6 +38,11 @@ const writeLocalAnalises = (items: AnaliseSalva[]) => {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 };
+
+async function getAuthToken() {
+  if (!isSupabaseConfigured || !supabase) return null;
+  return getSupabaseSessionToken();
+}
 
 export async function salvarAnalise(analise: AnaliseSalva) {
   if (!isSupabaseConfigured || !supabase) {
@@ -94,8 +99,7 @@ export async function listarAnalises() {
   if (!isSupabaseConfigured || !supabase) {
     return readLocalAnalises();
   }
-  const tokenRes = await supabase.auth.getSession();
-  const token = tokenRes?.data?.session?.access_token;
+  const token = await getAuthToken();
   if (!token) return readLocalAnalises();
 
   const res = await fetch(`/api/resources/edital_analises`, { headers: { Authorization: `Bearer ${token}` } });
@@ -145,8 +149,7 @@ export async function excluirAnalise(id: string) {
     writeLocalAnalises(items);
     return true;
   }
-  const tokenRes = await supabase.auth.getSession();
-  const token = tokenRes?.data?.session?.access_token;
+  const token = await getAuthToken();
   if (!token) throw new Error("Authentication required");
   const res = await fetch(`/api/resources/edital_analises/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
@@ -161,8 +164,7 @@ export async function limparAnalises() {
     writeLocalAnalises([]);
     return true;
   }
-  const tokenRes = await supabase.auth.getSession();
-  const token = tokenRes?.data?.session?.access_token;
+  const token = await getAuthToken();
   if (!token) throw new Error("Authentication required");
   const res = await fetch(`/api/resources/edital_analises`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`Failed to clear analyses: ${res.status}`);
@@ -203,8 +205,7 @@ export async function listDocuments() {
   if (!isSupabaseConfigured || !supabase) {
     return JSON.parse(window.localStorage.getItem("lupa-publica-documents") || "[]");
   }
-  const tokenRes = await supabase.auth.getSession();
-  const token = tokenRes?.data?.session?.access_token;
+  const token = await getAuthToken();
   if (!token) return JSON.parse(window.localStorage.getItem("lupa-publica-documents") || "[]");
   const res = await fetch(`/api/resources/documents`, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`Failed to list documents: ${res.status}`);
@@ -258,8 +259,7 @@ export async function saveAiAnalysis(a: AIAnalysis) {
 
 export async function listAiAnalyses() {
   if (!isSupabaseConfigured || !supabase) return JSON.parse(window.localStorage.getItem("lupa-publica-ai-analyses") || "[]");
-  const tokenRes = await supabase.auth.getSession();
-  const token = tokenRes?.data?.session?.access_token;
+  const token = await getAuthToken();
   if (!token) return JSON.parse(window.localStorage.getItem("lupa-publica-ai-analyses") || "[]");
   const res = await fetch(`/api/resources/ai_analyses`, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`Failed to list ai analyses: ${res.status}`);
@@ -296,8 +296,7 @@ export async function saveLattesProfile(p: LattesProfile) {
 
 export async function getLattesProfiles() {
   if (!isSupabaseConfigured || !supabase) return JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]");
-  const tokenRes = await supabase.auth.getSession();
-  const token = tokenRes?.data?.session?.access_token;
+  const token = await getAuthToken();
   if (!token) return JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]");
   const res = await fetch(`/api/resources/lattes_profiles`, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error(`Failed to list lattes profiles: ${res.status}`);
@@ -312,9 +311,23 @@ export async function saveArticleAnalysis(a: ArticleAnalysis) {
     window.localStorage.setItem("lupa-publica-article-analyses", JSON.stringify(next));
     return next[0];
   }
-  const { data, error } = await supabase.from("article_analyses").insert([a]).select().single();
-  if (error) throw error;
-  return data;
+  const token = await getAuthToken();
+  if (!token) {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-article-analyses") || "[]");
+    const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...a }, ...items].slice(0, 100);
+    window.localStorage.setItem("lupa-publica-article-analyses", JSON.stringify(next));
+    return next[0];
+  }
+  const res = await fetch(`/api/resources/article_analyses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(a),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err?.error || err?.message || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 export async function saveResearchProject(p: ResearchProject) {
@@ -324,9 +337,23 @@ export async function saveResearchProject(p: ResearchProject) {
     window.localStorage.setItem("lupa-publica-research-projects", JSON.stringify(next));
     return next[0];
   }
-  const { data, error } = await supabase.from("research_projects").insert([p]).select().single();
-  if (error) throw error;
-  return data;
+  const token = await getAuthToken();
+  if (!token) {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]");
+    const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...p }, ...items].slice(0, 100);
+    window.localStorage.setItem("lupa-publica-research-projects", JSON.stringify(next));
+    return next[0];
+  }
+  const res = await fetch(`/api/resources/research_projects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(p),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err?.error || err?.message || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 export async function savePlanetariumContent(c: PlanetariumContent) {
@@ -336,9 +363,23 @@ export async function savePlanetariumContent(c: PlanetariumContent) {
     window.localStorage.setItem("lupa-publica-planetarium", JSON.stringify(next));
     return next[0];
   }
-  const { data, error } = await supabase.from("planetarium_contents").insert([c]).select().single();
-  if (error) throw error;
-  return data;
+  const token = await getAuthToken();
+  if (!token) {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-planetarium") || "[]");
+    const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...c }, ...items].slice(0, 100);
+    window.localStorage.setItem("lupa-publica-planetarium", JSON.stringify(next));
+    return next[0];
+  }
+  const res = await fetch(`/api/resources/planetarium_contents`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(c),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err?.error || err?.message || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 export async function saveChatMessage(m: ChatMessage) {
@@ -348,7 +389,21 @@ export async function saveChatMessage(m: ChatMessage) {
     window.localStorage.setItem("lupa-publica-chat-messages", JSON.stringify(next));
     return next[0];
   }
-  const { data, error } = await supabase.from("chat_messages").insert([m]).select().single();
-  if (error) throw error;
-  return data;
+  const token = await getAuthToken();
+  if (!token) {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-chat-messages") || "[]");
+    const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...m }, ...items].slice(0, 500);
+    window.localStorage.setItem("lupa-publica-chat-messages", JSON.stringify(next));
+    return next[0];
+  }
+  const res = await fetch(`/api/resources/chat_messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(m),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err?.error || err?.message || `HTTP ${res.status}`);
+  }
+  return res.json();
 }

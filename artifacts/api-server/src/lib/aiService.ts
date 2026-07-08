@@ -1,4 +1,5 @@
 import { openai, getOpenAIModel } from "@workspace/integrations-openai-ai-server";
+import { SimplifyEditalResponse } from "@workspace/api-zod";
 import { z } from "zod";
 import { logger } from "./logger";
 import { getSupabaseAdmin } from "./supabase";
@@ -175,6 +176,86 @@ function buildAgentPrompt(agentId: AgentId, text: string, profile?: z.infer<type
   return { system, user };
 }
 
+function buildUsageLogPayload(args: {
+  userId?: string | null;
+  documentId?: string | null;
+  latencyMs: number;
+  success: boolean;
+  errorMessage?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  totalTokens?: number | null;
+}) {
+  return {
+    user_id: args.userId ?? null,
+    document_id: args.documentId ?? null,
+    latency_ms: args.latencyMs,
+    input_tokens: args.inputTokens ?? null,
+    output_tokens: args.outputTokens ?? null,
+    total_tokens: args.totalTokens ?? null,
+    success: args.success,
+    error_message: args.errorMessage ?? null,
+  };
+}
+
+async function persistUsageLog(args: {
+  module: string;
+  model: string;
+  userId?: string | null;
+  documentId?: string | null;
+  latencyMs: number;
+  success: boolean;
+  errorMessage?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  totalTokens?: number | null;
+  agentId?: AgentId | null;
+  level?: "info" | "warn" | "error";
+  message?: string;
+}) {
+  const payload = {
+    module: args.module,
+    model: args.model,
+    ...buildUsageLogPayload({
+      userId: args.userId ?? null,
+      documentId: args.documentId ?? null,
+      latencyMs: args.latencyMs,
+      success: args.success,
+      errorMessage: args.errorMessage ?? null,
+      inputTokens: args.inputTokens ?? null,
+      outputTokens: args.outputTokens ?? null,
+      totalTokens: args.totalTokens ?? null,
+    }),
+  };
+
+  const logContext = {
+    module: args.module,
+    model: args.model,
+    agentId: args.agentId ?? null,
+    user_id: args.userId ?? null,
+    document_id: args.documentId ?? null,
+    latency_ms: args.latencyMs,
+    success: args.success,
+    error_message: args.errorMessage ?? null,
+    total_tokens: args.totalTokens ?? null,
+  };
+
+  try {
+    if (args.level === "error") {
+      logger.error(logContext, args.message ?? "AIService usage log");
+    } else if (args.level === "warn") {
+      logger.warn(logContext, args.message ?? "AIService usage log");
+    } else {
+      logger.info(logContext, args.message ?? "AIService usage log");
+    }
+
+    const supa = getSupabaseAdmin();
+    await supa.from("ai_usage_logs").insert(payload);
+  } catch (logErr) {
+    logger.warn({ err: logErr instanceof Error ? logErr.message : String(logErr) }, "Failed to persist ai_usage_logs");
+  }
+}
+
 const VALIDATORS: Record<AgentId, z.ZodTypeAny> = {
   simples: SimplesResponseSchema,
   analista: AnalistaResponseSchema,
@@ -183,6 +264,110 @@ const VALIDATORS: Record<AgentId, z.ZodTypeAny> = {
   documentacao: DocumentacaoResponseSchema,
   elegibilidade: ElegibilidadeResponseSchema,
 };
+
+export async function simplifyEdital(
+  text: string,
+  opts?: { userId?: string | null; documentId?: string | null },
+) {
+  const truncated = text.length > 12000 ? text.slice(0, 12000) + "\n\n[Texto truncado para processamento]" : text;
+  const systemPrompt = `Você é um especialista em simplificação de documentos públicos brasileiros.
+Sua missão é tornar editais públicos acessíveis para toda a população, independentemente do nível de escolaridade.
+Responda SEMPRE em português brasileiro com linguagem simples, clara e direta.
+Evite jargões jurídicos e técnicos. Se precisar usar um termo técnico, explique-o.`;
+
+  const userPrompt = `Analise o edital a seguir e retorne as informações no formato JSON especificado.
+
+EDITAL:
+${truncated}
+
+Retorne um JSON válido com exatamente estes campos:
+{
+  "resumo": "Resumo claro e direto do edital em 3-5 frases simples",
+  "objetivo": "O que este edital quer alcançar, em uma ou duas frases simples",
+  "quemPodeParticipar": "Quem tem direito de participar, de forma clara e direta",
+  "prazoInscricao": "Data e hora limite para se inscrever (ou 'Não informado' se não constar)",
+  "ondeSeInscrever": "Como e onde fazer a inscrição (site, endereço, etc.) — ou 'Não informado'",
+  "principaisRequisitos": "Lista dos principais requisitos exigidos, em linguagem simples",
+  "linguagemSimples": "Reescreva os pontos mais importantes do edital inteiro em linguagem simples, como se estivesse explicando para alguém que nunca leu um edital antes. Use frases curtas e diretas."
+}
+
+Responda SOMENTE com o JSON, sem markdown, sem código de formatação, sem texto adicional.`;
+
+  const model = getOpenAIModel();
+  const start = Date.now();
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model,
+      max_completion_tokens: 4096,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    });
+
+    const raw = completion.choices[0]?.message?.content ?? "{}";
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (err) {
+      const e = new Error("AI response is not valid JSON");
+      (e as any).raw = raw;
+      throw e;
+    }
+
+    const validated = SimplifyEditalResponse.safeParse(parsed);
+    const latency = Date.now() - start;
+    const usage = (completion as any)?.usage;
+    const inputTokens = typeof usage?.prompt_tokens === "number" ? usage.prompt_tokens : null;
+    const outputTokens = typeof usage?.completion_tokens === "number" ? usage.completion_tokens : null;
+    const totalTokens = typeof usage?.total_tokens === "number" ? usage.total_tokens : null;
+
+    if (!validated.success) {
+      const e = new Error("AI response did not match expected schema");
+      (e as any).validation = validated.error.format();
+      (e as any).raw = raw;
+      throw e;
+    }
+
+    await persistUsageLog({
+      module: "AIService.simplifyEdital",
+      model,
+      userId: opts?.userId ?? null,
+      documentId: opts?.documentId ?? null,
+      latencyMs: latency,
+      success: true,
+      errorMessage: null,
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      level: "info",
+      message: "AI simplify request completed",
+    });
+
+    return validated.data;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const latency = Date.now() - start;
+    await persistUsageLog({
+      module: "AIService.simplifyEdital",
+      model,
+      userId: opts?.userId ?? null,
+      documentId: opts?.documentId ?? null,
+      latencyMs: latency,
+      success: false,
+      errorMessage: message,
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      level: "error",
+      message: "AIService simplify error",
+    });
+
+    throw new Error(message);
+  }
+}
 
 export async function analyzeAgent(
   agentId: AgentId,
@@ -221,45 +406,70 @@ export async function analyzeAgent(
     const validator = VALIDATORS[agentId];
     const validated = validator.safeParse(parsed);
     const latency = Date.now() - start;
-    const tokensUsed = (completion as any)?.usage?.total_tokens ?? null;
+    const usage = (completion as any)?.usage;
+    const inputTokens = typeof usage?.prompt_tokens === "number" ? usage.prompt_tokens : null;
+    const outputTokens = typeof usage?.completion_tokens === "number" ? usage.completion_tokens : null;
+    const totalTokens = typeof usage?.total_tokens === "number" ? usage.total_tokens : null;
 
     if (!validated.success) {
       const e = new Error("AI response did not match expected schema");
       (e as any).validation = validated.error.format();
       (e as any).raw = raw;
       // Log failure
-      try {
-        logger.warn({ module: "AIService.analyzeAgent", model, agentId, user_id: opts?.userId ?? null, document_id: opts?.documentId ?? null, latency_ms: latency, success: false }, "AI response validation failed");
-        const supa = getSupabaseAdmin();
-        await supa.from("ai_usage_logs").insert({ module: "AIService.analyzeAgent", model, agent_id: agentId, user_id: opts?.userId ?? null, document_id: opts?.documentId ?? null, latency_ms: latency, success: false, error_message: "validation_failure", tokens_used: tokensUsed });
-      } catch (logErr) {
-        logger.warn({ err: logErr instanceof Error ? logErr.message : String(logErr) }, "Failed to persist ai_usage_logs (validation failure)");
-      }
+      await persistUsageLog({
+        module: "AIService.analyzeAgent",
+        model,
+        userId: opts?.userId ?? null,
+        documentId: opts?.documentId ?? null,
+        latencyMs: latency,
+        success: false,
+        errorMessage: "validation_failure",
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        agentId,
+        level: "warn",
+        message: "AI response validation failed",
+      });
 
       throw e;
     }
 
-    // Log success
-    try {
-      logger.info({ module: "AIService.analyzeAgent", model, agentId, user_id: opts?.userId ?? null, document_id: opts?.documentId ?? null, latency_ms: latency, success: true, tokens_used: tokensUsed }, "AI request completed");
-      const supa = getSupabaseAdmin();
-      await supa.from("ai_usage_logs").insert({ module: "AIService.analyzeAgent", model, agent_id: agentId, user_id: opts?.userId ?? null, document_id: opts?.documentId ?? null, latency_ms: latency, success: true, error_message: null, tokens_used: tokensUsed });
-    } catch (logErr) {
-      logger.warn({ err: logErr instanceof Error ? logErr.message : String(logErr) }, "Failed to persist ai_usage_logs (success)");
-    }
+    await persistUsageLog({
+      module: "AIService.analyzeAgent",
+      model,
+      userId: opts?.userId ?? null,
+      documentId: opts?.documentId ?? null,
+      latencyMs: latency,
+      success: true,
+      errorMessage: null,
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      agentId,
+      level: "info",
+      message: "AI request completed",
+    });
 
     return validated.data;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const latency = Date.now() - start;
-    // Log error, but avoid logging sensitive prompt/text
-    try {
-      logger.error({ module: "AIService.analyzeAgent", model, agentId, user_id: opts?.userId ?? null, document_id: opts?.documentId ?? null, latency_ms: latency, success: false, error_message: message }, "AIService error");
-      const supa = getSupabaseAdmin();
-      await supa.from("ai_usage_logs").insert({ module: "AIService.analyzeAgent", model, agent_id: agentId, user_id: opts?.userId ?? null, document_id: opts?.documentId ?? null, latency_ms: latency, success: false, error_message: message, tokens_used: null });
-    } catch (logErr) {
-      logger.warn({ err: logErr instanceof Error ? logErr.message : String(logErr) }, "Failed to persist ai_usage_logs (error)");
-    }
+    await persistUsageLog({
+      module: "AIService.analyzeAgent",
+      model,
+      userId: opts?.userId ?? null,
+      documentId: opts?.documentId ?? null,
+      latencyMs: latency,
+      success: false,
+      errorMessage: message,
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      agentId,
+      level: "error",
+      message: "AIService error",
+    });
 
     throw new Error(`AIService error: ${message}`);
   }

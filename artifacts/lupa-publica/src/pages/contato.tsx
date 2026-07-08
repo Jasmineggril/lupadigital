@@ -30,7 +30,7 @@ export default function Contato() {
         <div>
           <h2 className="text-2xl font-bold mb-6">Fale Conosco</h2>
           <p className="text-muted-foreground mb-8">
-            O LUPA Digital é um projeto de responsabilidade social e código aberto. Estamos sempre abertos a parcerias com governos, ONGs e desenvolvedores voluntários.
+            A LUPA Digital, dentro do NIASci, é um projeto de responsabilidade social e código aberto. Estamos sempre abertos a parcerias com governos, ONGs e desenvolvedores voluntários.
           </p>
           
           <div className="space-y-6">

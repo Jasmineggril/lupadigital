@@ -11,6 +11,12 @@ export const supabase = supabaseUrl && supabaseAnonKey
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
+export async function getSupabaseSessionToken() {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
 export async function checkSupabaseConnection() {
   if (!isSupabaseConfigured || !supabase) {
     return {

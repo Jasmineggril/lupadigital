@@ -3,12 +3,10 @@ import { desc, eq, sql, and } from "drizzle-orm";
 import * as cheerio from "cheerio";
 import { z } from "zod";
 import multer from "multer";
-import { openai, getOpenAIModel } from "@workspace/integrations-openai-ai-server";
 import { db, savedEditalsTable, agentResultsTable, sharedResultsTable } from "@workspace/db";
 import { randomUUID } from "crypto";
 import {
   SimplifyEditalBody,
-  SimplifyEditalResponse,
   SaveEditalBody,
   DeleteEditalParams,
   ListEditalHistoryResponse,
@@ -28,7 +26,8 @@ const upload = multer({
 
 const router: IRouter = Router();
 
-import { analyzeAgent, AgentAnalyzeBodySchema } from "../lib/aiService";
+import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital } from "../lib/aiService";
+import { getReqUserId } from "../lib/supabase";
 
 router.post("/edital/analyze", async (req, res): Promise<void> => {
   const parsed = AgentAnalyzeBodySchema.safeParse(req.body);
@@ -41,7 +40,7 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
   const truncated = text.length > 12000 ? text.slice(0, 12000) + "\n\n[Texto truncado para processamento]" : text;
 
   try {
-    const result = await analyzeAgent(agentId, truncated, profile, { userId: (req as any).user?.id ?? null, documentId: null });
+    const result = await analyzeAgent(agentId, truncated, profile, { userId: getReqUserId(req), documentId: null });
     res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -140,7 +139,7 @@ router.post("/edital/extract-url", async (req, res): Promise<void> => {
     const response = await fetch(fetchedUrl, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; LupaPublicaIA/1.0; +https://lupapublica.replit.app)",
+          "Mozilla/5.0 (compatible; LUPA Digital/NIASci/1.0; +https://lupadigital.dev)",
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
       signal: AbortSignal.timeout(15000),
@@ -211,70 +210,22 @@ router.post("/edital/simplify", async (req, res): Promise<void> => {
 
   const { text } = parsed.data;
 
-  const systemPrompt = `Você é um especialista em simplificação de documentos públicos brasileiros.
-Sua missão é tornar editais públicos acessíveis para toda a população, independentemente do nível de escolaridade.
-Responda SEMPRE em português brasileiro com linguagem simples, clara e direta.
-Evite jargões jurídicos e técnicos. Se precisar usar um termo técnico, explique-o.`;
-
-  const userPrompt = `Analise o edital a seguir e retorne as informações no formato JSON especificado.
-
-EDITAL:
-${text}
-
-Retorne um JSON válido com exatamente estes campos:
-{
-  "resumo": "Resumo claro e direto do edital em 3-5 frases simples",
-  "objetivo": "O que este edital quer alcançar, em uma ou duas frases simples",
-  "quemPodeParticipar": "Quem tem direito de participar, de forma clara e direta",
-  "prazoInscricao": "Data e hora limite para se inscrever (ou 'Não informado' se não constar)",
-  "ondeSeInscrever": "Como e onde fazer a inscrição (site, endereço, etc.) — ou 'Não informado'",
-  "principaisRequisitos": "Lista dos principais requisitos exigidos, em linguagem simples",
-  "linguagemSimples": "Reescreva os pontos mais importantes do edital inteiro em linguagem simples, como se estivesse explicando para alguém que nunca leu um edital antes. Use frases curtas e diretas."
-}
-
-Responda SOMENTE com o JSON, sem markdown, sem código de formatação, sem texto adicional.`;
-
-  let content = "{}";
   try {
-    const completion = await openai.chat.completions.create({
-      model: getOpenAIModel(),
-      max_completion_tokens: 4096,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    });
-
-    content = completion.choices[0]?.message?.content ?? "{}";
+    const result = await simplifyEdital(text, { userId: getReqUserId(req), documentId: null });
+    res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    req.log.error({ error: message }, "OpenAI request failed");
+    req.log?.error({ error: message }, "AIService simplify failed");
     res.status(500).json({
       error:
         message.includes("OPENAI_API_KEY")
           ? "OPENAI_API_KEY is not configured. Set it in Replit Secrets to enable OpenAI features."
-          : "Falha ao conectar com o serviço OpenAI. Tente novamente mais tarde.",
+          : message === "AI response is not valid JSON" || message === "AI response did not match expected schema"
+            ? "Falha ao processar a resposta da IA. Tente novamente."
+            : "Falha ao conectar com o serviço OpenAI. Tente novamente mais tarde.",
     });
     return;
   }
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(content);
-  } catch {
-    req.log.error({ content }, "Failed to parse AI response as JSON");
-    res.status(500).json({ error: "Falha ao processar a resposta da IA. Tente novamente." });
-    return;
-  }
-
-  const validated = SimplifyEditalResponse.safeParse(parsedJson);
-  if (!validated.success) {
-    req.log.error({ errors: validated.error.message, parsedJson }, "AI response does not match expected schema");
-    res.status(500).json({ error: "Resposta da IA em formato inesperado. Tente novamente." });
-    return;
-  }
-
-  res.json(validated.data);
 });
 
 router.get("/edital/history", async (req, res): Promise<void> => {

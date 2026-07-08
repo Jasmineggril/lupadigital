@@ -4,7 +4,6 @@
 -- Create table for AI usage logs
 CREATE TABLE IF NOT EXISTS public.ai_usage_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at timestamptz NOT NULL DEFAULT now(),
   user_id text,
   document_id text,
   module text NOT NULL,
@@ -15,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.ai_usage_logs (
   total_tokens integer,
   success boolean DEFAULT false,
   error_message text,
-  meta jsonb
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- Indexes for common queries

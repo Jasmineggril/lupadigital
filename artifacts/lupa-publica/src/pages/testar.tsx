@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import {
@@ -313,6 +315,7 @@ function computeTextIndicators(text: string) {
   };
 }
 
+<<<<<<< HEAD
 function buildEditalFAQ(result: AgentResult | null) {
   if (!result) return [];
 
@@ -368,10 +371,78 @@ function buildEditalFAQ(result: AgentResult | null) {
     {
       question: "Meu perfil atende a este edital?",
       answer: getElegibilidade(),
+=======
+function normalizePublicUrl(value: string) {
+  const trimmed = value.trim().replace(/^["'<>\s]+|["'<>\s]+$/g, "");
+  if (!trimmed) return null;
+
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    return new URL(candidate).toString();
+  } catch {
+    return null;
+  }
+}
+
+function getPrimaryDeadline(text: string, result: AgentResult | null) {
+  if (result?.type === "simples") return result.prazo;
+  if (result?.type === "analista") return result.prazo;
+
+  const match = text.match(/\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b|\b\d{1,2}\s+de\s+[a-záéíóúâêîôûãõ]+\s+de\s+\d{4}\b/gi);
+  return match?.[0] ?? "Não identificado no texto";
+}
+
+function getDocumentSummary(result: AgentResult | null, checklistItems: ReturnType<typeof buildChecklist>, pdfStructuredData: PdfStructuredData | null) {
+  if (result?.type === "documentacao") {
+    return result.checklist.length > 0
+      ? `${result.checklist.length} documentos detectados. Principais: ${result.checklist.slice(0, 4).map((item) => item.doc).join(", ")}.`
+      : "Nenhum documento foi identificado automaticamente.";
+  }
+
+  if (pdfStructuredData?.requisitos.length) {
+    return `${pdfStructuredData.requisitos.length} requisitos identificados no PDF. Principais: ${pdfStructuredData.requisitos.slice(0, 3).join(", ")}.`;
+  }
+
+  return checklistItems.some((item) => item.done)
+    ? `${checklistItems.filter((item) => item.done).length} sinais de documentação e prazo foram detectados automaticamente.`
+    : "Use o texto completo do edital para extrair documentos e requisitos.";
+}
+
+function buildEditalFaqs(text: string, result: AgentResult | null, timelineSteps: ReturnType<typeof buildTimelineSteps>, checklistItems: ReturnType<typeof buildChecklist>, pdfStructuredData: PdfStructuredData | null) {
+  const deadline = getPrimaryDeadline(text, result);
+  const docs = getDocumentSummary(result, checklistItems, pdfStructuredData);
+  const simplified = result ? getSimplifiedText(result) : "";
+  const simplifiedText = simplified || pdfStructuredData?.resumo || "Ainda não há uma síntese automática disponível.";
+  const eligibility = result?.type === "elegibilidade"
+    ? `A aderência estimada é de ${result.score}%. ${result.recomendacao}`
+    : "Abra a aba de elegibilidade para simular aderência com base no seu perfil.";
+
+  return [
+    {
+      question: "Qual é o prazo principal deste edital?",
+      answer: deadline,
+    },
+    {
+      question: "Quais documentos devo separar?",
+      answer: docs,
+    },
+    {
+      question: "Como este edital fica em linguagem simples?",
+      answer: simplifiedText,
+    },
+    {
+      question: "Meu perfil parece elegível?",
+      answer: eligibility,
+    },
+    {
+      question: "Qual é o cronograma identificado?",
+      answer: timelineSteps.map((step) => `${step.title}: ${step.date}`).join(" | "),
+>>>>>>> f648b474658dde62d13f0400e5d41a2442095501
     },
   ];
 }
 
+<<<<<<< HEAD
 function answerContextualQuestion(question: string, result: AgentResult) {
   const text = question.trim().toLowerCase();
 
@@ -419,6 +490,80 @@ function answerContextualQuestion(question: string, result: AgentResult) {
   }
 
   return `Com base na análise atual: ${getSimplifiedText(result) || "não há informação suficiente para responder com precisão."}`;
+=======
+function getContextualAnswer(question: string, text: string, result: AgentResult | null, timelineSteps: ReturnType<typeof buildTimelineSteps>, checklistItems: ReturnType<typeof buildChecklist>, pdfStructuredData: PdfStructuredData | null, profile: UserProfile) {
+  const normalized = question.toLowerCase();
+  const deadline = getPrimaryDeadline(text, result);
+  const docs = getDocumentSummary(result, checklistItems, pdfStructuredData);
+
+  if (/resumo|simples|linguagem simples|explicar/i.test(normalized)) {
+    return (result ? getSimplifiedText(result) : "") || pdfStructuredData?.resumo || "Ainda não tenho uma síntese automática deste edital.";
+  }
+
+  if (/prazo|data|inscri/i.test(normalized)) {
+    return `O prazo principal identificado é: ${deadline}. ${result?.type === "acompanhamento" ? result.observacao : "Confirme sempre a data no edital oficial antes de se inscrever."}`;
+  }
+
+  if (/document|anexo|arquivo|comprov/i.test(normalized)) {
+    return `${docs} Leia a seção de documentos do edital original para validar a lista final.`;
+  }
+
+  if (/cronograma|timeline|fase|etapa/i.test(normalized)) {
+    return timelineSteps.map((step) => `${step.title}: ${step.date}`).join("\n");
+  }
+
+  if (/elegibil|perfil|aderênc|atendo/i.test(normalized)) {
+    if (result?.type === "elegibilidade") {
+      return `Seu score de aderência é ${result.score}%. ${result.recomendacao} Próximos passos: ${result.proximosPassos.join(" ")}`;
+    }
+
+    return `Para avaliar elegibilidade, use o agente Lupa Elegibilidade e informe escolaridade, atuação, município e renda familiar. Perfil atual registrado: escolaridade ${profile.escolaridade}, atuação ${profile.atuacao || "não informada"}, município ${profile.municipio || "não informado"}.`;
+  }
+
+  if (/valor|benef[ií]cio|bolsa|recurso|financi/i.test(normalized)) {
+    if (result?.type === "analista") {
+      return `O valor ou benefício identificado é: ${result.valor}.`;
+    }
+
+    return pdfStructuredData?.indicadores && "data" in pdfStructuredData.indicadores
+      ? `Os indicadores extraídos sugerem atenção ao benefício/prazo. ${pdfStructuredData.prazo}`
+      : "Não identifiquei um valor explícito no texto enviado.";
+  }
+
+  if (/risco|aten[iç]ão|ponto|vantagem/i.test(normalized) && result?.type === "estrategica") {
+    return `${result.oportunidade} Pontos de atenção: ${result.pontosAtencao.join("; ")}. Riscos: ${result.riscos.join("; ")}.`;
+  }
+
+  return `Posso ajudar com prazo, documentos, elegibilidade, cronograma e resumo simples. Se quiser, pergunte algo mais específico sobre o edital que você enviou.`;
+}
+
+function buildChatSuggestions(text: string, result: AgentResult | null, timelineSteps: ReturnType<typeof buildTimelineSteps>, checklistItems: ReturnType<typeof buildChecklist>, pdfStructuredData: PdfStructuredData | null) {
+  const suggestions = [
+    "Qual é o prazo principal?",
+    "Quais documentos preciso enviar?",
+    "Explique este edital em linguagem simples",
+    "Meu perfil parece elegível?",
+    "Qual é o cronograma completo?",
+  ];
+
+  if (result?.type === "analista") {
+    suggestions.unshift("Qual é a instituição responsável?");
+  }
+
+  if (pdfStructuredData?.requisitos.length) {
+    suggestions.splice(2, 0, "Quais requisitos o PDF destaca?");
+  }
+
+  if (timelineSteps.some((step) => step.date !== "A confirmar")) {
+    suggestions.push("Quais datas precisam de atenção?");
+  }
+
+  if (checklistItems.some((item) => item.done)) {
+    suggestions.push("Quais documentos já foram detectados?");
+  }
+
+  return suggestions.slice(0, 5);
+>>>>>>> f648b474658dde62d13f0400e5d41a2442095501
 }
 
 // ── PDF export ───────────────────────────────────────────────────
@@ -3399,6 +3544,162 @@ export default function TestarIA() {
                 </div>
               </TabsContent>
             </Tabs>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+}
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="rounded-2xl border-border shadow-sm">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-semibold flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" />Checklist do candidato</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {checklistItems.map((item) => (
+                            <div key={item.label} className={`flex items-start gap-2 rounded-xl border p-2.5 ${item.done ? "border-emerald-200 bg-emerald-50/70" : "border-border bg-background"}`}>
+                              <div className={`mt-0.5 h-4 w-4 rounded-full ${item.done ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                              <div className="min-w-0">
+                                <p className={`text-sm font-medium ${item.done ? "text-emerald-700" : "text-foreground"}`}>{item.label}</p>
+                                <p className="text-xs text-muted-foreground">{item.hint}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+}
+                  <Skeleton className="h-24 rounded-xl" />
+                  <Skeleton className="h-24 rounded-xl" />
+                </div>
+                <Skeleton className="h-32 w-full rounded-xl" />
+              </div>
+            )}
+
+            {agentResult && !isAnalyzing && (
+              <>
+                <AgentResultPanel result={agentResult} onCheckToggle={handleCheckToggle} printRef={printRef} />
+                <div className="mt-6 space-y-4">
+                  <Card className="rounded-2xl border-border shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary" />Resumo em 30 segundos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <p className="text-sm leading-relaxed text-foreground/90">{getSimplifiedText(agentResult) || "A análise simplificada ainda não está disponível."}</p>
+                      <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                        <Info className="w-3.5 h-3.5" />Termos mais complexos aparecem destacados para facilitar a leitura.
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="rounded-2xl shadow-sm border-border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-semibold">Comparação lado a lado</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Texto original</div>
+                          <div className="max-h-72 overflow-y-auto text-sm leading-relaxed whitespace-pre-line">
+                            {highlightDifficultTerms(text || "Não há texto original disponível.")}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-border bg-primary/5 p-4">
+                          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">Texto simplificado</div>
+                          <div className="max-h-72 overflow-y-auto text-sm leading-relaxed whitespace-pre-line">
+                            {highlightDifficultTerms(getSimplifiedText(agentResult) || "A análise simplificada ainda não está disponível.")}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(computeTextIndicators(text)).map(([label, value]) => (
+                        <div key={label} className="flex-1 min-w-[130px] rounded-2xl bg-background p-3">
+                          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-muted-foreground mb-2">{label}</p>
+                          <div className="mb-2 h-2 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-primary" style={{ width: `${value}%` }} />
+                          </div>
+                          <p className="text-xs font-semibold">{value}%</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                      <Card className="rounded-2xl border-border shadow-sm">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-semibold">Complexidade do edital</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${complexityProfile.tone.badge}`}>{complexityProfile.level}</span>
+                            <span className="text-2xl font-black text-foreground">{complexityProfile.score}%</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div className={`h-full rounded-full ${complexityProfile.tone.bar}`} style={{ width: `${complexityProfile.score}%` }} />
+                          </div>
+                          <p className="text-sm leading-relaxed text-muted-foreground">{complexityProfile.description}</p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="rounded-2xl border-border shadow-sm">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-semibold flex items-center gap-2"><CalendarDays className="w-4 h-4 text-primary" />Linha do tempo</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {timelineSteps.map((step, index) => (
+                            <div key={step.title} className="flex gap-3 rounded-xl bg-background p-2.5">
+                              <div className="flex flex-col items-center">
+                                <div className={`mt-0.5 h-2.5 w-2.5 rounded-full ${index === 0 ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                                {index < timelineSteps.length - 1 && <div className="mt-1 h-full w-px bg-border" />}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold">{step.title}</p>
+                                <p className="text-xs text-muted-foreground">{step.date}</p>
+                                <p className="text-xs text-muted-foreground/80 mt-0.5">{step.description}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="rounded-2xl border-border shadow-sm">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-semibold flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" />Checklist do candidato</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {checklistItems.map((item) => (
+                            <div key={item.label} className={`flex items-start gap-2 rounded-xl border p-2.5 ${item.done ? "border-emerald-200 bg-emerald-50/70" : "border-border bg-background"}`}>
+                              <div className={`mt-0.5 h-4 w-4 rounded-full ${item.done ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                              <div className="min-w-0">
+                                <p className={`text-sm font-medium ${item.done ? "text-emerald-700" : "text-foreground"}`}>{item.label}</p>
+                                <p className="text-xs text-muted-foreground">{item.hint}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </section>
         </div>
       </main>

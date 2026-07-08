@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Lupa Pública IA"
+title = "LUPA Digital"
 version = "1.0.0"
 id = "artifacts/lupa-publica"
 router = "path"

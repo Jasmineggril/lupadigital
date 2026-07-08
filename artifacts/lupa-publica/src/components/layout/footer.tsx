@@ -47,10 +47,10 @@ export function Footer() {
       <div className="container mx-auto px-4 grid gap-8 md:grid-cols-2 lg:grid-cols-5">
         <div className="space-y-4">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="Lupa Pública IA" className="h-10 w-auto object-contain" />
+            <img src="/logo.png" alt="LUPA Digital" className="h-10 w-auto object-contain" />
             <span className="flex flex-col leading-none">
-              <span className="text-[1rem] font-bold text-[#1a3a5c] tracking-tight">Lupa Pública IA</span>
-              <span className="text-[0.6rem] text-muted-foreground font-medium tracking-wide">Simplificando Editais com IA</span>
+              <span className="text-[1rem] font-bold text-[#1a3a5c] tracking-tight">LUPA Digital</span>
+              <span className="text-[0.6rem] text-muted-foreground font-medium tracking-wide">Simplificando editais e documentos públicos</span>
             </span>
           </div>
           <p className="text-sm text-muted-foreground max-w-xs">
@@ -112,7 +112,7 @@ export function Footer() {
             </DialogTrigger>
             <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="text-2xl">Como usar a Lupa Pública IA</DialogTitle>
+                <DialogTitle className="text-2xl">Como usar a LUPA Digital</DialogTitle>
                 <DialogDescription>
                   O fluxo abaixo resume o caminho completo da tela de teste e explica o papel de cada ação principal.
                 </DialogDescription>
@@ -169,7 +169,7 @@ export function Footer() {
       </div>
 
       <div className="container mx-auto px-4 mt-12 border-t pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-        <p>© {year} Lupa Pública IA. Todos os direitos reservados.</p>
+        <p>© {year} LUPA Digital. Todos os direitos reservados.</p>
         <p>Feito para o cidadão brasileiro</p>
       </div>
     </footer>

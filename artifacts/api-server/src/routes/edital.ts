@@ -1,9 +1,9 @@
 import { Router, type IRouter } from "express";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, sql, and } from "drizzle-orm";
 import * as cheerio from "cheerio";
 import { z } from "zod";
 import multer from "multer";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { openai, getOpenAIModel } from "@workspace/integrations-openai-ai-server";
 import { db, savedEditalsTable, agentResultsTable, sharedResultsTable } from "@workspace/db";
 import { randomUUID } from "crypto";
 import {
@@ -24,180 +24,11 @@ const upload = multer({
   },
 });
 
-// ── Inline schemas for /edital/analyze (discriminated union, not codegen) ──
-
-const AgentUserProfileSchema = z.object({
-  escolaridade: z.string().default("superior"),
-  atuacao: z.string().default(""),
-  municipio: z.string().default(""),
-  rendaFamiliar: z.string().default("1a3"),
-});
-
-const AgentAnalyzeBodySchema = z.object({
-  agentId: z.enum(["simples", "analista", "estrategica", "acompanhamento", "documentacao", "elegibilidade"]),
-  text: z.string().min(10),
-  profile: AgentUserProfileSchema.optional(),
-});
-
-const SimplesResponseSchema = z.object({
-  type: z.literal("simples"),
-  scoreOportunidade: z.number().int().min(0).max(100),
-  categoria: z.string(),
-  resumo: z.string(),
-  objetivo: z.string(),
-  publicoAlvo: z.string(),
-  prazo: z.string(),
-  requisitos: z.array(z.string()),
-  ondeInscrever: z.string(),
-  observacao: z.string(),
-});
-
-const AnalistaResponseSchema = z.object({
-  type: z.literal("analista"),
-  tipoEdital: z.string(),
-  instituicao: z.string(),
-  prazo: z.string(),
-  publicoAlvo: z.string(),
-  requisitos: z.array(z.string()),
-  documentos: z.array(z.string()),
-  valor: z.string(),
-});
-
-const EstrategicaResponseSchema = z.object({
-  type: z.literal("estrategica"),
-  score: z.number().int().min(0).max(100),
-  oportunidade: z.string(),
-  vantagens: z.array(z.string()),
-  pontosAtencao: z.array(z.string()),
-  riscos: z.array(z.string()),
-  recomendacao: z.string(),
-});
-
-const TimelineItemSchema = z.object({
-  fase: z.string(),
-  periodo: z.string(),
-  descricao: z.string(),
-  status: z.enum(["passado", "ativo", "futuro"]),
-});
-
-const AcompanhamentoResponseSchema = z.object({
-  type: z.literal("acompanhamento"),
-  timeline: z.array(TimelineItemSchema),
-  observacao: z.string(),
-});
-
-const ChecklistItemSchema = z.object({
-  doc: z.string(),
-  obrigatorio: z.boolean(),
-  observacao: z.string(),
-  checked: z.boolean().default(false),
-});
-
-const DocumentacaoResponseSchema = z.object({
-  type: z.literal("documentacao"),
-  checklist: z.array(ChecklistItemSchema),
-  dica: z.string(),
-});
-
-const ElegibilidadeCriterioSchema = z.object({
-  criterio: z.string(),
-  atende: z.union([z.boolean(), z.literal("parcial")]),
-  observacao: z.string(),
-});
-
-const ElegibilidadeResponseSchema = z.object({
-  type: z.literal("elegibilidade"),
-  score: z.number().int().min(0).max(100),
-  criterios: z.array(ElegibilidadeCriterioSchema),
-  recomendacao: z.string(),
-  proximosPassos: z.array(z.string()),
-});
-
-type AgentId = z.infer<typeof AgentAnalyzeBodySchema>["agentId"];
-
-function buildAgentPrompt(agentId: AgentId, text: string, profile?: z.infer<typeof AgentUserProfileSchema>): { system: string; user: string } {
-  const profileInfo = profile && agentId === "elegibilidade"
-    ? `\n\nPERFIL DO USUÁRIO:\n- Escolaridade: ${profile.escolaridade}\n- Área de atuação: ${profile.atuacao || "não informada"}\n- Município/UF: ${profile.municipio || "não informado"}\n- Renda familiar: ${profile.rendaFamiliar}`
-    : "";
-
-  const schemas: Record<AgentId, string> = {
-    simples: `{
-  "type": "simples",
-  "scoreOportunidade": 72,
-  "categoria": "Classificação do edital (ex: Bolsa de Estudo, Pesquisa Científica, Concurso Público, Inovação, Fomento, Licitação, Processo Seletivo, Chamamento Público)",
-  "resumo": "Resumo em 3-4 frases simples que qualquer pessoa entenda, sem jargão técnico",
-  "objetivo": "O objetivo principal do edital em 1-2 frases diretas",
-  "publicoAlvo": "Quem pode participar, de forma clara e objetiva",
-  "prazo": "Data limite de inscrição ou período de inscrições (ou 'Não informado' se não constar)",
-  "requisitos": ["Requisito principal 1", "Requisito principal 2", "Requisito principal 3"],
-  "ondeInscrever": "Como e onde fazer a inscrição: site, endereço, portal",
-  "observacao": "Uma dica importante e prática para o candidato sobre este edital específico"
-}`,
-    analista: `{
-  "type": "analista",
-  "tipoEdital": "Tipo do edital (ex: Concurso Público, Concessão de Bolsa, Licitação, Fomento, Processo Seletivo, Chamamento Público)",
-  "instituicao": "Nome completo da instituição ou órgão responsável pelo edital",
-  "prazo": "Todas as datas e prazos identificados separados por ' | '",
-  "publicoAlvo": "Descrição precisa do público-alvo do edital",
-  "requisitos": ["Requisito 1", "Requisito 2", "Requisito 3"],
-  "documentos": ["Documento 1", "Documento 2", "Documento 3"],
-  "valor": "Valor da bolsa, prêmio, financiamento ou benefício (ou 'Não especificado')"
-}`,
-    estrategica: `{
-  "type": "estrategica",
-  "score": 75,
-  "oportunidade": "Parágrafo de 2-3 frases descrevendo a oportunidade e seu potencial para o público-alvo",
-  "vantagens": ["Vantagem 1", "Vantagem 2", "Vantagem 3", "Vantagem 4"],
-  "pontosAtencao": ["Ponto de atenção 1", "Ponto de atenção 2", "Ponto de atenção 3"],
-  "riscos": ["Risco 1", "Risco 2"],
-  "recomendacao": "Recomendação estratégica clara e acionável para o candidato"
-}`,
-    acompanhamento: `{
-  "type": "acompanhamento",
-  "timeline": [
-    {"fase": "📢 Publicação do Edital", "periodo": "data ou período", "descricao": "descrição", "status": "passado"},
-    {"fase": "📝 Período de Inscrições", "periodo": "data ou período", "descricao": "descrição", "status": "ativo"},
-    {"fase": "📋 Análise / Seleção", "periodo": "data ou período", "descricao": "descrição", "status": "futuro"},
-    {"fase": "📣 Resultado Preliminar", "periodo": "data ou período", "descricao": "descrição", "status": "futuro"},
-    {"fase": "✉️ Prazo para Recurso", "periodo": "data ou período", "descricao": "descrição", "status": "futuro"},
-    {"fase": "🏆 Resultado Final", "periodo": "data ou período", "descricao": "descrição", "status": "futuro"}
-  ],
-  "observacao": "Observação importante sobre os prazos ou sobre como interpretar o cronograma"
-}`,
-    documentacao: `{
-  "type": "documentacao",
-  "checklist": [
-    {"doc": "Nome do documento", "obrigatorio": true, "observacao": "Onde obter ou como preparar", "checked": false}
-  ],
-  "dica": "Dica prática sobre como organizar e entregar a documentação"
-}`,
-    elegibilidade: `{
-  "type": "elegibilidade",
-  "score": 75,
-  "criterios": [
-    {"criterio": "Nome do critério", "atende": true, "observacao": "Explicação sobre o critério"}
-  ],
-  "recomendacao": "Recomendação personalizada baseada no perfil informado",
-  "proximosPassos": ["Passo 1", "Passo 2", "Passo 3", "Passo 4"]
-}`,
-  };
-
-  const instructions: Record<AgentId, string> = {
-    simples: "Você é o agente Lupa Simples. Crie um resumo curto e acessível do edital em linguagem simples, direta e sem jargão técnico, para que qualquer cidadão possa entender.",
-    analista: "Você é o agente Lupa Analista. Extraia e organize os indicadores-chave do edital com precisão: tipo, instituição, prazos, público-alvo, requisitos, documentos exigidos e valor do benefício.",
-    estrategica: "Você é o agente Lupa Estratégica, um consultor estratégico especializado em editais públicos. Avalie se o edital representa uma boa oportunidade (score 0-100 refletindo qualidade, clareza, benefício e acessibilidade), identifique vantagens, pontos de atenção, riscos e dê uma recomendação acionável.",
-    acompanhamento: "Você é o agente Lupa Acompanhamento. Construa uma linha do tempo completa com todas as fases do edital. Se as datas não estiverem explícitas, estime com base em padrões comuns de editais públicos e indique 'Verificar no edital'. Classifique cada fase como 'passado', 'ativo' ou 'futuro' baseando-se na data mais provável de publicação.",
-    documentacao: "Você é o agente Lupa Documentação. Liste TODOS os documentos exigidos pelo edital e crie um checklist detalhado e prático. Inclua documentos explícitos e também os implicitamente necessários para o tipo de edital. Para cada documento, informe se é obrigatório e como obtê-lo ou prepará-lo.",
-    elegibilidade: `Você é o agente Lupa Elegibilidade. Analise criteriosamente se o perfil do usuário atende aos critérios do edital. Compare cada requisito do edital com o perfil informado e determine: true (atende), false (não atende) ou "parcial" (atende parcialmente ou precisa verificar). Calcule um score de aderência (0-100) proporcional aos critérios atendidos.`,
-  };
-
-  return {
-    system: `${instructions[agentId]}\nResponda SEMPRE em português brasileiro.\nRetorne SOMENTE um JSON válido sem markdown, sem blocos de código, sem texto adicional.`,
-    user: `Analise o edital abaixo e retorne um JSON com exatamente esta estrutura:\n\n${schemas[agentId]}${profileInfo}\n\nEDITAL:\n${text}\n\nResponda APENAS com o JSON válido.`,
-  };
-}
+// AI analyze logic consolidated into AIService (see src/lib/aiService.ts)
 
 const router: IRouter = Router();
+
+import { analyzeAgent, AgentAnalyzeBodySchema } from "../lib/aiService";
 
 router.post("/edital/analyze", async (req, res): Promise<void> => {
   const parsed = AgentAnalyzeBodySchema.safeParse(req.body);
@@ -207,53 +38,17 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
   }
 
   const { agentId, text, profile } = parsed.data;
-
-  // Truncate to ~12 000 chars to stay within token budget
   const truncated = text.length > 12000 ? text.slice(0, 12000) + "\n\n[Texto truncado para processamento]" : text;
 
-  const { system, user } = buildAgentPrompt(agentId, truncated, profile);
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-5.1",
-    max_completion_tokens: 4096,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-  });
-
-  const raw = completion.choices[0]?.message?.content ?? "{}";
-
-  // Strip any markdown code fences the model may have added despite instructions
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-
-  let parsedJson: unknown;
   try {
-    parsedJson = JSON.parse(cleaned);
-  } catch {
-    req.log.error({ raw }, "Failed to parse AI agent response as JSON");
+    const result = await analyzeAgent(agentId, truncated, profile, { userId: (req as any).user?.id ?? null, documentId: null });
+    res.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    req.log?.error({ error: message }, "AIService failed");
     res.status(500).json({ error: "Falha ao processar a resposta da IA. Tente novamente." });
     return;
   }
-
-  // Validate per-agent schema
-  const validators: Record<AgentId, z.ZodTypeAny> = {
-    simples: SimplesResponseSchema,
-    analista: AnalistaResponseSchema,
-    estrategica: EstrategicaResponseSchema,
-    acompanhamento: AcompanhamentoResponseSchema,
-    documentacao: DocumentacaoResponseSchema,
-    elegibilidade: ElegibilidadeResponseSchema,
-  };
-
-  const validated = validators[agentId].safeParse(parsedJson);
-  if (!validated.success) {
-    req.log.error({ errors: validated.error.message, parsedJson }, "Agent AI response does not match schema");
-    res.status(500).json({ error: "Resposta da IA em formato inesperado. Tente novamente." });
-    return;
-  }
-
-  res.json(validated.data);
 });
 
 // ── Agent history routes ─────────────────────────────────────────
@@ -268,9 +63,16 @@ const SaveAgentResultBodySchema = z.object({
 const DeleteAgentResultParamsSchema = z.object({ id: z.coerce.number().int().positive() });
 
 router.get("/edital/agent-history", async (req, res): Promise<void> => {
+  const userId = (req as any).user?.id ?? null;
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
   const rows = await db
     .select()
     .from(agentResultsTable)
+    .where(eq((agentResultsTable as any).userId, userId))
     .orderBy(desc(agentResultsTable.createdAt));
   res.json(rows);
 });
@@ -282,11 +84,14 @@ router.post("/edital/agent-history", async (req, res): Promise<void> => {
     return;
   }
 
-  const [saved] = await db
-    .insert(agentResultsTable)
-    .values(parsed.data)
-    .returning();
+  const userId = (req as any).user?.id ?? null;
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
 
+  const payload = { ...parsed.data, userId: userId } as any;
+  const [saved] = await db.insert(agentResultsTable).values(payload).returning();
   res.status(201).json(saved);
 });
 
@@ -297,9 +102,15 @@ router.delete("/edital/agent-history/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const userId = (req as any).user?.id ?? null;
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
   const [deleted] = await db
     .delete(agentResultsTable)
-    .where(eq(agentResultsTable.id, params.data.id))
+    .where(and(eq(agentResultsTable.id, params.data.id), eq((agentResultsTable as any).userId, userId)))
     .returning();
 
   if (!deleted) {
@@ -423,16 +234,29 @@ Retorne um JSON válido com exatamente estes campos:
 
 Responda SOMENTE com o JSON, sem markdown, sem código de formatação, sem texto adicional.`;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-5.1",
-    max_completion_tokens: 4096,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-  });
+  let content = "{}";
+  try {
+    const completion = await openai.chat.completions.create({
+      model: getOpenAIModel(),
+      max_completion_tokens: 4096,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    });
 
-  const content = completion.choices[0]?.message?.content ?? "{}";
+    content = completion.choices[0]?.message?.content ?? "{}";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    req.log.error({ error: message }, "OpenAI request failed");
+    res.status(500).json({
+      error:
+        message.includes("OPENAI_API_KEY")
+          ? "OPENAI_API_KEY is not configured. Set it in Replit Secrets to enable OpenAI features."
+          : "Falha ao conectar com o serviço OpenAI. Tente novamente mais tarde.",
+    });
+    return;
+  }
 
   let parsedJson: unknown;
   try {
@@ -454,9 +278,16 @@ Responda SOMENTE com o JSON, sem markdown, sem código de formatação, sem text
 });
 
 router.get("/edital/history", async (req, res): Promise<void> => {
+  const userId = (req as any).user?.id ?? null;
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
   const rows = await db
     .select()
     .from(savedEditalsTable)
+    .where(eq((savedEditalsTable as any).userId, userId))
     .orderBy(desc(savedEditalsTable.createdAt));
 
   res.json(ListEditalHistoryResponse.parse(rows));
@@ -469,11 +300,14 @@ router.post("/edital/history", async (req, res): Promise<void> => {
     return;
   }
 
-  const [saved] = await db
-    .insert(savedEditalsTable)
-    .values(parsed.data)
-    .returning();
+  const userId = (req as any).user?.id ?? null;
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
 
+  const payload = { ...parsed.data, userId: userId } as any;
+  const [saved] = await db.insert(savedEditalsTable).values(payload).returning();
   res.status(201).json(saved);
 });
 
@@ -484,9 +318,15 @@ router.delete("/edital/history/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const userId = (req as any).user?.id ?? null;
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
   const [deleted] = await db
     .delete(savedEditalsTable)
-    .where(eq(savedEditalsTable.id, params.data.id))
+    .where(and(eq(savedEditalsTable.id, params.data.id), eq((savedEditalsTable as any).userId, userId)))
     .returning();
 
   if (!deleted) {

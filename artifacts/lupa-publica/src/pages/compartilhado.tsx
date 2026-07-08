@@ -224,7 +224,7 @@ export default function Compartilhado() {
             </div>
 
             <p className="text-xs text-muted-foreground text-center pt-4 border-t border-border/40">
-              Gerado por Lupa Pública IA — democratizando o acesso à informação pública
+              Gerado por LUPA Digital — democratizando o acesso à informação pública
             </p>
           </div>
         )}

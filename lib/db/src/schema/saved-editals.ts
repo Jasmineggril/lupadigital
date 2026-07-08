@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 
 export const savedEditalsTable = pgTable("saved_editals", {
   id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
   title: text("title").notNull(),
   originalText: text("original_text").notNull(),
   resumo: text("resumo").notNull(),

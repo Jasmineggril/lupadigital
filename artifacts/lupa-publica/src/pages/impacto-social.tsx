@@ -20,7 +20,7 @@ export default function ImpactoSocial() {
           O problema é que esses documentos são escritos em "juridiquês", uma linguagem densa, burocrática e excludente. O cidadão comum frequentemente perde oportunidades não porque não tem os requisitos, mas porque não conseguiu entender as regras do jogo.
         </p>
         <p>
-          Acreditamos que <strong>linguagem simples é direito do cidadão</strong>. O Lupa Pública IA usa a tecnologia para equilibrar essa balança.
+          Acreditamos que <strong>linguagem simples é direito do cidadão</strong>. A LUPA Digital usa a tecnologia para equilibrar essa balança.
         </p>
       </div>
 

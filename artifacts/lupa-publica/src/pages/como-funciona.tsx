@@ -7,7 +7,7 @@ export default function ComoFunciona() {
     {
       num: "1",
       title: "Acesse a plataforma",
-      desc: "Navegue para a página de teste do Lupa Pública IA de qualquer dispositivo."
+      desc: "Navegue para a página de teste do LUPA Digital de qualquer dispositivo."
     },
     {
       num: "2",
@@ -79,7 +79,7 @@ export default function ComoFunciona() {
           <CardContent className="py-8">
             <h3 className="text-2xl font-bold mb-4">Destaque: Extração via URL</h3>
             <p className="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
-              Não quer copiar e colar um texto gigante? Basta colar o link do edital e o Lupa Pública IA extrai tudo para você antes de simplificar.
+              Não quer copiar e colar um texto gigante? Basta colar o link do edital e o LUPA Digital extrai tudo para você antes de simplificar.
             </p>
             <Link href="/testar">
               <Button size="lg">Experimentar Agora</Button>

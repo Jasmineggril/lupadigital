@@ -2,25 +2,37 @@ import OpenAI from "openai";
 
 let _client: OpenAI | null = null;
 
+const validateKey = () => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error(
+      "OPENAI_API_KEY is not configured. Set it in Replit Secrets to enable OpenAI features.",
+    );
+  }
+};
+
+export function getOpenAIModel(): string {
+  const configured = process.env.OPENAI_MODEL?.trim() || "gpt-4.1";
+  if (/^gpt-5(\.|$)/i.test(configured)) {
+    return "gpt-4.1";
+  }
+  return configured;
+}
+
 export function getOpenAIClient(): OpenAI {
   if (_client) return _client;
 
-  if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
-    throw new Error(
-      "AI_INTEGRATIONS_OPENAI_BASE_URL must be set. Did you forget to provision the OpenAI AI integration?",
-    );
+  validateKey();
+
+  const apiKey = process.env.OPENAI_API_KEY!;
+  const options: { apiKey: string; baseURL?: string } = {
+    apiKey,
+  };
+
+  if (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+    options.baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   }
 
-  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    throw new Error(
-      "AI_INTEGRATIONS_OPENAI_API_KEY must be set. Did you forget to provision the OpenAI AI integration?",
-    );
-  }
-
-  _client = new OpenAI({
-    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  });
+  _client = new OpenAI(options);
 
   return _client;
 }

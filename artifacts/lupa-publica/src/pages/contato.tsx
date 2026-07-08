@@ -30,7 +30,7 @@ export default function Contato() {
         <div>
           <h2 className="text-2xl font-bold mb-6">Fale Conosco</h2>
           <p className="text-muted-foreground mb-8">
-            O Lupa Pública IA é um projeto de responsabilidade social e código aberto. Estamos sempre abertos a parcerias com governos, ONGs e desenvolvedores voluntários.
+            O LUPA Digital é um projeto de responsabilidade social e código aberto. Estamos sempre abertos a parcerias com governos, ONGs e desenvolvedores voluntários.
           </p>
           
           <div className="space-y-6">
@@ -57,7 +57,7 @@ export default function Contato() {
                 <Linkedin className="w-6 h-6" />
               </div>
               <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                Lupa Pública IA
+                LUPA Digital
               </a>
             </div>
           </div>

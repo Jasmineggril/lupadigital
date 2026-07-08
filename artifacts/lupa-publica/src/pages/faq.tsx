@@ -2,9 +2,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 
 export default function FAQ() {
   const faqs = [
-    {
-      q: "O que é o Lupa Pública IA?",
-      a: "O Lupa Pública IA é uma plataforma para tornar editais públicos mais compreensíveis. Ela reúne leitura de PDF, extração de texto, análise guiada e organização de informações importantes em linguagem simples."
+      {
+      q: "O que é a LUPA Digital?",
+      a: "A LUPA Digital é uma plataforma para tornar editais e documentos públicos mais compreensíveis. Ela reúne leitura de PDF, extração de texto, análise guiada e organização de informações importantes em linguagem simples."
     },
     {
       q: "Como funciona a análise de um edital?",

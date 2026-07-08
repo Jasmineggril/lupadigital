@@ -7,12 +7,12 @@ export default function Privacidade() {
         <section>
           <h2>Política de Privacidade</h2>
           <p>
-            No Lupa Pública IA, a privacidade dos seus dados é uma prioridade. Esta política explica como lidamos com as informações quando você utiliza nossa plataforma.
+            Na LUPA Digital, a privacidade dos seus dados é uma prioridade. Esta política explica como lidamos com as informações quando você utiliza nossa plataforma.
           </p>
           
           <h3>Coleta de Dados</h3>
           <p>
-            O Lupa Pública IA foi desenhado para ser acessível e de baixo atrito. Não exigimos criação de conta, login ou senha para a utilização básica da ferramenta de simplificação de editais.
+            A LUPA Digital foi desenhada para ser acessível e de baixo atrito. Não exigimos criação de conta, login ou senha para a utilização básica da ferramenta de simplificação de editais.
           </p>
           <ul>
             <li><strong>Textos de Editais:</strong> Coletamos apenas os textos ou URLs submetidos ativamente por você no campo de simplificação.</li>
@@ -32,12 +32,12 @@ export default function Privacidade() {
           
           <h3>Natureza da Ferramenta</h3>
           <p>
-            O Lupa Pública IA é uma ferramenta de apoio gerada por Inteligência Artificial. Os resumos, análises e simplificações produzidos visam facilitar a compreensão da linguagem técnica, mas <strong>não possuem validade legal</strong> e não substituem a leitura do edital original oficial.
+            A LUPA Digital é uma ferramenta de apoio gerada por Inteligência Artificial. Os resumos, análises e simplificações produzidos visam facilitar a compreensão da linguagem técnica, mas <strong>não possuem validade legal</strong> e não substituem a leitura do edital original oficial.
           </p>
 
           <h3>Limitações de Responsabilidade</h3>
           <p>
-            Os mantenedores do Lupa Pública IA não se responsabilizam por:
+            Os mantenedores da LUPA Digital não se responsabilizam por:
           </p>
           <ul>
             <li>Omissões ou interpretações imprecisas geradas pela IA (hallucinations);</li>

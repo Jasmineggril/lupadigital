@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Menu, X, LogIn, UserCircle, LogOut, Crown } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +15,15 @@ const links = [
   { href: "/faq", label: "FAQ" },
 ];
 
+const niasciLinks = [
+  { href: "/niasci", label: "NIASci" },
+  { href: "/testar", label: "Editais" },
+  { href: "/niasci/elattes", label: "e-Lattes" },
+  { href: "/niasci/artigos", label: "Artigos Científicos" },
+  { href: "/niasci/projetos", label: "Projetos" },
+  { href: "/niasci/planetario", label: "Planetário" },
+];
+
 const PROFILE_LABELS: Record<string, string> = {
   estudante: "Estudante",
   concurseiro: "Concurseiro",
@@ -22,7 +32,7 @@ const PROFILE_LABELS: Record<string, string> = {
 };
 
 export function Navbar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, logout } = useAuth();
@@ -31,15 +41,48 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-[#E2E8F0] bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
       <div className="container mx-auto px-4 flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5" data-testid="link-logo">
-          <img src="/logo.png" alt="Lupa Pública IA" className="h-10 w-auto object-contain" />
+          <img src="/logo.png" alt="LUPA Digital" className="h-10 w-auto object-contain" />
           <span className="flex flex-col leading-none">
-            <span className="text-[1.05rem] font-bold text-[#0F172A] tracking-tight">Lupa Pública IA</span>
-            <span className="text-[0.6rem] text-[#475569] font-medium tracking-wide">Simplificando Editais com IA</span>
+            <span className="text-[1.05rem] font-bold text-[#0F172A] tracking-tight">LUPA Digital</span>
+            <span className="text-[0.6rem] text-[#475569] font-medium tracking-wide">Simplificando editais e documentos públicos</span>
           </span>
         </Link>
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-5 text-sm font-medium">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={`transition-colors hover:text-[#2563EB] ${
+                  location.startsWith("/niasci") ? "text-[#2563EB] font-semibold" : "text-[#475569]"
+                }`}
+                data-testid="nav-link-niasci"
+              >
+                NIASci
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="min-w-[14rem] rounded-2xl border border-[#E2E8F0] bg-white p-1 shadow-lg">
+              {[
+                { href: "/testar", label: "Editais" },
+                { href: "/niasci/elattes", label: "e-Lattes" },
+                { href: "/niasci/artigos", label: "Artigos Científicos" },
+                { href: "/niasci/projetos", label: "Projetos" },
+                { href: "/niasci/planetario", label: "Planetário" },
+              ].map((item) => (
+                <DropdownMenuItem key={item.href} asChild>
+                  <button
+                    type="button"
+                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#0F172A] hover:bg-[#F8FAFC]"
+                    onClick={() => setLocation(item.href)}
+                  >
+                    {item.label}
+                  </button>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {links.map((link) => (
             <Link
               key={link.href}
@@ -55,10 +98,26 @@ export function Navbar() {
             </Link>
           ))}
 
+          <div className="hidden lg:flex flex-col gap-1 border-l border-[#E2E8F0] pl-4">
+            {niasciLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`transition-colors text-sm hover:text-[#2563EB] ${
+                  location === item.href || location.startsWith(item.href)
+                    ? "text-[#2563EB] font-semibold"
+                    : "text-[#475569]"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+
           {user ? (
             <div className="relative">
               <button
-                onClick={() => setShowUserMenu(v => !v)}
+                onClick={() => setShowUserMenu((v) => !v)}
                 className="flex items-center gap-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-1.5 text-sm font-semibold text-[#0F172A] hover:border-[#2563EB]/40 transition-colors"
               >
                 <UserCircle className="w-4 h-4 text-[#2563EB]" />
@@ -88,7 +147,10 @@ export function Navbar() {
                   </Link>
                   <div className="border-t border-[#E2E8F0]">
                     <button
-                      onClick={() => { logout(); setShowUserMenu(false); }}
+                      onClick={() => {
+                        logout();
+                        setShowUserMenu(false);
+                      }}
                       className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#EF4444] hover:bg-red-50 transition-colors"
                     >
                       <LogOut className="w-4 h-4" />
@@ -141,6 +203,23 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
+            <div className="border-t border-[#E2E8F0] pt-3">
+              <p className="text-xs uppercase tracking-[0.25em] text-[#94a3b8] mb-2">NIASci</p>
+              {niasciLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`text-sm font-medium transition-colors py-1 block ${
+                    location === item.href || location.startsWith(item.href)
+                      ? "text-[#2563EB] font-semibold"
+                      : "text-[#475569]"
+                  }`}
+                  onClick={() => setIsOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
             <div className="border-t border-[#E2E8F0] pt-3 space-y-2">
               {user ? (
                 <>

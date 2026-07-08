@@ -18,6 +18,11 @@ function ScrollToTop() {
 
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
+import NiasciHub from "@/pages/niasci";
+import ELattes from "@/pages/elattes";
+import Artigos from "@/pages/artigos";
+import Projetos from "@/pages/projetos";
+import Planetario from "@/pages/planetario";
 import TestarIA from "@/pages/testar";
 import ComoFunciona from "@/pages/como-funciona";
 import Sobre from "@/pages/sobre";
@@ -45,6 +50,11 @@ function Router() {
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/testar" component={TestarIA} />
+          <Route path="/niasci" component={NiasciHub} />
+          <Route path="/niasci/elattes" component={ELattes} />
+          <Route path="/niasci/artigos" component={Artigos} />
+          <Route path="/niasci/projetos" component={Projetos} />
+          <Route path="/niasci/planetario" component={Planetario} />
           <Route path="/como-funciona" component={ComoFunciona} />
           <Route path="/sobre" component={Sobre} />
           <Route path="/tecnologias" component={Tecnologias} />

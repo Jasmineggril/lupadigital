@@ -46,7 +46,7 @@ export default function Tecnologias() {
       <div className="text-center mb-16">
         <h1 className="text-4xl font-extrabold tracking-tight mb-4">Tecnologias</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          O Lupa Pública IA é construído sobre uma stack tecnológica moderna, focada em performance, segurança e escala.
+          A LUPA Digital é construída sobre uma stack tecnológica moderna, focada em performance, segurança e escala.
         </p>
       </div>
 

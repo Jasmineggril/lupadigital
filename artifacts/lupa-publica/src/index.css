@@ -247,6 +247,48 @@
   }
 }
 
+/* Small typography and spacing refinements for a cleaner, more sophisticated look */
+@layer base {
+  body {
+    font-variant-ligatures: common-ligatures; 
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: hsl(var(--foreground));
+  }
+
+  a {
+    color: hsl(var(--primary));
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  /* Make cards subtler */
+  .rounded-xl.border.bg-card {
+    box-shadow: var(--shadow-sm);
+    border-radius: var(--radius-md);
+  }
+
+  /* Buttons slightly more flat */
+  button, .btn {
+    transition: box-shadow 150ms ease, transform 120ms ease;
+  }
+
+  /* Reduce visual noise for muted text */
+  .text-muted-foreground {
+    color: hsl(var(--muted-foreground));
+    opacity: 0.95;
+  }
+}
+
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.

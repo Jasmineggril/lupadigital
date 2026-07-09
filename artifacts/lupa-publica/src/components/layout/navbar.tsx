@@ -49,7 +49,7 @@ export function Navbar() {
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-5 text-sm font-medium">
+        <nav className="hidden md:flex items-center gap-3 xl:gap-4 text-sm font-medium">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -98,12 +98,12 @@ export function Navbar() {
             </Link>
           ))}
 
-          <div className="hidden lg:flex flex-col gap-1 border-l border-[#E2E8F0] pl-4">
+          <div className="hidden xl:flex flex-col gap-1 border-l border-[#E2E8F0] pl-3">
             {niasciLinks.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`transition-colors text-sm hover:text-[#2563EB] ${
+                className={`transition-colors text-xs xl:text-sm hover:text-[#2563EB] whitespace-nowrap ${
                   location === item.href || location.startsWith(item.href)
                     ? "text-[#2563EB] font-semibold"
                     : "text-[#475569]"

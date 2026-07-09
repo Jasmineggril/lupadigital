@@ -9,9 +9,11 @@ const router = Router();
 const ALLOWED_TABLES = new Set([
   "documents",
   "ai_analyses",
-  "edital_analises",
+  "edital_analyses",
   "lattes_profiles",
   "article_analyses",
+  "research_projects",
+  "planetarium_contents",
   "chat_messages",
 ]);
 
@@ -60,11 +62,35 @@ const ChatMessageSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
+const ArticleAnalysisSchema = z.object({
+  title: z.string().optional(),
+  authors: z.array(z.string()).nullable().optional(),
+  summary: z.string().nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
+const ResearchProjectSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().nullable().optional(),
+  team: z.record(z.string(), z.unknown()).nullable().optional(),
+  timeline: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
+const PlanetariumContentSchema = z.object({
+  title: z.string().optional(),
+  content: z.string().nullable().optional(),
+  audience: z.string().nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
 const SCHEMAS: Record<string, z.ZodTypeAny> = {
-  edital_analises: EdtalAnalysisSchema,
+  edital_analyses: EdtalAnalysisSchema,
   ai_analyses: AiAnalysisSchema,
   lattes_profiles: LattesProfileSchema,
   documents: DocumentSchema,
+  article_analyses: ArticleAnalysisSchema,
+  research_projects: ResearchProjectSchema,
+  planetarium_contents: PlanetariumContentSchema,
   chat_messages: ChatMessageSchema,
 };
 

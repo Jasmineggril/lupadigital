@@ -29,9 +29,20 @@ export function getSupabaseJwks() {
 
 export async function verifySupabaseJwt(token: string) {
   const jwks = getSupabaseJwks();
-  const { payload } = await jwtVerify(token, jwks, {
-    // Accept typical Supabase algs; audience/issuer checks can be added if needed
-  } as any);
+  const options: any = {
+    algorithms: ["RS256"],
+    clockTolerance: "5m",
+  };
+
+  if (process.env.SUPABASE_JWT_ISSUER) {
+    options.issuer = process.env.SUPABASE_JWT_ISSUER;
+  }
+
+  if (process.env.SUPABASE_JWT_AUDIENCE) {
+    options.audience = process.env.SUPABASE_JWT_AUDIENCE;
+  }
+
+  const { payload } = await jwtVerify(token, jwks, options);
   return payload as Record<string, unknown>;
 }
 
@@ -39,22 +50,23 @@ export async function verifySupabaseJwt(token: string) {
 import type { RequestHandler } from "express";
 
 export function supabaseAuthMiddleware(): RequestHandler {
-  return async (req, _res, next) => {
+  return async (req, res, next) => {
+    const auth = (req.headers["authorization"] as string) || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : auth;
+    if (!token) return next();
+
     try {
-      const auth = (req.headers["authorization"] as string) || "";
-      const token = auth.startsWith("Bearer ") ? auth.slice(7) : auth;
-      if (!token) return next();
       const payload = await verifySupabaseJwt(token);
-      // attach to request
       (req as any).supabaseUser = payload;
-      // normalize user as `req.user` for convenience
       if ((payload as any).sub) {
         (req as any).user = { id: String((payload as any).sub), ...(payload as object) };
       }
+      return next();
     } catch (err) {
-      // ignore verification errors and continue unauthenticated
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(401).json({ error: "Authentication failed", details: message });
+      return;
     }
-    return next();
   };
 }
 

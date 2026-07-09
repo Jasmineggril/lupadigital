@@ -39,13 +39,49 @@ const writeLocalAnalises = (items: AnaliseSalva[]) => {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 };
 
-async function getAuthToken() {
+const API_BASE = `${((import.meta.env.BASE_URL as string) || "/").replace(/\/$/, "")}/api`;
+
+async function getAuthHeaders() {
   if (!isSupabaseConfigured || !supabase) return null;
-  return getSupabaseSessionToken();
+  const token = await getSupabaseSessionToken();
+  if (!token) return null;
+  return { Authorization: `Bearer ${token}` };
+}
+
+async function apiRequest<T>(path: string, opts: RequestInit = {}) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...((opts.headers as Record<string, string>) ?? {}),
+  };
+
+  const authHeaders = await getAuthHeaders();
+  if (authHeaders) {
+    Object.assign(headers, authHeaders);
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...opts,
+    headers,
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`API request failed (${response.status}) ${body}`);
+  }
+
+  const text = await response.text();
+  if (!text) return null as any;
+  return JSON.parse(text) as T;
+}
+
+async function useBackend(): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabase) return false;
+  const authHeaders = await getAuthHeaders();
+  return Boolean(authHeaders);
 }
 
 export async function salvarAnalise(analise: AnaliseSalva) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     const items = readLocalAnalises();
     const next = [{
       ...analise,
@@ -58,24 +94,23 @@ export async function salvarAnalise(analise: AnaliseSalva) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from("edital_analyses")
-      .insert({
-        titulo: analise.titulo ?? null,
-        conteudo_original: analise.conteudo_original ?? null,
-        conteudo_simplificado: analise.conteudo_simplificado ?? null,
-        categoria: analise.categoria ?? null,
-        modo_analise: analise.modo_analise ?? null,
-        indicadores: analise.indicadores ?? null,
-        timeline: analise.timeline ?? null,
-        recomendacoes: analise.recomendacoes ?? null,
-        favorito: analise.favorito ?? false,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return (data ?? null) as AnaliseSalva;
+    return await apiRequest<AnaliseSalva>(
+      "/resources/edital_analyses",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          titulo: analise.titulo ?? null,
+          conteudo_original: analise.conteudo_original ?? null,
+          conteudo_simplificado: analise.conteudo_simplificado ?? null,
+          categoria: analise.categoria ?? null,
+          modo_analise: analise.modo_analise ?? null,
+          indicadores: analise.indicadores ?? null,
+          timeline: analise.timeline ?? null,
+          recomendacoes: analise.recomendacoes ?? null,
+          favorito: analise.favorito ?? false,
+        }),
+      },
+    );
   } catch {
     const items = readLocalAnalises();
     const next = [{
@@ -90,18 +125,12 @@ export async function salvarAnalise(analise: AnaliseSalva) {
 }
 
 export async function listarAnalises() {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     return readLocalAnalises();
   }
 
   try {
-    const { data, error } = await supabase
-      .from("edital_analyses")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    return (data ?? []) as AnaliseSalva[];
+    return await apiRequest<AnaliseSalva[]>("/resources/edital_analyses");
   } catch {
     return readLocalAnalises();
   }
@@ -110,7 +139,7 @@ export async function listarAnalises() {
 export async function atualizarAnalise(analise: AnaliseSalva) {
   if (!analise.id) throw new Error("ID da análise é necessário para atualização.");
 
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     const items = readLocalAnalises().map((item) =>
       item.id === analise.id ? { ...item, ...analise, favorito: analise.favorito ?? item.favorito ?? false } : item
     );
@@ -119,25 +148,23 @@ export async function atualizarAnalise(analise: AnaliseSalva) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from("edital_analyses")
-      .update({
-        titulo: analise.titulo ?? null,
-        conteudo_original: analise.conteudo_original ?? null,
-        conteudo_simplificado: analise.conteudo_simplificado ?? null,
-        categoria: analise.categoria ?? null,
-        modo_analise: analise.modo_analise ?? null,
-        indicadores: analise.indicadores ?? null,
-        timeline: analise.timeline ?? null,
-        recomendacoes: analise.recomendacoes ?? null,
-        favorito: analise.favorito ?? false,
-      })
-      .eq("id", analise.id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return (data ?? analise) as AnaliseSalva;
+    return await apiRequest<AnaliseSalva>(
+      `/resources/edital_analyses/${analise.id}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          titulo: analise.titulo ?? null,
+          conteudo_original: analise.conteudo_original ?? null,
+          conteudo_simplificado: analise.conteudo_simplificado ?? null,
+          categoria: analise.categoria ?? null,
+          modo_analise: analise.modo_analise ?? null,
+          indicadores: analise.indicadores ?? null,
+          timeline: analise.timeline ?? null,
+          recomendacoes: analise.recomendacoes ?? null,
+          favorito: analise.favorito ?? false,
+        }),
+      },
+    );
   } catch {
     const items = readLocalAnalises().map((item) =>
       item.id === analise.id ? { ...item, ...analise, favorito: analise.favorito ?? item.favorito ?? false } : item
@@ -148,15 +175,16 @@ export async function atualizarAnalise(analise: AnaliseSalva) {
 }
 
 export async function excluirAnalise(id: string) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     const items = readLocalAnalises().filter((item) => item.id !== id);
     writeLocalAnalises(items);
     return true;
   }
 
   try {
-    const { error } = await supabase.from("edital_analyses").delete().eq("id", id);
-    if (error) throw error;
+    await apiRequest<void>(`/resources/edital_analyses/${id}`, {
+      method: "DELETE",
+    });
     return true;
   } catch {
     const items = readLocalAnalises().filter((item) => item.id !== id);
@@ -166,14 +194,18 @@ export async function excluirAnalise(id: string) {
 }
 
 export async function limparAnalises() {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     writeLocalAnalises([]);
     return true;
   }
 
   try {
-    const { error } = await supabase.from("edital_analyses").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    if (error) throw error;
+    const items = await apiRequest<AnaliseSalva[]>("/resources/edital_analyses");
+    await Promise.all(
+      items
+        .filter((item) => item.id)
+        .map((item) => apiRequest<void>(`/resources/edital_analyses/${item.id}`, { method: "DELETE" })),
+    );
     return true;
   } catch {
     writeLocalAnalises([]);
@@ -184,7 +216,7 @@ export async function limparAnalises() {
 // ── Documents ───────────────────────────────────────────────────
 
 export async function uploadDocument(doc: { filename: string; mime_type: string; size: number; metadata?: Record<string, unknown> }) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-documents") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...doc }, ...items].slice(0, 50);
     window.localStorage.setItem("lupa-publica-documents", JSON.stringify(next));
@@ -192,19 +224,18 @@ export async function uploadDocument(doc: { filename: string; mime_type: string;
   }
 
   try {
-    const { data, error } = await supabase
-      .from("documents")
-      .insert({
-        filename: doc.filename,
-        mime_type: doc.mime_type,
-        size: doc.size,
-        metadata: doc.metadata ?? null,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    return await apiRequest<DocType>(
+      "/resources/documents",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          filename: doc.filename,
+          mime_type: doc.mime_type,
+          size: doc.size,
+          metadata: doc.metadata ?? null,
+        }),
+      },
+    );
   } catch {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-documents") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...doc }, ...items].slice(0, 50);
@@ -214,29 +245,26 @@ export async function uploadDocument(doc: { filename: string; mime_type: string;
 }
 
 export async function listDocuments() {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     return JSON.parse(window.localStorage.getItem("lupa-publica-documents") || "[]");
   }
 
   try {
-    const { data, error } = await supabase.from("documents").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return data ?? [];
+    return await apiRequest<DocType[]>("/resources/documents");
   } catch {
     return JSON.parse(window.localStorage.getItem("lupa-publica-documents") || "[]");
   }
 }
 
 export async function deleteDocument(id: string) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-documents") || "[]").filter((d: any) => d.id !== id);
     window.localStorage.setItem("lupa-publica-documents", JSON.stringify(items));
     return true;
   }
 
   try {
-    const { error } = await supabase.from("documents").delete().eq("id", id);
-    if (error) throw error;
+    await apiRequest<void>(`/resources/documents/${id}`, { method: "DELETE" });
     return true;
   } catch {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-documents") || "[]").filter((d: any) => d.id !== id);
@@ -247,7 +275,7 @@ export async function deleteDocument(id: string) {
 
 // ── AI Analyses ─────────────────────────────────────────────────
 export async function saveAiAnalysis(a: AIAnalysis) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-ai-analyses") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...a }, ...items].slice(0, 100);
     window.localStorage.setItem("lupa-publica-ai-analyses", JSON.stringify(next));
@@ -255,9 +283,10 @@ export async function saveAiAnalysis(a: AIAnalysis) {
   }
 
   try {
-    const { data, error } = await supabase.from("ai_analyses").insert(a).select().single();
-    if (error) throw error;
-    return data;
+    return await apiRequest<AIAnalysis>("/resources/ai_analyses", {
+      method: "POST",
+      body: JSON.stringify(a),
+    });
   } catch {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-ai-analyses") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...a }, ...items].slice(0, 100);
@@ -267,12 +296,10 @@ export async function saveAiAnalysis(a: AIAnalysis) {
 }
 
 export async function listAiAnalyses() {
-  if (!isSupabaseConfigured || !supabase) return JSON.parse(window.localStorage.getItem("lupa-publica-ai-analyses") || "[]");
+  if (!(await useBackend())) return JSON.parse(window.localStorage.getItem("lupa-publica-ai-analyses") || "[]");
 
   try {
-    const { data, error } = await supabase.from("ai_analyses").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return data ?? [];
+    return await apiRequest<AIAnalysis[]>("/resources/ai_analyses");
   } catch {
     return JSON.parse(window.localStorage.getItem("lupa-publica-ai-analyses") || "[]");
   }
@@ -280,7 +307,7 @@ export async function listAiAnalyses() {
 
 // ── Lattes Profiles ─────────────────────────────────────────────
 export async function saveLattesProfile(p: LattesProfile) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...p }, ...items].slice(0, 50);
     window.localStorage.setItem("lupa-publica-lattes", JSON.stringify(next));
@@ -288,9 +315,10 @@ export async function saveLattesProfile(p: LattesProfile) {
   }
 
   try {
-    const { data, error } = await supabase.from("lattes_profiles").insert(p).select().single();
-    if (error) throw error;
-    return data;
+    return await apiRequest<LattesProfile>("/resources/lattes_profiles", {
+      method: "POST",
+      body: JSON.stringify(p),
+    });
   } catch {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...p }, ...items].slice(0, 50);
@@ -300,12 +328,10 @@ export async function saveLattesProfile(p: LattesProfile) {
 }
 
 export async function getLattesProfiles() {
-  if (!isSupabaseConfigured || !supabase) return JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]");
+  if (!(await useBackend())) return JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]");
 
   try {
-    const { data, error } = await supabase.from("lattes_profiles").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return data ?? [];
+    return await apiRequest<LattesProfile[]>("/resources/lattes_profiles");
   } catch {
     return JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]");
   }
@@ -313,7 +339,7 @@ export async function getLattesProfiles() {
 
 // ── Article analyses, projects, planetarium and chat messages (basic) ─
 export async function saveArticleAnalysis(a: ArticleAnalysis) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-article-analyses") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...a }, ...items].slice(0, 100);
     window.localStorage.setItem("lupa-publica-article-analyses", JSON.stringify(next));
@@ -321,9 +347,10 @@ export async function saveArticleAnalysis(a: ArticleAnalysis) {
   }
 
   try {
-    const { data, error } = await supabase.from("article_analyses").insert(a).select().single();
-    if (error) throw error;
-    return data;
+    return await apiRequest<ArticleAnalysis>("/resources/article_analyses", {
+      method: "POST",
+      body: JSON.stringify(a),
+    });
   } catch {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-article-analyses") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...a }, ...items].slice(0, 100);
@@ -333,7 +360,7 @@ export async function saveArticleAnalysis(a: ArticleAnalysis) {
 }
 
 export async function saveResearchProject(p: ResearchProject) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...p }, ...items].slice(0, 100);
     window.localStorage.setItem("lupa-publica-research-projects", JSON.stringify(next));
@@ -341,9 +368,10 @@ export async function saveResearchProject(p: ResearchProject) {
   }
 
   try {
-    const { data, error } = await supabase.from("research_projects").insert(p).select().single();
-    if (error) throw error;
-    return data;
+    return await apiRequest<ResearchProject>("/resources/research_projects", {
+      method: "POST",
+      body: JSON.stringify(p),
+    });
   } catch {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...p }, ...items].slice(0, 100);
@@ -353,7 +381,7 @@ export async function saveResearchProject(p: ResearchProject) {
 }
 
 export async function savePlanetariumContent(c: PlanetariumContent) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-planetarium") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...c }, ...items].slice(0, 100);
     window.localStorage.setItem("lupa-publica-planetarium", JSON.stringify(next));
@@ -361,9 +389,10 @@ export async function savePlanetariumContent(c: PlanetariumContent) {
   }
 
   try {
-    const { data, error } = await supabase.from("planetarium_contents").insert(c).select().single();
-    if (error) throw error;
-    return data;
+    return await apiRequest<PlanetariumContent>("/resources/planetarium_contents", {
+      method: "POST",
+      body: JSON.stringify(c),
+    });
   } catch {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-planetarium") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...c }, ...items].slice(0, 100);
@@ -373,7 +402,7 @@ export async function savePlanetariumContent(c: PlanetariumContent) {
 }
 
 export async function saveChatMessage(m: ChatMessage) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-chat-messages") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...m }, ...items].slice(0, 500);
     window.localStorage.setItem("lupa-publica-chat-messages", JSON.stringify(next));
@@ -381,9 +410,10 @@ export async function saveChatMessage(m: ChatMessage) {
   }
 
   try {
-    const { data, error } = await supabase.from("chat_messages").insert(m).select().single();
-    if (error) throw error;
-    return data;
+    return await apiRequest<ChatMessage>("/resources/chat_messages", {
+      method: "POST",
+      body: JSON.stringify(m),
+    });
   } catch {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-chat-messages") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...m }, ...items].slice(0, 500);

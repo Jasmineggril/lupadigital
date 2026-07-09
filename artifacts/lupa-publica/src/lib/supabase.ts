@@ -32,17 +32,10 @@ export async function checkSupabaseConnection() {
     .limit(1);
 
   if (error) {
-    const fallback = await supabase
-      .from("edital_analises")
-      .select("id", { head: true, count: "exact" })
-      .limit(1);
-
-    if (fallback.error) {
-      return {
-        connected: false,
-        message: fallback.error.message,
-      };
-    }
+    return {
+      connected: false,
+      message: error.message,
+    };
   }
 
   return {

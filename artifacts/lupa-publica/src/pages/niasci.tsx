@@ -1,6 +1,16 @@
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { FileText, User, BookOpen, Layers, Globe, Sparkles } from "lucide-react";
 
 const modules = [
@@ -73,6 +83,44 @@ export default function NiasciHub() {
         </p>
       </div>
 
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center sm:items-center mb-12">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button className="w-full sm:w-auto">Explorar módulos</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Escolha um módulo NIASci</DialogTitle>
+              <DialogDescription>
+                Selecione uma área e veja o que ela oferece para apoiar sua pesquisa, currículo ou projeto.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3 pt-4">
+              {modules.map((module) => (
+                <DialogClose asChild key={module.title}>
+                  <Button asChild variant="outline" className="w-full justify-start">
+                    <Link href={module.href} className="flex w-full items-start justify-start">
+                      <span className="mr-2">{module.icon}</span>
+                      <div className="text-left">
+                        <div className="font-semibold">{module.title}</div>
+                        <div className="text-xs text-muted-foreground">{module.description}</div>
+                      </div>
+                    </Link>
+                  </Button>
+                </DialogClose>
+              ))}
+            </div>
+            <DialogFooter className="pt-4">
+              <DialogClose asChild>
+                <Button variant="secondary" className="w-full sm:w-auto">
+                  Fechar
+                </Button>
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-3 mb-12">
         {modules.map((module) => (
           <Card key={module.title} className="border-border shadow-sm hover:-translate-y-1 transition-transform duration-200">
@@ -84,11 +132,9 @@ export default function NiasciHub() {
                 <h2 className="text-lg font-semibold">{module.title}</h2>
                 <p className="text-sm text-muted-foreground mt-2">{module.description}</p>
               </div>
-              <Link href={module.href}>
-                <Button variant="outline" className="w-full">
-                  Abrir módulo
-                </Button>
-              </Link>
+              <Button asChild variant="outline" className="w-full">
+                <Link href={module.href}>Abrir módulo</Link>
+              </Button>
             </CardContent>
           </Card>
         ))}

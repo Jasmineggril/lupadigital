@@ -4,11 +4,11 @@ export default function FAQ() {
   const faqs = [
       {
       q: "O que é a LUPA Digital?",
-      a: "A LUPA Digital é a camada de experiência do NIASci para tornar editais e documentos públicos mais compreensíveis. Ela reúne leitura de PDF, extração de texto, análise guiada e organização de informações importantes em linguagem simples."
+      a: "A LUPA Digital é a camada de experiência do NIASci para tornar editais e documentos públicos mais compreensíveis. Ela reúne leitura de PDF, extração de texto, interpretação guiada e organização de informações importantes em linguagem simples."
     },
     {
-      q: "Como funciona a análise de um edital?",
-      a: "Você pode colar o texto, usar uma URL pública ou enviar um PDF. O sistema extrai o conteúdo legível, organiza os dados principais e gera uma análise com resumo, categoria, prazo, requisitos e indicadores."
+      q: "Como funciona a interpretação de um edital?",
+      a: "Você pode colar o texto, usar uma URL pública ou enviar um PDF. O sistema extrai o conteúdo legível, organiza os dados principais e gera uma interpretação com resumo, categoria, prazo, requisitos e indicadores."
     },
     {
       q: "O upload de PDF funciona mesmo para arquivos escaneados?",
@@ -16,22 +16,22 @@ export default function FAQ() {
     },
     {
       q: "O uso é gratuito?",
-      a: "Sim. A plataforma é voltada para apoiar cidadãos na leitura de editais públicos e o uso básico para análise e simplificação continua gratuito."
+      a: "Sim. A plataforma é voltada para apoiar cidadãos na leitura de editais públicos e o uso básico para interpretação e simplificação continua gratuito."
     },
     {
-      q: "Onde ficam salvas as análises?",
-      a: "As análises podem ser salvas no histórico da aplicação. Quando o Supabase estiver configurado, elas ficam persistidas no banco; caso contrário, a aplicação usa o armazenamento local do navegador como fallback."
+      q: "Onde ficam salvas as interpretações?",
+      a: "As interpretações podem ser salvas no histórico da aplicação. Quando o Supabase estiver configurado, elas ficam persistidas no banco; caso contrário, a aplicação usa o armazenamento local do navegador como fallback."
     },
     {
       q: "Posso exportar o resultado?",
-      a: "Sim. Após a análise, você pode exportar o resultado em PDF para guardar ou compartilhar com outras pessoas."
+      a: "Sim. Após a interpretação, você pode exportar o resultado em PDF para guardar ou compartilhar com outras pessoas."
     },
     {
       q: "A IA substitui a leitura do edital oficial?",
       a: "Não. A IA ajuda a organizar e resumir as informações, mas o edital oficial continua sendo a fonte principal para decisões e inscrições."
     },
     {
-      q: "Quais tipos de editais posso analisar?",
+      q: "Quais tipos de editais posso interpretar?",
       a: "A plataforma é útil para concursos, processos seletivos, licitações, programas de apoio, editais acadêmicos, bolsas e outras oportunidades públicas com linguagem complexa."
     }
   ];

@@ -152,7 +152,7 @@ export default function Compartilhado() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(34,67,142,0.08),transparent)]">
+    <div className="min-h-[100dvh]">
       <div className="container mx-auto px-4 py-10 max-w-2xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 gap-4">
@@ -164,14 +164,14 @@ export default function Compartilhado() {
           </Link>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 rounded-full px-3 py-1.5 border border-border/50">
             <Share2 className="w-3 h-3" />
-            Análise compartilhada
+            Interpretação compartilhada
           </div>
         </div>
 
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-            <p className="text-sm text-muted-foreground">Carregando análise...</p>
+            <p className="text-sm text-muted-foreground">Carregando interpretação...</p>
           </div>
         )}
 
@@ -182,14 +182,14 @@ export default function Compartilhado() {
             </div>
             <div>
               <h2 className="text-lg font-semibold mb-1">Link não encontrado</h2>
-              <p className="text-sm text-muted-foreground">Esta análise não existe ou foi removida.</p>
+              <p className="text-sm text-muted-foreground">Esta interpretação não existe ou foi removida.</p>
             </div>
-            <Link href="/testar">
-              <Button variant="outline" className="gap-2 rounded-xl">
-                <ExternalLink className="w-4 h-4" />
-                Fazer nova análise
-              </Button>
-            </Link>
+              <Link href="/testar">
+                <Button variant="outline" className="gap-2 rounded-xl">
+                  <ExternalLink className="w-4 h-4" />
+                  Fazer nova interpretação
+                </Button>
+              </Link>
           </div>
         )}
 
@@ -197,7 +197,7 @@ export default function Compartilhado() {
           <div className="space-y-6">
             <div>
               <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-slate-800 via-primary to-blue-600 bg-clip-text text-transparent leading-tight">
-                {data.title || "Análise de Edital"}
+                {data.title || "Interpretação de Edital"}
               </h1>
               <p className="text-xs text-muted-foreground mt-1">
                 Compartilhado em {new Date(data.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
@@ -218,7 +218,7 @@ export default function Compartilhado() {
               <Link href="/testar">
                 <Button size="sm" className="gap-2 rounded-xl">
                   <ExternalLink className="w-3.5 h-3.5" />
-                  Analisar outro edital
+                  Interpretar outro edital
                 </Button>
               </Link>
             </div>

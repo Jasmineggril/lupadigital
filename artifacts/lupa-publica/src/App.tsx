@@ -50,6 +50,7 @@ function Router() {
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/testar" component={TestarIA} />
+          <Route path="/historico" component={TestarIA} />
           <Route path="/niasci" component={NiasciHub} />
           <Route path="/niasci/elattes" component={ELattes} />
           <Route path="/niasci/artigos" component={Artigos} />

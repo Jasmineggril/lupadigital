@@ -12,6 +12,7 @@ import {
   Layers,
   Globe,
   Sparkles,
+  History,
 } from "lucide-react";
 
 export default function Home() {
@@ -27,18 +28,21 @@ export default function Home() {
               <p className="text-sm text-muted-foreground">Plataforma inteligente do NIASci para apoio à ciência</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/niasci">
-              <Button variant="ghost">Abrir Assistente <ArrowRight className="ml-2 w-4 h-4" /></Button>
-            </Link>
+          <div className="flex flex-wrap items-center gap-3">
             <Link href="/testar">
-              <Button>Iniciar análise</Button>
+              <Button>Nova análise</Button>
+            </Link>
+            <Link href="/historico">
+              <Button variant="outline">Abrir histórico</Button>
+            </Link>
+            <Link href="/dashboard">
+              <Button variant="ghost">Minha área <ArrowRight className="ml-2 w-4 h-4" /></Button>
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Dashboard quick stats */}
+      {/* Platform overview */}
       <section className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border-border">
@@ -59,7 +63,7 @@ export default function Home() {
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm text-muted-foreground uppercase">Análises IA</h3>
+                  <h3 className="text-sm text-muted-foreground uppercase">Interpretações IA</h3>
                   <p className="text-2xl font-bold">8.921</p>
                 </div>
                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10 text-primary">
@@ -94,7 +98,8 @@ export default function Home() {
 
         <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">
           {[
-            { title: "Editais", href: "/testar", desc: "Análise automática de editais e históricos", icon: <FileText className="w-6 h-6" /> },
+            { title: "Nova análise", href: "/testar", desc: "Comece uma interpretação automática de editais", icon: <FileText className="w-6 h-6" /> },
+            { title: "Histórico", href: "/historico", desc: "Acesse interpretações anteriores e salvas", icon: <History className="w-6 h-6" /> },
             { title: "e-Lattes", href: "/niasci/elattes", desc: "Resumo executivo e oportunidades", icon: <User className="w-6 h-6" /> },
             { title: "Artigos", href: "/niasci/artigos", desc: "Extração de resumo, citações e insights", icon: <BookOpen className="w-6 h-6" /> },
             { title: "Projetos", href: "/niasci/projetos", desc: "Gerenciamento de projetos e cronogramas", icon: <Layers className="w-6 h-6" /> },

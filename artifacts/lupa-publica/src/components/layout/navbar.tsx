@@ -7,9 +7,9 @@ import { useAuth } from "@/lib/auth";
 
 const links = [
   { href: "/", label: "Home" },
+  { href: "/testar", label: "Nova Análise" },
+  { href: "/historico", label: "Histórico" },
   { href: "/como-funciona", label: "Como Funciona" },
-  { href: "/testar", label: "Testar IA" },
-  { href: "/dashboard", label: "Dashboard" },
   { href: "/planos", label: "Planos" },
   { href: "/sobre", label: "Sobre" },
   { href: "/faq", label: "FAQ" },
@@ -133,6 +133,12 @@ export function Navbar() {
                     <p className="text-sm font-bold text-[#0F172A] truncate">{user.name}</p>
                     <p className="text-xs text-[#475569] truncate">{user.email}</p>
                   </div>
+                  <Link href="/dashboard" onClick={() => setShowUserMenu(false)}>
+                    <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#0F172A] hover:bg-[#F8FAFC] transition-colors">
+                      <UserCircle className="w-4 h-4 text-[#2563EB]" />
+                      Minha área
+                    </button>
+                  </Link>
                   <Link href="/planos" onClick={() => setShowUserMenu(false)}>
                     <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#0F172A] hover:bg-[#F8FAFC] transition-colors">
                       <Crown className="w-4 h-4 text-[#7C3AED]" />

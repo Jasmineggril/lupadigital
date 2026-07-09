@@ -8,13 +8,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 const ACTIONS = [
   {
     icon: Sparkles,
-    title: "Analisar",
-    text: "Escolha o agente, cole o texto do edital ou envie um PDF e clique em Analisar para gerar o resultado.",
+    title: "Interpretar",
+    text: "Escolha o agente, cole o texto do edital ou envie um PDF e clique em Interpretar para gerar o resultado.",
   },
   {
     icon: FileText,
     title: "Ler PDF",
-    text: "Envie um PDF com texto legível para extrair conteúdo e preparar a análise automaticamente.",
+    text: "Envie um PDF com texto legível para extrair conteúdo e preparar a interpretação automaticamente.",
   },
   {
     icon: Download,
@@ -24,12 +24,12 @@ const ACTIONS = [
   {
     icon: Heart,
     title: "Favoritar",
-    text: "Marca a análise para facilitar o acesso depois no histórico.",
+    text: "Marca a interpretação para facilitar o acesso depois no histórico.",
   },
   {
     icon: History,
     title: "Salvar / Histórico",
-    text: "Salva o resultado e permite recuperar análises anteriores.",
+    text: "Salva o resultado e permite recuperar interpretações anteriores.",
   },
   {
     icon: Share2,
@@ -121,9 +121,9 @@ export function Footer() {
               <div className="space-y-6">
                 <div className="grid gap-3 md:grid-cols-3">
                   {[
-                    "1. Escolha o agente de análise",
+                    "1. Escolha o agente de interpretação",
                     "2. Cole o texto ou envie um PDF",
-                    "3. Clique em Analisar para gerar o resultado",
+                    "3. Clique em Interpretar para gerar o resultado",
                   ].map((step) => (
                     <div key={step} className="rounded-2xl border bg-muted/30 p-4 text-sm font-medium text-foreground">
                       {step}

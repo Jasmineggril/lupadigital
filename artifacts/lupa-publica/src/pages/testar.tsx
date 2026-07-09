@@ -1,4 +1,5 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo, useEffect, type ReactNode } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -76,8 +77,135 @@ import {
   type AnaliseSalva,
 } from "@/services/analisesService";
 
+function getFriendlyErrorMessage(error: unknown) {
+  if (typeof error === "string") {
+    const normalized = error.toLowerCase();
+    if (normalized.includes("minimo") || normalized.includes("20 caracteres")) {
+      return "Insira um texto com pelo menos 20 caracteres para continuar.";
+    }
+    if (normalized.includes("url")) {
+      return "Não foi possível acessar a URL informada. Verifique se ela é pública e tente novamente.";
+    }
+    if (normalized.includes("pdf")) {
+      return "Não foi possível ler o PDF. Tente outro arquivo ou faça a cópia do texto manualmente.";
+    }
+    if (normalized.includes("network") || normalized.includes("fetch")) {
+      return "A conexão com o serviço de interpretação falhou. Tente novamente em instantes.";
+    }
+    return "Não foi possível concluir a interpretação neste momento. Tente novamente.";
+  }
+
+  if (error instanceof Error) {
+    const normalized = error.message.toLowerCase();
+    if (normalized.includes("minimo") || normalized.includes("20 caracteres")) {
+      return "Insira um texto com pelo menos 20 caracteres para continuar.";
+    }
+    if (normalized.includes("url")) {
+      return "Não foi possível acessar a URL informada. Verifique se ela é pública e tente novamente.";
+    }
+    if (normalized.includes("pdf")) {
+      return "Não foi possível ler o PDF. Tente outro arquivo ou faça a cópia do texto manualmente.";
+    }
+    if (normalized.includes("network") || normalized.includes("fetch")) {
+      return "A conexão com o serviço de interpretação falhou. Tente novamente em instantes.";
+    }
+    return error.message;
+  }
+
+  return "Não foi possível concluir a interpretação neste momento. Tente novamente.";
+}
+
+function resolveAutoAgent(text: string, profile: UserProfile): AgentId {
+  const normalized = `${text} ${profile.atuacao} ${profile.municipio}`.toLowerCase();
+
+  if (/elegibilidade|perfil|renda|escolaridade|candidatura|aderência/i.test(normalized)) {
+    return "elegibilidade";
+  }
+
+  if (/documento|comprovante|certidão|currículo|histórico|anexo/i.test(normalized)) {
+    return "documentacao";
+  }
+
+  if (/prazo|cronograma|inscrição|resultado|recurso|convocação/i.test(normalized)) {
+    return "acompanhamento";
+  }
+
+  if (/oportunidade|risco|vantagem|estratégia|recomendação/i.test(normalized)) {
+    return "estrategica";
+  }
+
+  if (/instituição|público|requisito|valor|benefício|licitação|concurso/i.test(normalized)) {
+    return "analista";
+  }
+
+  return "simples";
+}
+
+type AnalysisStage =
+  | "idle"
+  | "reading"
+  | "extracting"
+  | "requirements"
+  | "summary"
+  | "finalizing"
+  | "completed"
+  | "error";
+
+const ANALYSIS_STAGES: AnalysisStage[] = [
+  "reading",
+  "extracting",
+  "requirements",
+  "summary",
+  "finalizing",
+];
+
+function getAnalysisStageMeta(stage: AnalysisStage) {
+  switch (stage) {
+    case "reading":
+      return {
+        title: "Lendo o edital",
+        description: "Estamos interpretando o conteúdo principal e a estrutura do documento.",
+      };
+    case "extracting":
+      return {
+        title: "Extraindo detalhes",
+        description: "Os pontos mais relevantes do edital estão sendo identificados.",
+      };
+    case "requirements":
+      return {
+        title: "Validando requisitos",
+        description: "Estamos mapeando obrigações, prazos e critérios de elegibilidade.",
+      };
+    case "summary":
+      return {
+        title: "Montando síntese",
+        description: "A resposta final está sendo organizada para leitura rápida.",
+      };
+    case "finalizing":
+      return {
+        title: "Finalizando interpretação",
+        description: "Ajustando a apresentação e os próximos passos para você.",
+      };
+    case "completed":
+      return {
+        title: "Interpretação concluída",
+        description: "O resultado já está pronto para revisar e compartilhar.",
+      };
+    case "error":
+      return {
+        title: "Não foi possível concluir",
+        description: "Houve um problema ao processar o edital. Tente novamente.",
+      };
+    default:
+      return {
+        title: "Pronto para começar",
+        description: "Envie o edital para iniciar a interpretação.",
+      };
+  }
+}
+
 // ── Icon map ────────────────────────────────────────────────────
-const ICON_MAP: Record<string, React.ReactNode> = {
+const ICON_MAP: Record<string, ReactNode> = {
   Sparkles: <Sparkles className="w-5 h-5" />,
   BarChart2: <BarChart2 className="w-5 h-5" />,
   Target: <Target className="w-5 h-5" />,
@@ -201,7 +329,7 @@ function buildTimelineSteps(text: string) {
       /\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b|\b\d{1,2}\s+de\s+[a-záéíóúâêîôûãõ]+\s+de\s+\d{4}\b/gi,
     ) ?? [];
   const dates = Array.from(new Set(matches)).slice(0, 4);
-  return [
+    return [
     {
       title: "Publicação",
       date: dates[0] ?? "A confirmar",
@@ -215,7 +343,7 @@ function buildTimelineSteps(text: string) {
     {
       title: "Resultado",
       date: dates[2] ?? "A confirmar",
-      description: "Divulgação da análise das inscrições.",
+      description: "Divulgação da interpretação das inscrições.",
     },
     {
       title: "Convocação",
@@ -322,7 +450,7 @@ function buildEditalFAQ(result: AgentResult | null) {
     if (result.type === "documentacao")
       return result.checklist.map((item) => item.doc).join("; ");
     if (result.type === "analista") return result.documentos.join("; ");
-    return "Verifique os documentos listados no edital e no resumo de análise.";
+    return "Verifique os documentos listados no edital e no resumo de interpretação.";
   };
 
   const getPrazos = () => {
@@ -462,7 +590,7 @@ function answerContextualQuestion(question: string, result: AgentResult) {
     if (result.type === "analista") {
       return `Documentos destacados: ${result.documentos.join("; ")}`;
     }
-    return "Os documentos necessários aparecem no resumo de análise e no checklist extraído do edital.";
+    return "Os documentos necessários aparecem no resumo de interpretação e no checklist extraído do edital.";
   }
 
   if (match(["público", "participar", "quem", "perfil", "elegibilidade"])) {
@@ -472,14 +600,14 @@ function answerContextualQuestion(question: string, result: AgentResult) {
     if (result.type === "elegibilidade") {
       return result.recomendacao;
     }
-    return "Consulte a seção de público-alvo no resultado da análise ou use Lupa Elegibilidade para um diagnóstico mais preciso.";
+    return "Consulte a seção de público-alvo no resultado da interpretação ou use Lupa Elegibilidade para um diagnóstico mais preciso.";
   }
 
   if (match(["inscrever", "onde", "portal", "site", "link"])) {
     if (result.type === "simples") {
       return `Inscrição: ${result.ondeInscrever}`;
     }
-    return "Verifique o local de inscrição indicado no edital ou na seção de análise principal.";
+    return "Verifique o local de inscrição indicado no edital ou na seção de interpretação principal.";
   }
 
   if (match(["resumo", "simplifica", "linguagem simples"])) {
@@ -489,7 +617,7 @@ function answerContextualQuestion(question: string, result: AgentResult) {
     );
   }
 
-  return `Com base na análise atual: ${getSimplifiedText(result) || "não há informação suficiente para responder com precisão."}`;
+  return `Com base na interpretação atual: ${getSimplifiedText(result) || "não há informação suficiente para responder com precisão."}`;
 }
 
 function getContextualAnswer(question: string, text: string, result: AgentResult | null, timelineSteps: ReturnType<typeof buildTimelineSteps>, checklistItems: ReturnType<typeof buildChecklist>, pdfStructuredData: PdfStructuredData | null, profile: UserProfile) {
@@ -612,7 +740,7 @@ async function exportToPDF(result: AgentResult, title: string) {
     },
     estrategica: {
       accent: [16, 185, 129],
-      title: "Análise de oportunidade",
+      title: "Interpretação de oportunidade",
       subtitle: "Leitura estratégica para tomada de decisão",
       summary: result.type === "estrategica" ? result.oportunidade : "",
     },
@@ -792,7 +920,7 @@ async function exportToPDF(result: AgentResult, title: string) {
     pdf.text("PDF EXPORT", margin + 22, 100.2, { align: "center" });
 
     const coverSummary =
-      theme.summary || normalizedTitle || `Análise ${agentMeta.name}`;
+      theme.summary || normalizedTitle || `Interpretação ${agentMeta.name}`;
     const coverLines = pdf.splitTextToSize(coverSummary, contentWidth - 16);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10.5);
@@ -862,7 +990,7 @@ async function exportToPDF(result: AgentResult, title: string) {
   pdf.addPage();
   drawSectionHeader();
 
-  writeText(normalizedTitle || `Análise ${agentMeta.name}`, 14, { bold: true });
+  writeText(normalizedTitle || `Interpretação ${agentMeta.name}`, 14, { bold: true });
   writeText(agentMeta.description, 10.5, { color: [71, 85, 105] });
   cursorY += 1;
 
@@ -914,7 +1042,7 @@ async function exportToPDF(result: AgentResult, title: string) {
       theme.accent,
     );
   } else if (result.type === "estrategica") {
-    writeSectionTitle("Análise de oportunidade", theme.accent);
+    writeSectionTitle("Interpretação de oportunidade", theme.accent);
     writeCard("Score", `${result.score}/100`, theme.accent);
     writeText(result.oportunidade, 11);
     writeSectionTitle("Vantagens", theme.accent);
@@ -1071,7 +1199,7 @@ function AgentSelector({
           <Sparkles className="w-3 h-3 text-primary" />
         </div>
         <h3 className="text-sm font-semibold text-foreground">
-          Escolha o agente de análise
+          Escolha o agente de interpretação
         </h3>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1143,7 +1271,7 @@ function ProfileForm({
     <div className="space-y-3 p-4 rounded-xl bg-teal-50 border border-teal-200">
       <p className="text-xs font-semibold text-teal-700 flex items-center gap-1.5">
         <UserCheck className="w-3.5 h-3.5" />
-        Seu perfil (para análise de elegibilidade)
+        Seu perfil (para interpretação de elegibilidade)
       </p>
       <div className="grid grid-cols-1 gap-2">
         <div className="space-y-1">
@@ -1921,7 +2049,7 @@ function HistoryPanel({
           });
           toast({
             title: "Removido",
-            description: "Análise removida do histórico.",
+            description: "Interpretação removida do histórico.",
           });
         },
         onError: () =>
@@ -1941,12 +2069,12 @@ function HistoryPanel({
       setSupabaseItems((prev) => prev.filter((item) => item.id !== id));
       toast({
         title: "Removido",
-        description: "Análise removida do histórico.",
+        description: "Interpretação removida do histórico.",
       });
     } catch {
       toast({
         title: "Erro",
-        description: "Não foi possível remover a análise.",
+        description: "Não foi possível remover a interpretação.",
         variant: "destructive",
       });
     }
@@ -1982,7 +2110,7 @@ function HistoryPanel({
       setSupabaseItems([]);
       toast({
         title: "Histórico limpo",
-        description: "As análises salvas foram removidas.",
+        description: "As interpretações salvas foram removidas.",
       });
     } catch {
       toast({
@@ -2023,7 +2151,7 @@ function HistoryPanel({
             : "Simples (legado)";
       const titulo =
         item.kind === "supabase"
-          ? (item.data.titulo ?? "Análise salva")
+          ? (item.data.titulo ?? "Interpretação salva")
           : item.data.title;
       const texto =
         item.kind === "supabase"
@@ -2047,7 +2175,7 @@ function HistoryPanel({
     URL.revokeObjectURL(url);
     toast({
       title: "CSV exportado!",
-      description: `${unified.length} análise(s) baixadas.`,
+      description: `${unified.length} interpretação(ões) baixadas.`,
     });
   };
 
@@ -2069,11 +2197,11 @@ function HistoryPanel({
               <History className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Histórico de Análises</h2>
+              <h2 className="text-lg font-semibold">Histórico de Interpretações</h2>
               <p className="text-xs text-muted-foreground">
                 {isLoading
                   ? "Carregando..."
-                  : `${totalCount} análise(s) salva(s)`}
+                  : `${totalCount} interpretação(ões) salva(s)`}
               </p>
             </div>
           </div>
@@ -2153,11 +2281,11 @@ function HistoryPanel({
                 <History className="w-7 h-7 text-muted-foreground" />
               </div>
               <p className="text-base font-medium mb-1">
-                Nenhuma análise salva
+                Nenhuma interpretação salva
               </p>
               <p className="text-sm text-muted-foreground max-w-[240px]">
-                Após analisar um edital, clique em{" "}
-                <strong>"Salvar análise"</strong> para guardá-la aqui.
+                Após interpretar um edital, clique em{" "}
+                <strong>"Salvar interpretação"</strong> para guardá-la aqui.
               </p>
             </div>
           )}
@@ -2219,12 +2347,10 @@ function HistoryPanel({
                         </span>
                       </div>
                       <p className="text-sm font-medium truncate pr-2">
-                        {item.data.titulo ?? "Análise salva"}
+                        {item.data.titulo ?? "Interpretação salva"}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                        {item.data.conteudo_simplificado ??
-                          item.data.conteudo_original ??
-                          "Análise salva no histórico."}
+                        {(item.data.conteudo_simplificado ?? item.data.conteudo_original ?? "Interpretação salva no histórico.")}
                       </p>
                       <p className="text-xs text-muted-foreground/60 mt-1.5 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
@@ -2335,6 +2461,8 @@ export default function TestarIA() {
   const [isAnswering, setIsAnswering] = useState(false);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [isAnalyzePressed, setIsAnalyzePressed] = useState(false);
+  const [analysisStage, setAnalysisStage] = useState<AnalysisStage>("idle");
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [pdfStructuredData, setPdfStructuredData] =
     useState<PdfStructuredData | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -2347,6 +2475,7 @@ export default function TestarIA() {
   });
 
   const printRef = useRef<HTMLDivElement | null>(null);
+  const [location] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
   const extractUrlMutation = useExtractEditalFromUrl();
@@ -2384,12 +2513,46 @@ export default function TestarIA() {
     };
   }, []);
 
+  useEffect(() => {
+    if (location === "/historico") {
+      setShowHistory(true);
+    }
+  }, [location]);
+
+  useEffect(() => {
+    if (!analyzeEditalMutation.isPending) {
+      if (analysisStage === "reading" || analysisStage === "extracting" || analysisStage === "requirements" || analysisStage === "summary" || analysisStage === "finalizing") {
+        setAnalysisStage("idle");
+      }
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setAnalysisStage((current) => {
+        const currentIndex = ANALYSIS_STAGES.indexOf(current);
+        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % ANALYSIS_STAGES.length : 0;
+        return ANALYSIS_STAGES[nextIndex];
+      });
+    }, 900);
+
+    return () => window.clearInterval(timer);
+  }, [analyzeEditalMutation.isPending, analysisStage]);
+
+  useEffect(() => {
+    if (!text.trim() || agentResult) return;
+    setSelectedAgent(resolveAutoAgent(text, profile));
+  }, [text, profile, agentResult]);
+
   const currentAgentMeta = AGENTS.find((a) => a.id === selectedAgent)!;
+  const assistantIdentity = {
+    name: "Assistente LUPA Digital",
+    description: "Especialista em análise inteligente de documentos.",
+    color: currentAgentMeta.color,
+    textColor: currentAgentMeta.textColor,
+    iconName: currentAgentMeta.iconName,
+  };
   const isAnalyzing = analyzeEditalMutation.isPending;
-  const analyzeButtonLabel =
-    selectedAgent === "elegibilidade"
-      ? "Analisar com Lupa Elegibilidade"
-      : "Analisar Edital";
+  const analyzeButtonLabel = "Analisar Documento";
   const complexityProfile = useMemo(() => getComplexityProfile(text), [text]);
   const timelineSteps = useMemo(() => buildTimelineSteps(text), [text]);
   const checklistItems = useMemo(() => buildChecklist(text), [text]);
@@ -2403,7 +2566,9 @@ export default function TestarIA() {
   const buildAnalysisPayload = (
     result: AgentResult | null,
     favorito = false,
+    agentIdOverride: AgentId = selectedAgent,
   ): AnaliseSalva => {
+    const activeAgentMeta = AGENTS.find((a) => a.id === agentIdOverride) ?? currentAgentMeta;
     const simplifiedText = result
       ? (() => {
           if (result.type === "simples") {
@@ -2426,7 +2591,7 @@ export default function TestarIA() {
           }
           return JSON.stringify(result);
         })()
-      : "Análise concluída.";
+      : "Interpretação concluída.";
 
     const indicators = result
       ? {
@@ -2467,11 +2632,11 @@ export default function TestarIA() {
             ? { score: result.score, recomendacao: result.recomendacao }
             : {}),
         }
-      : { tipo: selectedAgent };
+      : { tipo: agentIdOverride };
 
     const timeline = result
       ? {
-          etapa: "Análise concluída",
+          etapa: "Interpretação concluída",
           ...(result.type === "simples"
             ? { prazo: result.prazo, objetivo: result.objetivo }
             : {}),
@@ -2502,14 +2667,14 @@ export default function TestarIA() {
     return {
       id: currentSavedId ?? undefined,
       titulo:
-        text.trim().slice(0, 80).replace(/\n/g, " ") ||
-        `Análise ${currentAgentMeta.name}`,
+      text.trim().slice(0, 80).replace(/\n/g, " ") ||
+      `Interpretação ${activeAgentMeta.name}`,
       conteudo_original: text,
       conteudo_simplificado: simplifiedText,
       categoria:
         (result as { categoria?: string } | null)?.categoria ??
-        currentAgentMeta.name,
-      modo_analise: currentAgentMeta.name,
+        activeAgentMeta.name,
+      modo_analise: activeAgentMeta.name,
       indicadores: indicators,
       timeline,
       recomendacoes,
@@ -2517,9 +2682,9 @@ export default function TestarIA() {
     };
   };
 
-  const persistCurrentAnalysis = async (result: AgentResult | null) => {
+  const persistCurrentAnalysis = async (result: AgentResult | null, agentIdOverride: AgentId = selectedAgent) => {
     try {
-      const payload = buildAnalysisPayload(result, isFavorite);
+      const payload = buildAnalysisPayload(result, isFavorite, agentIdOverride);
       let saved;
       if (currentSavedId) {
         payload.id = currentSavedId;
@@ -2535,8 +2700,8 @@ export default function TestarIA() {
         try {
           await saveAgentResultMutation.mutateAsync({
             data: {
-              agentId: selectedAgent,
-              title: payload.titulo ?? `Análise ${currentAgentMeta.name}`,
+              agentId: agentIdOverride,
+              title: payload.titulo ?? `Interpretação ${AGENTS.find((a) => a.id === agentIdOverride)?.name ?? currentAgentMeta.name}`,
               originalText: payload.conteudo_original ?? text,
               resultJson: (result
                 ? { ...result }
@@ -2559,6 +2724,7 @@ export default function TestarIA() {
   const handleAnalyze = () => {
     if (!text.trim() || text.length < 20) {
       setIsAnalyzePressed(false);
+      setAnalysisError(getFriendlyErrorMessage("mínimo 20 caracteres"));
       toast({
         title: "Atenção",
         description: "Insira um texto de edital válido (mínimo 20 caracteres).",
@@ -2566,45 +2732,55 @@ export default function TestarIA() {
       });
       return;
     }
+
+    const agentIdToUse = resolveAutoAgent(text, profile);
+    setSelectedAgent(agentIdToUse);
     setIsAnalyzePressed(true);
+    setAnalysisError(null);
+    setAnalysisStage("reading");
     setAgentResult(null);
     setSavedThisResult(false);
 
     analyzeEditalMutation.mutate(
       {
         data: {
-          agentId: selectedAgent,
+          agentId: agentIdToUse,
           text,
-          ...(selectedAgent === "elegibilidade" ? { profile } : {}),
+          ...(agentIdToUse === "elegibilidade" ? { profile } : {}),
         },
       },
       {
         onSuccess: async (data) => {
           const result = data as unknown as AgentResult;
           applyResult(result);
-          await persistCurrentAnalysis(result);
+          setAnalysisStage("completed");
+          await persistCurrentAnalysis(result, agentIdToUse);
           toast({
-            title: "Análise concluída",
+            title: "Interpretação concluída",
             description:
-              "A análise foi salva no histórico e está pronta para revisão.",
+              user
+                ? "A interpretação foi salva no histórico e está pronta para revisão."
+                : "A interpretação está pronta para revisão.",
           });
         },
-        onError: () => {
+        onError: (error) => {
           setIsAnalyzePressed(false);
-          // Fallback: run local keyword-based simulation
+          setAnalysisStage("error");
+          setAnalysisError(getFriendlyErrorMessage(error));
           try {
-            const result = runAgent(selectedAgent, text, profile);
+            const result = runAgent(agentIdToUse, text, profile);
             applyResult(result);
-            void persistCurrentAnalysis(result);
+            setAnalysisStage("completed");
+            void persistCurrentAnalysis(result, agentIdToUse);
             toast({
-              title: "Análise simulada",
+              title: "Interpretação simulada",
               description:
-                "IA temporariamente indisponível. Usando análise por palavras-chave.",
+                "IA temporariamente indisponível. Usando interpretação por palavras-chave.",
             });
           } catch {
             toast({
               title: "Erro",
-              description: "Não foi possível processar o texto.",
+              description: getFriendlyErrorMessage(error),
               variant: "destructive",
             });
           }
@@ -2616,8 +2792,8 @@ export default function TestarIA() {
   const handleToggleFavorite = async () => {
     if (!agentResult) {
       toast({
-        title: "Sem análise ativa",
-        description: "Execute uma análise antes de favoritar.",
+        title: "Sem interpretação ativa",
+        description: "Execute uma interpretação antes de favoritar.",
         variant: "destructive",
       });
       return;
@@ -2648,7 +2824,7 @@ export default function TestarIA() {
     } else {
       toast({
         title: nextFavorite ? "Favorito marcado" : "Favorito desmarcado",
-        description: "Salve a análise para persistir este favorito.",
+        description: "Salve a interpretação para persistir este favorito.",
       });
     }
   };
@@ -2677,14 +2853,16 @@ export default function TestarIA() {
       setPdfStructuredData(structured);
       setActiveTab("pdf");
       setAgentResult(null);
+      setAnalysisError(null);
       setShareToken(null);
       setShowShareLink(false);
       toast({
         title: "PDF processado com sucesso.",
-        description: "O texto legível foi extraído e está pronto para análise.",
+        description: "O texto legível foi extraído e está pronto para interpretação.",
       });
     } catch (err) {
       setPdfStructuredData(null);
+      setAnalysisError(getFriendlyErrorMessage(err));
       setPdfError(
         err instanceof Error
           ? err.message
@@ -2703,6 +2881,7 @@ export default function TestarIA() {
 
   const handleExtractUrl = () => {
     if (!urlInput.trim()) {
+      setAnalysisError(getFriendlyErrorMessage("url"));
       toast({
         title: "Atenção",
         description: "Insira uma URL válida.",
@@ -2710,6 +2889,7 @@ export default function TestarIA() {
       });
       return;
     }
+    setAnalysisError(null);
     extractUrlMutation.mutate(
       { data: { url: urlInput } },
       {
@@ -2717,17 +2897,20 @@ export default function TestarIA() {
           setText(data.text);
           setActiveTab("texto");
           setAgentResult(null);
+          setAnalysisError(null);
           toast({
             title: "Texto extraído",
-            description: "Revise o texto e clique em Analisar.",
+            description: "Revise o texto e clique em Interpretar.",
           });
         },
-        onError: () =>
+        onError: (error) => {
+          setAnalysisError(getFriendlyErrorMessage(error));
           toast({
             title: "Erro de extração",
-            description: "Não foi possível extrair o texto desta URL.",
+            description: getFriendlyErrorMessage(error),
             variant: "destructive",
-          }),
+          });
+        },
       },
     );
   };
@@ -2773,10 +2956,10 @@ export default function TestarIA() {
     setIsSharing(true);
     try {
       const title =
-        agentResult.type === "simples"
-          ? ((agentResult as { resumo?: string }).resumo?.slice(0, 60) ??
-            "Edital")
-          : "Análise de Edital";
+          agentResult.type === "simples"
+            ? ((agentResult as { resumo?: string }).resumo?.slice(0, 60) ??
+              "Edital")
+            : "Interpretação de Edital";
       const res = await fetch(`${BASE}/api/edital/share`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2828,7 +3011,7 @@ export default function TestarIA() {
     }
 
     const url = buildShareUrl(token);
-    const shareText = `Confira esta análise de edital gerada com a LUPA Digital: ${url}`;
+    const shareText = `Confira esta interpretação de edital gerada com a LUPA Digital: ${url}`;
 
     if (target === "copy") {
       navigator.clipboard
@@ -2845,7 +3028,7 @@ export default function TestarIA() {
     }
 
     const encodedText = encodeURIComponent(shareText);
-    const encodedTitle = encodeURIComponent("Análise de edital - LUPA Digital");
+    const encodedTitle = encodeURIComponent("Interpretação de edital - LUPA Digital");
 
     if (target === "whatsapp") {
       window.open(
@@ -2871,13 +3054,13 @@ export default function TestarIA() {
       setCurrentSavedId(saved?.id ?? null);
       setIsFavorite(Boolean(saved?.favorito));
       toast({
-        title: "Análise salva!",
-        description: "Disponível no Histórico de Análises.",
+        title: "Interpretação salva!",
+        description: "Disponível no Histórico de Interpretações.",
       });
     } catch {
       toast({
         title: "Erro",
-        description: "Não foi possível salvar a análise.",
+        description: "Não foi possível salvar a interpretação.",
         variant: "destructive",
       });
     }
@@ -2903,7 +3086,7 @@ export default function TestarIA() {
   };
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(34,67,142,0.08),transparent)]">
+    <div className="flex flex-col min-h-[100dvh]">
       {showHistory && (
         <HistoryPanel
           onSelect={handleHistorySelect}
@@ -2913,7 +3096,7 @@ export default function TestarIA() {
             setSavedThisResult(true);
             setShowHistory(false);
             toast({
-              title: "Análise carregada",
+              title: "Interpretação carregada",
               description: "O texto original foi restaurado no editor.",
             });
           }}
@@ -2922,40 +3105,67 @@ export default function TestarIA() {
       )}
 
       <main className="container mx-auto px-4 py-8 max-w-7xl flex-1">
-        {/* Header row */}
-        <div className="flex items-start justify-between mb-8 gap-4">
-          <div>
-            <h2 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-slate-800 via-primary to-blue-600 bg-clip-text text-transparent">
-              Teste a Inteligência Artificial
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-              Agentes especializados para simplificar, extrair indicadores,
-              acompanhar prazos e verificar elegibilidade de qualquer edital
-              público.
-            </p>
+        <div className="mb-8 rounded-3xl border border-border/70 bg-white/80 p-5 shadow-sm backdrop-blur">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-primary">
+                <Sparkles className="w-3.5 h-3.5" />
+                Interpretação de editais
+              </div>
+              <div>
+                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">
+                  Transforme editais em respostas claras
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                  Envie um edital, receba uma interpretação clara e organizada e siga para histórico, chat e exportação sem perder o sentido original do documento.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 rounded-xl shrink-0 border-primary/20 hover:bg-primary/5"
+              onClick={() => setShowHistory(true)}
+            >
+              <History className="w-4 h-4 text-primary" />
+              <span className="font-medium">Histórico</span>
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 rounded-xl shrink-0 border-primary/20 hover:bg-primary/5"
-            onClick={() => setShowHistory(true)}
-          >
-            <History className="w-4 h-4 text-primary" />
-            <span className="hidden sm:inline font-medium">Histórico</span>
-          </Button>
+        </div>
+
+        <div className="mb-6 rounded-3xl border border-border/70 bg-card/70 p-4 shadow-sm">
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              { step: "1", title: "Envie o edital", desc: "Texto, URL ou PDF." },
+              { step: "2", title: "Interprete", desc: "Resumo, cronograma e requisitos." },
+              { step: "3", title: "Salve e exporte", desc: "Histórico, chat e PDF." },
+            ].map((item) => (
+              <div key={item.step} className="rounded-2xl border border-border/60 bg-background/80 p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-primary">{item.step}</div>
+                <p className="mt-1 font-semibold text-foreground">{item.title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{item.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* ── Left Column ── */}
           <section className="flex flex-col gap-5">
-            {/* Agent selector */}
-            <AgentSelector
-              selected={selectedAgent}
-              onSelect={(id) => {
-                setSelectedAgent(id);
-                setAgentResult(null);
-              }}
-            />
+            <div className="rounded-3xl border border-border/70 bg-card/70 p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${assistantIdentity.color} ${assistantIdentity.textColor}`}>
+                  <span className="scale-110">{ICON_MAP[assistantIdentity.iconName]}</span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">{assistantIdentity.name}</p>
+                  <p className="text-sm text-muted-foreground">{assistantIdentity.description}</p>
+                  <p className="text-xs text-muted-foreground">
+                    O foco da interpretação é ajustado automaticamente ao conteúdo do edital.
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* Profile form for Elegibilidade */}
             {selectedAgent === "elegibilidade" && (
@@ -2975,12 +3185,13 @@ export default function TestarIA() {
               </TabsList>
               <TabsContent value="texto">
                 <Textarea
-                  placeholder="Cole aqui o texto do edital que deseja analisar..."
+                  placeholder="Cole aqui o texto do edital que deseja interpretar..."
                   className="min-h-[280px] resize-y text-sm p-4 rounded-2xl border-border/60 bg-card/80 shadow-sm focus-visible:ring-primary/30 focus-visible:border-primary/40"
                   value={text}
                   onChange={(e) => {
                     setText(e.target.value);
                     setAgentResult(null);
+                    setAnalysisError(null);
                     setShareToken(null);
                     setShowShareLink(false);
                     setShareOptionsOpen(false);
@@ -3181,11 +3392,10 @@ export default function TestarIA() {
               </TabsContent>
             </Tabs>
 
-            {/* Action buttons */}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button
                 size="lg"
-                className={`rounded-xl h-12 px-6 text-base shadow-sm flex-1 sm:flex-none font-semibold ${isAnalyzePressed || isAnalyzing ? "bg-emerald-600 text-black hover:bg-emerald-500" : "bg-white text-black border border-black/10 hover:border-emerald-400 hover:bg-emerald-50"}`}
+                className="rounded-xl h-12 px-6 text-base shadow-sm flex-1 sm:flex-none font-semibold"
                 onClick={handleAnalyze}
                 disabled={isAnalyzing || !text.trim()}
                 data-testid="button-analyze"
@@ -3193,26 +3403,36 @@ export default function TestarIA() {
                 {isAnalyzing ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                    Analisando...
+                    {analyzeButtonLabel === "Interpretar edital" ? "Interpretando..." : "Interpretando..."}
                   </>
                 ) : (
                   <>{analyzeButtonLabel}</>
                 )}
               </Button>
+              <p className="text-xs text-muted-foreground">
+                Foco automático: <strong>{currentAgentMeta.name}</strong>
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Agente selecionado: <strong>{currentAgentMeta.name}</strong>
-            </p>
-            <p
-              className={`text-xs mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 w-fit ${supabaseStatus.state === "connected" ? "bg-emerald-100 text-emerald-700" : supabaseStatus.state === "disconnected" ? "bg-rose-100 text-rose-700" : supabaseStatus.state === "not-configured" ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"}`}
-            >
-              <span className="font-semibold">Supabase:</span>
-              <span>{supabaseStatus.message}</span>
-            </p>
+            {!agentResult && !isAnalyzing && (
+              <div className="rounded-2xl border border-border/70 bg-slate-50 p-3 text-sm text-muted-foreground">
+                Você pode usar texto, URL pública ou PDF. A IA interpreta e organiza o conteúdo sem alterar o sentido original do documento, e salva a interpretação no histórico quando há sessão ativa.
+              </div>
+            )}
+            {analysisError && !isAnalyzing && (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Não foi possível concluir a interpretação</p>
+                    <p className="mt-1">{analysisError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {agentResult && !isAnalyzing && (
               <>
-                <div className="flex flex-wrap gap-3 mt-3 items-center">
+                <div className="flex flex-wrap gap-2 mt-2 items-center">
                   <Button
                     size="lg"
                     variant="outline"
@@ -3263,7 +3483,7 @@ export default function TestarIA() {
                     ) : (
                       <>
                         <History className="w-4 h-4" />
-                        Salvar análise
+                        Salvar interpretação
                       </>
                     )}
                   </Button>
@@ -3332,8 +3552,7 @@ export default function TestarIA() {
               <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl p-3 border border-border/50">
                 <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                 <span>
-                  Cole o texto do edital, escolha o agente e clique em{" "}
-                  <strong>Analisar</strong> para ver o resultado.
+                  Cole o edital e clique em <strong>Analisar Documento</strong> para ver a interpretação organizada.
                 </span>
               </div>
             )}
@@ -3341,103 +3560,71 @@ export default function TestarIA() {
 
           {/* ── Right Column: Results ── */}
           <section className="relative min-h-[500px]">
-            {!agentResult && !isAnalyzing && (
-              <div className="h-full flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-border rounded-3xl bg-muted/20">
+            {!agentResult && !isAnalyzing && !analysisError && (
+              <div className="h-full flex flex-col items-center justify-center text-center p-12 border border-dashed border-border rounded-3xl bg-muted/20">
                 <div
-                  className={`w-16 h-16 mb-5 rounded-2xl ${currentAgentMeta.color} ${currentAgentMeta.textColor} flex items-center justify-center`}
+                  className={`w-16 h-16 mb-5 rounded-2xl ${assistantIdentity.color} ${assistantIdentity.textColor} flex items-center justify-center`}
                 >
                   <span className="scale-150">
-                    {ICON_MAP[currentAgentMeta.iconName]}
+                    {ICON_MAP[assistantIdentity.iconName]}
                   </span>
                 </div>
-                <h3 className="text-lg font-semibold mb-2">
-                  {currentAgentMeta.name}
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-[280px]">
-                  {currentAgentMeta.description}
+                <h3 className="text-lg font-semibold mb-2">{assistantIdentity.name}</h3>
+                <p className="text-sm text-muted-foreground max-w-[320px]">
+                  O conteúdo do edital define o foco da interpretação e a resposta chega já organizada para revisão.
                 </p>
-                <Badge
-                  variant="outline"
-                  className={`mt-4 ${currentAgentMeta.textColor} border-current`}
-                >
-                  Aguardando análise
+                <Badge variant="outline" className={`mt-4 ${assistantIdentity.textColor} border-current`}>
+                  Pronto para interpretar
                 </Badge>
               </div>
             )}
 
             {isAnalyzing && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border">
+              <div className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm space-y-4">
+                <div className="flex items-center gap-3">
                   <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                  <p className="text-sm text-muted-foreground font-medium">
-                    {currentAgentMeta.name} está analisando o edital...
-                  </p>
+                  <div>
+                    <p className="text-sm font-semibold">{currentAgentMeta.name}</p>
+                    <p className="text-sm text-muted-foreground">{getAnalysisStageMeta(analysisStage).title}</p>
+                  </div>
                 </div>
-                <Skeleton className="h-28 w-full rounded-2xl" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Skeleton className="h-24 rounded-xl" />
-                  <Skeleton className="h-24 rounded-xl" />
+                <div className="space-y-2">
+                  {ANALYSIS_STAGES.map((stage) => {
+                    const active = analysisStage === stage;
+                    const passed = ANALYSIS_STAGES.indexOf(analysisStage) > ANALYSIS_STAGES.indexOf(stage);
+                    return (
+                      <div key={stage} className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm ${active ? "border-primary/30 bg-primary/5" : passed ? "border-emerald-200 bg-emerald-50/70" : "border-border bg-background"}`}>
+                        <span className="font-medium">{getAnalysisStageMeta(stage).title}</span>
+                        <span className={`text-xs ${active ? "text-primary" : passed ? "text-emerald-700" : "text-muted-foreground"}`}>
+                          {getAnalysisStageMeta(stage).description}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-                <Skeleton className="h-32 w-full rounded-xl" />
               </div>
             )}
 
-            <Tabs defaultValue="resumo" className="w-full">
-              <TabsList className="grid grid-cols-3 gap-2 mb-4">
-                <TabsTrigger value="resumo">Resumo cidadão</TabsTrigger>
-                <TabsTrigger value="cronograma">Cronograma</TabsTrigger>
-                <TabsTrigger value="checklist">Checklist</TabsTrigger>
-                <TabsTrigger value="elegibilidade">Elegibilidade</TabsTrigger>
-                <TabsTrigger value="chat">Chat</TabsTrigger>
-                <TabsTrigger value="historico">Histórico</TabsTrigger>
-                <TabsTrigger value="exportacao">Exportação</TabsTrigger>
-              </TabsList>
+            {agentResult && !isAnalyzing && (
+              <Tabs defaultValue="resumo" className="w-full">
+                <TabsList className="mb-4 grid grid-cols-2 gap-2 rounded-2xl bg-muted/40 p-1 sm:grid-cols-4 lg:grid-cols-7">
+                  <TabsTrigger value="resumo" className="rounded-xl">Interpretação</TabsTrigger>
+                  <TabsTrigger value="cronograma" className="rounded-xl">Cronograma</TabsTrigger>
+                  <TabsTrigger value="checklist" className="rounded-xl">Checklist</TabsTrigger>
+                  <TabsTrigger value="elegibilidade" className="rounded-xl">Elegibilidade</TabsTrigger>
+                  <TabsTrigger value="chat" className="rounded-xl">Chat</TabsTrigger>
+                  <TabsTrigger value="historico" className="rounded-xl">Histórico</TabsTrigger>
+                  <TabsTrigger value="exportacao" className="rounded-xl">Exportação</TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="resumo">
-                {isAnalyzing && (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border">
-                      <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                      <p className="text-sm text-muted-foreground font-medium">{currentAgentMeta.name} está analisando o edital...</p>
-                    </div>
-                    <Skeleton className="h-28 w-full rounded-2xl" />
-                  </div>
-                )}
-
-                {!agentResult && !isAnalyzing && (
-                  <div className="h-full flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-border rounded-3xl bg-muted/20">
-                    <div className={`w-16 h-16 mb-5 rounded-2xl ${currentAgentMeta.color} ${currentAgentMeta.textColor} flex items-center justify-center`}>
-                      <span className="scale-150">{ICON_MAP[currentAgentMeta.iconName]}</span>
-                    </div>
-                    <h3 className="text-lg font-semibold">{currentAgentMeta.name}</h3>
-                    <p className="text-sm text-muted-foreground max-w-[280px]">{currentAgentMeta.description}</p>
-                    <Badge variant="outline" className={`mt-4 ${currentAgentMeta.textColor} border-current`}>Aguardando análise</Badge>
-                  </div>
-                )}
-
-                {agentResult && !isAnalyzing && (
-                  <div>
+                <TabsContent value="resumo">
+                  <div className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
                     <AgentResultPanel result={agentResult} onCheckToggle={handleCheckToggle} printRef={printRef} />
-                    <div className="mt-6">
-                      <Card className="rounded-2xl border-border shadow-sm">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-semibold flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Resumo cidadão</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          <p className="text-sm leading-relaxed text-foreground/90">{getSimplifiedText(agentResult) || "A análise simplificada ainda não está disponível."}</p>
-                          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                            <Info className="w-3.5 h-3.5" /> Termos mais complexos aparecem destacados para facilitar a leitura.
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
                   </div>
-                )}
-              </TabsContent>
+                </TabsContent>
 
-              <TabsContent value="cronograma">
-                {agentResult && !isAnalyzing ? (
-                  <Card className="rounded-2xl border-border shadow-sm">
+                <TabsContent value="cronograma">
+                  <Card className="rounded-2xl border-border/70 shadow-sm">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2"><CalendarDays className="w-4 h-4 text-primary" /> Cronograma</CardTitle>
                     </CardHeader>
@@ -3457,14 +3644,10 @@ export default function TestarIA() {
                       ))}
                     </CardContent>
                   </Card>
-                ) : (
-                  <div className="text-sm text-muted-foreground">Cronograma disponível após a análise.</div>
-                )}
-              </TabsContent>
+                </TabsContent>
 
-              <TabsContent value="checklist">
-                {agentResult && !isAnalyzing ? (
-                  <Card className="rounded-2xl border-border shadow-sm">
+                <TabsContent value="checklist">
+                  <Card className="rounded-2xl border-border/70 shadow-sm">
                     <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Checklist</CardTitle></CardHeader>
                     <CardContent className="space-y-2">
                       {checklistItems.map((item) => (
@@ -3478,72 +3661,64 @@ export default function TestarIA() {
                       ))}
                     </CardContent>
                   </Card>
-                ) : (
-                  <div className="text-sm text-muted-foreground">Checklist disponível após a análise.</div>
-                )}
-              </TabsContent>
+                </TabsContent>
 
-              <TabsContent value="elegibilidade">
-                {agentResult && agentResult.type === "elegibilidade" && !isAnalyzing ? (
-                  <Card className="rounded-2xl border-border shadow-sm">
-                    <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Elegibilidade</CardTitle></CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {agentResult.criterios.map((c) => (
-                          <div key={c.criterio} className="rounded-xl border p-3">
-                            <p className="text-sm font-semibold">{c.criterio}</p>
-                            <p className="text-xs text-muted-foreground">{c.observacao}</p>
-                            <p className="text-sm mt-2">Status: {String(c.atende)}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="text-sm text-muted-foreground">Elegibilidade disponível quando o agente correspondente for executado.</div>
-                )}
-              </TabsContent>
+                <TabsContent value="elegibilidade">
+                  {agentResult.type === "elegibilidade" ? (
+                    <Card className="rounded-2xl border-border/70 shadow-sm">
+                      <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Elegibilidade</CardTitle></CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {agentResult.criterios.map((c) => (
+                            <div key={c.criterio} className="rounded-xl border p-3">
+                              <p className="text-sm font-semibold">{c.criterio}</p>
+                              <p className="text-xs text-muted-foreground">{c.observacao}</p>
+                              <p className="text-sm mt-2">Status: {String(c.atende)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">Elegibilidade disponível quando o foco da interpretação for correspondente.</div>
+                  )}
+                </TabsContent>
 
-              <TabsContent value="chat">
-                {agentResult && !isAnalyzing ? (
-                  <Card className="rounded-2xl border-border shadow-sm">
+                <TabsContent value="chat">
+                  <Card className="rounded-2xl border-border/70 shadow-sm">
                     <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Search className="w-4 h-4 text-primary" /> Chat contextual</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
-                      <p className="text-sm text-muted-foreground">Faça uma pergunta sobre este edital e obtenha uma resposta baseada na análise atual.</p>
+                      <p className="text-sm text-muted-foreground">Faça uma pergunta sobre este edital e obtenha uma resposta baseada na interpretação atual do documento.</p>
                       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                         <Input placeholder="Ex: Qual é o prazo final?" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={isAnswering} />
-                        <Button size="sm" className="rounded-xl" onClick={handleAskQuestion} disabled={!question.trim() || isAnswering}>{isAnswering ? "Respondendo..." : "Perguntar"}</Button>
+                        <Button size="sm" className="rounded-xl" onClick={handleAskQuestion} disabled={!question.trim() || isAnswering}>{isAnswering ? "Respondendo..." : "Perguntar sobre o edital"}</Button>
                       </div>
                       {answerHistory.length > 0 && <div className="space-y-3">{answerHistory.map((item, index) => (<div key={`${index}-${item.question}`} className="rounded-2xl border border-border bg-background p-3"><p className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground">Pergunta</p><p className="text-sm font-medium mt-1">{item.question}</p><p className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground mt-3">Resposta</p><p className="text-sm mt-1">{item.answer}</p></div>))}</div>}
                       {faqItems.length > 0 && <div className="grid gap-3 md:grid-cols-2">{faqItems.map((faq) => (<div key={faq.question} className="rounded-2xl border border-border bg-muted/30 p-4"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{faq.question}</p><p className="text-sm mt-2 text-foreground">{faq.answer}</p></div>))}</div>}
                     </CardContent>
                   </Card>
-                ) : (
-                  <div className="text-sm text-muted-foreground">Chat disponível após a análise.</div>
-                )}
-              </TabsContent>
+                </TabsContent>
 
-              <TabsContent value="historico">
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold">Histórico</h3>
-                    <div className="flex gap-2">
+                <TabsContent value="historico">
+                  <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold">Histórico</h3>
                       <Button size="sm" variant="outline" onClick={() => setShowHistory(true)} className="rounded-lg">Abrir histórico</Button>
                     </div>
+                    <p className="text-sm text-muted-foreground">Acesse interpretações anteriores sem sair do fluxo principal.</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">Clique em "Abrir histórico" para ver análises salvas.</p>
-                </div>
-              </TabsContent>
+                </TabsContent>
 
-              <TabsContent value="exportacao">
-                <div className="space-y-3">
-                  <Button onClick={handleExportPDF} disabled={isExporting || !agentResult} className="rounded-xl">
-                    {isExporting ? "Gerando PDF..." : "Exportação para PDF"}
-                  </Button>
-                  <p className="text-sm text-muted-foreground">Exporte a análise atual em PDF.</p>
-                </div>
-              </TabsContent>
-            </Tabs>
+                <TabsContent value="exportacao">
+                  <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm space-y-3">
+                    <Button onClick={handleExportPDF} disabled={isExporting || !agentResult} className="rounded-xl">
+                      {isExporting ? "Gerando PDF..." : "Exportar para PDF"}
+                    </Button>
+                    <p className="text-sm text-muted-foreground">Exporte a interpretação atual em PDF para compartilhar ou arquivar.</p>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
           </section>
         </div>
       </main>

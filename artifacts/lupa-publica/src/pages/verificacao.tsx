@@ -88,10 +88,10 @@ export default function Verificacao() {
           </div>
           <h2 className="text-xl font-bold text-[#0F172A] mb-2">Comprovante enviado!</h2>
           <p className="text-sm text-[#475569] mb-2">
-            Recebemos seu documento. Nossa equipe vai analisar e você receberá uma confirmação em breve.
+            Recebemos seu documento. Nossa equipe vai interpretar e você receberá uma confirmação em breve.
           </p>
           <div className="bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded-xl px-4 py-3 text-sm text-[#92400e] mb-6 text-left">
-            <p className="font-semibold mb-0.5">Prazo de análise</p>
+            <p className="font-semibold mb-0.5">Prazo de interpretação</p>
             <p>A verificação será analisada em até 3 dias úteis para concessão de desconto ou acesso ao plano especial.</p>
           </div>
           <Link href="/testar">

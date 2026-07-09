@@ -38,12 +38,12 @@ const plans: Plan[] = [
     cta: "Começar grátis",
     ctaHref: "/cadastro",
     features: [
-      { text: "Análise limitada de editais (3/mês)", available: true },
+      { text: "Interpretação limitada de editais (3/mês)", available: true },
       { text: "Resumo simplificado", available: true },
       { text: "Classificação básica do edital", available: true },
       { text: "Score de oportunidade", available: false },
       { text: "Exportar relatório PDF", available: false },
-      { text: "Histórico de análises", available: false },
+      { text: "Histórico de interpretações", available: false },
     ],
   },
   {
@@ -60,7 +60,7 @@ const plans: Plan[] = [
     cta: "Quero ser Estudante",
     ctaHref: "/verificacao",
     features: [
-      { text: "30 análises mensais", available: true },
+      { text: "30 interpretações mensais", available: true },
       { text: "Checklist de documentos", available: true },
       { text: "Linguagem simples avançada", available: true },
       { text: "Desconto com comprovante", available: true },
@@ -83,7 +83,7 @@ const plans: Plan[] = [
     ctaHref: "/verificacao",
     highlight: true,
     features: [
-      { text: "Análises ilimitadas", available: true },
+      { text: "Interpretações ilimitadas", available: true },
       { text: "Comparação de editais", available: true },
       { text: "Acompanhamento de prazos", available: true },
       { text: "Alertas de recurso", available: true },
@@ -103,7 +103,7 @@ const plans: Plan[] = [
     cta: "Quero o Premium",
     ctaHref: "/cadastro",
     features: [
-      { text: "Análises ilimitadas", available: true },
+      { text: "Interpretações ilimitadas", available: true },
       { text: "Todos os agentes especializados", available: true },
       { text: "Exportar relatório PDF completo", available: true },
       { text: "Histórico completo de editais", available: true },

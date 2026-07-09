@@ -121,8 +121,8 @@ export default function Dashboard() {
               <BarChart2 className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Dashboard de Indicadores</h1>
-              <p className="text-sm text-muted-foreground">Acompanhe suas análises de editais</p>
+              <h1 className="text-2xl font-bold text-foreground">Área Pessoal</h1>
+              <p className="text-sm text-muted-foreground">Acompanhe sua produtividade e o histórico de interpretações</p>
             </div>
           </div>
         </div>
@@ -136,7 +136,7 @@ export default function Dashboard() {
                   <FileText className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground font-medium">Total de Análises</p>
+                  <p className="text-xs text-muted-foreground font-medium">Total de Interpretações</p>
                   {isLoading ? (
                     <Skeleton className="h-7 w-16 mt-0.5" />
                   ) : (
@@ -172,7 +172,7 @@ export default function Dashboard() {
                   <TrendingUp className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground font-medium">Análises (7 dias)</p>
+                  <p className="text-xs text-muted-foreground font-medium">Interpretações (7 dias)</p>
                   {isLoading ? (
                     <Skeleton className="h-7 w-16 mt-0.5" />
                   ) : (
@@ -206,7 +206,7 @@ export default function Dashboard() {
                     <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                     <Tooltip
                       contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #E2E8F0" }}
-                      formatter={(v) => [v, "Análises"]}
+                      formatter={(v) => [v, "Interpretações"]}
                     />
                     <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -228,8 +228,8 @@ export default function Dashboard() {
                 <Skeleton className="h-48 w-full" />
               ) : stats.byAgent.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-center">
-                  <p className="text-sm text-muted-foreground">Nenhuma análise ainda.</p>
-                  <p className="text-xs text-muted-foreground mt-1">Vá para Testar IA e faça sua primeira análise!</p>
+                  <p className="text-sm text-muted-foreground">Nenhuma interpretação ainda.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Vá para Testar IA e faça sua primeira interpretação!</p>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={200}>
@@ -275,7 +275,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <BarChart2 className="w-4 h-4 text-primary" />
-                Análises por Agente
+                Interpretações por Agente
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -286,7 +286,7 @@ export default function Dashboard() {
                   <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={80} />
                   <Tooltip
                     contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #E2E8F0" }}
-                    formatter={(v) => [v, "Análises"]}
+                    formatter={(v) => [v, "Interpretações"]}
                   />
                   <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                     {stats.byAgent.map((entry, index) => (
@@ -307,7 +307,7 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <History className="w-4 h-4 text-primary" />
-              Análises Recentes
+              Interpretações Recentes
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -320,7 +320,7 @@ export default function Dashboard() {
             ) : stats.recent.length === 0 ? (
               <div className="text-center py-10">
                 <History className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Nenhuma análise salva ainda.</p>
+                <p className="text-sm text-muted-foreground">Nenhuma interpretação salva ainda.</p>
               </div>
             ) : (
               <div className="space-y-2">

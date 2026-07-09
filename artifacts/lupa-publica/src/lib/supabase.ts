@@ -1,10 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase-types";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL || "";
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_PUBLISHABLE_KEY || "";
 
 export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey, {
+  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
   : null;
@@ -26,15 +27,22 @@ export async function checkSupabaseConnection() {
   }
 
   const { error } = await supabase
-    .from("edital_analises")
+    .from("edital_analyses")
     .select("id", { head: true, count: "exact" })
     .limit(1);
 
   if (error) {
-    return {
-      connected: false,
-      message: error.message,
-    };
+    const fallback = await supabase
+      .from("edital_analises")
+      .select("id", { head: true, count: "exact" })
+      .limit(1);
+
+    if (fallback.error) {
+      return {
+        connected: false,
+        message: fallback.error.message,
+      };
+    }
   }
 
   return {

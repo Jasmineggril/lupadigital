@@ -124,9 +124,9 @@ export default function ELattes() {
           const aiPayload = { model: "local-elattes", input: text.slice(0, 2000), output: { summary: s, timeline: t, competencies: comps, publications: pubs, areas: ars, suggestions: sugg }, metadata: { source: "elattes" } };
           await saveAiAnalysis(aiPayload as any);
 
-          toast({ title: "Análise salva", description: "Seu currículo e análise foram salvos no histórico." });
+              toast({ title: "Interpretação salva", description: "Seu currículo e interpretação foram salvos no histórico." });
         } catch (err) {
-          toast({ title: "Erro ao salvar", description: "Não foi possível salvar automaticamente a análise.", variant: "destructive" });
+          toast({ title: "Erro ao salvar", description: "Não foi possível salvar automaticamente a interpretação.", variant: "destructive" });
         }
       })();
     } finally {
@@ -138,7 +138,7 @@ export default function ELattes() {
     <div className="container mx-auto px-4 py-16">
       <div className="max-w-3xl mx-auto text-center mb-8">
         <p className="text-sm uppercase tracking-[0.35em] text-primary font-semibold">NIASci / e-Lattes</p>
-        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mt-4">Análise inteligente de currículo Lattes</h1>
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mt-4">Interpretação inteligente de currículo Lattes</h1>
         <p className="text-muted-foreground mt-3 text-base md:text-lg leading-7">
           Envie seu currículo Lattes (PDF) ou cole o texto para gerar um resumo executivo, linha do tempo, competências, produção científica, áreas de pesquisa e sugestões de editais.
         </p>
@@ -181,7 +181,7 @@ export default function ELattes() {
             />
             <div className="flex items-center gap-3 mt-3">
               <Button onClick={handleAnalyze} disabled={isProcessing || !text.trim()}>
-                {isProcessing ? "Processando..." : "Gerar análise"}
+                {isProcessing ? "Interpretando..." : "Gerar interpretação"}
               </Button>
               <Button variant="ghost" asChild>
                 <Link href="/niasci">Voltar ao NIASci</Link>
@@ -197,7 +197,7 @@ export default function ELattes() {
             <CardTitle className="text-sm font-semibold flex items-center gap-2"><User className="w-4 h-4"/> Resumo executivo</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">{summary || "Nenhuma análise gerada ainda."}</p>
+            <p className="text-sm text-muted-foreground">{summary || "Nenhuma interpretação gerada ainda."}</p>
           </CardContent>
         </Card>
 

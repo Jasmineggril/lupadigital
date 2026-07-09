@@ -7,7 +7,7 @@ const modules = [
   {
     title: "Editais",
     href: "/testar",
-    description: "Análise de editais com IA, resumo simplificado, checklist, cronograma e histórico.",
+    description: "Interpretação de editais com IA, resumo simplificado, checklist, cronograma e histórico.",
     icon: <FileText className="w-6 h-6" />,
   },
   {
@@ -44,7 +44,7 @@ const modules = [
 
 const moduleHighlights = [
   {
-    title: "Análise rápida e acessível",
+    title: "Interpretação rápida e acessível",
     description:
       "Use o módulo de Editais para transformar documentos longos em resumos claros e checklists práticos.",
   },
@@ -69,7 +69,7 @@ export default function NiasciHub() {
           Plataforma de módulos científicos para pesquisa e divulgação
         </h1>
         <p className="text-muted-foreground mt-4 text-base md:text-lg leading-8">
-          O NIASci reúne ferramentas especializadas para apoiar pesquisadores, estudantes e equipes na análise de editais, currículos Lattes, artigos, projetos e materiais educativos.
+          O NIASci reúne ferramentas especializadas para apoiar pesquisadores, estudantes e equipes na interpretação de editais, currículos Lattes, artigos, projetos e materiais educativos.
         </p>
       </div>
 

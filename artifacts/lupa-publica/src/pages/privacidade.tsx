@@ -32,7 +32,7 @@ export default function Privacidade() {
           
           <h3>Natureza da Ferramenta</h3>
           <p>
-            A LUPA Digital é uma ferramenta de apoio gerada por Inteligência Artificial. Os resumos, análises e simplificações produzidos visam facilitar a compreensão da linguagem técnica, mas <strong>não possuem validade legal</strong> e não substituem a leitura do edital original oficial.
+            A LUPA Digital é uma ferramenta de apoio gerada por Inteligência Artificial. Os resumos, interpretações e simplificações produzidos visam facilitar a compreensão da linguagem técnica, mas <strong>não possuem validade legal</strong> e não substituem a leitura do edital original oficial.
           </p>
 
           <h3>Limitações de Responsabilidade</h3>

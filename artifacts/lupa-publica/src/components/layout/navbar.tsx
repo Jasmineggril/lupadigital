@@ -62,7 +62,7 @@ export function Navbar() {
                 NIASci
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="min-w-[14rem] rounded-2xl border border-[#E2E8F0] bg-white p-1 shadow-lg">
+            <DropdownMenuContent side="bottom" align="start" className="min-w-[14rem] rounded-2xl border border-[#E2E8F0] bg-white p-1 shadow-lg">
               {[
                 { href: "/testar", label: "Editais" },
                 { href: "/niasci/elattes", label: "e-Lattes" },

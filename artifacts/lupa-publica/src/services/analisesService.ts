@@ -203,8 +203,8 @@ export async function limparAnalises() {
     const items = await apiRequest<AnaliseSalva[]>("/resources/edital_analyses");
     await Promise.all(
       items
-        .filter((item) => item.id)
-        .map((item) => apiRequest<void>(`/resources/edital_analyses/${item.id}`, { method: "DELETE" })),
+        .filter((item: AnaliseSalva) => Boolean(item.id))
+        .map((item: AnaliseSalva) => apiRequest<void>(`/resources/edital_analyses/${item.id}`, { method: "DELETE" })),
     );
     return true;
   } catch {

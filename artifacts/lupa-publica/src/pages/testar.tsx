@@ -3403,14 +3403,14 @@ export default function TestarIA() {
                 {isAnalyzing ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                    {analyzeButtonLabel === "Interpretar edital" ? "Interpretando..." : "Interpretando..."}
+                    {"Interpretando..."}
                   </>
                 ) : (
                   <>{analyzeButtonLabel}</>
                 )}
               </Button>
               <p className="text-xs text-muted-foreground">
-                Foco automático: <strong>{currentAgentMeta.name}</strong>
+                Foco automático: <strong>{currentAgentMeta?.name ?? "Assistente"}</strong>
               </p>
             </div>
             {!agentResult && !isAnalyzing && (

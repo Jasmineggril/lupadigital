@@ -1,8 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { Menu, X, LogIn, UserCircle, LogOut, Crown } from "lucide-react";
-import { useState } from "react";
+import { Menu, X, LogIn, UserCircle, LogOut, Crown, ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 
 const links = [
@@ -11,8 +10,13 @@ const links = [
   { href: "/historico", label: "Histórico" },
   { href: "/como-funciona", label: "Como Funciona" },
   { href: "/planos", label: "Planos" },
-  { href: "/sobre", label: "Sobre" },
   { href: "/faq", label: "FAQ" },
+];
+
+const sobreLinks = [
+  { href: "/sobre", label: "Sobre" },
+  { href: "/tecnologias", label: "Tecnologias" },
+  { href: "/privacidade", label: "Privacidade" },
 ];
 
 const niasciLinks = [
@@ -34,8 +38,22 @@ const PROFILE_LABELS: Record<string, string> = {
 export function Navbar() {
   const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [isSobreOpen, setIsSobreOpen] = useState(false);
+  const [isSobreMobileOpen, setIsSobreMobileOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const sobreRef = useRef<HTMLDivElement | null>(null);
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    function onClickOutside(event: MouseEvent) {
+      if (sobreRef.current && !sobreRef.current.contains(event.target as Node)) {
+        setIsSobreOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#E2E8F0] bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
@@ -49,39 +67,45 @@ export function Navbar() {
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-3 xl:gap-4 text-sm font-medium">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={`transition-colors hover:text-[#2563EB] ${
-                  location.startsWith("/niasci") ? "text-[#2563EB] font-semibold" : "text-[#475569]"
-                }`}
-                data-testid="nav-link-niasci"
-              >
-                NIASci
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" align="start" className="min-w-[14rem] rounded-2xl border border-[#E2E8F0] bg-white p-1 shadow-lg">
-              {[
-                { href: "/testar", label: "Editais" },
-                { href: "/niasci/elattes", label: "e-Lattes" },
-                { href: "/niasci/artigos", label: "Artigos Científicos" },
-                { href: "/niasci/projetos", label: "Projetos" },
-                { href: "/niasci/planetario", label: "Planetário" },
-              ].map((item) => (
-                <DropdownMenuItem key={item.href} asChild>
-                  <button
-                    type="button"
-                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#0F172A] hover:bg-[#F8FAFC]"
-                    onClick={() => setLocation(item.href)}
+        <nav className="hidden md:flex items-center gap-3 xl:gap-4 text-sm font-medium overflow-visible">
+          <div
+            ref={sobreRef}
+            className="relative overflow-visible"
+            onMouseEnter={() => setIsSobreOpen(true)}
+            onMouseLeave={() => setIsSobreOpen(false)}
+          >
+            <button
+              type="button"
+              className={`inline-flex items-center gap-1 transition-colors hover:text-[#2563EB] ${
+                ["/sobre", "/tecnologias", "/privacidade"].includes(location)
+                  ? "text-[#2563EB] font-semibold"
+                  : "text-[#475569]"
+              }`}
+              aria-expanded={isSobreOpen}
+              onClick={() => setIsSobreOpen((prev) => !prev)}
+              data-testid="nav-link-sobre"
+            >
+              Sobre
+              <ChevronDown className="h-4 w-4" />
+            </button>
+
+            {isSobreOpen && (
+              <div className="absolute left-1/2 top-full z-50 mt-2 w-auto min-w-[12rem] -translate-x-1/2 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-lg">
+                {sobreLinks.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
+                      location === item.href ? "text-[#2563EB] font-semibold" : "text-[#0F172A]"
+                    } hover:bg-[#F8FAFC]`}
+                    onClick={() => setIsSobreOpen(false)}
                   >
                     {item.label}
-                  </button>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
 
           {links.map((link) => (
             <Link
@@ -209,6 +233,36 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
+            <div className="border-t border-[#E2E8F0] pt-3">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-medium text-[#475569] transition-colors hover:text-[#2563EB]"
+                onClick={() => setIsSobreMobileOpen((prev) => !prev)}
+                aria-expanded={isSobreMobileOpen}
+              >
+                Sobre
+                <ChevronDown className={`h-4 w-4 transition-transform ${isSobreMobileOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isSobreMobileOpen && (
+                <div className="mt-2 space-y-1 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-sm">
+                  {sobreLinks.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
+                        location === item.href ? "text-[#2563EB] font-semibold" : "text-[#475569]"
+                      } hover:bg-[#F8FAFC]`}
+                      onClick={() => {
+                        setIsOpen(false);
+                        setIsSobreMobileOpen(false);
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="border-t border-[#E2E8F0] pt-3">
               <p className="text-xs uppercase tracking-[0.25em] text-[#94a3b8] mb-2">NIASci</p>
               {niasciLinks.map((item) => (

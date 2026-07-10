@@ -1,8 +1,8 @@
-import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Menu, X, LogIn, UserCircle, LogOut, Crown, ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { ChevronDown, Crown, LogIn, LogOut, Menu, UserCircle, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "wouter";
 
 const links = [
   { href: "/", label: "Home" },
@@ -13,14 +13,7 @@ const links = [
   { href: "/faq", label: "FAQ" },
 ];
 
-const sobreLinks = [
-  { href: "/sobre", label: "Sobre" },
-  { href: "/tecnologias", label: "Tecnologias" },
-  { href: "/privacidade", label: "Privacidade" },
-];
-
-const niasciLinks = [
-  { href: "/niasci", label: "NIASci" },
+const acessoRapidoLinks = [
   { href: "/testar", label: "Editais" },
   { href: "/niasci/elattes", label: "e-Lattes" },
   { href: "/niasci/artigos", label: "Artigos Científicos" },
@@ -38,21 +31,31 @@ const PROFILE_LABELS: Record<string, string> = {
 export function Navbar() {
   const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const [isSobreOpen, setIsSobreOpen] = useState(false);
-  const [isSobreMobileOpen, setIsSobreMobileOpen] = useState(false);
+  const [isAcessoOpen, setIsAcessoOpen] = useState(false);
+  const [isAcessoMobileOpen, setIsAcessoMobileOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const sobreRef = useRef<HTMLDivElement | null>(null);
+  const acessoDesktopRef = useRef<HTMLDivElement | null>(null);
+  const acessoMobileRef = useRef<HTMLDivElement | null>(null);
   const { user, logout } = useAuth();
 
   useEffect(() => {
     function onClickOutside(event: MouseEvent) {
-      if (sobreRef.current && !sobreRef.current.contains(event.target as Node)) {
-        setIsSobreOpen(false);
+      const target = event.target as Node;
+      const clickedDesktop = acessoDesktopRef.current?.contains(target);
+      const clickedMobile = acessoMobileRef.current?.contains(target);
+
+      if (!clickedDesktop && !clickedMobile) {
+        setIsAcessoOpen(false);
+        setIsAcessoMobileOpen(false);
       }
     }
 
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    document.addEventListener("touchstart", onClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("touchstart", onClickOutside);
+    };
   }, []);
 
   return (
@@ -68,41 +71,48 @@ export function Navbar() {
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-3 xl:gap-4 text-sm font-medium overflow-visible">
-          <div
-            ref={sobreRef}
-            className="relative overflow-visible"
-            onMouseEnter={() => setIsSobreOpen(true)}
-            onMouseLeave={() => setIsSobreOpen(false)}
+          <Link
+            href="/sobre"
+            className={`transition-colors hover:text-[#2563EB] ${
+              location === "/sobre" ? "text-[#2563EB] font-semibold" : "text-[#475569]"
+            }`}
+            data-testid="nav-link-sobre"
           >
+            Sobre
+          </Link>
+
+          <div ref={acessoDesktopRef} className="relative inline-flex overflow-visible">
             <button
               type="button"
               className={`inline-flex items-center gap-1 transition-colors hover:text-[#2563EB] ${
-                ["/sobre", "/tecnologias", "/privacidade"].includes(location)
+                acessoRapidoLinks.some((item) => location === item.href || location.startsWith(item.href))
                   ? "text-[#2563EB] font-semibold"
                   : "text-[#475569]"
               }`}
-              aria-expanded={isSobreOpen}
-              onClick={() => setIsSobreOpen((prev) => !prev)}
-              data-testid="nav-link-sobre"
+              aria-expanded={isAcessoOpen}
+              onClick={() => setIsAcessoOpen((prev) => !prev)}
+              data-testid="nav-link-acesso-rapido"
             >
-              Sobre
+              Acesso Rápido
               <ChevronDown className="h-4 w-4" />
             </button>
 
-            {isSobreOpen && (
-              <div className="absolute left-1/2 top-full z-50 mt-2 w-auto min-w-[12rem] -translate-x-1/2 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-lg">
-                {sobreLinks.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
-                      location === item.href ? "text-[#2563EB] font-semibold" : "text-[#0F172A]"
-                    } hover:bg-[#F8FAFC]`}
-                    onClick={() => setIsSobreOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+            {isAcessoOpen && (
+              <div className="absolute left-1/2 top-full z-50 -translate-x-1/2 w-fit min-w-[12rem] rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-lg shadow-slate-900/5">
+                <div className="space-y-1">
+                  {acessoRapidoLinks.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
+                        location === item.href ? "text-[#2563EB] font-semibold" : "text-[#0F172A]"
+                      } hover:bg-[#EFF6FF]`}
+                      onClick={() => setIsAcessoOpen(false)}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -121,22 +131,6 @@ export function Navbar() {
               {link.label}
             </Link>
           ))}
-
-          <div className="hidden xl:flex flex-col gap-1 border-l border-[#E2E8F0] pl-3">
-            {niasciLinks.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`transition-colors text-xs xl:text-sm hover:text-[#2563EB] whitespace-nowrap ${
-                  location === item.href || location.startsWith(item.href)
-                    ? "text-[#2563EB] font-semibold"
-                    : "text-[#475569]"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
 
           {user ? (
             <div className="relative">
@@ -221,96 +215,88 @@ export function Navbar() {
       {isOpen && (
         <div className="md:hidden border-b border-[#E2E8F0] bg-white">
           <nav className="container mx-auto px-4 flex flex-col py-4 gap-3">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`text-sm font-medium transition-colors py-1 ${
-                  location === link.href ? "text-[#2563EB] font-semibold" : "text-[#475569]"
-                }`}
-                onClick={() => setIsOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
-            <div className="border-t border-[#E2E8F0] pt-3">
+            <Link
+              href="/sobre"
+              className={`text-sm font-medium transition-colors py-1 ${
+                location === "/sobre" ? "text-[#2563EB] font-semibold" : "text-[#475569]"
+              }`}
+              onClick={() => setIsOpen(false)}
+            >
+              Sobre
+            </Link>
+            <div className="space-y-2">
               <button
                 type="button"
                 className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-medium text-[#475569] transition-colors hover:text-[#2563EB]"
-                onClick={() => setIsSobreMobileOpen((prev) => !prev)}
-                aria-expanded={isSobreMobileOpen}
+                onClick={() => setIsAcessoMobileOpen((prev) => !prev)}
+                aria-expanded={isAcessoMobileOpen}
               >
-                Sobre
-                <ChevronDown className={`h-4 w-4 transition-transform ${isSobreMobileOpen ? "rotate-180" : ""}`} />
+                Acesso Rápido
+                <ChevronDown className={`h-4 w-4 transition-transform ${isAcessoMobileOpen ? "rotate-180" : ""}`} />
               </button>
-              {isSobreMobileOpen && (
-                <div className="mt-2 space-y-1 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-sm">
-                  {sobreLinks.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
-                        location === item.href ? "text-[#2563EB] font-semibold" : "text-[#475569]"
-                      } hover:bg-[#F8FAFC]`}
-                      onClick={() => {
-                        setIsOpen(false);
-                        setIsSobreMobileOpen(false);
-                      }}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="border-t border-[#E2E8F0] pt-3">
-              <p className="text-xs uppercase tracking-[0.25em] text-[#94a3b8] mb-2">NIASci</p>
-              {niasciLinks.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`text-sm font-medium transition-colors py-1 block ${
-                    location === item.href || location.startsWith(item.href)
-                      ? "text-[#2563EB] font-semibold"
-                      : "text-[#475569]"
-                  }`}
-                  onClick={() => setIsOpen(false)}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-            <div className="border-t border-[#E2E8F0] pt-3 space-y-2">
-              {user ? (
-                <>
-                  <p className="text-xs text-[#475569] font-medium">{user.name} · {PROFILE_LABELS[user.profileType]}</p>
-                  <Link href="/verificacao" onClick={() => setIsOpen(false)}>
-                    <Button variant="outline" className="w-full rounded-xl border-[#2563EB]/30 text-[#2563EB]">
-                      Verificar perfil
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="outline"
-                    className="w-full rounded-xl border-red-200 text-[#EF4444] hover:bg-red-50"
-                    onClick={() => { logout(); setIsOpen(false); }}
+              {isAcessoMobileOpen && (
+              <div ref={acessoMobileRef} className="mt-2 space-y-1 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-sm">
+                {acessoRapidoLinks.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
+                      location === item.href ? "text-[#2563EB] font-semibold" : "text-[#475569]"
+                    } hover:bg-[#EFF6FF]`}
+                    onClick={() => {
+                      setIsOpen(false);
+                      setIsAcessoMobileOpen(false);
+                    }}
                   >
-                    Sair
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`text-sm font-medium transition-colors py-1 ${
+                location === link.href ? "text-[#2563EB] font-semibold" : "text-[#475569]"
+              }`}
+              onClick={() => setIsOpen(false)}
+            >
+              {link.label}
+            </Link>
+          ))}
+          <div className="border-t border-[#E2E8F0] pt-3 space-y-2">
+            {user ? (
+              <>
+                <p className="text-xs text-[#475569] font-medium">{user.name} · {PROFILE_LABELS[user.profileType]}</p>
+                <Link href="/verificacao" onClick={() => setIsOpen(false)}>
+                  <Button variant="outline" className="w-full rounded-xl border-[#2563EB]/30 text-[#2563EB]">
+                    Verificar perfil
                   </Button>
-                </>
-              ) : (
-                <>
-                  <Link href="/login" onClick={() => setIsOpen(false)}>
-                    <Button variant="outline" className="w-full rounded-xl border-[#2563EB]/30 text-[#2563EB]">Entrar</Button>
-                  </Link>
-                  <Link href="/cadastro" onClick={() => setIsOpen(false)}>
-                    <Button className="w-full rounded-xl bg-[#2563EB] hover:bg-[#1d4ed8] text-white">Criar conta</Button>
-                  </Link>
-                </>
-              )}
-            </div>
-          </nav>
-        </div>
-      )}
+                </Link>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-xl border-red-200 text-[#EF4444] hover:bg-red-50"
+                  onClick={() => { logout(); setIsOpen(false); }}
+                >
+                  Sair
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" onClick={() => setIsOpen(false)}>
+                  <Button variant="outline" className="w-full rounded-xl border-[#2563EB]/30 text-[#2563EB]">Entrar</Button>
+                </Link>
+                <Link href="/cadastro" onClick={() => setIsOpen(false)}>
+                  <Button className="w-full rounded-xl bg-[#2563EB] hover:bg-[#1d4ed8] text-white">Criar conta</Button>
+                </Link>
+              </>
+            )}
+          </div>
+        </nav>
+      </div>
+    )}
     </header>
   );
 }

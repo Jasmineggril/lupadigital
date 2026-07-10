@@ -1,7 +1,13 @@
 {
-  "css.validate": false,
-  "scss.validate": false,
-  "less.validate": false,
+  "css.validate": true,
+  "scss.validate": true,
+  "less.validate": true,
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+  "css.lint.emptyRules": "ignore",
+  "scss.lint.emptyRules": "ignore",
+  "less.lint.emptyRules": "ignore",
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "tailwindCSS.experimental.configFile": "./artifacts/lupa-publica/tailwind.config.ts",
   "tailwindCSS.includeLanguages": {
@@ -14,7 +20,7 @@
   ],
   "tailwindCSS.validate": true,
   "editor.codeActionsOnSave": {
-    "source.fixAll": true,
-    "source.organizeImports": true
+    "source.fixAll": "explicit",
+    "source.organizeImports": "explicit"
   }
 }

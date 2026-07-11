@@ -19,9 +19,12 @@ function getIpv6HostError(host: string) {
   ].join(" ");
 }
 
-if (!process.env.DATABASE_URL) {
+const databaseUrl =
+  process.env.DIRECT_URL_IPV4 || process.env.DIRECT_URL || process.env.DATABASE_URL;
+
+if (!databaseUrl) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    "DIRECT_URL_IPV4, DIRECT_URL or DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
@@ -109,7 +112,7 @@ async function prepareConnectionString(urlStr: string) {
 }
 
 async function createPool() {
-  const raw = process.env.DATABASE_URL as string;
+  const raw = databaseUrl as string;
   const connString = await prepareConnectionString(raw);
 
   // Configure reasonable timeouts to fail fast on network issues

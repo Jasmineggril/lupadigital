@@ -141,8 +141,9 @@ VITE_SUPABASE_ANON_KEY=
 ```
 
 > Important: Supabase Preview and some CI environments may not connect to IPv6-only Postgres hosts.
-> For runtime, prefer the IPv4-only pooler endpoint in `DATABASE_URL`.
+> For migrations and runtime, prefer the IPv4-only pooler endpoint in `DIRECT_URL_IPV4` or `DATABASE_URL`.
 > Example: `postgresql://postgres:<password>@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true`
+> If the Preview fails with `dial tcp [2600:1f1e:dbb:f600...]:5432: i/o timeout`, set `DIRECT_URL_IPV4` to an IPv4-accessible pooler URL.
 
 ## Comandos
 

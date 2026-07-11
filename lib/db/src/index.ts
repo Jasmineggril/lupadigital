@@ -12,9 +12,9 @@ function isIpv6Address(host: string) {
 
 function getIpv6HostError(host: string) {
   return [
-    `Detected an IPv6-only Postgres host in DATABASE_URL: ${host}`,
+    `Detected an IPv6-only Postgres host in the connection URL: ${host}`,
     "Supabase Preview environments may not be able to reach IPv6 Postgres addresses.",
-    "Set DATABASE_URL to the IPv4-only Supabase pooler endpoint instead:",
+    "Set DIRECT_URL_IPV4 or DATABASE_URL to an IPv4-accessible Supabase pooler endpoint instead:",
     "postgresql://postgres:<password>@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true",
   ].join(" ");
 }

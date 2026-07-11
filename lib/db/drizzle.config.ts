@@ -1,5 +1,5 @@
 import { defineConfig } from "drizzle-kit";
-import path from "path";
+import { fileURLToPath } from "node:url";
 
 const migrationUrl = process.env.DIRECT_URL_IPV4 || process.env.DIRECT_URL || process.env.DATABASE_URL;
 if (!migrationUrl) {
@@ -8,8 +8,10 @@ if (!migrationUrl) {
   );
 }
 
+const schemaPath = fileURLToPath(new URL("./src/schema/index.ts", import.meta.url));
+
 export default defineConfig({
-  schema: path.join(__dirname, "./src/schema/index.ts"),
+  schema: schemaPath,
   dialect: "postgresql",
   dbCredentials: {
     url: migrationUrl,

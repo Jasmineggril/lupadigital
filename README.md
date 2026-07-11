@@ -140,10 +140,23 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
-> Important: Supabase Preview and some CI environments may not connect to IPv6-only Postgres hosts.
-> For migrations and runtime, prefer the IPv4-only pooler endpoint in `DIRECT_URL_IPV4` or `DATABASE_URL`.
-> Example: `postgresql://postgres:<password>@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true`
-> If the Preview fails with `dial tcp [2600:1f1e:dbb:f600...]:5432: i/o timeout`, set `DIRECT_URL_IPV4` to an IPv4-accessible pooler URL.
+## Supabase Preview
+
+```text
+failed to connect to postgres: failed to connect to `host=2600:1f1e:dbb:f600:60c2:61f9:8ba6:acbc user=postgres database=postgres`: dial error (timeout: dial tcp [2600:1f1e:dbb:f600:60c2:61f9:8ba6:acbc]:5432: i/o timeout)
+```
+
+Esse erro indica que o ambiente (Supabase Preview ou CI) não consegue alcançar um host Postgres acessível apenas por IPv6. Para resolver:
+
+- defina `DIRECT_URL_IPV4` com um endpoint IPv4 do pooler Supabase;
+- ou use `DATABASE_URL` apontando para o pooler IPv4;
+- por exemplo, um endpoint Supabase `pgbouncer` IPv4:
+
+```text
+postgresql://postgres:<password>@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+```
+
+> No repositório, `lib/db/drizzle.config.ts` e `lib/db/src/index.ts` agora suportam `DIRECT_URL_IPV4` para runtime e migrações.
 
 ## Comandos
 

@@ -4,6 +4,13 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 let _supabase: SupabaseClient | null = null;
 
 export function getSupabaseAdmin() {
+  /**
+   * Retorna o cliente Supabase com privilégios de administração usado no backend.
+   *
+   * Por que: o backend precisa de um cliente com privilégios para gravação e
+   * administração (ex.: gravar `ai_usage_logs`). As credenciais devem ser
+   * mantidas no ambiente do servidor e NÃO expostas ao frontend.
+   */
   if (_supabase) return _supabase;
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
@@ -50,6 +57,14 @@ export async function verifySupabaseJwt(token: string) {
 import type { RequestHandler } from "express";
 
 export function supabaseAuthMiddleware(): RequestHandler {
+  /**
+   * Middleware que, quando presente, tenta validar o JWT do Supabase (se houver)
+   * e anexa o payload decodificado em `req.supabaseUser` e `req.user`.
+   *
+   * Nota arquitetural: este middleware não exige autenticação — ele apenas
+   * decodifica o token quando fornecido. Rotas que exigem autenticação devem
+   * usar `requireAuth()` explícito.
+   */
   return async (req, res, next) => {
     const auth = (req.headers["authorization"] as string) || "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7) : auth;
@@ -71,6 +86,10 @@ export function supabaseAuthMiddleware(): RequestHandler {
 }
 
 export function requireAuth(): RequestHandler {
+  /**
+   * Middleware que exige autenticação. Verifica se `req.supabaseUser` existe e
+   * normaliza `req.user` para uso pelas rotas. Retorna 401 caso não autenticado.
+   */
   return (req, res, next) => {
     const user = (req as any).supabaseUser;
     if (!user || !user.sub) {

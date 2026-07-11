@@ -1,5 +1,17 @@
-import { openai, getOpenAIModel } from "@workspace/integrations-openai-ai-server";
+/**
+ * Camada de serviço centralizada para orquestração de chamadas a modelos de IA.
+ *
+ * Responsabilidade:
+ * - Evitar chamadas diretas ao provedor de IA a partir de rotas;
+ * - Validar e normalizar prompts e respostas (schemas Zod);
+ * - Registrar logs de uso e métricas em `ai_usage_logs` via Supabase admin;
+ * - Tratar e encapsular erros provenientes do provedor de IA.
+ *
+ * Por que: garantir auditabilidade, reuso e isolamento da lógica de IA,
+ * facilitando testes e mudanças de provedor futuramente.
+ */
 import { SimplifyEditalResponse } from "@workspace/api-zod";
+import { getOpenAIModel, openai } from "@workspace/integrations-openai-ai-server";
 import { z } from "zod";
 import { logger } from "./logger";
 import { getSupabaseAdmin } from "./supabase";
@@ -304,6 +316,16 @@ Responda SOMENTE com o JSON, sem markdown, sem código de formatação, sem text
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
+
+      /**
+       * Executa a análise do texto por um agente específico. O agente é uma
+       * configuração de prompt que define a estrutura JSON esperada na resposta.
+       *
+       * Observações importantes:
+       * - O usuário (quando fornecido) deve ser passado em `opts.userId` para auditoria;
+       * - A função valida estritamente o JSON retornado pelo modelo usando Zod;
+       * - Em caso de falha, a função registra o erro em `ai_usage_logs` e relança uma exceção.
+       */
     });
 
     const raw = completion.choices[0]?.message?.content ?? "{}";

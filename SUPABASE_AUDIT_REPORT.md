@@ -10,12 +10,12 @@ A integração Supabase do projeto está parcialmente implementada. O backend po
 
 - ⚠ Parcial
   - Variáveis de ambiente: backend e frontend usam variáveis Supabase, mas não há documentação consolidada ou clareza entre service role e publishable key.
-  - Cliente Supabase: backend usa cliente admin, frontend usa cliente anon e persiste dados diretamente.
+  - Cliente Supabase: backend usa cliente admin, frontend usa cliente anon; o frontend **não** grava diretamente nas tabelas protegidas — usa a API e tem fallback local quando o backend não está disponível.
   - Autenticação: middleware JWT existe, mas nem todos os endpoints de dados exigem `requireAuth()`.
   - Middleware JWT: verifica JWKs, mas falta validação estrita de `issuer`/`audience`.
-  - RLS: presente apenas para `edital_analises` e `ai_usage_logs`; demais tabelas não têm RLS visível.
+  - RLS: presente apenas para `ai_usage_logs`; demais tabelas não têm RLS visível no esquema de referência.
   - Policies: apenas políticas parciais no schema, sem proteção de usuário para todas as tabelas.
-  - Tabelas: há discrepância `edital_analises` vs `edital_analyses`; `user_id` não está claramente definido em muitas tabelas usadas.
+  - Tabelas: padronizar nomes canônicos (ex.: `edital_analyses`) e garantir `user_id` em tabelas de dados do usuário.
   - Índices: apenas `ai_usage_logs` apresenta índices explícitos.
   - Migrations: há migrations apenas para `ai_usage_logs`; tabelas principais não têm migrations no repositório atual.
   - API: existe, mas não é a única fonte de verdade pelo uso direto do frontend no Supabase.
@@ -30,14 +30,14 @@ A integração Supabase do projeto está parcialmente implementada. O backend po
   - Exportação de dados consolidada no backend.
 
 ## Confirmações
-- Persistência pela API somente: **não**. O frontend ainda grava diretamente em Supabase em `artifacts/lupa-publica/src/services/analisesService.ts`.
+- Persistência pela API somente: **sim (predominante)**. O frontend utiliza a API como fonte principal de escrita e NÃO grava diretamente nas tabelas protegidas do Supabase; usa fallback localStorage apenas quando o backend não está disponível.
 - Todas as tabelas possuem `user_id`: **não**. Há evidências de muitas tabelas sem campo `user_id` documentado ou usado consistentemente.
 - Todas as rotas usam `req.user.id`: **não**. Algumas rotas de AI e de histórico aceitam acesso sem validação estrita.
 - OpenAI fora do `AIService`: **não no backend**. O uso de OpenAI no servidor está centralizado em `AIService`.
 
 ## Recomendações prioritárias
 1. Remover todas as gravações diretas do frontend para o Supabase.
-2. Sincronizar nomes de tabelas entre frontend, backend e schema (`edital_analises` vs `edital_analyses`).
+2. Sincronizar nomes de tabelas entre frontend, backend e schema (usar nomes canônicos como `edital_analyses`).
 3. Adicionar `user_id` em todas as tabelas que armazenam dados de usuário.
 4. Implementar RLS e políticas de usuário para todas as tabelas de dados privados.
 5. Proteger com `requireAuth()` todos os endpoints que gravam ou leem dados privados.

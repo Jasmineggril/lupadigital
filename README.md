@@ -192,7 +192,7 @@ Tabelas previstas
 profiles
 documents
 ai_analyses
-edital_analyses
+   edital_analyses (nome canônico usado por frontend e API)
 lattes_profiles
 article_analyses
 chat_messages

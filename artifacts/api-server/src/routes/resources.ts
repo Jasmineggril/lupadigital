@@ -1,25 +1,12 @@
-import { Router } from "express";
 import type { Request, Response } from "express";
-import getSupabaseAdmin, { getReqUserId, requireAuth } from "../lib/supabase";
+import { Router } from "express";
 import { z } from "zod";
+import getSupabaseAdmin, { getReqUserId, requireAuth } from "../lib/supabase";
+import { resolveResourceTableName } from "../lib/tableNames";
 
 const router = Router();
 
-// Allowed tables and which operations to permit (basic CRUD)
-const ALLOWED_TABLES = new Set([
-  "documents",
-  "ai_analyses",
-  "edital_analyses",
-  "lattes_profiles",
-  "article_analyses",
-  "research_projects",
-  "planetarium_contents",
-  "chat_messages",
-]);
-
-function tableNameIsAllowed(name: string) {
-  return ALLOWED_TABLES.has(name);
-}
+// Nota: resolução de nomes de tabela centralizada em `src/lib/tableNames.ts`
 
 // Zod schemas for request validation per table
 const EdtalAnalysisSchema = z.object({
@@ -84,6 +71,8 @@ const PlanetariumContentSchema = z.object({
 });
 
 const SCHEMAS: Record<string, z.ZodTypeAny> = {
+  // The API accepts the canonical resource route name `edital_analyses`.
+  // This schema entry ensures payload validation for the canonical resource.
   edital_analyses: EdtalAnalysisSchema,
   ai_analyses: AiAnalysisSchema,
   lattes_profiles: LattesProfileSchema,
@@ -94,14 +83,20 @@ const SCHEMAS: Record<string, z.ZodTypeAny> = {
   chat_messages: ChatMessageSchema,
 };
 
-// Ensure authenticated for all resource routes
+/**
+ * O roteador `/resources` fornece um CRUD genérico protegido que mapeia
+ * rotas públicas para operações em tabelas de usuário.
+ *
+ * Segurança: todas as rotas deste roteador exigem autenticação explícita.
+ */
 router.use(requireAuth());
 
 // List records for authenticated user
 router.get("/resources/:table", async (req: Request, res: Response): Promise<void> => {
   const rawTable = req.params.table;
   const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  if (!tableNameIsAllowed(String(table))) {
+  const tableName = resolveResourceTableName(String(table));
+  if (!tableName) {
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
@@ -112,7 +107,7 @@ router.get("/resources/:table", async (req: Request, res: Response): Promise<voi
   }
   const supabase = getSupabaseAdmin();
   try {
-    const { data, error } = await supabase.from(String(table)).select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    const { data, error } = await supabase.from(tableName).select("*").eq("user_id", userId).order("created_at", { ascending: false });
     if (error) throw error;
     res.json(data);
   } catch (err) {
@@ -126,7 +121,8 @@ router.get("/resources/:table", async (req: Request, res: Response): Promise<voi
 router.post("/resources/:table", async (req: Request, res: Response): Promise<void> => {
   const rawTable = req.params.table;
   const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  if (!tableNameIsAllowed(String(table))) {
+  const tableName = resolveResourceTableName(String(table));
+  if (!tableName) {
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
@@ -138,7 +134,7 @@ router.post("/resources/:table", async (req: Request, res: Response): Promise<vo
   const supabase = getSupabaseAdmin();
   try {
     const rawPayload = { ...req.body };
-    const schema = SCHEMAS[String(table)];
+    const schema = SCHEMAS[tableName];
     if (schema) {
       const parsed = schema.safeParse(rawPayload);
       if (!parsed.success) {
@@ -147,7 +143,7 @@ router.post("/resources/:table", async (req: Request, res: Response): Promise<vo
       }
     }
     const payload = { ...rawPayload, user_id: userId };
-    const { data, error } = await supabase.from(String(table)).insert([payload]).select().single();
+    const { data, error } = await supabase.from(tableName).insert([payload]).select().single();
     if (error) throw error;
     res.status(201).json(data);
   } catch (err) {
@@ -163,7 +159,8 @@ router.get("/resources/:table/:id", async (req: Request, res: Response): Promise
   const rawId = req.params.id;
   const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
-  if (!tableNameIsAllowed(String(table))) {
+  const tableName = resolveResourceTableName(String(table));
+  if (!tableName) {
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
@@ -174,7 +171,7 @@ router.get("/resources/:table/:id", async (req: Request, res: Response): Promise
   }
   const supabase = getSupabaseAdmin();
   try {
-    const { data, error } = await supabase.from(String(table)).select("*").eq("id", id).eq("user_id", userId).single();
+    const { data, error } = await supabase.from(tableName).select("*").eq("id", id).eq("user_id", userId).single();
     if (error) {
       if ((error as any).code === "PGRST116") {
         res.status(404).json({ error: "Não encontrado" });
@@ -196,7 +193,8 @@ router.put("/resources/:table/:id", async (req: Request, res: Response): Promise
   const rawId = req.params.id;
   const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
-  if (!tableNameIsAllowed(String(table))) {
+  const tableName = resolveResourceTableName(String(table));
+  if (!tableName) {
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
@@ -208,7 +206,7 @@ router.put("/resources/:table/:id", async (req: Request, res: Response): Promise
   const supabase = getSupabaseAdmin();
   try {
     const rawPayload = { ...req.body };
-    const schema = SCHEMAS[String(table)];
+    const schema = SCHEMAS[tableName];
     if (schema) {
       const parsed = schema.safeParse(rawPayload);
       if (!parsed.success) {
@@ -216,7 +214,7 @@ router.put("/resources/:table/:id", async (req: Request, res: Response): Promise
         return;
       }
     }
-    const { data, error } = await supabase.from(String(table)).update(rawPayload).match({ id, user_id: userId }).select().single();
+    const { data, error } = await supabase.from(tableName).update(rawPayload).match({ id, user_id: userId }).select().single();
     if (error) throw error;
     if (!data) {
       res.status(404).json({ error: "Não encontrado ou sem permissão" });
@@ -236,7 +234,8 @@ router.delete("/resources/:table/:id", async (req: Request, res: Response): Prom
   const rawId = req.params.id;
   const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
-  if (!tableNameIsAllowed(String(table))) {
+  const tableName = resolveResourceTableName(String(table));
+  if (!tableName) {
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
@@ -247,7 +246,7 @@ router.delete("/resources/:table/:id", async (req: Request, res: Response): Prom
   }
   const supabase = getSupabaseAdmin();
   try {
-    const { error } = await supabase.from(String(table)).delete().match({ id, user_id: userId });
+    const { error } = await supabase.from(tableName).delete().match({ id, user_id: userId });
     if (error) throw error;
     res.sendStatus(204);
   } catch (err) {

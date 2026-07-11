@@ -1,87 +1,87 @@
-import { useState, useRef, useMemo, useEffect, type ReactNode } from "react";
-import { useLocation } from "wouter";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/lib/auth";
 import {
-  useListEditalHistory,
-  useDeleteEdital,
-  useExtractEditalFromUrl,
-  useAnalyzeEdital,
-  useListAgentHistory,
-  useSaveAgentResult,
-  useDeleteAgentResult,
-  getListEditalHistoryQueryKey,
-  getListAgentHistoryQueryKey,
-} from "@workspace/api-client-react";
-import type {
-  SavedEdital,
-  AgentResultRecord,
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  Sparkles,
-  BarChart2,
-  Target,
-  CalendarDays,
-  ClipboardList,
-  UserCheck,
-  History,
-  Heart,
-  Trash2,
-  ChevronRight,
-  X,
-  Download,
-  Link as LinkIcon,
-  Search,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  XCircle,
-  FileText,
-  Info,
-  ChevronDown,
-  Share2,
-  Copy,
-} from "lucide-react";
-import {
-  AGENTS,
-  runAgent,
-  type AgentId,
-  type AgentResult,
-  type SimplesResult,
-  type AnalistaResult,
-  type EstrategicaResult,
-  type AcompanhamentoResult,
-  type DocumentacaoResult,
-  type ElegibilidadeResult,
-  type UserProfile,
-  type ChecklistItem,
+    AGENTS,
+    runAgent,
+    type AcompanhamentoResult,
+    type AgentId,
+    type AgentResult,
+    type AnalistaResult,
+    type ChecklistItem,
+    type DocumentacaoResult,
+    type ElegibilidadeResult,
+    type EstrategicaResult,
+    type SimplesResult,
+    type UserProfile,
 } from "@/lib/agents";
+import { useAuth } from "@/lib/auth";
 import { extractTextFromPdf, type PdfStructuredData } from "@/lib/pdf";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
 import {
-  salvarAnalise,
-  atualizarAnalise,
-  listarAnalises,
-  excluirAnalise,
-  limparAnalises,
-  type AnaliseSalva,
+    atualizarAnalise,
+    excluirAnalise,
+    limparAnalises,
+    listarAnalises,
+    salvarAnalise,
+    type AnaliseSalva,
 } from "@/services/analisesService";
+import { useQueryClient } from "@tanstack/react-query";
+import type {
+    AgentResultRecord,
+    SavedEdital,
+} from "@workspace/api-client-react";
+import {
+    getListAgentHistoryQueryKey,
+    getListEditalHistoryQueryKey,
+    useAnalyzeEdital,
+    useDeleteAgentResult,
+    useDeleteEdital,
+    useExtractEditalFromUrl,
+    useListAgentHistory,
+    useListEditalHistory,
+    useSaveAgentResult,
+} from "@workspace/api-client-react";
+import {
+    AlertCircle,
+    BarChart2,
+    CalendarDays,
+    CheckCircle2,
+    ChevronDown,
+    ChevronRight,
+    ClipboardList,
+    Clock,
+    Download,
+    FileText,
+    Heart,
+    History,
+    Info,
+    Link as LinkIcon,
+    Search,
+    Share2,
+    Sparkles,
+    Target,
+    Trash2,
+    UserCheck,
+    X,
+    XCircle
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLocation } from "wouter";
 
 function getFriendlyErrorMessage(error: unknown) {
   if (typeof error === "string") {
     const normalized = error.toLowerCase();
     if (normalized.includes("minimo") || normalized.includes("20 caracteres")) {
       return "Insira um texto com pelo menos 20 caracteres para continuar.";
+    }
+    if (normalized.includes("404") || normalized.includes("not_found") || normalized.includes("not found")) {
+      return "A URL pública retornou 404. Verifique se o endereço está correto e acessível sem login.";
     }
     if (normalized.includes("url")) {
       return "Não foi possível acessar a URL informada. Verifique se ela é pública e tente novamente.";

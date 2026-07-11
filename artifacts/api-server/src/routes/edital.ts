@@ -1,17 +1,26 @@
-import { Router, type IRouter } from "express";
-import { desc, eq, sql, and } from "drizzle-orm";
-import * as cheerio from "cheerio";
-import { z } from "zod";
-import multer from "multer";
-import { db, savedEditalsTable, agentResultsTable, sharedResultsTable } from "@workspace/db";
-import { randomUUID } from "crypto";
 import {
-  SimplifyEditalBody,
-  SaveEditalBody,
-  DeleteEditalParams,
-  ListEditalHistoryResponse,
-  ExtractEditalFromUrlBody,
+    DeleteEditalParams,
+    ExtractEditalFromUrlBody,
+    ListEditalHistoryResponse,
+    SaveEditalBody,
+    SimplifyEditalBody,
 } from "@workspace/api-zod";
+import { agentResultsTable, db, savedEditalsTable, sharedResultsTable } from "@workspace/db";
+import * as cheerio from "cheerio";
+import { randomUUID } from "crypto";
+import { and, desc, eq } from "drizzle-orm";
+/**
+ * Rotas relacionadas a editais: extração, simplificação, análise por agentes
+ * e histórico do usuário.
+ *
+ * Responsabilidade:
+ * - Orquestrar chamadas para `AIService` (nenhuma chamada direta ao provedor de IA);
+ * - Fornecer endpoints para histórico e compartilhamento;
+ * - Proteger endpoints que acessam/alteram dados do usuário com autenticação.
+ */
+import { Router, type IRouter } from "express";
+import multer from "multer";
+import { z } from "zod";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -26,8 +35,8 @@ const upload = multer({
 
 const router: IRouter = Router();
 
-import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital } from "../lib/aiService";
-import { getReqUserId } from "../lib/supabase";
+import { AgentAnalyzeBodySchema, analyzeAgent, simplifyEdital } from "../lib/aiService";
+import { getReqUserId, requireAuth } from "../lib/supabase";
 
 router.post("/edital/analyze", async (req, res): Promise<void> => {
   const parsed = AgentAnalyzeBodySchema.safeParse(req.body);
@@ -61,12 +70,8 @@ const SaveAgentResultBodySchema = z.object({
 
 const DeleteAgentResultParamsSchema = z.object({ id: z.coerce.number().int().positive() });
 
-router.get("/edital/agent-history", async (req, res): Promise<void> => {
-  const userId = (req as any).user?.id ?? null;
-  if (!userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
+router.get("/edital/agent-history", requireAuth(), async (req, res): Promise<void> => {
+  const userId = getReqUserId(req);
 
   const rows = await db
     .select()
@@ -76,36 +81,25 @@ router.get("/edital/agent-history", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
-router.post("/edital/agent-history", async (req, res): Promise<void> => {
+router.post("/edital/agent-history", requireAuth(), async (req, res): Promise<void> => {
   const parsed = SaveAgentResultBodySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-
-  const userId = (req as any).user?.id ?? null;
-  if (!userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-
+  const userId = getReqUserId(req);
   const payload = { ...parsed.data, userId: userId } as any;
   const [saved] = await db.insert(agentResultsTable).values(payload).returning();
   res.status(201).json(saved);
 });
 
-router.delete("/edital/agent-history/:id", async (req, res): Promise<void> => {
+router.delete("/edital/agent-history/:id", requireAuth(), async (req, res): Promise<void> => {
   const params = DeleteAgentResultParamsSchema.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-
-  const userId = (req as any).user?.id ?? null;
-  if (!userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
+  const userId = getReqUserId(req);
 
   const [deleted] = await db
     .delete(agentResultsTable)
@@ -228,12 +222,8 @@ router.post("/edital/simplify", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/edital/history", async (req, res): Promise<void> => {
-  const userId = (req as any).user?.id ?? null;
-  if (!userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
+router.get("/edital/history", requireAuth(), async (req, res): Promise<void> => {
+  const userId = getReqUserId(req);
 
   const rows = await db
     .select()
@@ -244,36 +234,25 @@ router.get("/edital/history", async (req, res): Promise<void> => {
   res.json(ListEditalHistoryResponse.parse(rows));
 });
 
-router.post("/edital/history", async (req, res): Promise<void> => {
+router.post("/edital/history", requireAuth(), async (req, res): Promise<void> => {
   const parsed = SaveEditalBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-
-  const userId = (req as any).user?.id ?? null;
-  if (!userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-
+  const userId = getReqUserId(req);
   const payload = { ...parsed.data, userId: userId } as any;
   const [saved] = await db.insert(savedEditalsTable).values(payload).returning();
   res.status(201).json(saved);
 });
 
-router.delete("/edital/history/:id", async (req, res): Promise<void> => {
+router.delete("/edital/history/:id", requireAuth(), async (req, res): Promise<void> => {
   const params = DeleteEditalParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-
-  const userId = (req as any).user?.id ?? null;
-  if (!userId) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
+  const userId = getReqUserId(req);
 
   const [deleted] = await db
     .delete(savedEditalsTable)
@@ -295,15 +274,16 @@ const ShareBodySchema = z.object({
   resultJson: z.record(z.string(), z.unknown()),
 });
 
-router.post("/share", async (req, res) => {
+router.post("/share", requireAuth(), async (req, res) => {
   const parsed = ShareBodySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Dados inválidos." });
     return;
   }
   const { agentId, title, resultJson } = parsed.data;
+  const userId = getReqUserId(req);
   const token = randomUUID();
-  await db.insert(sharedResultsTable).values({ token, agentId, title, resultJson });
+  await db.insert(sharedResultsTable).values({ token, agentId, title, resultJson, userId });
   res.status(201).json({ token });
 });
 

@@ -140,6 +140,10 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
+> Important: Supabase Preview and some CI environments may not connect to IPv6-only Postgres hosts.
+> For runtime, prefer the IPv4-only pooler endpoint in `DATABASE_URL`.
+> Example: `postgresql://postgres:<password>@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true`
+
 ## Comandos
 
 Instalar dependências:

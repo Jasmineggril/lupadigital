@@ -1,10 +1,23 @@
+import dns from "dns";
 import { drizzle } from "drizzle-orm/node-postgres";
+import net from "net";
 import pg from "pg";
 import * as schema from "./schema";
-import dns from "dns";
-import net from "net";
 
 const { Pool } = pg;
+
+function isIpv6Address(host: string) {
+  return net.isIP(host) === 6 || /^\[[0-9a-fA-F:]+\]$/.test(host);
+}
+
+function getIpv6HostError(host: string) {
+  return [
+    `Detected an IPv6-only Postgres host in DATABASE_URL: ${host}`,
+    "Supabase Preview environments may not be able to reach IPv6 Postgres addresses.",
+    "Set DATABASE_URL to the IPv4-only Supabase pooler endpoint instead:",
+    "postgresql://postgres:<password>@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true",
+  ].join(" ");
+}
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -57,6 +70,11 @@ async function prepareConnectionString(urlStr: string) {
   try {
     const url = new URL(urlStr);
     const host = url.hostname;
+
+    if (isIpv6Address(host)) {
+      throw new Error(getIpv6HostError(host));
+    }
+
     const resolvedHost = await resolveHost(host);
 
     if (resolvedHost !== host) {
@@ -75,6 +93,10 @@ async function prepareConnectionString(urlStr: string) {
     const host = params.get("host");
 
     if (host) {
+      if (isIpv6Address(host)) {
+        throw new Error(getIpv6HostError(host));
+      }
+
       const resolvedHost = await resolveHost(host);
       if (resolvedHost !== host) {
         params.set("host", resolvedHost);
@@ -107,4 +129,5 @@ export const db = drizzle(pool, { schema });
 
 export { pool };
 
-export * from "./schema";
+    export * from "./schema";
+

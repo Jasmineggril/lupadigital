@@ -400,14 +400,77 @@ export function InputSection({
     if (file?.type === "application/pdf") handleFile(file);
   };
 
-  // Cor de acento dinâmica para as classes Tailwind
+  // Mapa estático de classes por cor — necessário para o Tailwind JIT compilar corretamente.
+  // Classes dinâmicas via template string não são detectadas pelo scanner do Tailwind.
+  const ACCENT_CLASSES: Record<string, {
+    border: string; bg: string; ring: string;
+    dragBorder: string; dragBorderActive: string;
+    btn: string; fileName: string;
+  }> = {
+    emerald: {
+      border: "hover:border-emerald-500/50",
+      bg: "bg-emerald-500/10 text-emerald-500",
+      ring: "focus:ring-emerald-500/30 focus:border-emerald-500/50",
+      dragBorder: "border-border/60",
+      dragBorderActive: "border-emerald-500 bg-emerald-500/5",
+      btn: "bg-emerald-600 hover:bg-emerald-700 text-white",
+      fileName: "text-emerald-600 dark:text-emerald-400",
+    },
+    amber: {
+      border: "hover:border-amber-500/50",
+      bg: "bg-amber-500/10 text-amber-500",
+      ring: "focus:ring-amber-500/30 focus:border-amber-500/50",
+      dragBorder: "border-border/60",
+      dragBorderActive: "border-amber-500 bg-amber-500/5",
+      btn: "bg-amber-600 hover:bg-amber-700 text-white",
+      fileName: "text-amber-600 dark:text-amber-400",
+    },
+    violet: {
+      border: "hover:border-violet-500/50",
+      bg: "bg-violet-500/10 text-violet-500",
+      ring: "focus:ring-violet-500/30 focus:border-violet-500/50",
+      dragBorder: "border-border/60",
+      dragBorderActive: "border-violet-500 bg-violet-500/5",
+      btn: "bg-violet-600 hover:bg-violet-700 text-white",
+      fileName: "text-violet-600 dark:text-violet-400",
+    },
+    cyan: {
+      border: "hover:border-cyan-500/50",
+      bg: "bg-cyan-500/10 text-cyan-500",
+      ring: "focus:ring-cyan-500/30 focus:border-cyan-500/50",
+      dragBorder: "border-border/60",
+      dragBorderActive: "border-cyan-500 bg-cyan-500/5",
+      btn: "bg-cyan-600 hover:bg-cyan-700 text-white",
+      fileName: "text-cyan-600 dark:text-cyan-400",
+    },
+    blue: {
+      border: "hover:border-blue-500/50",
+      bg: "bg-blue-500/10 text-blue-500",
+      ring: "focus:ring-blue-500/30 focus:border-blue-500/50",
+      dragBorder: "border-border/60",
+      dragBorderActive: "border-blue-500 bg-blue-500/5",
+      btn: "bg-blue-600 hover:bg-blue-700 text-white",
+      fileName: "text-blue-600 dark:text-blue-400",
+    },
+    rose: {
+      border: "hover:border-rose-500/50",
+      bg: "bg-rose-500/10 text-rose-500",
+      ring: "focus:ring-rose-500/30 focus:border-rose-500/50",
+      dragBorder: "border-border/60",
+      dragBorderActive: "border-rose-500 bg-rose-500/5",
+      btn: "bg-rose-600 hover:bg-rose-700 text-white",
+      fileName: "text-rose-600 dark:text-rose-400",
+    },
+  };
+
+  const colorMap = ACCENT_CLASSES[accentColor] ?? ACCENT_CLASSES.emerald;
   const accent = {
-    border: `hover:border-${accentColor}-500/50`,
-    bg: `bg-${accentColor}-500/10 text-${accentColor}-500`,
-    ring: `focus:ring-${accentColor}-500/30 focus:border-${accentColor}-500/50`,
-    dragBorder: isDragging ? `border-${accentColor}-500 bg-${accentColor}-500/5` : `border-border/60`,
-    btn: `bg-${accentColor}-600 hover:bg-${accentColor}-700 text-white`,
-    fileName: `text-${accentColor}-600 dark:text-${accentColor}-400`,
+    border: colorMap.border,
+    bg: colorMap.bg,
+    ring: colorMap.ring,
+    dragBorder: isDragging ? colorMap.dragBorderActive : colorMap.dragBorder,
+    btn: colorMap.btn,
+    fileName: colorMap.fileName,
   };
 
   return (

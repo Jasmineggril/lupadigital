@@ -1,0 +1,60 @@
+Adicione ao LUPA Digital o princípio de preservação semântica inspirado no conceito de signo linguístico.
+
+Contexto:
+O sistema pode transformar o significante, isto é, a forma como a informação é apresentada, mas deve preservar o significado original do documento.
+
+Objetivo:
+Garantir que toda simplificação, resumo ou explicação feita pela IA reduza a complexidade linguística sem alterar regras, prazos, critérios, exigências, obrigações, valores, condições ou consequências presentes no documento.
+
+Regras obrigatórias:
+
+1. A IA pode:
+   - simplificar vocabulário;
+   - reduzir frases longas;
+   - reorganizar informações;
+   - explicar termos técnicos;
+   - dividir conteúdos em tópicos;
+   - adaptar o nível de linguagem.
+
+2. A IA não pode:
+   - inventar informações;
+   - alterar prazos;
+   - mudar critérios de elegibilidade;
+   - omitir exigências importantes;
+   - alterar valores;
+   - modificar condições;
+   - transformar uma obrigação em recomendação;
+   - transformar uma possibilidade em certeza.
+
+3. Toda análise deve preservar:
+   - significado original;
+   - contexto;
+   - intenção;
+   - relações entre condições e consequências.
+
+4. Quando houver dúvida ou ambiguidade:
+   - informar que o trecho precisa ser conferido no documento original;
+   - citar o trecho de origem;
+   - não assumir uma interpretação como verdadeira.
+
+5. Sempre que possível, estruturar a saída em:
+   - informação original;
+   - versão simplificada;
+   - elementos preservados;
+   - alerta de possível ambiguidade.
+
+6. Aplicar esse princípio aos módulos:
+   - Editais;
+   - e-Lattes;
+   - Artigos Científicos;
+   - Chat contextual;
+   - Exportação de relatórios.
+
+7. Não alterar backend, banco ou arquitetura fora do necessário.
+8. Centralizar essa regra nos prompts do AIService.
+9. Adicionar comentários JSDoc nos arquivos alterados explicando que o sistema transforma a forma linguística sem modificar o conteúdo semântico.
+10. Ao final, informar:
+   - arquivos alterados;
+   - prompts atualizados;
+   - validações adicionadas;
+   - riscos semânticos ainda existentes.

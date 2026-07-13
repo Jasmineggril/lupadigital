@@ -6,49 +6,66 @@ import {
   DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { FileText, User, BookOpen, Layers, Globe, Sparkles } from "lucide-react";
+import { FileText, User, BookOpen, Layers, Globe, Sparkles, ArrowRight } from "lucide-react";
 
 const modules = [
   {
     title: "Editais",
     href: "/testar",
-    description: "Interpretação de editais com IA, resumo simplificado, checklist, cronograma e histórico.",
-    icon: <FileText className="w-6 h-6" />,
+    description: "Interpretação com IA, resumo simplificado, checklist e cronograma.",
+    icon: FileText,
+    color: "bg-blue-500/10 text-blue-500",
+    border: "hover:border-blue-500/30",
+    badge: "bg-blue-500/8",
   },
   {
     title: "e-Lattes",
     href: "/niasci/elattes",
-    description: "Extração de informações do currículo Lattes para identificar habilidades, publicações e oportunidades.",
-    icon: <User className="w-6 h-6" />,
+    description: "Extração do currículo Lattes para mapear habilidades e oportunidades.",
+    icon: User,
+    color: "bg-emerald-500/10 text-emerald-500",
+    border: "hover:border-emerald-500/30",
+    badge: "bg-emerald-500/8",
   },
   {
     title: "Artigos Científicos",
     href: "/niasci/artigos",
-    description: "Resumo de artigos, extração de objetivos, metodologia, resultados e referências.",
-    icon: <BookOpen className="w-6 h-6" />,
+    description: "Resumo de artigos, objetivos, metodologia, resultados e referências.",
+    icon: BookOpen,
+    color: "bg-amber-500/10 text-amber-500",
+    border: "hover:border-amber-500/30",
+    badge: "bg-amber-500/8",
   },
   {
     title: "Projetos",
     href: "/niasci/projetos",
-    description: "Gerencie projetos de pesquisa com visão geral, objetivos, equipe e status das etapas.",
-    icon: <Layers className="w-6 h-6" />,
+    description: "Gerencie pesquisas com visão geral, equipe e status das etapas.",
+    icon: Layers,
+    color: "bg-violet-500/10 text-violet-500",
+    border: "hover:border-violet-500/30",
+    badge: "bg-violet-500/8",
   },
   {
     title: "Planetário",
     href: "/niasci/planetario",
-    description: "Transforme ciência em conteúdo educativo com roteiros e explicações acessíveis.",
-    icon: <Globe className="w-6 h-6" />,
+    description: "Transforme ciência em conteúdo educativo com roteiros acessíveis.",
+    icon: Globe,
+    color: "bg-cyan-500/10 text-cyan-500",
+    border: "hover:border-cyan-500/30",
+    badge: "bg-cyan-500/8",
   },
   {
     title: "Assistente IA",
     href: "/niasci",
-    description: "Central de apoio para uso dos módulos e orientações de ciência aplicada.",
-    icon: <Sparkles className="w-6 h-6" />,
+    description: "Central de apoio e orientações de ciência aplicada com IA.",
+    icon: Sparkles,
+    color: "bg-rose-500/10 text-rose-500",
+    border: "hover:border-rose-500/30",
+    badge: "bg-rose-500/8",
   },
 ];
 
@@ -88,56 +105,72 @@ export default function NiasciHub() {
           <DialogTrigger asChild>
             <Button className="w-full sm:w-auto">Explorar módulos</Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Escolha um módulo NIASci</DialogTitle>
-              <DialogDescription>
-                Selecione uma área e veja o que ela oferece para apoiar sua pesquisa, currículo ou projeto.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-3 pt-4">
-              {modules.map((module) => (
-                <DialogClose asChild key={module.title}>
-                  <Button asChild variant="outline" className="w-full justify-start">
-                    <Link href={module.href} className="flex w-full items-start justify-start">
-                      <span className="mr-2">{module.icon}</span>
-                      <div className="text-left">
-                        <div className="font-semibold">{module.title}</div>
-                        <div className="text-xs text-muted-foreground">{module.description}</div>
+          <DialogContent className="sm:max-w-2xl p-0 overflow-hidden gap-0">
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 border-b border-border/60">
+              <DialogHeader>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary tracking-wide uppercase">
+                    NIASci
+                  </span>
+                </div>
+                <DialogTitle className="text-xl font-bold">Escolha um módulo</DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground">
+                  Selecione uma área para apoiar sua pesquisa, currículo ou projeto.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+
+            {/* Module Grid */}
+            <div className="grid grid-cols-2 gap-3 p-6">
+              {modules.map((module) => {
+                const Icon = module.icon;
+                return (
+                  <DialogClose asChild key={module.title}>
+                    <Link href={module.href}>
+                      <div
+                        className={`group relative flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-4 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${module.border}`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className={`inline-flex items-center justify-center w-9 h-9 rounded-lg ${module.color}`}>
+                            <Icon className="w-4.5 h-4.5" />
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground group-hover:translate-x-0.5 transition-all duration-200" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-sm text-foreground leading-tight">{module.title}</div>
+                          <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{module.description}</div>
+                        </div>
                       </div>
                     </Link>
-                  </Button>
-                </DialogClose>
-              ))}
+                  </DialogClose>
+                );
+              })}
             </div>
-            <DialogFooter className="pt-4">
-              <DialogClose asChild>
-                <Button variant="secondary" className="w-full sm:w-auto">
-                  Fechar
-                </Button>
-              </DialogClose>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3 mb-12">
-        {modules.map((module) => (
-          <Card key={module.title} className="border-border shadow-sm hover:-translate-y-1 transition-transform duration-200">
-            <CardContent className="space-y-4">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 text-primary">
-                {module.icon}
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold">{module.title}</h2>
-                <p className="text-sm text-muted-foreground mt-2">{module.description}</p>
-              </div>
-              <Button asChild variant="outline" className="w-full">
-                <Link href={module.href}>Abrir módulo</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+        {modules.map((module) => {
+          const Icon = module.icon;
+          return (
+            <Card key={module.title} className="group border-border shadow-sm hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
+              <CardContent className="space-y-4">
+                <div className={`inline-flex items-center justify-center w-12 h-12 rounded-2xl ${module.color}`}>
+                  <Icon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">{module.title}</h2>
+                  <p className="text-sm text-muted-foreground mt-2">{module.description}</p>
+                </div>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href={module.href}>Abrir módulo</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

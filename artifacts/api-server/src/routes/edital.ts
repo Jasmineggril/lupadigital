@@ -27,6 +27,7 @@ const upload = multer({
 const router: IRouter = Router();
 
 import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital } from "../lib/aiService";
+import { openai, getOpenAIModel } from "@workspace/integrations-openai-ai-server";
 import { getReqUserId, requireAuth } from "../lib/supabase";
 
 router.post("/edital/analyze", async (req, res): Promise<void> => {
@@ -453,6 +454,59 @@ router.post("/edital/share", async (req, res) => {
   const token = randomUUID();
   await db.insert(sharedResultsTable).values({ token, agentId, title, resultJson });
   res.status(201).json({ token });
+});
+
+// ── POST /edital/ocr-pdf — extract text from PDF page images via GPT-4o Vision ──
+router.post("/edital/ocr-pdf", async (req, res): Promise<void> => {
+  const { pages } = req.body as { pages?: unknown };
+
+  if (!Array.isArray(pages) || pages.length === 0) {
+    res.status(400).json({ error: "Nenhuma página enviada." });
+    return;
+  }
+  if (pages.length > 30) {
+    res.status(400).json({ error: "Máximo de 30 páginas por requisição." });
+    return;
+  }
+
+  try {
+    const model = getOpenAIModel() ?? "gpt-4o";
+    const BATCH = 8; // pages per API call
+    const parts: string[] = [];
+
+    for (let i = 0; i < pages.length; i += BATCH) {
+      const batch = (pages as string[]).slice(i, i + BATCH);
+      const imageBlocks = batch.map((b64) => ({
+        type: "image_url" as const,
+        image_url: { url: `data:image/jpeg;base64,${b64}`, detail: "auto" as const },
+      }));
+
+      const response = await openai.chat.completions.create({
+        model,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Você é um assistente de OCR especializado em documentos oficiais brasileiros. Extraia TODO o texto das páginas do documento abaixo, em português, preservando parágrafos, seções e estrutura. Saída: apenas o texto extraído, sem comentários ou marcações extras.",
+              },
+              ...imageBlocks,
+            ],
+          },
+        ],
+        max_tokens: 8192,
+      });
+
+      parts.push(response.choices[0]?.message?.content ?? "");
+    }
+
+    res.json({ text: parts.join("\n\n") });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    req.log.error({ error: msg }, "ocr-pdf failed");
+    res.status(500).json({ error: "Falha no OCR. Tente novamente." });
+  }
 });
 
 // ── GET /edital/share/:token — retrieve shared result ─────────────

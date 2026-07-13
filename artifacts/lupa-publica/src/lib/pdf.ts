@@ -18,6 +18,10 @@ export interface ExtractedPdfResult {
   structured: PdfStructuredData;
 }
 
+// ── Base URL for API calls ──────────────────────────────────────────
+const API_BASE = `${((import.meta.env.BASE_URL as string) || "/").replace(/\/$/, "")}/api`;
+
+// ── Garbage stripping ───────────────────────────────────────────────
 /**
  * Strip characters that are clearly garbage from PDF font-encoding issues:
  * - Unicode Private Use Area (PUA): U+E000–U+F8FF, U+FFF0–U+FFFF
@@ -35,12 +39,11 @@ const stripGarbageChars = (value: string) =>
     .replace(/\uFFFD/g, "") // replacement char
     .replace(PDF_GARBAGE_GLYPHS, ""); // known PDF substitution glyphs
 
+// ── Readability score ───────────────────────────────────────────────
 /**
  * Returns the fraction of non-whitespace characters that are actual Unicode
- * letters (\\p{L}).  Legitimate Portuguese text sits at 0.65–0.85.
- * Garbled PDFs (raw glyph codes) typically fall below 0.45 even after stripping
- * the known substitution glyphs above, because they contain many symbols,
- * digits, and punctuation relative to letters.
+ * letters (\p{L}).  Legitimate Portuguese text sits at 0.65–0.85.
+ * Garbled PDFs (raw glyph codes) typically fall below 0.45.
  */
 const letterRe = /\p{L}/u;
 const nonSpaceRe = /\S/;
@@ -58,6 +61,7 @@ const readabilityScore = (value: string) => {
   return nonSpace === 0 ? 0 : letters / nonSpace;
 };
 
+// ── Text helpers ────────────────────────────────────────────────────
 const normalizeText = (value: string) => {
   const stripped = stripGarbageChars(value);
   return stripped
@@ -107,10 +111,95 @@ const buildSummary = (text: string) => {
   return firstSentence.length > 220 ? `${firstSentence.slice(0, 217)}...` : firstSentence;
 };
 
-export async function extractTextFromPdf(file: File): Promise<ExtractedPdfResult> {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, useWorkerFetch: false, disableFontFace: true }).promise;
+const buildStructured = (text: string, numPages: number): PdfStructuredData => ({
+  title: extractTitle(text),
+  resumo: buildSummary(text),
+  categoria: detectCategory(text),
+  prazo: extractDeadline(text),
+  requisitos: extractRequirements(text),
+  indicadores: {
+    palavras: text.split(/\s+/).filter(Boolean).length,
+    paginas: numPages,
+    data: extractDeadline(text),
+    instituicao: /ministério|secretaria|fundação|universidade|empresa|autarquia/i.test(text)
+      ? "Órgão identificado no texto"
+      : "Não identificada",
+  },
+});
 
+// ── OCR via server (GPT-4o Vision) ──────────────────────────────────
+/**
+ * Render each PDF page to a JPEG canvas image and return base64 strings.
+ * Scale 1.5 gives ~900×1270 px for A4 — enough for OCR without excess bytes.
+ */
+async function renderPdfPagesToBase64(
+  pdf: pdfjsLib.PDFDocumentProxy,
+  maxPages = 25,
+): Promise<string[]> {
+  const total = Math.min(pdf.numPages, maxPages);
+  const images: string[] = [];
+
+  for (let i = 1; i <= total; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.5 });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d")!;
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    // Strip the data URL prefix — server only needs the raw base64
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+    images.push(dataUrl.replace(/^data:image\/jpeg;base64,/, ""));
+
+    // Release canvas memory
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+
+  return images;
+}
+
+async function ocrPdfViaServer(pages: string[]): Promise<string> {
+  const BATCH = 8; // pages per API call — keeps payload < ~6 MB per request
+  const parts: string[] = [];
+
+  for (let i = 0; i < pages.length; i += BATCH) {
+    const batch = pages.slice(i, i + BATCH);
+    const res = await fetch(`${API_BASE}/edital/ocr-pdf`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pages: batch }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`OCR falhou (${res.status}): ${body}`);
+    }
+
+    const data = (await res.json()) as { text: string };
+    parts.push(data.text ?? "");
+  }
+
+  return parts.join("\n\n");
+}
+
+// ── Main export ─────────────────────────────────────────────────────
+export async function extractTextFromPdf(
+  file: File,
+  onStatus?: (msg: string) => void,
+): Promise<ExtractedPdfResult> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({
+    data: arrayBuffer,
+    useWorkerFetch: false,
+    disableFontFace: true,
+  }).promise;
+
+  // ── Fast path: text layer extraction ──────────────────────────────
+  onStatus?.("Extraindo texto do PDF…");
   const chunks: string[] = [];
   for (let pageIndex = 1; pageIndex <= pdf.numPages; pageIndex += 1) {
     const page = await pdf.getPage(pageIndex);
@@ -123,36 +212,34 @@ export async function extractTextFromPdf(file: File): Promise<ExtractedPdfResult
 
   const rawText = chunks.join("\n");
   const text = normalizeText(rawText);
+  const score = readabilityScore(text);
 
-  if (!text) {
-    throw new Error("Nenhum texto legível foi encontrado neste PDF.");
+  if (text && score >= 0.45) {
+    // Text layer is readable — return immediately
+    return { text, structured: buildStructured(text, pdf.numPages) };
   }
 
-  // Detect PDFs with heavily garbled/encoded fonts.
-  // The score is: Unicode-letter chars / non-whitespace chars.
-  // Legitimate Portuguese prose scores ~0.65–0.85.
-  // A garbled PDF (raw glyph codes mixed with symbols) typically scores < 0.45.
-  const score = readabilityScore(text);
-  if (score < 0.45) {
+  // ── Slow path: OCR via GPT-4o Vision ─────────────────────────────
+  // The PDF uses a custom/embedded font without a ToUnicode CMap,
+  // so the text layer is garbled. Render pages to images and OCR them.
+  onStatus?.("PDF com fonte codificada — extraindo via OCR (pode demorar alguns segundos)…");
+
+  const pageImages = await renderPdfPagesToBase64(pdf);
+
+  if (pageImages.length === 0) {
+    throw new Error("Não foi possível renderizar as páginas deste PDF.");
+  }
+
+  onStatus?.(`Enviando ${pageImages.length} página(s) para OCR…`);
+  const ocrRaw = await ocrPdfViaServer(pageImages);
+  const ocrText = normalizeText(ocrRaw);
+
+  if (!ocrText.trim()) {
     throw new Error(
-      "Este PDF usa uma codificacao de fonte nao suportada e o texto extraido ficou ilegivel. " +
-      "Por favor, abra o PDF, selecione todo o texto (Ctrl+A), copie (Ctrl+C) e cole na aba 'Colar Texto'.",
+      "Não foi possível extrair texto deste PDF mesmo com OCR. " +
+        "Tente copiar o texto manualmente e cole na aba 'Colar Texto'.",
     );
   }
 
-  const structured: PdfStructuredData = {
-    title: extractTitle(text),
-    resumo: buildSummary(text),
-    categoria: detectCategory(text),
-    prazo: extractDeadline(text),
-    requisitos: extractRequirements(text),
-    indicadores: {
-      palavras: text.split(/\s+/).filter(Boolean).length,
-      paginas: pdf.numPages,
-      data: extractDeadline(text),
-      instituicao: /ministério|secretaria|fundação|universidade|empresa|autarquia/i.test(text) ? "Órgão identificado no texto" : "Não identificada",
-    },
-  };
-
-  return { text, structured };
+  return { text: ocrText, structured: buildStructured(ocrText, pdf.numPages) };
 }

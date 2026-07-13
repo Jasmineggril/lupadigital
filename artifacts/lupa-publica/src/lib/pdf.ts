@@ -148,7 +148,7 @@ async function renderPdfPagesToBase64(
     canvas.height = viewport.height;
     const ctx = canvas.getContext("2d")!;
 
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
 
     // Strip the data URL prefix — server only needs the raw base64
     const dataUrl = canvas.toDataURL("image/jpeg", 0.82);

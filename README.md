@@ -1,5 +1,7 @@
 # LUPA Digital
 
+<img width="509" height="612" alt="Logo" src="https://github.com/user-attachments/assets/aff22e4e-d5d1-4b2d-9615-30c4d9986480" />
+
 ## Inteligência Artificial para democratização do acesso à informação científica e pública
 
 O LUPA Digital é um artefato de pesquisa desenvolvido no contexto do **NIASci — Núcleo de Inteligência Artificial para a Ciência**.

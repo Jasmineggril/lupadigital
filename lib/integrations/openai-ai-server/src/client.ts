@@ -3,9 +3,10 @@ import OpenAI from "openai";
 let _client: OpenAI | null = null;
 
 const validateKey = () => {
-  if (!process.env.OPENAI_API_KEY) {
+  const hasIntegration = process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  if (!hasIntegration && !process.env.OPENAI_API_KEY) {
     throw new Error(
-      "OPENAI_API_KEY is not configured. Set it in Replit Secrets to enable OpenAI features.",
+      "OpenAI not configured. Set OPENAI_API_KEY in Replit Secrets or enable the Replit AI Integration.",
     );
   }
 };
@@ -23,12 +24,15 @@ export function getOpenAIClient(): OpenAI {
 
   validateKey();
 
-  const apiKey = process.env.OPENAI_API_KEY!;
-  const options: { apiKey: string; baseURL?: string } = {
-    apiKey,
-  };
+  const hasIntegration = process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  const apiKey = hasIntegration
+    ? process.env.AI_INTEGRATIONS_OPENAI_API_KEY!
+    : process.env.OPENAI_API_KEY!;
+  const options: { apiKey: string; baseURL?: string } = { apiKey };
 
-  if (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+  if (hasIntegration) {
+    options.baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL!;
+  } else if (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
     options.baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   }
 

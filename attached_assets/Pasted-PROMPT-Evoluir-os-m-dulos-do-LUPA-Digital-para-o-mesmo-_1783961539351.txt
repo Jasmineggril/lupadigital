@@ -1,0 +1,214 @@
+PROMPT — Evoluir os módulos do LUPA Digital para o mesmo nível do módulo Editais
+
+O módulo Editais é atualmente o módulo mais completo do sistema e deve servir como referência arquitetural, visual e funcional para todos os demais módulos do LUPA Digital.
+
+Objetivo
+
+Não criar novos módulos.
+
+Não alterar o backend do módulo Editais.
+
+Não modificar funcionalidades que já estão funcionando.
+
+O objetivo é elevar os módulos restantes ao mesmo nível de maturidade do Editais.
+
+Antes de implementar
+
+Primeiro faça uma análise completa do módulo Editais e identifique:
+
+fluxo da interface;
+componentes reutilizados;
+arquitetura React;
+comunicação com o backend;
+organização dos resultados;
+estados de loading;
+tratamento de erros;
+histórico;
+persistência;
+integração com AIService;
+padrões de layout;
+reutilização de componentes.
+
+O módulo Editais será o padrão para todo o restante do sistema.
+
+Padronização geral
+
+Todos os módulos devem possuir exatamente o mesmo fluxo de uso.
+
+Fluxo
+
+Escolher documento ou entrada
+
+↓
+
+Enviar
+
+↓
+
+IA interpreta
+
+↓
+
+Resultados organizados
+
+↓
+
+Histórico
+
+↓
+
+Exportação
+
+Todos os módulos devem possuir
+Upload
+
+quando aplicável
+
+Colar texto
+
+quando aplicável
+
+URL
+
+quando aplicável
+
+PDF
+
+quando aplicável
+
+Histórico
+Exportação
+Loading
+Tratamento de erro
+Salvamento
+Integração com Supabase
+Integração com AIService
+Comentários no código
+
+Todo código novo deve ser comentado em português, com nível compatível com um estudante do 4º semestre de Engenharia de Software, explicando:
+
+objetivo do componente;
+responsabilidade da função;
+fluxo de execução;
+integração com backend;
+integração com Supabase;
+integração com AIService.
+1. e-Lattes
+
+Transformar em um módulo completo.
+
+Após a análise, gerar:
+
+Resumo executivo
+Linha do tempo acadêmica
+Competências
+Produção científica
+Áreas de pesquisa
+Sugestão de editais
+Oportunidades
+Exportação
+Histórico
+2. Artigos Científicos
+
+Após a análise gerar:
+
+Resumo
+Objetivos
+Metodologia
+Resultados
+Conclusões
+Limitações
+Referências
+Citações
+Palavras-chave
+Sugestões de uso
+Histórico
+Exportação
+3. Projetos
+
+Transformar em um assistente de projetos científicos.
+
+Gerar:
+
+Resumo
+Objetivos
+Equipe
+Cronograma
+Etapas
+Indicadores
+Riscos
+Pendências
+Próximas ações
+Histórico
+Exportação
+4. Planetário
+
+Transformar em um gerador de conteúdo científico.
+
+Gerar:
+
+Explicação simplificada
+Roteiro educacional
+Curiosidades
+Perguntas
+Quiz
+Slides
+Histórico
+Exportação
+5. Assistente IA
+
+Transformar em um chat científico completo.
+
+Permitir:
+
+conversa contextual;
+histórico de conversas;
+anexar documentos;
+utilizar contexto dos módulos anteriores;
+integração com AIService;
+persistência das conversas.
+Integração
+
+Todos os módulos devem utilizar a mesma arquitetura do Editais.
+
+Não criar lógica paralela.
+
+Reutilizar:
+
+componentes;
+hooks;
+serviços;
+layouts;
+cards;
+loaders;
+tratamento de erro;
+tabs;
+exportação;
+histórico.
+Experiência do usuário
+
+Todos os módulos devem transmitir a sensação de fazer parte do mesmo produto.
+
+Mesmo padrão de:
+
+layout;
+espaçamento;
+tipografia;
+botões;
+cards;
+cores;
+animações;
+feedback visual.
+Integração com IA
+
+Nenhum módulo deve chamar diretamente a OpenAI.
+
+Toda chamada deve passar pelo AIService, mantendo:
+
+preservação semântica;
+mediação linguística;
+linguagem simples;
+transparência;
+registro de alertas;
+logging;
+rastreabilidade.

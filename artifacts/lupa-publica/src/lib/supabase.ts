@@ -1,8 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase-types";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_PUBLISHABLE_KEY || "";
+// Apenas variáveis VITE_ são seguras para o bundle do frontend.
+// NUNCA ler SUPABASE_SECRET_KEY ou SUPABASE_SERVICE_ROLE_KEY aqui.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
 
 export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient<Database>(supabaseUrl, supabaseAnonKey, {

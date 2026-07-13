@@ -6,9 +6,14 @@ let _supabase: SupabaseClient | null = null;
 export function getSupabaseAdmin() {
   if (_supabase) return _supabase;
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SECRET_KEY;
+  // Suporte ao nome canônico (SUPABASE_SERVICE_ROLE_KEY) com fallback para o nome legado
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {
-    throw new Error("SUPABASE_URL and SUPABASE_SECRET_KEY must be set on the server");
+    throw new Error(
+      "SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar configurados no servidor",
+    );
   }
 
   _supabase = createClient(url, key, {

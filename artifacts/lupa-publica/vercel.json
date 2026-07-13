@@ -1,8 +1,14 @@
 {
+  "buildCommand": "pnpm run build",
+  "outputDirectory": "dist/public",
   "rewrites": [
     {
       "source": "/api/:path*",
       "destination": "https://27c9e4ab-0a5a-4516-93c6-736795df4cd5-00-10vckj1hozd51.spock.replit.dev/api/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }

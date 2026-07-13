@@ -43,9 +43,39 @@ function normalizeConnectionString(raw: string | undefined): string | undefined 
   return s;
 }
 
-const databaseUrl = normalizeConnectionString(
-  process.env.DIRECT_URL_IPV4 || process.env.DIRECT_URL || process.env.DATABASE_URL,
-);
+/**
+ * Se DB_PASSWORD estiver definido, substitui a senha na connection string.
+ * Isso permite que o usuário corrija apenas a senha sem reformatar a URL inteira.
+ * Também remove colchetes [ ] ao redor da senha (formato visual do Supabase).
+ */
+function injectPassword(urlStr: string, password: string): string {
+  try {
+    const u = new URL(urlStr);
+    // Remove colchetes ao redor da senha (ex: [minhaSenha] → minhaSenha)
+    const clean = password.replace(/^\[|\]$/g, "").trim();
+    u.password = encodeURIComponent(clean);
+    return u.toString();
+  } catch {
+    return urlStr;
+  }
+}
+
+function resolveConnectionString(): string | undefined {
+  const raw = normalizeConnectionString(
+    process.env.DIRECT_URL_IPV4 || process.env.DIRECT_URL || process.env.DATABASE_URL,
+  );
+  if (!raw) return undefined;
+
+  // Se DB_PASSWORD estiver definido, injeta a senha correta na URL
+  const dbPassword = normalizeConnectionString(process.env.DB_PASSWORD);
+  if (dbPassword) {
+    return injectPassword(raw, dbPassword);
+  }
+
+  return raw;
+}
+
+const databaseUrl = resolveConnectionString();
 
 if (!databaseUrl) {
   throw new Error(

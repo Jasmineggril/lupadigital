@@ -1,3 +1,29 @@
+/**
+ * @file analisesService.ts
+ * @description Camada de serviço para persistência de análises do usuário.
+ *
+ * Implementa o padrão Dual-Storage com fallback automático:
+ *   1. Backend (preferido): API Express autenticada via JWT Supabase
+ *   2. localStorage (fallback): usado quando o usuário não está autenticado
+ *      ou quando a chamada à API falha
+ *
+ * A função `useBackend()` decide qual caminho usar em cada operação.
+ * Se o JWT estiver presente (usuário logado), usa a API. Caso contrário,
+ * cai para localStorage sem expor o erro ao usuário.
+ *
+ * Funções exportadas:
+ *   - salvarAnalise(analise)     → salva edital analisado
+ *   - listarAnalises()           → lista análises do usuário
+ *   - deletarAnalise(id)         → remove análise por ID
+ *   - toggleFavorito(id, val)    → alterna favorito de uma análise
+ *   - salvarAgentResult(data)    → persiste resultado de agente especializado
+ *   - listarAgentHistory()       → lista histórico de agentes
+ *   - deletarAgentResult(id)     → remove resultado de agente
+ *   - Funções análogas para NIASci: Lattes, Artigos, Projetos, Planetário, Chat
+ *
+ * Todos os tipos de resposta seguem os schemas Zod definidos em @workspace/api-zod.
+ */
+
 import { supabase, isSupabaseConfigured, getSupabaseSessionToken } from "@/lib/supabase";
 import type {
   AIAnalysis,
@@ -23,8 +49,13 @@ export interface AnaliseSalva {
   favorito?: boolean;
 }
 
+/** Chave usada para persistência de análises no localStorage (fallback offline) */
 const STORAGE_KEY = "lupa-publica-analises";
 
+/**
+ * Lê a lista de análises salvas no localStorage.
+ * Retorna array vazio em caso de parse error ou ambiente server-side.
+ */
 const readLocalAnalises = (): AnaliseSalva[] => {
   if (typeof window === "undefined") return [];
   try {
@@ -39,8 +70,19 @@ const writeLocalAnalises = (items: AnaliseSalva[]) => {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 };
 
+/**
+ * URL base para chamadas à API do backend.
+ * Resolve o BASE_URL do Vite para funcionar em dev e produção (Vercel).
+ */
 const API_BASE = `${((import.meta.env.BASE_URL as string) || "/").replace(/\/$/, "")}/api`;
 
+/**
+ * Retorna os headers de autenticação JWT para incluir nas chamadas à API.
+ * Retorna null se o usuário não estiver autenticado (sem sessão Supabase ativa).
+ * Quando null, as funções fazem fallback para localStorage.
+ *
+ * @returns Objeto { Authorization: "Bearer <jwt>" } ou null
+ */
 async function getAuthHeaders() {
   if (!isSupabaseConfigured || !supabase) return null;
   const token = await getSupabaseSessionToken();
@@ -48,6 +90,17 @@ async function getAuthHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
+/**
+ * Wrapper genérico para chamadas à API backend.
+ * Injeta automaticamente o header Authorization com o JWT Supabase se disponível.
+ * Lança erro em respostas não-ok (4xx, 5xx) com o body da resposta.
+ * Retorna null (como T) para respostas 204 No Content.
+ *
+ * @template T - Tipo esperado da resposta JSON
+ * @param path - Caminho relativo à API_BASE (ex: "/resources/edital_analyses")
+ * @param opts - Opções adicionais do fetch (method, body, etc.)
+ * @returns Objeto tipado ou null para respostas sem corpo
+ */
 async function apiRequest<T>(path: string, opts: RequestInit = {}) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -74,12 +127,25 @@ async function apiRequest<T>(path: string, opts: RequestInit = {}) {
   return JSON.parse(text) as T;
 }
 
+/**
+ * Decide se deve usar o backend (API + JWT) ou localStorage para a operação.
+ * Retorna true se o Supabase está configurado E há sessão ativa (JWT disponível).
+ * Retorna false para usuários não autenticados → operações vão para localStorage.
+ */
 async function useBackend(): Promise<boolean> {
   if (!isSupabaseConfigured || !supabase) return false;
   const authHeaders = await getAuthHeaders();
   return Boolean(authHeaders);
 }
 
+/**
+ * Salva uma análise de edital no backend (autenticado) ou localStorage (fallback).
+ * Em caso de falha na API, salva localmente para não perder o trabalho do usuário.
+ * Limita o localStorage a 50 itens (os mais recentes).
+ *
+ * @param analise - Dados da análise a salvar
+ * @returns O objeto salvo com id e created_at preenchidos
+ */
 export async function salvarAnalise(analise: AnaliseSalva) {
   if (!(await useBackend())) {
     const items = readLocalAnalises();

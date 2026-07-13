@@ -1,3 +1,25 @@
+/**
+ * @file navbar.tsx
+ * @description Barra de navegação principal da aplicação LUPA Digital.
+ *
+ * Características:
+ *   - Header fixo (sticky top-0) com z-index alto para sobrepor conteúdo
+ *   - Layout responsivo: navegação desktop e menu hambúrguer mobile
+ *   - Dropdown "Acesso Rápido" com links para os 6 módulos NIASci
+ *   - Menu de usuário com avatar, tipo de perfil e opção de logout
+ *   - Link ativo destacado via comparação com useLocation()
+ *   - Fechamento automático de dropdowns ao clicar fora (click outside pattern)
+ *
+ * Estados de UI:
+ *   - isOpen           → menu hambúrguer mobile aberto/fechado
+ *   - isAcessoOpen     → dropdown "Acesso Rápido" desktop aberto/fechado
+ *   - isAcessoMobileOpen → sub-menu "Acesso Rápido" mobile aberto/fechado
+ *   - showUserMenu     → menu de perfil do usuário aberto/fechado
+ *
+ * O componente consome useAuth() para exibir o nome e perfil do usuário
+ * autenticado e acionar logout via Supabase.
+ */
+
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { ChevronDown, Crown, LogIn, LogOut, Menu, UserCircle, X } from "lucide-react";

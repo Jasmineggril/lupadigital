@@ -1,3 +1,29 @@
+/**
+ * @file edital.ts
+ * @description Rotas da API para análise, persistência e compartilhamento de editais.
+ *
+ * Endpoints disponíveis:
+ *
+ *   POST  /edital/analyze            — executa um dos 6 agentes IA no texto do edital
+ *   GET   /edital/agent-history      — lista histórico de análises do usuário (auth)
+ *   POST  /edital/agent-history      — salva resultado de análise (auth)
+ *   DELETE /edital/agent-history/:id — remove análise do histórico (auth, owner)
+ *   POST  /edital/extract-url        — extrai texto de URL pública (com guard SSRF)
+ *   POST  /edital/ocr-pdf            — OCR de PDF escaneado via GPT-4o Vision
+ *   POST  /edital/simplify           — simplificação de edital para linguagem cidadã
+ *   GET   /edital/history            — histórico legado (savedEditalsTable)
+ *   POST  /edital/save               — salva edital simplificado (legado)
+ *   DELETE /edital/:id               — remove edital salvo legado
+ *   POST  /edital/share/:id          — gera token público de compartilhamento
+ *   GET   /edital/shared/:token      — recupera resultado compartilhado (público)
+ *
+ * Segurança:
+ *   - assertPublicHost(): proteção contra SSRF em URLs externas
+ *   - multer: valida MIME type e limita tamanho (20MB) de PDFs
+ *   - requireAuth() aplicado em rotas que persistem dados
+ *   - Autoria verificada em delete/share para prevenir acesso cruzado
+ */
+
 import { Router, type IRouter } from "express";
 import { desc, eq, sql, and } from "drizzle-orm";
 import * as cheerio from "cheerio";

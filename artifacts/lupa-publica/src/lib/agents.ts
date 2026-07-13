@@ -1,3 +1,25 @@
+/**
+ * @file agents.ts
+ * @description Metadados e prompts dos 6 agentes especializados do LUPA Digital.
+ *
+ * Cada agente representa uma perspectiva diferente de análise de editais públicos:
+ *
+ * | ID              | Nome              | Foco principal                          |
+ * |-----------------|-------------------|-----------------------------------------|
+ * | simples         | Lupa Simples      | Resumo em linguagem cidadã acessível    |
+ * | analista        | Lupa Analista     | Indicadores-chave (prazo, valor, docs)  |
+ * | estrategica     | Lupa Estratégica  | Análise SWOT + oportunidades de impacto |
+ * | acompanhamento  | Lupa Tracking     | Timeline e cronograma de etapas         |
+ * | documentacao    | Lupa Docs         | Checklist de documentação necessária    |
+ * | elegibilidade   | Lupa Elegibilidade| Critérios de qualificação do edital     |
+ *
+ * O tipo AgentId é compartilhado entre frontend (aqui) e backend (aiService.ts).
+ * Os prompts detalhados de cada agente estão em aiService.ts (AGENT_INSTRUCTIONS).
+ *
+ * AgentMeta define apenas a camada de apresentação (ícone, cor, descrição curta)
+ * e não contém lógica de negócio.
+ */
+
 export type AgentId =
   | "simples"
   | "analista"

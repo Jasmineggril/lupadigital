@@ -1,3 +1,26 @@
+/**
+ * @file pdf.ts
+ * @description Módulo de extração de texto e metadados de arquivos PDF.
+ *
+ * Pipeline de processamento:
+ *   1. extractTextFromPdf(file)     → extrai texto das páginas via pdfjs-dist
+ *   2. normalizeText(text)          → remove caracteres de garbage (PUA, PdfGlyphs)
+ *   3. buildStructured(text)        → extrai metadados (título, prazo, categoria)
+ *   4. extractPdfResult(file)       → orquestra 1→2→3, retorna ExtractedPdfResult
+ *
+ * Para PDFs com texto não selecionável (escaneados), o pipeline usa OCR via GPT-4o Vision:
+ *   1. renderPdfPagesToImages(file)  → renderiza cada página em canvas e converte p/ JPEG base64
+ *   2. ocrPdfViaServer(pages)        → envia as imagens ao backend (POST /api/edital/ocr-pdf)
+ *   3. buildStructured(text)         → igual ao pipeline normal
+ *
+ * Legibilidade é detectada por readabilityScore(): se a proporção de letras Unicode
+ * for < 45%, o texto é considerado ilegível e aciona o fallback OCR.
+ *
+ * Dependências externas:
+ *   - pdfjs-dist (legacy/build): parsing de PDF no browser com Web Worker
+ *   - GPT-4o Vision (via backend): OCR de PDFs escaneados
+ */
+
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import pdfWorker from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";

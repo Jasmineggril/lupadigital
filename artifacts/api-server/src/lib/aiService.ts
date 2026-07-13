@@ -467,6 +467,10 @@ export async function ocrPdf(
 
   const model = getOpenAIModel();
   const start = Date.now();
+  // Processa as páginas em lotes de 8 imagens por chamada à API.
+  // Por quê BATCH=8? GPT-4o Vision suporta até 10 imagens por mensagem,
+  // mas 8 é o sweet-spot entre contexto (tokens de imagem ~85–1700 tokens cada)
+  // e janela de 128k tokens. Lotes maiores aumentam risco de truncamento silencioso.
   const BATCH = 8;
   const parts: string[] = [];
 
@@ -794,7 +798,11 @@ async function callNiasciAI(
   const start = Date.now();
 
   try {
-    // Chama a API OpenAI com formato JSON obrigatório para evitar parse errors
+    // response_format: json_object força a OpenAI a retornar JSON válido.
+    // ATENÇÃO: exige que a palavra "JSON" apareça no prompt de sistema —
+    // caso contrário, a API retorna erro 400 "Must contain word JSON".
+    // temperature: 0.3 reduz criatividade para respostas mais determinísticas
+    // e estruturadas (importante para manter o schema JSON estável).
     const completion = await openai.chat.completions.create({
       model,
       temperature: 0.3,
@@ -1131,7 +1139,10 @@ export async function chatNiasci(
     // Monta as mensagens incluindo o histórico da conversa
     const chatMessages = [
       { role: "system" as const, content: systemContent },
-      ...messages.slice(-20).map((m) => ({ // Limita a 20 mensagens para não exceder contexto
+      // slice(-20): limita o histórico às 20 últimas mensagens.
+      // GPT-4o tem janela de 128k tokens, mas conversas longas aumentam latência e custo.
+      // 20 mensagens ≈ 3-5k tokens de histórico, deixando margem para o sistema e resposta.
+      ...messages.slice(-20).map((m) => ({ // Mantém as últimas 20 mensagens (≈ 3-5k tokens)
         role: m.role as "user" | "assistant",
         content: m.content,
       })),

@@ -1,3 +1,31 @@
+/**
+ * @file lib/supabase.ts (backend)
+ * @description Configuração do cliente Supabase Admin e middleware de autenticação JWT.
+ *
+ * Este arquivo implementa 3 responsabilidades distintas:
+ *
+ * 1. CLIENTE ADMIN (getSupabaseAdmin)
+ *    Instância singleton do Supabase com a service role key, que tem acesso total ao banco.
+ *    Usada apenas no backend — nunca exposta ao frontend.
+ *    Variáveis necessárias: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SECRET_KEY)
+ *
+ * 2. VERIFICAÇÃO JWT (verifySupabaseJwt / getSupabaseJwks)
+ *    Valida tokens JWT emitidos pelo Supabase Auth usando RS256 com JWKS remoto.
+ *    JWKS (JSON Web Key Set) contém a chave pública do Supabase para verificar assinaturas.
+ *    Variáveis necessárias: SUPABASE_JWKS_URL
+ *    Opcionais: SUPABASE_JWT_ISSUER, SUPABASE_JWT_AUDIENCE
+ *
+ * 3. MIDDLEWARES EXPRESS (supabaseAuthMiddleware / requireAuth / getReqUserId)
+ *    - supabaseAuthMiddleware(): extrai e valida o Bearer token; popula req.user se válido
+ *      (não bloqueia — rotas públicas continuam funcionando mesmo sem token)
+ *    - requireAuth(): bloqueia a rota com 401 se req.user não estiver populado
+ *    - getReqUserId(): helper para extrair o userId de req de forma segura
+ *
+ * Padrão de uso nas rotas:
+ *   app.use(supabaseAuthMiddleware())  // aplicado globalmente em app.ts
+ *   router.post("/rota", requireAuth(), handler)  // aplicado por rota
+ */
+
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 

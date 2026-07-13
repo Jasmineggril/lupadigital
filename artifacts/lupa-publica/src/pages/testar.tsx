@@ -1,3 +1,38 @@
+/**
+ * @file testar.tsx
+ * @description Página principal de análise de editais do LUPA Digital.
+ *
+ * Esta é a página central da aplicação — onde o usuário interage com os 6 agentes
+ * especializados de IA para analisar editais públicos.
+ *
+ * Fluxo principal:
+ *   1. Entrada: texto colado, URL pública ou PDF enviado
+ *   2. Extração: PDF → texto via pdfjs-dist (ou OCR via GPT-4o Vision para PDFs escaneados)
+ *   3. Análise: seleção do agente → POST /api/edital/analyze → resultado estruturado
+ *   4. Exibição: resultado em abas (Resumo, Indicadores, Timeline, Recomendações, etc.)
+ *   5. Persistência: salvar no histórico (autenticado) ou localStorage (anônimo)
+ *   6. Compartilhamento: gera token público e URL compartilhável
+ *
+ * Modos de análise suportados:
+ *   - simplificação (agente "simples"): resumo + linguagem cidadã
+ *   - agentes especializados: analista, estrategica, acompanhamento, documentacao, elegibilidade
+ *
+ * Gerenciamento de estado:
+ *   - React Query (@tanstack/react-query) para todas as chamadas à API
+ *   - Estado local (useState) para UI: texto, modo, arquivo, carregamentos
+ *   - Progresso visual de análise com estágios animados (pattern de niasci-utils)
+ *
+ * Componentes internos notáveis:
+ *   - AgentCard: card de seleção de agente com ícone, cor e descrição
+ *   - ResultView: renderiza o resultado estruturado do agente em abas/acordeões
+ *   - HistoryPanel: painel lateral com histórico de análises e pesquisa
+ *   - UploadZone: drag-and-drop de PDF com preview de nome/tamanho
+ *
+ * @see agents.ts para metadados dos agentes
+ * @see analisesService.ts para persistência de análises
+ * @see pdf.ts para extração de texto de PDFs
+ */
+
 import { useState, useRef, useMemo, useEffect, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";

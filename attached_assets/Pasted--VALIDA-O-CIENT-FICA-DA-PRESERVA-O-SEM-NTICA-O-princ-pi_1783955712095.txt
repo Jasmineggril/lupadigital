@@ -1,0 +1,98 @@
+# VALIDAÇÃO CIENTÍFICA DA PRESERVAÇÃO SEMÂNTICA
+
+O princípio de mediação linguística já foi implementado no AIService.
+
+Agora não quero novas funcionalidades nem refatorações amplas.
+
+Objetivo:
+
+Criar uma camada de testes que verifique se as respostas simplificadas preservam informações críticas do documento original.
+
+Não alterar banco remoto.
+Não executar migrations.
+Não alterar layout.
+Não modificar identidade visual.
+
+## Criar testes para verificar:
+
+1. Prazos
+- datas presentes no original devem permanecer iguais;
+- nenhuma nova data pode ser inventada;
+- datas ausentes devem ser marcadas como “Não informado”.
+
+2. Valores
+- valores monetários devem permanecer iguais;
+- limites e percentuais não podem ser alterados.
+
+3. Elegibilidade
+- requisitos obrigatórios devem permanecer presentes;
+- a IA não pode ampliar ou restringir indevidamente o público-alvo.
+
+4. Documentação
+- documentos obrigatórios não podem ser omitidos;
+- documentos opcionais não podem ser apresentados como obrigatórios.
+
+5. Modalidade lógica
+- “pode” não pode virar “deve”;
+- “deve” não pode virar “pode”;
+- “preferencialmente” não pode virar obrigação;
+- “sujeito a” não pode virar certeza.
+
+6. Negação
+- preservar expressões como:
+  - não;
+  - exceto;
+  - vedado;
+  - somente;
+  - obrigatório;
+  - facultativo.
+
+7. Ambiguidade
+- quando o documento não for explícito, a resposta deve usar:
+  “Não informado” ou alerta equivalente;
+- não permitir inferências apresentadas como fatos.
+
+## Conjunto de teste
+
+Criar fixtures pequenas e controladas contendo:
+- texto original;
+- saída esperada;
+- informações críticas;
+- alterações proibidas.
+
+Incluir casos positivos e negativos.
+
+## Métricas
+
+Calcular, quando possível:
+- taxa de preservação de datas;
+- taxa de preservação de valores;
+- taxa de preservação de requisitos;
+- taxa de omissões críticas;
+- taxa de informações inventadas;
+- quantidade de alertas corretamente gerados.
+
+## Comentários
+
+Adicionar comentários JSDoc objetivos e didáticos, em nível compatível com estudante do 4º semestre de Engenharia de Software.
+
+Explicar:
+- objetivo do teste;
+- risco científico avaliado;
+- regra semântica verificada;
+- resultado esperado.
+
+## Relatório final
+
+Informar:
+- arquivos criados;
+- testes implementados;
+- cenários cobertos;
+- testes aprovados;
+- testes com falha;
+- limitações da validação;
+- próximos passos recomendados.
+
+Não afirmar que a preservação semântica é garantida.
+Utilizar a expressão:
+“preservação semântica tratada como requisito e avaliada por testes”.

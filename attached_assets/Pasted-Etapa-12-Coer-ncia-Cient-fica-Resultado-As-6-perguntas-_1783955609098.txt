@@ -1,0 +1,42 @@
+Etapa 12 — Coerência Científica: Resultado
+As 6 perguntas respondidas com o que foi implementado
+① O LUPA Digital preserva o significado dos documentos ao simplificar sua linguagem?
+
+✅ Sim — garantido por arquitetura. O SEMANTIC_PRESERVATION_MANDATE (Princípio 1, fundamentado no signo linguístico de Saussure) é injetado em todos os prompts de sistema — os 6 agentes de edital e a simplifyEdital. Lista explícita do que é proibido: alterar prazos, omitir exigências, suavizar obrigações, transformar possibilidade em certeza.
+
+② A IA atua como mediadora linguística, e não apenas como resumidora?
+
+✅ Sim — redefinido em código. O MEDIADORA_LINGUISTICA_MANDATE (Princípio 2) foi adicionado e injeta a definição exata do papel da IA:
+
+"Você NÃO é uma resumidora de textos. Você é uma MEDIADORA LINGUÍSTICA. Traduz entre o registro burocrático/jurídico e a linguagem cidadã acessível."
+
+As instruções de cada agente foram reescritas usando esse enquadramento — ex: "mediadora especializada em extração precisa", "mediadora especializada em construir linhas do tempo".
+
+③ As respostas são fundamentadas no documento analisado?
+
+✅ Sim — reforçado nos schemas e nas instruções. Cada SCHEMA_EXAMPLE agora especifica explicitamente "EXATAMENTE como consta no edital" para prazo, valor e requisitos. Os agentes analista e acompanhamento têm instrução direta: "Se não estiver explícito, use 'Não informado' — nunca infira nem invente."
+
+④ O sistema informa quando existe ambiguidade em vez de inventar respostas?
+
+✅ Sim — implementado em todas as camadas.
+
+Backend (aiService.ts): TRANSPARENCY_MANDATE (Princípio 4) instrui a IA a popular o campo alertas com ambiguidades, inferências, contradições e ausências. Formato padronizado: "⚠ [categoria] descrição".
+Schemas Zod: campo alertas: z.array(z.string()).optional().default([]) adicionado aos 6 schemas de agente.
+Tipos TypeScript (agents.ts): alertas?: string[] adicionado a todas as 6 interfaces de resultado.
+UI (testar.tsx): componente AlertasPanel exibido em todos os 6 painéis de resultado, mostrando os alertas em laranja com o título "Pontos para verificar no documento original".
+⑤ As decisões da IA são transparentes e rastreáveis?
+
+✅ Sim — em duas dimensões.
+
+Rastreabilidade operacional: ai_usage_logs registra módulo, agente, modelo, tokens, latência e sucesso de cada chamada. O OCR agora passa pelo AIService.ocrPdf() e também é logado — eliminando o bypass que existia.
+Rastreabilidade semântica: o campo alertas na resposta indica ao usuário qual trecho é incerto e por quê, com categoria ([ambiguidade], [inferência], [contradição], [ausência]).
+⑥ A simplificação segue princípios de Linguagem Simples sem comprometer a integridade da informação?
+
+✅ Sim — codificados como mandato técnico. O PLAIN_LANGUAGE_PRINCIPLES (Princípio 3, baseado em ISO 24495-1:2023) foi adicionado e lista os 7 princípios técnicos de acessibilidade textual injetados em todos os prompts: vocabulário cotidiano, frases curtas (máx. 25 palavras), voz ativa, uma ideia por campo, estrutura lógica, termos técnicos explicados e linguagem inclusiva.
+
+Arquivos alterados
+Arquivo	Mudança
+artifacts/api-server/src/lib/aiService.ts	4 mandatos científicos, alertas em todos os schemas, ocrPdf() centralizado com logging
+artifacts/lupa-publica/src/lib/agents.ts	alertas?: string[] nas 6 interfaces de resultado
+artifacts/api-server/src/routes/edital.ts	OCR delegado ao aiService.ocrPdf() — import direto de OpenAI removido
+artifacts/lupa-publica/src/pages/testar.tsx	AlertasPanel + chamadas nos 6 painéis de resultado

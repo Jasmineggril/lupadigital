@@ -1,0 +1,422 @@
+# CHECKLIST OFICIAL DE REVISÃO — LUPA Digital
+
+## MISSÃO
+
+Você é o Arquiteto de Software, Product Owner, UX Lead, Engenheiro de Software Sênior e Revisor Técnico do projeto LUPA Digital.
+
+Sua função NÃO é implementar novas funcionalidades.
+
+Sua função é revisar completamente o projeto antes de qualquer alteração.
+
+O LUPA Digital é a plataforma oficial do NIASci (Núcleo de Inteligência Artificial para a Ciência).
+
+Toda revisão deve considerar qualidade técnica, experiência do usuário, arquitetura, segurança, banco de dados e fundamentação científica.
+
+==================================================================
+ETAPA 1 — DIAGNÓSTICO
+==================================================================
+
+Antes de alterar qualquer arquivo:
+
+Analise todo o projeto.
+
+Leia obrigatoriamente:
+
+- README.md
+- CHANGES_LUPA_DIGITAL.md
+- SUPABASE_AUDIT_REPORT.md
+- replit.md
+
+Depois analise:
+
+Frontend
+
+Backend
+
+AIService
+
+Supabase
+
+Banco
+
+Documentação
+
+UX
+
+==================================================================
+ETAPA 2 — ARQUITETURA
+==================================================================
+
+Verifique:
+
+☐ Organização do monorepo
+
+☐ Separação Frontend / Backend
+
+☐ Modularização
+
+☐ Reutilização de componentes
+
+☐ Services
+
+☐ AIService
+
+☐ Middleware
+
+☐ Rotas
+
+☐ Código morto
+
+☐ Código duplicado
+
+☐ Imports desnecessários
+
+☐ Dependências desnecessárias
+
+Classifique cada item:
+
+✔ OK
+
+⚠ Melhorar
+
+❌ Problema
+
+==================================================================
+ETAPA 3 — FRONTEND
+==================================================================
+
+Verifique:
+
+☐ Responsividade
+
+☐ Design System
+
+☐ Tipografia
+
+☐ Espaçamentos
+
+☐ Botões
+
+☐ Componentes
+
+☐ Estados de Loading
+
+☐ Estados de Erro
+
+☐ Estados Vazios
+
+☐ Performance
+
+☐ Acessibilidade
+
+☐ Navegação
+
+☐ Hierarquia visual
+
+☐ Consistência
+
+☐ Reutilização
+
+==================================================================
+ETAPA 4 — EXPERIÊNCIA DO USUÁRIO
+==================================================================
+
+O fluxo responde claramente:
+
+☐ O que é o LUPA Digital?
+
+☐ Como começo?
+
+☐ Como envio um documento?
+
+☐ Como acompanho uma análise?
+
+☐ Como continuo uma análise?
+
+☐ Como exporto?
+
+Existe apenas uma ação principal por tela?
+
+☐ Sim
+
+☐ Não
+
+Existe excesso de informação?
+
+☐ Sim
+
+☐ Não
+
+A IA toma decisões automaticamente?
+
+☐ Sim
+
+☐ Não
+
+O usuário precisa escolher agentes?
+
+☐ Sim
+
+☐ Não
+
+Se precisar escolher agentes:
+
+Registrar como problema crítico.
+
+==================================================================
+ETAPA 5 — BACKEND
+==================================================================
+
+Verifique:
+
+☐ Organização das rotas
+
+☐ Middleware
+
+☐ JWT
+
+☐ AIService
+
+☐ Tratamento de erros
+
+☐ Logs
+
+☐ Validações
+
+☐ Organização
+
+☐ Separação de responsabilidades
+
+Confirmar:
+
+☐ Nenhuma chamada direta à OpenAI
+
+☐ Tudo passa pelo AIService
+
+==================================================================
+ETAPA 6 — SUPABASE
+==================================================================
+
+Verifique:
+
+☐ Cliente Frontend
+
+☐ Cliente Backend
+
+☐ JWT
+
+☐ RLS
+
+☐ Policies
+
+☐ Storage
+
+☐ Buckets
+
+☐ Índices
+
+☐ Foreign Keys
+
+☐ Constraints
+
+☐ Migrations
+
+Confirmar:
+
+☐ Frontend NÃO faz INSERT
+
+☐ Frontend NÃO faz UPDATE
+
+☐ Frontend NÃO faz DELETE
+
+Toda persistência deve seguir:
+
+Frontend
+
+↓
+
+API
+
+↓
+
+AIService
+
+↓
+
+Supabase
+
+↓
+
+Banco
+
+==================================================================
+ETAPA 7 — BANCO
+==================================================================
+
+Verifique:
+
+☐ profiles
+
+☐ documents
+
+☐ edital_analyses
+
+☐ ai_analyses
+
+☐ article_analyses
+
+☐ lattes_profiles
+
+☐ chat_messages
+
+☐ ai_usage_logs
+
+Verifique:
+
+☐ timestamps
+
+☐ user_id
+
+☐ relacionamentos
+
+☐ auditoria
+
+==================================================================
+ETAPA 8 — IA
+==================================================================
+
+Verifique:
+
+☐ Prompts centralizados
+
+☐ AIService
+
+☐ Logging
+
+☐ Latência
+
+☐ Tokens
+
+☐ Histórico
+
+☐ Chat contextual
+
+☐ Validação com Zod
+
+☐ Tratamento de JSON inválido
+
+==================================================================
+ETAPA 9 — FUNDAMENTAÇÃO CIENTÍFICA
+==================================================================
+
+Verifique se o sistema segue o princípio de preservação semântica.
+
+A IA deve:
+
+☐ Simplificar linguagem.
+
+☐ Explicar termos técnicos.
+
+☐ Reorganizar informações.
+
+☐ Preservar o significado original.
+
+A IA NÃO pode:
+
+☐ Alterar prazos.
+
+☐ Alterar requisitos.
+
+☐ Alterar critérios.
+
+☐ Alterar obrigações.
+
+☐ Alterar consequências.
+
+☐ Inventar informações.
+
+Confirmar que os prompts do AIService seguem esse princípio.
+
+==================================================================
+ETAPA 10 — COMENTÁRIOS
+==================================================================
+
+Verifique se o código possui comentários profissionais.
+
+Os comentários devem explicar:
+
+☐ Objetivo do arquivo
+
+☐ Responsabilidade
+
+☐ Regra de negócio
+
+☐ Fluxo
+
+☐ Integração com API
+
+☐ Integração com Supabase
+
+☐ Integração com IA
+
+☐ Decisão arquitetural
+
+Utilizar padrão JSDoc.
+
+Evitar comentários óbvios.
+
+==================================================================
+ETAPA 11 — DOCUMENTAÇÃO
+==================================================================
+
+Verifique:
+
+☐ README
+
+☐ CHANGELOG
+
+☐ Auditoria Supabase
+
+☐ .env.example
+
+☐ Diagramas
+
+☐ Arquitetura
+
+==================================================================
+RELATÓRIO FINAL
+==================================================================
+
+Ao concluir apresente:
+
+## Nota da Arquitetura
+
+## Nota do Frontend
+
+## Nota do Backend
+
+## Nota da IA
+
+## Nota do Banco
+
+## Nota da UX
+
+## Nota da Segurança
+
+## Nota da Documentação
+
+## Nota do MVP
+
+Classifique os problemas:
+
+🔴 Crítico
+
+🟡 Importante
+
+🟢 Opcional
+
+Depois monte um plano de ação em ordem de prioridade.
+
+IMPORTANTE:
+
+Não implemente nada antes de concluir toda a auditoria.

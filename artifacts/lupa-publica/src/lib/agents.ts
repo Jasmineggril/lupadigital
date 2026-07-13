@@ -102,6 +102,8 @@ export interface SimplesResult {
   requisitos: string[];
   ondeInscrever: string;
   observacao: string;
+  /** Alertas de ambiguidade e rastreabilidade gerados pela IA */
+  alertas?: string[];
 }
 
 export interface AnalistaResult {
@@ -113,6 +115,8 @@ export interface AnalistaResult {
   requisitos: string[];
   documentos: string[];
   valor: string;
+  /** Alertas de ambiguidade e rastreabilidade gerados pela IA */
+  alertas?: string[];
 }
 
 export interface EstrategicaResult {
@@ -123,6 +127,8 @@ export interface EstrategicaResult {
   pontosAtencao: string[];
   riscos: string[];
   recomendacao: string;
+  /** Alertas de ambiguidade e rastreabilidade gerados pela IA */
+  alertas?: string[];
 }
 
 export interface TimelineItem {
@@ -136,6 +142,8 @@ export interface AcompanhamentoResult {
   type: "acompanhamento";
   timeline: TimelineItem[];
   observacao: string;
+  /** Alertas de ambiguidade e rastreabilidade gerados pela IA */
+  alertas?: string[];
 }
 
 export interface ChecklistItem {
@@ -149,6 +157,8 @@ export interface DocumentacaoResult {
   type: "documentacao";
   checklist: ChecklistItem[];
   dica: string;
+  /** Alertas de ambiguidade e rastreabilidade gerados pela IA */
+  alertas?: string[];
 }
 
 export interface ElegibilidadeCriterio {
@@ -163,6 +173,8 @@ export interface ElegibilidadeResult {
   criterios: ElegibilidadeCriterio[];
   recomendacao: string;
   proximosPassos: string[];
+  /** Alertas de ambiguidade e rastreabilidade gerados pela IA */
+  alertas?: string[];
 }
 
 export type AgentResult =

@@ -2,20 +2,26 @@
  * @file aiService.ts
  * @description Serviço central de IA do LUPA Digital (NIASci).
  *
- * PRINCÍPIO DE PRESERVAÇÃO SEMÂNTICA
+ * FUNDAMENTOS CIENTÍFICOS
  * ────────────────────────────────────────────────────────────────────────────
- * Inspirado no conceito de signo linguístico de Saussure, este sistema opera
- * sobre a distinção entre significante e significado:
+ * Este serviço implementa dois princípios científicos complementares:
  *
- *   • Significante (PODE ser transformado): a forma linguística — vocabulário,
- *     estrutura de frase, organização, nível de linguagem.
+ * 1. PRESERVAÇÃO SEMÂNTICA (Saussure — signo linguístico)
+ *    Distinção entre significante (forma) e significado (conteúdo).
+ *    A IA pode transformar o significante; nunca o significado.
  *
- *   • Significado (DEVE ser preservado): o conteúdo semântico — prazos,
- *     critérios, valores, exigências, obrigações e relações causais do documento.
+ * 2. MEDIAÇÃO LINGUÍSTICA (Linguística Aplicada)
+ *    A IA não é uma resumidora de textos: é uma mediadora que traduz entre
+ *    o registro burocrático/jurídico e a linguagem cidadã acessível,
+ *    preservando a força pragmática dos enunciados originais.
  *
- * Toda função de IA neste arquivo injeta o SEMANTIC_PRESERVATION_MANDATE nos
- * prompts de sistema, garantindo que a simplificação nunca distorça o sentido
- * original do documento analisado.
+ * 3. LINGUAGEM SIMPLES (Plain Language — ISO 24495-1:2023)
+ *    Princípios técnicos de acessibilidade textual aplicados sistematicamente
+ *    a todas as saídas da IA.
+ *
+ * 4. TRANSPARÊNCIA E RASTREABILIDADE
+ *    Toda análise pode gerar alertas de ambiguidade (campo `alertas`) que
+ *    sinalizam ao usuário quando um trecho precisa ser verificado no original.
  * ────────────────────────────────────────────────────────────────────────────
  */
 
@@ -52,6 +58,8 @@ export const SimplesResponseSchema = z.object({
   requisitos: z.array(z.string()),
   ondeInscrever: z.string(),
   observacao: z.string(),
+  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  alertas: z.array(z.string()).optional().default([]),
 });
 
 export const AnalistaResponseSchema = z.object({
@@ -63,6 +71,8 @@ export const AnalistaResponseSchema = z.object({
   requisitos: z.array(z.string()),
   documentos: z.array(z.string()),
   valor: z.string(),
+  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  alertas: z.array(z.string()).optional().default([]),
 });
 
 export const EstrategicaResponseSchema = z.object({
@@ -73,6 +83,8 @@ export const EstrategicaResponseSchema = z.object({
   pontosAtencao: z.array(z.string()),
   riscos: z.array(z.string()),
   recomendacao: z.string(),
+  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  alertas: z.array(z.string()).optional().default([]),
 });
 
 const TimelineItemSchema = z.object({
@@ -86,6 +98,8 @@ export const AcompanhamentoResponseSchema = z.object({
   type: z.literal("acompanhamento"),
   timeline: z.array(TimelineItemSchema),
   observacao: z.string(),
+  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  alertas: z.array(z.string()).optional().default([]),
 });
 
 const ChecklistItemSchema = z.object({
@@ -99,6 +113,8 @@ export const DocumentacaoResponseSchema = z.object({
   type: z.literal("documentacao"),
   checklist: z.array(ChecklistItemSchema),
   dica: z.string(),
+  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  alertas: z.array(z.string()).optional().default([]),
 });
 
 const ElegibilidadeCriterioSchema = z.object({
@@ -113,30 +129,26 @@ export const ElegibilidadeResponseSchema = z.object({
   criterios: z.array(ElegibilidadeCriterioSchema),
   recomendacao: z.string(),
   proximosPassos: z.array(z.string()),
+  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  alertas: z.array(z.string()).optional().default([]),
 });
 
-// ── Princípio de Preservação Semântica (centralizado) ─────────────────────
+// ── Fundamentos científicos (injetados em todos os prompts) ────────────────
+
 /**
- * Mandato injetado em TODOS os prompts de sistema do LUPA Digital.
- *
- * Garante que a IA transforme apenas o significante (forma linguística) e
- * jamais altere o significado (conteúdo semântico) do documento original.
- *
- * O que PODE ser transformado: vocabulário, estrutura de frases, nível de
- * linguagem, organização, explicação de termos técnicos.
- *
- * O que NUNCA pode ser alterado: prazos, critérios de elegibilidade, valores,
- * condições, exigências, obrigações, relações causais e consequências.
+ * Princípio 1 — Preservação Semântica.
+ * Inspirado no conceito de signo linguístico de Saussure.
+ * Garante que a IA transforme apenas o significante, nunca o significado.
  */
 const SEMANTIC_PRESERVATION_MANDATE = `
-PRINCÍPIO DE PRESERVAÇÃO SEMÂNTICA (obrigatório):
-Você pode transformar o SIGNIFICANTE (a forma linguística), mas NUNCA o SIGNIFICADO.
+PRINCÍPIO 1 — PRESERVAÇÃO SEMÂNTICA (obrigatório):
+Você pode transformar o SIGNIFICANTE (forma linguística), mas NUNCA o SIGNIFICADO.
 
 PERMITIDO — transformações de forma:
 - Simplificar vocabulário e substituir jargão por linguagem acessível
 - Reduzir frases longas e reorganizar informações
-- Explicar termos técnicos e jurídicos
-- Dividir conteúdo em tópicos e adaptar o nível de linguagem
+- Explicar termos técnicos e jurídicos entre parênteses
+- Adaptar o nível de linguagem ao cidadão comum
 
 PROIBIDO — alterações de conteúdo:
 - Inventar informações que não estão no documento
@@ -146,112 +158,180 @@ PROIBIDO — alterações de conteúdo:
 - Alterar valores monetários ou quantitativos
 - Transformar uma OBRIGAÇÃO em recomendação ou sugestão
 - Transformar uma POSSIBILIDADE em certeza ou garantia
-- Modificar relações de causa e consequência
+- Modificar relações de causa e consequência`.trim();
 
-AMBIGUIDADE — quando o documento for impreciso ou contraditório:
-- Informe que o trecho precisa ser conferido no documento original
-- Cite o trecho exato de onde a informação foi extraída
-- Não assuma uma interpretação como verdadeira sem base textual
+/**
+ * Princípio 2 — Mediação Linguística.
+ * Fundamentado em Linguística Aplicada e Teoria da Tradução.
+ * Define o papel da IA como mediadora, não como resumidora.
+ */
+const MEDIADORA_LINGUISTICA_MANDATE = `
+PRINCÍPIO 2 — MEDIAÇÃO LINGUÍSTICA (obrigatório):
+Você NÃO é uma resumidora de textos. Você é uma MEDIADORA LINGUÍSTICA.
 
-FIDELIDADE SEMÂNTICA: toda análise deve preservar o significado original,
-o contexto, a intenção e as relações entre condições e consequências presentes
-no documento. Em caso de dúvida, prefira a cautela à assertividade.`.trim();
+Sua função é traduzir entre dois registros comunicativos:
+→ Registro de ENTRADA: linguagem burocrática, jurídica, técnica e formal
+→ Registro de SAÍDA: linguagem clara, acessível e cidadã
 
-// ── Schema examples (estrutura de resposta esperada por agente) ────────────
+Esta mediação preserva obrigatoriamente:
+- O conteúdo semântico completo — o que o documento diz
+- A força pragmática dos enunciados — obrigações permanecem obrigações
+- A intenção comunicativa original — não interprete além do que está escrito
+- As relações lógicas de causa, condição e consequência`.trim();
+
+/**
+ * Princípio 3 — Linguagem Simples (Plain Language, ISO 24495-1:2023).
+ * Sete princípios técnicos de acessibilidade textual aplicados a
+ * todos os textos produzidos pelo sistema.
+ */
+const PLAIN_LANGUAGE_PRINCIPLES = `
+PRINCÍPIO 3 — LINGUAGEM SIMPLES / PLAIN LANGUAGE (obrigatório):
+Ao produzir texto acessível, aplique os sete princípios técnicos:
+
+1. VOCABULÁRIO COTIDIANO — substitua jargão por palavras do dia a dia.
+   Exemplo: "rescisão contratual" → "cancelamento do contrato"
+
+2. FRASES CURTAS — máximo de 25 palavras por frase. Divida períodos longos.
+
+3. VOZ ATIVA — prefira "A entidade exige..." a "É exigido pela entidade..."
+   Sujeito → Verbo → Complemento.
+
+4. UMA IDEIA POR CAMPO — não agrupe conceitos distintos na mesma resposta.
+
+5. ESTRUTURA LÓGICA — apresente o mais importante primeiro.
+   Contexto → Regra → Consequência.
+
+6. TERMOS TÉCNICOS INEVITÁVEIS — explique-os entre parênteses.
+   Exemplo: "edital (documento oficial com as regras do processo)"
+
+7. LINGUAGEM INCLUSIVA — tom respeitoso, direto, acessível a qualquer escolaridade.
+   Evite regionalismos, gírias e construções excludentes.`.trim();
+
+/**
+ * Princípio 4 — Transparência e Rastreabilidade.
+ * Instrui a IA a sinalizar ambiguidades, inferências e pontos de incerteza
+ * no campo `alertas`, garantindo que o usuário saiba quando verificar o original.
+ */
+const TRANSPARENCY_MANDATE = `
+PRINCÍPIO 4 — TRANSPARÊNCIA E RASTREABILIDADE (obrigatório):
+Use o campo "alertas" (array de strings) para sinalizar:
+
+- Trechos ambíguos que admitem mais de uma interpretação
+- Informações inferidas do contexto (não declaradas explicitamente)
+- Informações ausentes que seriam esperadas (ex: prazo não informado)
+- Contradições internas encontradas no documento
+- Qualquer ponto que o usuário DEVE verificar no documento original
+
+Formato de cada alerta: "⚠ [categoria] descrição objetiva do problema"
+Exemplos:
+  "⚠ [ambiguidade] O prazo de inscrição não está explícito — verificar no edital original."
+  "⚠ [inferência] Requisito de graduação inferido do contexto; não declarado explicitamente."
+  "⚠ [contradição] O texto menciona dois valores distintos para o mesmo benefício."
+
+Se não houver alertas, retorne "alertas": [] — NUNCA omita o campo.`.trim();
+
+// ── Schemas de resposta por agente ─────────────────────────────────────────
 const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   simples: `{
   "type": "simples",
   "scoreOportunidade": 72,
-  "categoria": "Classificação do edital (ex: Bolsa de Estudo, Pesquisa Científica, Concurso Público, Inovação, Fomento, Licitação, Processo Seletivo, Chamamento Público)",
-  "resumo": "Resumo em 3-4 frases simples que qualquer pessoa entenda, sem jargão técnico — mantendo todos os critérios e condições originais",
-  "objetivo": "O objetivo principal do edital em 1-2 frases diretas, exatamente como consta no documento",
-  "publicoAlvo": "Quem pode participar, de forma clara e objetiva, sem omitir restrições",
-  "prazo": "Data limite de inscrição ou período de inscrições EXATAMENTE como consta no edital (ou 'Não informado' se não constar)",
-  "requisitos": ["Requisito principal 1 — fiel ao documento", "Requisito principal 2", "Requisito principal 3"],
-  "ondeInscrever": "Como e onde fazer a inscrição: site, endereço, portal — exatamente como consta",
-  "observacao": "Uma dica importante e prática para o candidato, sem alterar exigências ou criar expectativas não previstas no edital"
+  "categoria": "Classificação do edital (ex: Bolsa, Concurso, Fomento, Licitação)",
+  "resumo": "Resumo em 3-4 frases simples — mantendo todos os critérios e condições originais",
+  "objetivo": "O objetivo principal em 1-2 frases diretas, fiel ao documento",
+  "publicoAlvo": "Quem pode participar, sem omitir restrições",
+  "prazo": "Data limite EXATAMENTE como consta no edital (ou 'Não informado')",
+  "requisitos": ["Requisito 1 — fiel ao documento", "Requisito 2", "Requisito 3"],
+  "ondeInscrever": "Como e onde se inscrever exatamente como consta",
+  "observacao": "Dica prática para o candidato — sem criar expectativas não previstas",
+  "alertas": ["⚠ [ambiguidade] exemplo — apenas se houver problemas reais"]
 }`,
   analista: `{
   "type": "analista",
-  "tipoEdital": "Tipo do edital (ex: Concurso Público, Concessão de Bolsa, Licitação, Fomento, Processo Seletivo, Chamamento Público)",
-  "instituicao": "Nome completo da instituição ou órgão responsável pelo edital",
-  "prazo": "Todas as datas e prazos identificados separados por ' | ' — transcreva exatamente os valores do documento",
-  "publicoAlvo": "Descrição precisa do público-alvo do edital, incluindo todas as restrições mencionadas",
-  "requisitos": ["Requisito 1 — fiel ao documento", "Requisito 2", "Requisito 3"],
-  "documentos": ["Documento 1", "Documento 2", "Documento 3"],
-  "valor": "Valor da bolsa, prêmio, financiamento ou benefício EXATAMENTE como consta (ou 'Não especificado')"
+  "tipoEdital": "Tipo do edital (ex: Concurso Público, Bolsa, Licitação, Fomento)",
+  "instituicao": "Nome completo da instituição responsável",
+  "prazo": "Todas as datas separadas por ' | ' — transcreva exatamente do documento",
+  "publicoAlvo": "Público-alvo completo, incluindo todas as restrições",
+  "requisitos": ["Requisito 1 — fiel ao texto", "Requisito 2"],
+  "documentos": ["Documento 1", "Documento 2"],
+  "valor": "Valor EXATAMENTE como consta (ou 'Não especificado')",
+  "alertas": ["⚠ [inferência] exemplo — apenas se houver problemas reais"]
 }`,
   estrategica: `{
   "type": "estrategica",
   "score": 75,
-  "oportunidade": "Parágrafo de 2-3 frases descrevendo a oportunidade com base estrita no que consta no edital",
-  "vantagens": ["Vantagem 1 — baseada em informação do documento", "Vantagem 2", "Vantagem 3", "Vantagem 4"],
-  "pontosAtencao": ["Ponto de atenção 1 — exigência ou condição real do edital", "Ponto de atenção 2", "Ponto de atenção 3"],
-  "riscos": ["Risco 1 — fundamentado no texto do edital", "Risco 2"],
-  "recomendacao": "Recomendação estratégica acionável, baseada exclusivamente nas condições reais do edital"
+  "oportunidade": "Descrição da oportunidade baseada estritamente no edital",
+  "vantagens": ["Vantagem 1 — baseada no documento", "Vantagem 2"],
+  "pontosAtencao": ["Ponto de atenção 1 — exigência real do edital", "Ponto 2"],
+  "riscos": ["Risco 1 — fundamentado no texto", "Risco 2"],
+  "recomendacao": "Recomendação estratégica baseada exclusivamente nas condições reais",
+  "alertas": ["⚠ [ambiguidade] exemplo — apenas se houver problemas reais"]
 }`,
   acompanhamento: `{
   "type": "acompanhamento",
   "timeline": [
-    {"fase": "📢 Publicação do Edital", "periodo": "data ou período EXATO do documento (ou 'Verificar no edital')", "descricao": "descrição fiel", "status": "passado"},
-    {"fase": "📝 Período de Inscrições", "periodo": "data ou período EXATO", "descricao": "descrição fiel", "status": "ativo"},
-    {"fase": "📋 Análise / Seleção", "periodo": "data ou período EXATO (ou 'Verificar no edital')", "descricao": "descrição fiel", "status": "futuro"},
-    {"fase": "📣 Resultado Preliminar", "periodo": "data ou período EXATO (ou 'Verificar no edital')", "descricao": "descrição fiel", "status": "futuro"},
-    {"fase": "✉️ Prazo para Recurso", "periodo": "data ou período EXATO (ou 'Verificar no edital')", "descricao": "descrição fiel", "status": "futuro"},
-    {"fase": "🏆 Resultado Final", "periodo": "data ou período EXATO (ou 'Verificar no edital')", "descricao": "descrição fiel", "status": "futuro"}
+    {"fase": "📢 Publicação do Edital", "periodo": "data EXATA do documento ou 'Verificar no edital'", "descricao": "descrição fiel", "status": "passado"},
+    {"fase": "📝 Período de Inscrições", "periodo": "data EXATA ou 'Verificar no edital'", "descricao": "descrição fiel", "status": "ativo"},
+    {"fase": "📋 Análise / Seleção", "periodo": "data EXATA ou 'Verificar no edital'", "descricao": "descrição fiel", "status": "futuro"},
+    {"fase": "📣 Resultado Preliminar", "periodo": "data EXATA ou 'Verificar no edital'", "descricao": "descrição fiel", "status": "futuro"},
+    {"fase": "✉️ Prazo para Recurso", "periodo": "data EXATA ou 'Verificar no edital'", "descricao": "descrição fiel", "status": "futuro"},
+    {"fase": "🏆 Resultado Final", "periodo": "data EXATA ou 'Verificar no edital'", "descricao": "descrição fiel", "status": "futuro"}
   ],
-  "observacao": "Observação sobre os prazos — se alguma data não constar no edital, indicar 'Verificar no edital' e NÃO inventar datas"
+  "observacao": "Observação sobre os prazos — se não constar no edital, indicar 'Verificar no edital'",
+  "alertas": ["⚠ [ausência] exemplo — apenas se houver datas não informadas ou ambíguas"]
 }`,
   documentacao: `{
   "type": "documentacao",
   "checklist": [
-    {"doc": "Nome do documento exatamente como consta no edital", "obrigatorio": true, "observacao": "Onde obter ou como preparar — sem adicionar exigências que não estão no edital", "checked": false}
+    {"doc": "Nome exato do documento conforme o edital", "obrigatorio": true, "observacao": "Como obter ou preparar — sem adicionar exigências ausentes no edital", "checked": false}
   ],
-  "dica": "Dica prática sobre como organizar a documentação — baseada no que o edital efetivamente exige"
+  "dica": "Dica prática baseada no que o edital efetivamente exige",
+  "alertas": ["⚠ [inferência] exemplo — apenas para documentos inferidos, não declarados"]
 }`,
   elegibilidade: `{
   "type": "elegibilidade",
   "score": 75,
   "criterios": [
-    {"criterio": "Nome exato do critério conforme o edital", "atende": true, "observacao": "Explicação baseada estritamente no texto do edital e no perfil informado"}
+    {"criterio": "Critério exato conforme o edital", "atende": true, "observacao": "Explicação baseada no texto do edital e no perfil informado"}
   ],
-  "recomendacao": "Recomendação personalizada baseada nos critérios reais do edital — sem suavizar exigências não atendidas",
-  "proximosPassos": ["Passo 1 — ação concreta baseada no edital", "Passo 2", "Passo 3", "Passo 4"]
+  "recomendacao": "Recomendação baseada nos critérios reais — sem suavizar exigências não atendidas",
+  "proximosPassos": ["Passo 1 — ação concreta baseada no edital", "Passo 2"],
+  "alertas": ["⚠ [ambiguidade] exemplo — apenas se critérios forem ambíguos ou imprecisos"]
 }`,
 };
 
-// ── Instruções por agente ──────────────────────────────────────────────────
+// ── Instruções de identidade por agente ───────────────────────────────────
 /**
- * Instruções de identidade e missão de cada agente.
- * Estas instruções definem O QUE o agente faz (significante), enquanto o
- * SEMANTIC_PRESERVATION_MANDATE garante que o conteúdo semântico do documento
- * original seja preservado integralmente em todas as análises.
+ * Define o papel e missão de cada agente como mediador linguístico.
+ * Cada instrução é injetada junto com os 4 mandatos científicos no prompt
+ * de sistema, garantindo coerência científica em todas as análises.
  */
 const INSTRUCTIONS: Record<AgentId, string> = {
   simples:
-    "Você é o agente Lupa Simples. Crie um resumo curto e acessível do edital em linguagem simples, direta e sem jargão técnico, para que qualquer cidadão possa entender. Adapte a forma, nunca o conteúdo: todos os prazos, critérios e exigências devem ser mantidos integralmente.",
+    "Você é o agente Lupa Simples, uma mediadora linguística especializada em tornar editais públicos acessíveis a qualquer cidadão brasileiro. Crie um resumo em linguagem simples e direta, sem jargão técnico. Adapte a forma da linguagem; preserve integralmente o conteúdo — todos os prazos, critérios e exigências devem ser mantidos com exatidão.",
 
   analista:
-    "Você é o agente Lupa Analista. Extraia e organize os indicadores-chave do edital com precisão absoluta: tipo, instituição, prazos, público-alvo, requisitos, documentos exigidos e valor do benefício. Transcreva datas e valores exatamente como constam no documento. Se uma informação não estiver explícita, use 'Não informado' — nunca infira ou invente.",
+    "Você é o agente Lupa Analista, uma mediadora linguística especializada em extração precisa de indicadores-chave de editais públicos. Extraia e organize: tipo, instituição, prazos, público-alvo, requisitos, documentos e valor do benefício. Transcreva datas e valores exatamente como constam. Se uma informação não estiver explícita, use 'Não informado' — nunca infira nem invente.",
 
   estrategica:
-    "Você é o agente Lupa Estratégica, um consultor especializado em editais públicos. Avalie a oportunidade (score 0–100 refletindo qualidade, clareza, benefício e acessibilidade), identifique vantagens, pontos de atenção e riscos. Toda avaliação deve ser fundamentada exclusivamente nas informações presentes no edital: não crie vantagens ou riscos sem base textual.",
+    "Você é o agente Lupa Estratégica, uma consultora especializada em análise de oportunidades em editais públicos. Avalie a oportunidade (score 0–100), identifique vantagens, pontos de atenção e riscos. Toda avaliação deve ser fundamentada exclusivamente em informações presentes no edital — não crie vantagens ou riscos sem base textual.",
 
   acompanhamento:
-    "Você é o agente Lupa Acompanhamento. Construa uma linha do tempo completa com todas as fases do edital. Use SOMENTE datas e períodos que constem explicitamente no documento. Para fases sem data informada, use 'Verificar no edital' — jamais invente ou estime datas. Classifique cada fase como 'passado', 'ativo' ou 'futuro' com base nas datas reais.",
+    "Você é o agente Lupa Acompanhamento, uma mediadora especializada em construir linhas do tempo de editais públicos. Use SOMENTE datas e períodos que constem explicitamente no documento. Para fases sem data informada, use 'Verificar no edital' — jamais invente ou estime datas. Classifique cada fase como 'passado', 'ativo' ou 'futuro' com base nas datas reais.",
 
   documentacao:
-    "Você é o agente Lupa Documentação. Liste TODOS os documentos exigidos pelo edital e crie um checklist fiel. Inclua documentos explicitamente mencionados e apenas aqueles que são implicitamente necessários para o tipo de edital — sinalizando claramente quando um documento for inferido e não declarado. Para cada item, informe se é obrigatório conforme o edital.",
+    "Você é o agente Lupa Documentação, uma mediadora especializada em criar checklists de documentação para editais públicos. Liste todos os documentos explicitamente mencionados. Documentos inferidos do tipo de edital devem ser sinalizados com '(inferido)' na observação e registrados em alertas. Para cada item, informe se é obrigatório conforme o edital.",
 
   elegibilidade:
-    "Você é o agente Lupa Elegibilidade. Analise criteriosamente se o perfil do usuário atende aos critérios do edital. Compare cada requisito do edital com o perfil informado: true (atende), false (não atende) ou 'parcial' (atende parcialmente ou precisa verificar). Não suavize critérios não atendidos. Calcule o score proporcional aos critérios efetivamente atendidos.",
+    "Você é o agente Lupa Elegibilidade, uma mediadora especializada em análise de aderência de perfis a editais públicos. Compare cada requisito do edital com o perfil informado: true (atende), false (não atende) ou 'parcial' (atende parcialmente). Não suavize critérios não atendidos. Calcule o score proporcional aos critérios efetivamente atendidos.",
 };
 
 // ── Construção de prompts ──────────────────────────────────────────────────
 /**
  * Constrói os prompts de sistema e usuário para um agente específico.
- * O SEMANTIC_PRESERVATION_MANDATE é sempre injetado no prompt de sistema,
- * garantindo preservação semântica em todas as análises de editais.
+ *
+ * Injeta os 4 mandatos científicos no sistema de todo agente:
+ * 1. Preservação Semântica    2. Mediação Linguística
+ * 3. Linguagem Simples        4. Transparência e Rastreabilidade
  */
 function buildAgentPrompt(agentId: AgentId, text: string, profile?: z.infer<typeof AgentUserProfileSchema>) {
   const profileInfo =
@@ -264,11 +344,17 @@ function buildAgentPrompt(agentId: AgentId, text: string, profile?: z.infer<type
     "",
     SEMANTIC_PRESERVATION_MANDATE,
     "",
+    MEDIADORA_LINGUISTICA_MANDATE,
+    "",
+    PLAIN_LANGUAGE_PRINCIPLES,
+    "",
+    TRANSPARENCY_MANDATE,
+    "",
     "Responda SEMPRE em português brasileiro.",
     "Retorne SOMENTE um JSON válido sem markdown, sem blocos de código, sem texto adicional.",
   ].join("\n");
 
-  const user = `Analise o edital abaixo e retorne um JSON com exatamente esta estrutura:\n\n${SCHEMA_EXAMPLES[agentId]}${profileInfo}\n\nEDITAL:\n${text}\n\nResponda APENAS com o JSON válido. Preserve integralmente todos os prazos, critérios, valores e exigências presentes no documento.`;
+  const user = `Analise o edital abaixo e retorne um JSON com exatamente esta estrutura:\n\n${SCHEMA_EXAMPLES[agentId]}${profileInfo}\n\nEDITAL:\n${text}\n\nResponda APENAS com o JSON válido. O campo "alertas" é obrigatório — use [] se não houver alertas.`;
 
   return { system, user };
 }
@@ -346,7 +432,6 @@ async function persistUsageLog(args: {
     } else {
       logger.info(logContext, args.message ?? "AIService usage log");
     }
-
     const supa = getSupabaseAdmin();
     await supa.from("ai_usage_logs").insert(payload);
   } catch (logErr) {
@@ -363,13 +448,94 @@ const VALIDATORS: Record<AgentId, z.ZodTypeAny> = {
   elegibilidade: ElegibilidadeResponseSchema,
 };
 
+// ── ocrPdf ─────────────────────────────────────────────────────────────────
+/**
+ * Extrai texto de páginas de PDF renderizadas como imagens JPEG (base64),
+ * usando GPT-4o Vision como motor de OCR.
+ *
+ * Centralizado no AIService para garantir logging, rastreabilidade e
+ * controle centralizado de todas as chamadas à API OpenAI.
+ *
+ * @param pages - Array de strings base64 (JPEG) representando páginas do PDF
+ * @returns Texto extraído concatenado de todas as páginas
+ */
+export async function ocrPdf(
+  pages: string[],
+  opts?: { userId?: string | null },
+): Promise<string> {
+  if (!pages.length) return "";
+
+  const model = getOpenAIModel();
+  const start = Date.now();
+  const BATCH = 8;
+  const parts: string[] = [];
+
+  try {
+    for (let i = 0; i < pages.length; i += BATCH) {
+      const batch = pages.slice(i, i + BATCH);
+      const imageBlocks = batch.map((b64) => ({
+        type: "image_url" as const,
+        image_url: { url: `data:image/jpeg;base64,${b64}`, detail: "auto" as const },
+      }));
+
+      const response = await openai.chat.completions.create({
+        model,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Você é um assistente de OCR especializado em documentos oficiais brasileiros. Extraia TODO o texto das páginas do documento abaixo, em português, preservando parágrafos, seções e estrutura. Saída: apenas o texto extraído, sem comentários ou marcações extras.",
+              },
+              ...imageBlocks,
+            ],
+          },
+        ],
+        max_tokens: 8192,
+      });
+
+      parts.push(response.choices[0]?.message?.content ?? "");
+    }
+
+    const latency = Date.now() - start;
+    await persistUsageLog({
+      module: "AIService.ocrPdf",
+      model,
+      userId: opts?.userId ?? null,
+      documentId: null,
+      latencyMs: latency,
+      success: true,
+      level: "info",
+      message: `OCR completed: ${pages.length} pages`,
+    });
+
+    return parts.join("\n\n");
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    const latency = Date.now() - start;
+    await persistUsageLog({
+      module: "AIService.ocrPdf",
+      model,
+      userId: opts?.userId ?? null,
+      documentId: null,
+      latencyMs: latency,
+      success: false,
+      errorMessage: msg,
+      level: "error",
+      message: "OCR failed",
+    });
+    throw new Error(`OCR error: ${msg}`);
+  }
+}
+
 // ── simplifyEdital ─────────────────────────────────────────────────────────
 /**
  * Simplifica um edital público em linguagem acessível.
  *
- * PRESERVAÇÃO SEMÂNTICA: o prompt de sistema injeta o SEMANTIC_PRESERVATION_MANDATE,
- * garantindo que a simplificação altere apenas a forma linguística (significante)
- * sem modificar prazos, critérios, valores ou obrigações (significado).
+ * Aplica os 4 mandatos científicos: preservação semântica, mediação linguística,
+ * linguagem simples e transparência — garantindo que a simplificação altere
+ * apenas a forma linguística sem distorcer o conteúdo do documento.
  */
 export async function simplifyEdital(
   text: string,
@@ -379,11 +545,14 @@ export async function simplifyEdital(
 
   const systemPrompt = [
     "Você é um especialista em simplificação de documentos públicos brasileiros.",
-    "Sua missão é tornar editais públicos acessíveis para toda a população, independentemente do nível de escolaridade.",
+    "Sua missão é tornar editais acessíveis para toda a população, independentemente do nível de escolaridade.",
     "Responda SEMPRE em português brasileiro com linguagem simples, clara e direta.",
-    "Evite jargões jurídicos e técnicos. Se precisar usar um termo técnico, explique-o entre parênteses.",
     "",
     SEMANTIC_PRESERVATION_MANDATE,
+    "",
+    MEDIADORA_LINGUISTICA_MANDATE,
+    "",
+    PLAIN_LANGUAGE_PRINCIPLES,
   ].join("\n");
 
   const userPrompt = `Analise o edital a seguir e retorne as informações no formato JSON especificado.
@@ -393,16 +562,16 @@ ${truncated}
 
 Retorne um JSON válido com exatamente estes campos:
 {
-  "resumo": "Resumo claro e direto do edital em 3-5 frases simples — mantendo todos os critérios e condições originais",
-  "objetivo": "O que este edital quer alcançar, em uma ou duas frases simples e fiéis ao documento",
-  "quemPodeParticipar": "Quem tem direito de participar, de forma clara — sem omitir restrições ou requisitos",
-  "prazoInscricao": "Data e hora limite para se inscrever EXATAMENTE como consta no edital (ou 'Não informado' se não constar)",
-  "ondeSeInscrever": "Como e onde fazer a inscrição exatamente como consta (site, endereço, etc.) — ou 'Não informado'",
-  "principaisRequisitos": "Lista dos principais requisitos exigidos, em linguagem simples mas fiel ao documento — não omita nenhuma exigência",
-  "linguagemSimples": "Reescreva os pontos mais importantes do edital em linguagem simples, como se estivesse explicando para alguém que nunca leu um edital. Use frases curtas e diretas. Preserve integralmente prazos, valores, critérios e obrigações — apenas simplifique as palavras."
+  "resumo": "Resumo claro em 3-5 frases simples — mantendo todos os critérios e condições originais",
+  "objetivo": "O que este edital quer alcançar, fiel ao documento",
+  "quemPodeParticipar": "Quem tem direito de participar — sem omitir restrições",
+  "prazoInscricao": "Data e hora limite EXATAMENTE como consta (ou 'Não informado' se não constar)",
+  "ondeSeInscrever": "Como e onde se inscrever exatamente como consta (ou 'Não informado')",
+  "principaisRequisitos": "Requisitos em linguagem simples mas fiel — não omita nenhuma exigência",
+  "linguagemSimples": "Reescreva os pontos mais importantes em linguagem simples, como se explicasse para alguém que nunca leu um edital. Frases curtas. Preserve integralmente prazos, valores, critérios e obrigações."
 }
 
-Responda SOMENTE com o JSON, sem markdown, sem código de formatação, sem texto adicional.`;
+Responda SOMENTE com o JSON, sem markdown, sem código, sem texto adicional.`;
 
   const model = getOpenAIModel();
   const start = Date.now();
@@ -422,7 +591,7 @@ Responda SOMENTE com o JSON, sem markdown, sem código de formatação, sem text
     let parsed: unknown;
     try {
       parsed = JSON.parse(cleaned);
-    } catch (err) {
+    } catch {
       const e = new Error("AI response is not valid JSON");
       (e as any).raw = raw;
       throw e;
@@ -475,19 +644,20 @@ Responda SOMENTE com o JSON, sem markdown, sem código de formatação, sem text
       level: "error",
       message: "AIService simplify error",
     });
-
     throw new Error(message);
   }
 }
 
 // ── analyzeAgent ───────────────────────────────────────────────────────────
 /**
- * Executa um agente de análise de edital (simples, analista, estrategica, etc.).
+ * Executa um agente de análise de edital como mediador linguístico.
  *
- * PRESERVAÇÃO SEMÂNTICA: buildAgentPrompt() injeta o SEMANTIC_PRESERVATION_MANDATE
- * no prompt de sistema de todos os agentes, assegurando que nenhuma análise
- * invente informações, altere prazos, modifique critérios ou distorça obrigações
- * presentes no documento original.
+ * Os 4 mandatos científicos (preservação semântica, mediação linguística,
+ * linguagem simples, transparência) são injetados em todos os agentes via
+ * buildAgentPrompt(), garantindo coerência científica em toda análise.
+ *
+ * O campo `alertas` no resultado sinaliza ambiguidades, inferências e pontos
+ * que precisam ser verificados no documento original pelo usuário.
  */
 export async function analyzeAgent(
   agentId: AgentId,
@@ -517,7 +687,7 @@ export async function analyzeAgent(
     let parsed: unknown;
     try {
       parsed = JSON.parse(cleaned);
-    } catch (err) {
+    } catch {
       const e = new Error("AI response is not valid JSON");
       (e as any).raw = raw;
       throw e;
@@ -550,7 +720,6 @@ export async function analyzeAgent(
         level: "warn",
         message: "AI response validation failed",
       });
-
       throw e;
     }
 
@@ -589,7 +758,6 @@ export async function analyzeAgent(
       level: "error",
       message: "AIService error",
     });
-
     throw new Error(`AIService error: ${message}`);
   }
 }

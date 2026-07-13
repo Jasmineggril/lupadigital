@@ -26,8 +26,7 @@ const upload = multer({
 
 const router: IRouter = Router();
 
-import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital } from "../lib/aiService";
-import { openai, getOpenAIModel } from "@workspace/integrations-openai-ai-server";
+import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital, ocrPdf } from "../lib/aiService";
 import { getReqUserId, requireAuth } from "../lib/supabase";
 
 router.post("/edital/analyze", async (req, res): Promise<void> => {
@@ -470,38 +469,9 @@ router.post("/edital/ocr-pdf", async (req, res): Promise<void> => {
   }
 
   try {
-    const model = getOpenAIModel() ?? "gpt-4o";
-    const BATCH = 8; // pages per API call
-    const parts: string[] = [];
-
-    for (let i = 0; i < pages.length; i += BATCH) {
-      const batch = (pages as string[]).slice(i, i + BATCH);
-      const imageBlocks = batch.map((b64) => ({
-        type: "image_url" as const,
-        image_url: { url: `data:image/jpeg;base64,${b64}`, detail: "auto" as const },
-      }));
-
-      const response = await openai.chat.completions.create({
-        model,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Você é um assistente de OCR especializado em documentos oficiais brasileiros. Extraia TODO o texto das páginas do documento abaixo, em português, preservando parágrafos, seções e estrutura. Saída: apenas o texto extraído, sem comentários ou marcações extras.",
-              },
-              ...imageBlocks,
-            ],
-          },
-        ],
-        max_tokens: 8192,
-      });
-
-      parts.push(response.choices[0]?.message?.content ?? "");
-    }
-
-    res.json({ text: parts.join("\n\n") });
+    // Delegado ao AIService para garantir logging centralizado e rastreabilidade
+    const text = await ocrPdf(pages as string[]);
+    res.json({ text });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     req.log.error({ error: msg }, "ocr-pdf failed");

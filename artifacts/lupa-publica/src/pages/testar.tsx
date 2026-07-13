@@ -1342,6 +1342,33 @@ function ProfileForm({
 
 // ── Result Panels ────────────────────────────────────────────────
 
+/**
+ * AlertasPanel — Transparência e Rastreabilidade (Etapa 12, Coerência Científica)
+ *
+ * Exibe alertas de ambiguidade, inferências e pontos que o usuário deve verificar
+ * no documento original, garantindo que as decisões da IA sejam transparentes.
+ * Segue o Princípio 4 (Transparência) centralizado no AIService.
+ */
+function AlertasPanel({ alertas }: { alertas: string[] }) {
+  if (!alertas || alertas.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-1.5">
+      <p className="text-[10px] font-semibold text-orange-700 uppercase tracking-wider flex items-center gap-1.5">
+        <AlertCircle className="w-3 h-3" />
+        Pontos para verificar no documento original
+      </p>
+      <ul className="space-y-1">
+        {alertas.map((alerta, i) => (
+          <li key={i} className="text-xs text-orange-800 leading-snug flex items-start gap-1.5">
+            <span className="shrink-0 mt-0.5 font-bold">·</span>
+            {alerta}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function SimplesPanel({ result }: { result: SimplesResult }) {
   return (
     <div className="space-y-4">
@@ -1437,6 +1464,7 @@ function SimplesPanel({ result }: { result: SimplesResult }) {
         <AlertCircle className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
         <p className="text-xs text-amber-700">{result.observacao}</p>
       </div>
+      <AlertasPanel alertas={result.alertas ?? []} />
     </div>
   );
 }
@@ -1500,6 +1528,7 @@ function AnalistaPanel({ result }: { result: AnalistaResult }) {
           </ul>
         </CardContent>
       </Card>
+      <AlertasPanel alertas={result.alertas ?? []} />
     </div>
   );
 }
@@ -1599,6 +1628,7 @@ function EstrategicaPanel({ result }: { result: EstrategicaResult }) {
           <strong>Recomendação:</strong> {result.recomendacao}
         </p>
       </div>
+      <AlertasPanel alertas={result.alertas ?? []} />
     </div>
   );
 }
@@ -1653,6 +1683,7 @@ function AcompanhamentoPanel({ result }: { result: AcompanhamentoResult }) {
         <Info className="w-3.5 h-3.5 text-blue-600 mt-0.5 shrink-0" />
         <p className="text-xs text-blue-700">{result.observacao}</p>
       </div>
+      <AlertasPanel alertas={result.alertas ?? []} />
     </div>
   );
 }
@@ -1761,6 +1792,7 @@ function DocumentacaoPanel({
         <Info className="w-3.5 h-3.5 text-rose-600 mt-0.5 shrink-0" />
         <p className="text-xs text-rose-700">{result.dica}</p>
       </div>
+      <AlertasPanel alertas={result.alertas ?? []} />
     </div>
   );
 }
@@ -1861,6 +1893,7 @@ function ElegibilidadePanel({ result }: { result: ElegibilidadeResult }) {
           </ol>
         </CardContent>
       </Card>
+      <AlertasPanel alertas={result.alertas ?? []} />
     </div>
   );
 }

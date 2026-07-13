@@ -1,4 +1,4 @@
 - [NIASci Architecture](niasci-architecture.md) — ordem dos routers (niasci antes de resources), aiService functions, shared niasci-utils.tsx, padrão metadata.result para histórico
 - [Supabase DB connection](supabase-db-connection.md) — DB_PASSWORD injeta senha automaticamente; tsx path; schema real de ai_usage_logs; scripts de validação
 - [Auth Migration](auth-migration.md) — auth.tsx migrado para Supabase Auth; user_metadata carrega name/profileType/plan; interface useAuth() mantida idêntica
-- [MVP Freeze State](mvp-freeze.md) — estado pós-consolidação: o que está pronto, o que falta para Vercel/produção
+- [MVP Production State](mvp-production.md) — estado pós-deploy: Vercel READY em lupa-digital.vercel.app; GitHub main=247f4db; JSDoc completo em todos os arquivos

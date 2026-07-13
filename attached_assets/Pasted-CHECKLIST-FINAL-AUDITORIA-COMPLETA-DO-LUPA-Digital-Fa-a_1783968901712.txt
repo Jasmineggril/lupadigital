@@ -1,0 +1,299 @@
+CHECKLIST FINAL — AUDITORIA COMPLETA DO LUPA Digital
+
+Faça uma auditoria completa do projeto LUPA Digital antes da publicação.
+
+Não implemente novas funcionalidades.
+
+Apenas analise, valide, corrija inconsistências e gere um relatório técnico.
+
+1. Arquitetura
+
+Verifique:
+
+Frontend
+Backend
+API
+Banco Supabase
+Autenticação
+IA
+OCR
+Upload de PDF
+URLs públicas
+Deploy
+
+Confirme se todos os módulos utilizam a mesma arquitetura.
+
+2. Banco de dados
+
+Verifique:
+
+todas as tabelas existentes
+chaves estrangeiras
+índices
+RLS
+Policies
+tipos de dados
+constraints
+UUID
+timestamps
+
+Confirme que nenhuma tabela está órfã.
+
+Verifique se existe diferença entre:
+
+edital_analyses
+edital_analises
+
+Caso exista, corrigir toda a aplicação.
+
+3. Supabase
+
+Validar:
+
+SUPABASE_URL
+SUPABASE_SECRET_KEY
+SUPABASE_PUBLISHABLE_KEY
+VITE_SUPABASE_URL
+VITE_SUPABASE_ANON_KEY
+DATABASE_URL
+DIRECT_URL
+
+Confirmar que todas estão sendo utilizadas corretamente.
+
+Não pode existir variável duplicada.
+
+4. Backend
+
+Verifique:
+
+todas as rotas
+tratamento de erro
+status HTTP
+validação Zod
+logs
+autenticação JWT
+middleware
+OpenAI
+OCR
+
+Confirmar que nenhuma rota está quebrada.
+
+5. Frontend
+
+Validar:
+
+todas as páginas
+todos os botões
+todos os links
+todas as rotas
+navegação
+loading
+empty states
+tratamento de erro
+responsividade
+acessibilidade
+6. Fluxo dos módulos
+
+Validar completamente:
+
+Editais
+texto
+URL
+PDF
+OCR
+IA
+resumo cidadão
+cronograma
+checklist
+elegibilidade
+chat
+histórico
+exportação
+e-Lattes
+
+Verificar:
+
+upload PDF
+leitura
+resumo executivo
+linha do tempo
+competências
+produção científica
+áreas de pesquisa
+sugestões de editais
+Artigos
+
+Verificar:
+
+upload
+resumo
+metodologia
+resultados
+referências
+citações
+Projetos
+
+Verificar:
+
+criação
+edição
+cronograma
+equipe
+objetivos
+status
+Planetário
+
+Verificar:
+
+criação de conteúdo
+roteiro
+perguntas
+linguagem simples
+Assistente IA
+
+Verificar:
+
+conversa
+contexto
+histórico
+persistência
+7. Inteligência Artificial
+
+Validar:
+
+prompts
+agentes
+schemas
+chamadas OpenAI
+JSON
+validações
+fallback
+logs
+
+Confirmar que:
+
+nunca inventa informação
+preserva significado
+segue Linguagem Simples
+informa ambiguidades
+respeita os princípios científicos implementados.
+8. Segurança
+
+Verificar:
+
+JWT
+Session
+Cookies
+Supabase Auth
+RLS
+SQL Injection
+XSS
+CORS
+Rate Limit
+9. Performance
+
+Verificar:
+
+queries repetidas
+componentes renderizando várias vezes
+chamadas duplicadas
+estados desnecessários
+cache
+lazy loading
+10. UX
+
+Verificar:
+
+clareza
+simplicidade
+hierarquia visual
+identidade visual
+consistência entre módulos
+11. Código
+
+Encontrar:
+
+código morto
+arquivos não utilizados
+componentes duplicados
+funções repetidas
+imports não utilizados
+comentários antigos
+TODO
+FIXME
+12. Produção
+
+Confirmar que o projeto pode ser publicado.
+
+Verificar:
+
+Build
+Vercel
+Replit
+Supabase
+Environment Variables
+13. Testes
+
+Executar testes manuais de ponta a ponta:
+
+Entrar
+
+↓
+
+Selecionar módulo
+
+↓
+
+Enviar documento
+
+↓
+
+Processar IA
+
+↓
+
+Salvar
+
+↓
+
+Consultar histórico
+
+↓
+
+Exportar
+
+Fazer isso para todos os módulos.
+
+14. Relatório Final
+
+Ao final gerar um relatório contendo:
+
+✅ O que está funcionando
+⚠ O que precisa ser corrigido
+❌ Bugs encontrados
+🔒 Problemas de segurança
+🚀 Melhorias recomendadas
+📊 Grau de maturidade
+
+Classificar cada área:
+
+Frontend
+Backend
+Banco
+IA
+Segurança
+UX
+Performance
+Arquitetura
+
+Utilizar notas de 0 a 10.
+
+Ao final calcular a nota geral do MVP e informar se o sistema está pronto para:
+
+MVP interno
+Validação científica
+Demonstração institucional
+Produção
+Escalabilidade
+
+Esse checklist cobre praticamente tudo o que é esperado para um MVP robusto do LUPA Digital/NIASci, permitindo identificar pendências antes da publicação e da validação científica.

@@ -11,6 +11,12 @@
     },
     {
       "path": "./lib/api-zod"
+    },
+    {
+      "path": "./lib/integrations/openai-ai-react"
+    },
+    {
+      "path": "./lib/integrations/openai-ai-server"
     }
   ]
 }

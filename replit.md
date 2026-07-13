@@ -1,45 +1,50 @@
-# [Project name]
+# LUPA Digital
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A platform by NIASci that uses AI to simplify Brazilian public editais (funding calls) and other government documents, making them accessible to researchers, students, and institutions.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
+- Workflows start automatically — LUPA Digital frontend and API server both launch via managed Replit workflows
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
+- `pnpm run typecheck` — full typecheck across all packages
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Frontend: React + Vite, Tailwind CSS v4, wouter routing, TanStack Query
+- UI: shadcn/ui components, Radix UI, Framer Motion
+- Auth: Supabase Auth
+- API: Express 5 (`artifacts/api-server/`)
+- DB: PostgreSQL + Drizzle ORM (`lib/db/`)
+- AI: OpenAI integration via `lib/integrations/openai-ai-server/`
+- Validation: Zod, drizzle-zod
+- API codegen: Orval (from OpenAPI spec at `lib/api-spec/openapi.yaml`)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/lupa-publica/` — React + Vite frontend (mounted at `/`)
+- `artifacts/api-server/` — Express API server (mounted at `/api`)
+- `lib/api-spec/openapi.yaml` — single source of truth for API contracts
+- `lib/api-client-react/` — generated React Query hooks (do not hand-edit)
+- `lib/api-zod/` — generated Zod validation schemas (do not hand-edit)
+- `lib/db/src/schema/` — Drizzle table definitions
+- `lib/integrations/openai-ai-server/` — OpenAI client wrapper for server use
+- `artifacts/lupa-publica/src/lib/supabase.ts` — Supabase client (auth)
+- `artifacts/lupa-publica/src/pages/` — all page components (home, dashboard, login, etc.)
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Supabase handles auth (login, signup, session management) while the Express API server handles business logic and AI calls
+- OpenAI integration routes through `lib/integrations/openai-ai-server/` — never call OpenAI directly from routes
+- The OpenAPI spec gates all API/client changes: update `openapi.yaml`, run codegen, then update the server + client
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
+LUPA Digital provides Brazilian researchers and institutions with AI-powered tools to: simplify complex edital documents, analyze them through specialized AI agents (simple, analyst, strategic, tracking, documentation, eligibility), extract text from URLs and PDFs, save and share analysis results, and access curated resources such as e-Lattes profiles, NIASci projects, and publication databases.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` env vars are referenced as `SUPABASE_*` (with `envPrefix` in vite.config.ts) — set them as Replit secrets
+- Do not run `pnpm dev` at workspace root — use the managed workflows
+- After any `openapi.yaml` change, run codegen before touching frontend or server code

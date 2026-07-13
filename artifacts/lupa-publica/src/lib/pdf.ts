@@ -20,24 +20,42 @@ export interface ExtractedPdfResult {
 
 /**
  * Strip characters that are clearly garbage from PDF font-encoding issues:
- * - Unicode Private Use Area (PUA): U+E000–U+F8FF, U+F0000–U+FFFFF, U+100000–U+10FFFF
+ * - Unicode Private Use Area (PUA): U+E000–U+F8FF, U+FFF0–U+FFFF
  * - Unicode replacement character U+FFFD
  * - Control characters except newline/tab
+ * - Common PDF substitution glyphs emitted when a font has no ToUnicode CMap:
+ *   ♦ (U+25C6), ◊ (U+25CA), ‖ (U+2016), ● (U+25CF), □ (U+25A1), ▪ (U+25AA)
  */
+const PDF_GARBAGE_GLYPHS = /[\u25C6\u25CA\u2016\u25CF\u25A1\u25AA\u25AB\u25AC\u25B6\u25C0\u2022\u2023\u2043]/g;
+
 const stripGarbageChars = (value: string) =>
   value
     .replace(/[\uE000-\uF8FF\uFFF0-\uFFFF]/g, "") // BMP PUA + specials
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "") // control chars
-    .replace(/\uFFFD/g, ""); // replacement char
+    .replace(/\uFFFD/g, "") // replacement char
+    .replace(PDF_GARBAGE_GLYPHS, ""); // known PDF substitution glyphs
 
-/** Returns fraction of chars that are in the printable Latin range (rough readability score) */
+/**
+ * Returns the fraction of non-whitespace characters that are actual Unicode
+ * letters (\\p{L}).  Legitimate Portuguese text sits at 0.65–0.85.
+ * Garbled PDFs (raw glyph codes) typically fall below 0.45 even after stripping
+ * the known substitution glyphs above, because they contain many symbols,
+ * digits, and punctuation relative to letters.
+ */
+const letterRe = /\p{L}/u;
+const nonSpaceRe = /\S/;
+
 const readabilityScore = (value: string) => {
   if (!value.length) return 0;
-  const readable = [...value].filter((c) => {
-    const cp = c.codePointAt(0)!;
-    return (cp >= 0x20 && cp <= 0x7e) || (cp >= 0xa0 && cp <= 0x024f) || cp === 0x0a || cp === 0x09;
-  });
-  return readable.length / value.length;
+  let letters = 0;
+  let nonSpace = 0;
+  for (const c of value) {
+    if (nonSpaceRe.test(c)) {
+      nonSpace++;
+      if (letterRe.test(c)) letters++;
+    }
+  }
+  return nonSpace === 0 ? 0 : letters / nonSpace;
 };
 
 const normalizeText = (value: string) => {
@@ -110,12 +128,15 @@ export async function extractTextFromPdf(file: File): Promise<ExtractedPdfResult
     throw new Error("Nenhum texto legível foi encontrado neste PDF.");
   }
 
-  // Detect PDFs with heavily garbled/encoded fonts
+  // Detect PDFs with heavily garbled/encoded fonts.
+  // The score is: Unicode-letter chars / non-whitespace chars.
+  // Legitimate Portuguese prose scores ~0.65–0.85.
+  // A garbled PDF (raw glyph codes mixed with symbols) typically scores < 0.45.
   const score = readabilityScore(text);
-  if (score < 0.35) {
+  if (score < 0.45) {
     throw new Error(
-      "Este PDF usa uma codificação de fonte não suportada e o texto extraído ficou ilegível. " +
-      "Tente copiar o texto manualmente do PDF e cole na aba 'Colar Texto'.",
+      "Este PDF usa uma codificacao de fonte nao suportada e o texto extraido ficou ilegivel. " +
+      "Por favor, abra o PDF, selecione todo o texto (Ctrl+A), copie (Ctrl+C) e cole na aba 'Colar Texto'.",
     );
   }
 

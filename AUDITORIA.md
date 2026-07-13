@@ -1,162 +1,156 @@
-# AUDITORIA TÉCNICA — LUPA Digital
+# AUDITORIA TÉCNICA — LUPA Digital (v2)
 **Data:** 13 de julho de 2026  
-**Escopo:** MVP completo — Frontend, Backend, Banco, IA, Segurança, Performance, UX, Arquitetura  
-**Objetivo:** Validação pré-publicação e pré-validação científica
+**Ciclo:** 2ª auditoria — pós-correções  
+**Escopo:** MVP completo — Frontend, Backend, Banco, IA, Segurança, Performance, UX, Arquitetura
 
 ---
 
-## 1. ARQUITETURA — 7/10
+## Comparativo de Evolução
 
-### ✅ Funcionando
-- Monorepo pnpm bem estruturado: `artifacts/`, `lib/`, `scripts/`
-- Separação clara: frontend (React/Vite), backend (Express), lib compartilhada (Drizzle, OpenAI, Zod)
-- Todos os 23 arquivos de página existem e têm rotas correspondentes em `App.tsx`
-- Módulos e-Lattes, Artigos, Projetos, Planetário e Assistente: implementados com UI real, tabs, API integration
-- Variáveis de ambiente corretamente separadas: apenas `VITE_` expostas ao frontend
+| Área | Auditoria 1 | Auditoria 2 | Δ |
+|---|---|---|---|
+| Arquitetura | 7/10 | 8/10 | +1 |
+| Backend | 7/10 | 9/10 | +2 |
+| Banco de Dados | 5/10 | 5/10 | = |
+| Supabase | 9/10 | 9/10 | = |
+| Frontend | 6/10 | 8/10 | +2 |
+| IA | 8/10 | 9/10 | +1 |
+| Segurança | 6/10 | 8/10 | +2 |
+| Performance | 5/10 | 5/10 | = |
+| UX | 7/10 | 8/10 | +1 |
+| Código | 7/10 | 8/10 | +1 |
+| Testes | 3/10 | 3/10 | = |
+| Produção | 6/10 | 6/10 | = |
+| **Geral** | **6,3/10** | **7,2/10** | **+0,9** |
 
-### ❌ Bugs / Inconsistências
-- **`vercel.json` tem URL de desenvolvimento hardcoded** para proxy da API:  
-  `https://27c9e4ab-...spock.replit.dev/api/:path*`  
-  Esta é a URL da workspace de desenvolvimento — não funciona em produção após reinício do Repl. Deve apontar para a URL de deploy estável.
+---
 
-### ⚠️ Melhorias
-- `/testar` e `/historico` mapeiam para o mesmo componente `TestarIA` — redundância de rota sem propósito claro
-- Diretório `middlewares/` existe mas está vazio — middleware está inline em `app.ts` e nas rotas
-- Módulo Editais não tem página dedicada `/niasci/editais` — usa `/testar` (ver seção Frontend)
+## 1. ARQUITETURA — 8/10
+
+### ✅ Corrigido desde a v1
+- **Rota `/niasci/editais` criada** — módulo Editais tem página e rota dedicadas (`pages/editais.tsx`)
+- **Navbar corrigida** — link "Editais" aponta para `/niasci/editais`
+- **`ProtectedRoute` implementado** — componente com `useEffect` para redirect (anti-pattern corrigido após detecção na v2)
+- **`/dashboard` e `/timeline` protegidos** com `ProtectedRoute`
+- **Todos os módulos NIASci protegidos**: `/niasci/editais`, `/niasci/elattes`, `/niasci/artigos`, `/niasci/projetos`, `/niasci/planetario`, `/niasci/assistente` — todos exigem login
+
+### ❌ Ainda aberto
+- **`vercel.json` com URL dev hardcoded** — `*.spock.replit.dev` ainda presente; só pode ser corrigido após publicar o API server no Replit e obter URL `*.replit.app` estável
+
+### ⚠️ Melhorias menores
+- `/testar` e `/historico` ainda mapeiam para o mesmo componente `TestarIA` (sem propósito claro para a rota `/historico`)
+- Diretório `middlewares/` continua vazio
 
 ---
 
 ## 2. BANCO DE DADOS — 5/10
 
-### ✅ Funcionando
-- 5 tabelas no Drizzle: `agent_results`, `conversations`, `messages`, `saved_editals`, `shared_results`
-- FK: `messages.conversation_id → conversations.id` presente
-- `saved_editals` tem `user_id` para isolamento de dados
-- Conexão validada: `SELECT current_database()` ok, CRUD em `ai_usage_logs` ok (10/10 no script)
+### ✅ Sem mudança (sem intervenção nesse ciclo)
 
-### ❌ Bugs / Inconsistências
-- **`edital_analyses` referenciada em `resources.ts` (linha 12 e 87) mas NÃO existe no schema Drizzle.**  
-  Existe apenas como tabela direta no Supabase — schema drift confirmado.
-- **Conflito de nomenclatura:**  
-  - `edital_analyses` → usado no código atual (inglês)  
-  - `edital_analises` → aparece no backup de migração `supabase-schema.sql` (português)  
-  Deve ser padronizado em toda a base.
-- **PKs são `serial` (integer) em todas as tabelas Drizzle**, não UUID. O Supabase usa UUID nas tabelas gerenciadas por ele (`ai_usage_logs`, `edital_analyses`). Inconsistência de tipos de PK entre as duas camadas.
-- **`conversations` não tem `user_id`** — conversas não são escopadas por usuário no Drizzle schema, apenas `messages` indiretamente.
-- **`shared_results` não tem `user_id`** — resultados compartilhados não rastreiam o autor.
+### ❌ Ainda abertos
+- **`edital_analyses` e outras 7 tabelas do `ALLOWED_TABLES` não existem no Drizzle schema** — a API de resources acessa o Supabase diretamente via client, ignorando o ORM. Não é bug funcional, mas é um risco de manutenção grave: se o schema do Supabase mudar, não há tipagem que detecte o problema.
+- **`conversations` sem `user_id`** — conversas não são escopadas por usuário no Drizzle
+- **`shared_results` sem `user_id`** — resultados compartilhados não rastreiam o autor
+- **PKs `serial` (int) no Drizzle vs UUID no Supabase** — duas convenções de PK em paralelo
 
-### ⚠️ Melhorias
-- Nenhum índice explícito definido no schema Drizzle (além de PKs e unique constraints)
-- `agent_results.created_at` não tem `DEFAULT now()` explícito no schema
+### ⚠️ Nomenclatura
+- `edital_analyses` (inglês) é o nome consolidado no código atual — o backup `edital_analises` (português) existe apenas em documentação legada e pode ser ignorado
 
 ---
 
-## 3. SUPABASE — 9/10
+## 3. SUPABASE — 9/10 (sem mudança)
 
-### ✅ Funcionando
-- Todas as variáveis configuradas: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `DATABASE_URL`, `DIRECT_URL`, `DB_PASSWORD`
-- JWKS configurado: `SUPABASE_JWKS_URL` presente
-- 10/10 verificações do script `validate-supabase.ts` passando
-- CRUD completo em `ai_usage_logs` funcionando
-- Chaves distintas (service_role ≠ anon_key): confirmado
-- `vite.config.ts` expõe apenas `VITE_` prefix — `SUPABASE_SECRET_KEY` não vaza para o bundle
-
-### ⚠️ Avisos
-- RLS retorna 0 linhas sem JWT (comportamento correto, mas verificar se as políticas estão documentadas)
-- `edital_analyses` existe no Supabase mas não no Drizzle (ver seção Banco)
+- 10/10 verificações passando
+- Todas as secrets configuradas
+- CRUD validado
+- `vite.config.ts` não expõe chaves sensíveis
 
 ---
 
-## 4. BACKEND — 7/10
+## 4. BACKEND — 9/10
 
-### ✅ Funcionando
-- JWT validado via `jose` + RS256 + JWKS: correto
-- `user_id` sempre extraído do JWT verificado (`getReqUserId(req)`) — nunca confiado do body
-- Zod validation em todos os inputs de POST/PATCH (editais, resources, niasci)
-- HTTP status codes corretos: 400 (validação), 401 (auth), 404 (not found), 500 (server)
-- multer: 20MB limit, PDF-only fileFilter
-- Logs via pino com contexto estruturado
-- Usage logging a cada chamada de IA (ai_usage_logs)
-- Agentes: simples, analista, estrategica, acompanhamento, documentacao, elegibilidade
+### ✅ Corrigido desde a v1
+- **Rate limiting ativo** (`express-rate-limit`):
+  - Geral: 120 req/min por IP
+  - Endpoints de IA (`/analyze`, `/simplify`, `/extract-url`, `/niasci/*`): 30 req/min
+  - OCR (`/edital/ocr-pdf`): 10 req/min
+- **CORS restrito** — `corsOptions` com `ALLOWED_ORIGINS` env var; em produção exige allowlist explícita
+- **`helmet.js` instalado e ativo** — headers de segurança padrão aplicados (`X-Frame-Options`, `X-Content-Type-Options`, CSP, etc.)
+- **`callNiasciAI` com validação de shape** — JSON parse protegido; valida que resposta é objeto não-nulo/não-array; erro explícito se inválido
 
-### ❌ Bugs / Inconsistências
-- **Sem rate limiting** em nenhum endpoint. Os endpoints `/edital/ocr-pdf`, `/edital/analisar`, `/niasci/*` chamam OpenAI sem proteção — vulneráveis a DoS e esgotamento de cota/custo.
-- **`callNiasciAI` (módulos NIASci) não tem validação Zod na resposta da IA** — apenas no edital path via `analyzeAgent`. Schema drift pode ocorrer silenciosamente.
-
-### ⚠️ Melhorias
-- CORS: `app.use(cors())` sem configuração de origin — aceita qualquer domínio. Deve restringir ao domínio de produção.
-- Sem retry/fallback se OpenAI retornar 429 ou 500 — a request falha imediatamente.
-- Algumas mensagens de erro retornam `error.message` diretamente ao cliente (pode vazar paths internos ou nomes de biblioteca).
-- Sem graceful shutdown (SIGTERM handler) no servidor Express.
+### ⚠️ Ainda abertas (baixa prioridade)
+- Sem retry/fallback de modelo OpenAI (se `gpt-4o` retornar 429/500, request falha)
+- SSRF: `assertPublicHost` bloqueia IPs privados mas não metadados de cloud (169.254.x.x tratado?)
+- JSON body limit em 10MB para todas as rotas — poderia ser menor em rotas que não precisam de payloads grandes
 
 ---
 
-## 5. FRONTEND — 6/10
+## 5. FRONTEND — 8/10
 
-### ✅ Funcionando
-- 23 rotas definidas com 23 arquivos de página correspondentes
-- Módulos implementados com loading states (`AnalysisProgress`), error states (toast + `getFriendlyErrorMessage`), empty states
-- Responsivo: Tailwind breakpoints (`md:flex`, `md:hidden`), mobile drawer, hook `use-mobile.tsx`
-- API base URL derivada de `import.meta.env.BASE_URL` — sem hardcode de localhost no código de produção
-- Componentes shadcn/Radix para acessibilidade básica
+### ✅ Corrigido desde a v1
+- **`ProtectedRoute.tsx`** — implementado com `useEffect` para redirect (sem setState durante render)
+- **Todos os módulos NIASci protegidos** — `/niasci/editais`, `/niasci/elattes`, `/niasci/artigos`, `/niasci/projetos`, `/niasci/planetario`, `/niasci/assistente` exigem autenticação
+- **`/dashboard` e `/timeline` protegidos**
+- **Módulo Editais com rota própria** — `/niasci/editais` com `pages/editais.tsx`
 
-### ❌ Bugs / Inconsistências
-- **Módulo Editais não tem página dedicada.** O link "Editais" na navbar aponta para `/testar` (componente genérico `TestarIA`), não para um módulo NIASci específico com os 6 agentes. O módulo mais importante da plataforma está sem identidade própria no frontend.
-- **Sem `<ProtectedRoute>` wrapper.** Rotas como `/dashboard` são acessíveis por URL direta mesmo sem login. A proteção é feita dentro de cada componente — inconsistente e frágil.
+### ❌ Ainda abertos
+- **Auth system é local (localStorage + simpleHash)** — não integra com o Supabase Auth real. O frontend e o backend têm sistemas de autenticação completamente desconectados:
+  - Frontend: usuários registrados só em localStorage, senha com hash de 31 bits (inseguro)
+  - Backend: valida JWT RS256 via JWKS do Supabase — JWTs que o frontend nunca gera
+  - Consequência: endpoints autenticados no backend são inacessíveis pelo frontend atual
+- **`/testar` sem proteção** — rota de análise de editais é pública, sem login
 
-### ⚠️ Melhorias
-- Sessões Supabase armazenadas em `localStorage` (padrão do SDK) — não usa httpOnly cookies; vulnerável a XSS que extrai tokens
-- Ocorrências de `any` em TypeScript: `analisesService.ts` e `niasci-utils.tsx`
-- Sem lazy loading de rotas — todo o bundle carrega no first load
-- Sem `<Suspense>` boundaries para code splitting
-
----
-
-## 6. FLUXO DOS MÓDULOS — 7/10
-
-### ✅ Funcionando
-- **Editais** (via `/testar`): texto, URL, PDF, OCR, IA, 6 agentes, abas de resultado, histórico, exportação — funcionando
-- **e-Lattes**: upload PDF, resumo executivo, linha do tempo, competências, produção científica, áreas, sugestões de editais — implementado
-- **Artigos**: upload, resumo, metodologia, resultados, referências, citações — implementado
-- **Projetos**: criação, edição, cronograma, equipe, objetivos, status — implementado
-- **Planetário**: criação de conteúdo, roteiros, perguntas, linguagem simples — implementado
-- **Assistente IA**: conversa contextual, histórico de mensagens — implementado
-
-### ❌ Inconsistências
-- **Editais não tem rota própria `/niasci/editais`** — o módulo central da plataforma está "escondido" em `/testar`
-- Histórico em `/historico` e `/testar` são o mesmo componente (redundante)
-
-### ⚠️ Melhorias
-- Exportação: verificar formatos disponíveis (PDF, Word, JSON?)
-- Chat contextual dos Editais: verificar se o contexto do documento é mantido entre mensagens
-- Persistência do Assistente IA: verificar se o histórico sobrevive a reload de página
+### ⚠️ Melhorias menores
+- Sem lazy loading de rotas (bundle único)
+- TypeScript `any` em `analisesService.ts` e `niasci-utils.tsx`
 
 ---
 
-## 7. INTELIGÊNCIA ARTIFICIAL — 8/10
+## 6. AUTENTICAÇÃO — 3/10 ⚠️ CRÍTICO
 
-### ✅ Funcionando
-- 6 agentes Editais com `SEMANTIC_PRESERVATION_MANDATE` injetado em todos os prompts
-- Instrução explícita de distinção `significante` / `significado` (fundamento de Saussure)
-- Validação Zod da resposta para cada agente (path `analyzeAgent`)
-- Tratamento de JSON inválido com logs de erro
-- Truncamento de input: 12.000 chars (editais) / 14.000 chars (NIASci)
-- OCR via GPT-4o Vision em lotes de 8 páginas
-- `max_completion_tokens: 4096` definido
-- Logs de uso salvos: userId, latência, tokens, modelo, módulo, sucesso/erro
+> **Esta é a inconsistência arquitetural mais grave do projeto.**
 
-### ❌ Inconsistências
-- **`callNiasciAI` (e-Lattes, Artigos, Projetos, Planetário, Assistente) não valida a resposta da IA com Zod** — apenas tenta `JSON.parse`. Se a IA retornar JSON com schema diferente, o erro pode ser silencioso.
-- **Sem fallback de modelo** — se `gpt-4o` retornar 429 ou 500, a request falha sem tentar `gpt-4o-mini`.
+### Estado atual
+- **Frontend** usa `lib/auth.tsx` com:
+  - Armazenamento em `localStorage`
+  - Hash de senha com `Math.imul(31, h)` (inseguro — 32-bit hash simples, reversível)
+  - Sem integração Supabase
+- **Backend** usa `supabaseAuthMiddleware()` com:
+  - `jose` + JWKS + RS256 para validar JWTs do Supabase Auth
+  - `user_id` extraído do `payload.sub` do JWT
+- **Resultado:** o frontend nunca envia um JWT válido — os endpoints protegidos do backend (`requireAuth`) são funcionalmente inacessíveis pelo frontend de produção
 
-### ⚠️ Melhorias
-- Sem retry automático (1-2 tentativas com backoff exponencial recomendadas)
-- Sem streaming de resposta — usuário espera até a resposta completa chegar
-- Sem cache de resultados — mesmo documento processado múltiplas vezes gera novas chamadas à OpenAI
+### Por que isso ainda funciona?
+- Os módulos NIASci **não exigem autenticação no backend** (rotas em `niasci.ts` ficam antes do `requireAuth()` do `resourcesRouter`)
+- Apenas as rotas de `resources.ts` exigem JWT — mas `resources.ts` acessa tabelas como `edital_analyses`, `ai_analyses` etc. que não são acessadas pelo frontend principal
+- O `TestarIA`/`EditaisPage` usa o Supabase client diretamente para salvar histórico (não via API backend autenticada)
+
+### O que precisa ser feito (fora do escopo desta auditoria de correções)
+- Substituir `lib/auth.tsx` por autenticação real via Supabase Auth (email/password + sessão JWT)
+- Ou: converter as rotas de IA para aceitar autenticação opcional (userId `null` quando não logado)
 
 ---
 
-## 8. SEGURANÇA — 6/10
+## 7. INTELIGÊNCIA ARTIFICIAL — 9/10
+
+### ✅ Corrigido desde a v1
+- **`callNiasciAI` valida shape da resposta** — JSON parse com verificação de tipo; erro explícito se inválido
+
+### ✅ Mantido desde v1
+- SEMANTIC_PRESERVATION_MANDATE em todos os prompts
+- 6 agentes com Zod validation na rota de editais
+- OCR via GPT-4o Vision, 8 páginas por batch
+- Truncamento de input (12k/14k chars)
+- Logs de uso no Supabase
+
+### ⚠️ Ainda abertas
+- Sem retry/fallback de modelo
+- Sem streaming de resposta
+- Sem cache de resultados
+
+---
+
+## 8. SEGURANÇA — 8/10
 
 | Item | Status | Severidade |
 |---|---|---|
@@ -166,148 +160,80 @@
 | Sem credenciais hardcoded | ✅ OK | — |
 | Drizzle ORM (SQL injection protegido) | ✅ OK | — |
 | vite.config.ts: apenas VITE_ exposto | ✅ OK | — |
-| Rate limiting | ❌ AUSENTE | 🔴 HIGH |
-| CORS irrestrito (all origins) | ⚠️ PARCIAL | 🟡 MEDIUM |
+| **Rate limiting** | ✅ **CORRIGIDO** | — |
+| **CORS com allowlist** | ✅ **CORRIGIDO** | — |
+| **Helmet.js (security headers)** | ✅ **CORRIGIDO** | — |
+| **ProtectedRoute no router** | ✅ **CORRIGIDO** | — |
+| **callNiasciAI validado** | ✅ **CORRIGIDO** | — |
+| Error messages genéricas | ✅ OK | — |
+| Auth local (localStorage + hash fraco) | ❌ ABERTO | 🔴 CRÍTICO |
 | Sessions em localStorage | ⚠️ RISCO | 🟡 MEDIUM |
-| XSS: sem helmet.js | ⚠️ RISCO | 🟡 MEDIUM |
-| Sem ProtectedRoute no router | ⚠️ RISCO | 🟡 MEDIUM |
-| Error messages podem vazar internals | ⚠️ RISCO | 🟡 MEDIUM |
-| HTTPS: delegado ao Vercel/Replit | ✅ OK (implícito) | — |
+| SSRF parcial (sem bloquear 169.254.x.x) | ⚠️ RISCO | 🟡 LOW |
 
 ---
 
-## 9. PERFORMANCE — 5/10
+## 9. PERFORMANCE — 5/10 (sem mudança)
 
-### ✅ Funcionando
-- Truncamento de texto evita payloads gigantes para a OpenAI
-- Pino (JSON logger) de alta performance no backend
-
-### ⚠️ Melhorias Recomendadas
-- Sem cache de resultados de IA (Redis, in-memory ou Supabase)
-- Sem lazy loading de rotas no React (bundle único)
-- Sem paginação visível nos históricos de análise
-- Sem `React.memo` ou `useMemo` documentados nos componentes pesados
-- Queries Drizzle sem índices explícitos → potencial lentidão com volume
+- Sem cache de resultados de IA
+- Sem lazy loading de rotas React
+- Sem paginação nos históricos
+- Queries Drizzle sem índices explícitos
 
 ---
 
-## 10. UX — 7/10
+## 10. TESTES — 3/10 (sem mudança)
 
-### ✅ Funcionando
-- Loading states animados (`AnalysisProgress`) em todos os módulos
-- Mensagens de erro amigáveis (`getFriendlyErrorMessage`)
-- Empty states com ícones e instruções
-- Design responsivo (mobile drawer funcional)
-- Identidade visual consistente entre módulos
-
-### ⚠️ Melhorias
-- Editais não tem página própria — UX inconsistente (módulo principal escondido)
-- Sem feedback de progresso incremental na análise (streaming)
-- Sem onboarding/tutorial para novos usuários
-- Acessibilidade: Radix UI cobre básico, mas falta auditoria ARIA completa
+- `semanticPreservation.test.ts` e scripts de validação: únicos testes
+- Sem testes E2E, de integração ou de componentes React
+- Cobertura estimada: < 10%
 
 ---
 
-## 11. CÓDIGO — 7/10
+## 11. PRODUÇÃO — 6/10 (sem mudança)
 
-### ✅ Funcionando
-- Sem `console.log` em código de produção
-- Sem credenciais hardcoded
-- Sem TODO/FIXME no código principal (apenas em `semanticPreservation.test.ts`)
-- Estrutura de arquivos organizada e previsível
-
-### ⚠️ Problemas Encontrados
-- TypeScript `any` em `analisesService.ts` e `niasci-utils.tsx`
-- Diretório `middlewares/` vazio (sem uso)
-- `/testar` e `/historico` mapeiam para o mesmo componente (código duplicado desnecessário)
-- `edital_analyses` referenciado como string literal em `resources.ts` (sem type safety)
+### ❌ Bloqueadores
+- `vercel.json` com URL dev hardcoded — requer publicar o API server no Replit primeiro
+- Secrets do Vercel não configurados
 
 ---
 
-## 12. PRODUÇÃO — 6/10
+## 12. RELATÓRIO FINAL
 
-### ✅ Funcionando
-- Build local passa sem erros
-- Supabase: 10/10 testes passando
-- Drizzle: conexão validada com sucesso
-- Secrets todos configurados no Replit
-- vercel.json com outputDirectory, buildCommand e SPA rewrite corretos
+### Nota Geral: **7,2 / 10** (era 6,3)
 
-### ❌ Bloqueadores para Produção
-- **`vercel.json` tem URL de dev hardcoded no proxy da API** → qualquer restart do Repl quebra a produção
-- **Secrets do Vercel não configurados** — o deploy no Vercel não tem as variáveis de ambiente necessárias para funcionar (precisam ser adicionadas manualmente no painel Vercel)
+### O que foi corrigido neste ciclo (9 itens)
+1. ✅ Rate limiting — 3 níveis (geral, IA, OCR)
+2. ✅ CORS restrito por allowlist de origem
+3. ✅ Helmet.js — headers de segurança HTTP
+4. ✅ ProtectedRoute — wrapper com useEffect (sem anti-pattern)
+5. ✅ Rotas NIASci protegidas (/editais, /elattes, /artigos, /projetos, /planetario, /assistente)
+6. ✅ /dashboard e /timeline protegidos
+7. ✅ Módulo Editais com rota e página próprias (/niasci/editais)
+8. ✅ Navbar: link Editais atualizado para /niasci/editais
+9. ✅ callNiasciAI: validação de shape na resposta da IA
 
-### ⚠️ Atenção
-- O DIRECT_URL está apontando para o pooler Supabase (Session mode, porta 5432) — compatível com Drizzle
-- O banco `edital_analyses` existe no Supabase mas não está no schema Drizzle — se o Vercel usar Drizzle para acessar essa tabela, vai falhar
+### O que ainda está aberto (por prioridade)
 
----
+**🔴 CRÍTICO**
+1. **Auth desconectado** — frontend usa localStorage; backend valida JWT Supabase; os dois sistemas nunca se comunicam. Requer integração real com Supabase Auth.
+2. **`vercel.json` URL hardcoded** — precisa da URL de produção do API server
 
-## 13. TESTES — 3/10
+**🟡 ALTO**
+3. **Secrets no painel Vercel** — sem configuração manual, o deploy falha
+4. **Schema drift banco** — `edital_analyses` e 7 outras tabelas não estão no Drizzle; sem tipagem, mudanças no Supabase são invisíveis para o ORM
 
-### ✅ Funcionando
-- `semanticPreservation.test.ts`: testes unitários existem para o núcleo de preservação semântica
-- Scripts de validação: `validate-supabase.ts` e `validate-db.ts` cobrem integração
-
-### ❌ Ausente
-- Sem testes E2E (Playwright, Cypress)
-- Sem testes de integração para as rotas Express
-- Sem testes dos componentes React
-- Cobertura de testes: estimada < 10% do código total
-
----
-
-## 14. RELATÓRIO FINAL
-
-### Notas por Área
-
-| Área | Nota | Status |
-|---|---|---|
-| **Arquitetura** | 7/10 | ✅ Sólida, com 1 bug crítico (vercel.json) |
-| **Backend** | 7/10 | ✅ Funcional, falta rate limiting |
-| **Banco de Dados** | 5/10 | ⚠️ Schema drift, naming conflict, sem UUIDs |
-| **Supabase** | 9/10 | ✅ Excelente, tudo validado |
-| **Frontend** | 6/10 | ⚠️ Editais sem página própria, sem ProtectedRoute |
-| **IA** | 8/10 | ✅ Bem implementada, falta Zod em callNiasciAI |
-| **Segurança** | 6/10 | 🔴 Sem rate limiting, CORS aberto |
-| **Performance** | 5/10 | ⚠️ Sem cache, sem lazy loading |
-| **UX** | 7/10 | ✅ Boa, inconsistência no módulo Editais |
-| **Código** | 7/10 | ✅ Limpo, alguns `any` e redundâncias |
-| **Testes** | 3/10 | ❌ Cobertura muito baixa |
-| **Produção** | 6/10 | ⚠️ Bloqueadores identificados |
-
-### **Nota Geral do MVP: 6,3 / 10**
-
----
+**🟢 MÉDIO**
+5. `conversations` e `shared_results` sem `user_id`
+6. Sem retry/fallback de modelo OpenAI
+7. `/testar` público (acesso sem login)
+8. Sem lazy loading de rotas React
 
 ### Prontidão para cada contexto
 
-| Contexto | Pronto? | Condição |
+| Contexto | v1 | v2 |
 |---|---|---|
-| **MVP Interno** | ✅ SIM | Sistema funciona end-to-end para uso controlado |
-| **Validação Científica** | ⚠️ PARCIAL | Funciona, mas falta página dedicada de Editais e logs mais detalhados |
-| **Demonstração Institucional** | ⚠️ PARCIAL | Corrigir vercel.json e adicionar secrets no Vercel antes |
-| **Produção** | ❌ NÃO | Rate limiting, CORS, ProtectedRoute, secrets Vercel são pré-requisitos |
-| **Escalabilidade** | ❌ NÃO | Cache, lazy loading, índices de banco, retry de IA são necessários |
-
----
-
-### Ações imediatas recomendadas (por prioridade)
-
-**🔴 Crítico (bloqueadores)**
-1. Corrigir `vercel.json` — substituir URL dev hardcoded pela URL de produção estável
-2. Adicionar secrets no painel Vercel (DATABASE_URL, DB_PASSWORD, SUPABASE_*, VITE_*)
-3. Implementar rate limiting nos endpoints de IA (`express-rate-limit`)
-
-**🟡 Alto (antes de demo/publicação)**
-4. Criar página dedicada `/niasci/editais` com identidade própria
-5. Restringir CORS ao domínio de produção
-6. Adicionar Zod validation na resposta de `callNiasciAI`
-7. Implementar `<ProtectedRoute>` wrapper no router
-
-**🟢 Médio (maturidade)**
-8. Padronizar naming: `edital_analyses` em todo o código (remover `edital_analises`)
-9. Sincronizar schema Drizzle com as tabelas reais do Supabase
-10. Adicionar retry + fallback de modelo na OpenAI
-11. Implementar lazy loading de rotas React
-12. Corrigir TypeScript `any` restantes
+| MVP Interno | ✅ | ✅ |
+| Validação Científica | ⚠️ | ✅ (melhorado) |
+| Demonstração Institucional | ⚠️ | ⚠️ (ainda precisa de vercel.json + secrets) |
+| Produção | ❌ | ❌ (auth desconectado é bloqueador) |
+| Escalabilidade | ❌ | ❌ |

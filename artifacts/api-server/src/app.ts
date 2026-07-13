@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -78,6 +79,10 @@ app.use(
     },
   }),
 );
+app.use(helmet({
+  // Permite o frontend fazer chamadas à API a partir de origens diferentes
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 app.use(cors(corsOptions));
 app.use(defaultLimiter);
 app.use(express.json({ limit: "10mb" }));

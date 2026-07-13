@@ -56,12 +56,24 @@ function Router() {
           <Route path="/testar" component={TestarIA} />
           <Route path="/historico" component={TestarIA} />
           <Route path="/niasci" component={NiasciHub} />
-          <Route path="/niasci/elattes" component={ELattes} />
-          <Route path="/niasci/artigos" component={Artigos} />
-          <Route path="/niasci/projetos" component={Projetos} />
-          <Route path="/niasci/planetario" component={Planetario} />
-          <Route path="/niasci/editais" component={Editais} />
-          <Route path="/niasci/assistente" component={Assistente} />
+          <Route path="/niasci/editais">
+            <ProtectedRoute><Editais /></ProtectedRoute>
+          </Route>
+          <Route path="/niasci/elattes">
+            <ProtectedRoute><ELattes /></ProtectedRoute>
+          </Route>
+          <Route path="/niasci/artigos">
+            <ProtectedRoute><Artigos /></ProtectedRoute>
+          </Route>
+          <Route path="/niasci/projetos">
+            <ProtectedRoute><Projetos /></ProtectedRoute>
+          </Route>
+          <Route path="/niasci/planetario">
+            <ProtectedRoute><Planetario /></ProtectedRoute>
+          </Route>
+          <Route path="/niasci/assistente">
+            <ProtectedRoute><Assistente /></ProtectedRoute>
+          </Route>
           <Route path="/como-funciona" component={ComoFunciona} />
           <Route path="/sobre" component={Sobre} />
           <Route path="/tecnologias" component={Tecnologias} />

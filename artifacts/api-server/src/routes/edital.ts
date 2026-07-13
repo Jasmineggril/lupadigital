@@ -231,7 +231,38 @@ router.post("/edital/extract-url", async (req, res): Promise<void> => {
       return;
     }
 
-    html = await response.text();
+    // Detect charset from Content-Type header before decoding
+    const contentType = response.headers.get("content-type") ?? "";
+    let charset = "utf-8";
+
+    // e.g. "text/html; charset=windows-1252"
+    const ctMatch = contentType.match(/charset=([^\s;]+)/i);
+    if (ctMatch) charset = ctMatch[1].trim().toLowerCase();
+
+    // Read as bytes so we can re-decode with the right charset
+    const bytes = await response.arrayBuffer();
+    let rawHtml = new TextDecoder(charset, { fatal: false }).decode(bytes);
+
+    // If charset wasn't in Content-Type, sniff it from <meta charset> in first 4KB
+    if (!ctMatch) {
+      const sniff = rawHtml.slice(0, 4096);
+      const metaMatch =
+        sniff.match(/<meta[^>]+charset=["']?([^"';\s>]+)/i) ||
+        sniff.match(/<meta[^>]+content=["'][^"']*charset=([^"';\s]+)/i);
+      if (metaMatch) {
+        const detected = metaMatch[1].trim().toLowerCase();
+        if (detected && detected !== charset) {
+          try {
+            rawHtml = new TextDecoder(detected, { fatal: false }).decode(bytes);
+            charset = detected;
+          } catch {
+            // Unknown charset label — keep original decode
+          }
+        }
+      }
+    }
+
+    html = rawHtml;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     req.log.warn({ url: fetchedUrl, message }, "Failed to fetch URL");
@@ -239,7 +270,7 @@ router.post("/edital/extract-url", async (req, res): Promise<void> => {
     return;
   }
 
-  const $ = cheerio.load(html);
+  const $ = cheerio.load(html, { decodeEntities: true });
 
   // Remove elements that don't contain useful content
   $("script, style, nav, header, footer, aside, iframe, noscript, [aria-hidden='true']").remove();

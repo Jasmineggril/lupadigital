@@ -104,7 +104,7 @@ export default function Home() {
             { title: "Artigos", href: "/niasci/artigos", desc: "Extração de resumo, citações e insights", icon: <BookOpen className="w-6 h-6" /> },
             { title: "Projetos", href: "/niasci/projetos", desc: "Gerenciamento de projetos e cronogramas", icon: <Layers className="w-6 h-6" /> },
             { title: "Planetário", href: "/niasci/planetario", desc: "Conteúdo educativo e roteiros didáticos", icon: <Globe className="w-6 h-6" /> },
-            { title: "Assistente IA", href: "/niasci", desc: "Converse com o assistente para apoio científico", icon: <Sparkles className="w-6 h-6" /> },
+            { title: "Assistente IA", href: "/niasci/assistente", desc: "Converse com o assistente para apoio científico", icon: <Sparkles className="w-6 h-6" /> },
           ].map((m) => (
             <Card key={m.title} className="border-border hover:shadow-md transition-shadow">
               <CardHeader>

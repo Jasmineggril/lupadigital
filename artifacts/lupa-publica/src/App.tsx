@@ -39,6 +39,7 @@ import Planos from "@/pages/planos";
 import Verificacao from "@/pages/verificacao";
 import Dashboard from "@/pages/dashboard";
 import Timeline from "@/pages/timeline";
+import EsqueciSenha from "@/pages/esqueci-senha";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,7 @@ function Router() {
           <Route path="/verificacao" component={Verificacao} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/timeline" component={Timeline} />
+          <Route path="/esqueci-senha" component={EsqueciSenha} />
           <Route component={NotFound} />
         </Switch>
       </main>

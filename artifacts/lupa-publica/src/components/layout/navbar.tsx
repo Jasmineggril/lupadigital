@@ -19,6 +19,7 @@ const acessoRapidoLinks = [
   { href: "/niasci/artigos", label: "Artigos Científicos" },
   { href: "/niasci/projetos", label: "Projetos" },
   { href: "/niasci/planetario", label: "Planetário" },
+  { href: "/niasci/assistente", label: "Assistente IA" },
 ];
 
 const PROFILE_LABELS: Record<string, string> = {

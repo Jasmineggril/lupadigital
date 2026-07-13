@@ -5,8 +5,23 @@
  */
 import { sql } from "drizzle-orm";
 
-// Verifica formato do DATABASE_URL ANTES de tentar conectar
-const raw = process.env.DATABASE_URL ?? "";
+// Normaliza — remove prefixo "KEY=" e aspas (igual ao lib/db/src/index.ts)
+function normalizeConnStr(s: string | undefined): string {
+  if (!s) return "";
+  let v = s.trim();
+  const eq = v.indexOf("=");
+  if (eq > 0 && /^[A-Z][A-Z0-9_]*$/i.test(v.slice(0, eq).trim())) {
+    v = v.slice(eq + 1).trim();
+  }
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    v = v.slice(1, -1);
+  }
+  return v;
+}
+
+const raw = normalizeConnStr(
+  process.env.DIRECT_URL_IPV4 || process.env.DIRECT_URL || process.env.DATABASE_URL,
+);
 
 console.log("\n── Validação DATABASE_URL ──");
 
@@ -53,7 +68,12 @@ try {
   console.log(`  ✅  Conexão OK — banco: ${row?.db}, timestamp: ${row?.ts}`);
 } catch (err) {
   const msg = err instanceof Error ? err.message : String(err);
-  console.log(`  ❌  Falha ao conectar: ${msg}`);
+  const cause = err instanceof Error && (err as any).cause;
+  const causeMsg = cause instanceof Error ? ` → ${cause.message}` : "";
+  const code = err instanceof Error ? (err as any).code ?? (cause as any)?.code ?? "" : "";
+  console.log(`  ❌  Falha ao conectar: ${msg}${causeMsg}`);
+  if (code) console.log(`      Código: ${code}`);
+  if (err instanceof Error && err.stack) console.log("      Stack:", err.stack.split("\n").slice(1, 4).join("\n      "));
   process.exit(1);
 }
 

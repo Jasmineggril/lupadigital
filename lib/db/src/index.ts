@@ -19,8 +19,33 @@ function getIpv6HostError(host: string) {
   ].join(" ");
 }
 
-const databaseUrl =
-  process.env.DIRECT_URL_IPV4 || process.env.DIRECT_URL || process.env.DATABASE_URL;
+/**
+ * Normaliza uma connection string que pode ter sido colada no formato de arquivo .env
+ * (ex: DATABASE_URL="postgresql://...") removendo o prefixo KEY= e as aspas envolventes.
+ * Isso protege contra o erro comum de copiar a linha inteira do arquivo .env.
+ */
+function normalizeConnectionString(raw: string | undefined): string | undefined {
+  if (!raw) return raw;
+  let s = raw.trim();
+  // Remove prefixo "KEY=" ou "KEY =" (case insensitive, qualquer nome de variável)
+  const eqIdx = s.indexOf("=");
+  if (eqIdx > 0) {
+    const key = s.slice(0, eqIdx).trim();
+    // Só strip se o "key" não contém caracteres de URL (protocolo, @, etc.)
+    if (/^[A-Z][A-Z0-9_]*$/i.test(key)) {
+      s = s.slice(eqIdx + 1).trim();
+    }
+  }
+  // Remove aspas duplas ou simples envolventes
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1);
+  }
+  return s;
+}
+
+const databaseUrl = normalizeConnectionString(
+  process.env.DIRECT_URL_IPV4 || process.env.DIRECT_URL || process.env.DATABASE_URL,
+);
 
 if (!databaseUrl) {
   throw new Error(

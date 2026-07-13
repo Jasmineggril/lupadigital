@@ -18,11 +18,35 @@ export interface ExtractedPdfResult {
   structured: PdfStructuredData;
 }
 
-const normalizeText = (value: string) =>
+/**
+ * Strip characters that are clearly garbage from PDF font-encoding issues:
+ * - Unicode Private Use Area (PUA): U+E000–U+F8FF, U+F0000–U+FFFFF, U+100000–U+10FFFF
+ * - Unicode replacement character U+FFFD
+ * - Control characters except newline/tab
+ */
+const stripGarbageChars = (value: string) =>
   value
+    .replace(/[\uE000-\uF8FF\uFFF0-\uFFFF]/g, "") // BMP PUA + specials
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "") // control chars
+    .replace(/\uFFFD/g, ""); // replacement char
+
+/** Returns fraction of chars that are in the printable Latin range (rough readability score) */
+const readabilityScore = (value: string) => {
+  if (!value.length) return 0;
+  const readable = [...value].filter((c) => {
+    const cp = c.codePointAt(0)!;
+    return (cp >= 0x20 && cp <= 0x7e) || (cp >= 0xa0 && cp <= 0x024f) || cp === 0x0a || cp === 0x09;
+  });
+  return readable.length / value.length;
+};
+
+const normalizeText = (value: string) => {
+  const stripped = stripGarbageChars(value);
+  return stripped
     .replace(/\s+/g, " ")
     .replace(/\u00a0/g, " ")
     .trim();
+};
 
 const detectCategory = (text: string) => {
   const lower = text.toLowerCase();
@@ -84,6 +108,15 @@ export async function extractTextFromPdf(file: File): Promise<ExtractedPdfResult
 
   if (!text) {
     throw new Error("Nenhum texto legível foi encontrado neste PDF.");
+  }
+
+  // Detect PDFs with heavily garbled/encoded fonts
+  const score = readabilityScore(text);
+  if (score < 0.35) {
+    throw new Error(
+      "Este PDF usa uma codificação de fonte não suportada e o texto extraído ficou ilegível. " +
+      "Tente copiar o texto manualmente do PDF e cole na aba 'Colar Texto'.",
+    );
   }
 
   const structured: PdfStructuredData = {

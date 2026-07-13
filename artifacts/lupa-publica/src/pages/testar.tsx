@@ -3184,26 +3184,44 @@ export default function TestarIA() {
                 <TabsTrigger value="pdf">Ler PDF</TabsTrigger>
               </TabsList>
               <TabsContent value="texto">
-                <Textarea
-                  placeholder="Cole aqui o texto do edital que deseja interpretar..."
-                  className="min-h-[280px] resize-y text-sm p-4 rounded-2xl border-border/60 bg-card/80 shadow-sm focus-visible:ring-primary/30 focus-visible:border-primary/40"
-                  value={text}
-                  onChange={(e) => {
-                    setText(e.target.value);
-                    setAgentResult(null);
-                    setAnalysisError(null);
-                    setShareToken(null);
-                    setShowShareLink(false);
-                    setShareOptionsOpen(false);
-                    setIsAnalyzePressed(false);
-                  }}
-                  disabled={isAnalyzing}
-                  data-testid="input-edital-text"
-                />
+                <div className="relative">
+                  <Textarea
+                    placeholder="Cole aqui o texto do edital que deseja interpretar..."
+                    className="min-h-[280px] resize-y text-sm leading-relaxed p-4 rounded-2xl border-border/60 bg-card/80 shadow-sm focus-visible:ring-primary/30 focus-visible:border-primary/40 font-[inherit] tracking-normal"
+                    style={{ fontFamily: "inherit", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}
+                    value={text}
+                    onChange={(e) => {
+                      setText(e.target.value);
+                      setAgentResult(null);
+                      setAnalysisError(null);
+                      setShareToken(null);
+                      setShowShareLink(false);
+                      setShareOptionsOpen(false);
+                      setIsAnalyzePressed(false);
+                    }}
+                    disabled={isAnalyzing}
+                    data-testid="input-edital-text"
+                  />
+                  {text && !isAnalyzing && (
+                    <button
+                      type="button"
+                      onClick={() => { setText(""); setAgentResult(null); setAnalysisError(null); }}
+                      className="absolute top-2.5 right-2.5 rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                      title="Limpar texto"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                  )}
+                </div>
                 {text && (
-                  <p className="text-xs text-muted-foreground mt-1.5 text-right">
-                    {text.length} caracteres
-                  </p>
+                  <div className="flex items-center justify-between mt-2 px-1">
+                    <p className="text-xs text-muted-foreground">
+                      {text.split(/\s+/).filter(Boolean).length} palavras
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {text.length.toLocaleString("pt-BR")} caracteres
+                    </p>
+                  </div>
                 )}
               </TabsContent>
               <TabsContent value="url">

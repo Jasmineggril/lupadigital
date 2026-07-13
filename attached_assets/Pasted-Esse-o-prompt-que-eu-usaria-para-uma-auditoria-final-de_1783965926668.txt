@@ -1,0 +1,292 @@
+Esse é o prompt que eu usaria para uma **auditoria final de produção**, focada em um MVP que será colocado em produção. Ele é objetivo, exige evidências e impede alterações automáticas.
+
+---
+
+# AUDITORIA FINAL DE PRODUÇÃO — LUPA Digital
+
+Faça uma auditoria completa do projeto **LUPA Digital** antes da publicação em produção.
+
+**IMPORTANTE:**
+
+* NÃO altere nenhum arquivo.
+* NÃO implemente funcionalidades.
+* NÃO refatore código.
+* NÃO execute migrations.
+* NÃO modifique o banco de dados.
+* Apenas faça uma inspeção técnica completa e gere um relatório.
+
+---
+
+## 1. Arquitetura
+
+Verifique:
+
+* arquitetura frontend;
+* arquitetura backend;
+* organização do monorepo;
+* separação de responsabilidades;
+* duplicação de código;
+* acoplamento excessivo;
+* componentes não utilizados;
+* arquivos obsoletos.
+
+Classifique cada item como:
+
+* ✅ OK
+* 🟡 Atenção
+* 🔴 Crítico
+
+---
+
+## 2. Frontend
+
+Audite:
+
+* React
+* Vite
+* Tailwind
+* Componentes
+* Responsividade
+* UX
+* UI
+* Navegação
+* Performance
+* Acessibilidade
+
+Verifique:
+
+* componentes duplicados;
+* páginas mortas;
+* imports não utilizados;
+* estados de loading;
+* estados de erro;
+* estados vazios;
+* consistência visual;
+* responsividade;
+* acessibilidade.
+
+---
+
+## 3. Backend
+
+Audite:
+
+* Express
+* Rotas
+* Controllers
+* Services
+* AIService
+* Middlewares
+* Logs
+* Tratamento de erros
+* Validações
+
+Verifique:
+
+* rotas duplicadas;
+* código morto;
+* tratamento de exceções;
+* validação de entrada;
+* padronização das respostas;
+* organização dos serviços.
+
+---
+
+## 4. Supabase
+
+Verifique:
+
+* conexão;
+* autenticação;
+* RLS;
+* tabelas;
+* índices;
+* chaves estrangeiras;
+* políticas;
+* migrations.
+
+Confirme que todas as tabelas utilizadas pelo sistema existem:
+
+* profiles
+* documents
+* edital_analyses
+* ai_usage_logs
+* ai_analyses
+* article_analyses
+* lattes_profiles
+* research_projects
+* planetarium_contents
+* chat_messages
+
+Indique inconsistências entre código e banco.
+
+---
+
+## 5. Variáveis de ambiente
+
+Verifique se o projeto utiliza corretamente:
+
+* VITE_SUPABASE_URL
+* VITE_SUPABASE_ANON_KEY
+* SUPABASE_URL
+* SUPABASE_SERVICE_ROLE_KEY
+* DATABASE_URL
+* OPENAI_API_KEY
+
+Confirme:
+
+* quais são obrigatórias;
+* quais são opcionais;
+* quais pertencem ao frontend;
+* quais pertencem ao backend.
+
+---
+
+## 6. Segurança
+
+Audite:
+
+* autenticação;
+* autorização;
+* JWT;
+* validação;
+* sanitização;
+* exposição de secrets;
+* uso correto da Service Role Key;
+* uso correto da Anon Key.
+
+---
+
+## 7. Inteligência Artificial
+
+Verifique:
+
+* AIService centralizado;
+* OCR;
+* logging;
+* schemas Zod;
+* tratamento de erros;
+* fallback;
+* uso correto da OpenAI.
+
+Confirme que nenhuma chamada direta para OpenAI ficou fora do AIService.
+
+---
+
+## 8. Coerência Científica
+
+Verifique se permanecem implementados:
+
+* preservação do significado (Saussure);
+* mediação linguística;
+* linguagem simples;
+* transparência;
+* alertas de ambiguidades;
+* rastreabilidade;
+* logging científico.
+
+Confirme que nenhum desses princípios foi perdido durante as últimas alterações.
+
+---
+
+## 9. UX
+
+Avalie:
+
+* facilidade de uso;
+* fluxo principal;
+* carga cognitiva;
+* clareza;
+* consistência.
+
+Verifique se:
+
+* o usuário entende imediatamente o que fazer;
+* existe apenas um fluxo principal;
+* a IA escolhe automaticamente o especialista;
+* o resultado aparece de forma organizada;
+* a interface parece um produto profissional.
+
+---
+
+## 10. Performance
+
+Verifique:
+
+* bundle;
+* lazy loading;
+* imagens;
+* código duplicado;
+* warnings;
+* consultas repetidas;
+* renderizações desnecessárias.
+
+---
+
+## 11. Código
+
+Verifique:
+
+* comentários;
+* padronização;
+* nomenclatura;
+* organização;
+* legibilidade.
+
+Avalie se o código está adequado para um projeto de graduação em Engenharia de Software.
+
+---
+
+## 12. Produção
+
+Informe:
+
+O projeto está apto para produção?
+
+Classifique:
+
+* 🟢 Pronto
+* 🟡 Quase pronto
+* 🔴 Não recomendado
+
+---
+
+## 13. Checklist final
+
+Monte uma tabela contendo:
+
+| Item | Status | Prioridade | Observação |
+| ---- | ------ | ---------- | ---------- |
+
+---
+
+## 14. Nota técnica
+
+Atribua notas de **0 a 10** para:
+
+* Arquitetura
+* Frontend
+* Backend
+* Banco de dados
+* Segurança
+* UX
+* UI
+* Performance
+* Inteligência Artificial
+* Coerência Científica
+* Qualidade do Código
+* Documentação
+* Maturidade do MVP
+
+---
+
+## 15. Conclusão
+
+Responda objetivamente:
+
+1. O que ainda impede o MVP de ser considerado profissional?
+2. Quais problemas devem ser corrigidos antes da publicação?
+3. Quais melhorias podem ficar para versões futuras?
+4. Se este projeto fosse apresentado como Trabalho de Conclusão de Curso em Engenharia de Software, quais seriam seus principais pontos fortes e quais aspectos ainda precisariam ser aprimorados?
+
+**Importante:** Baseie todas as conclusões apenas na inspeção do código e da estrutura atual do projeto. Não faça alterações automáticas; apresente evidências, caminhos dos arquivos envolvidos e justifique cada recomendação.

@@ -1,1 +1,2 @@
 - [NIASci Architecture](niasci-architecture.md) — ordem dos routers (niasci antes de resources), aiService functions, shared niasci-utils.tsx, padrão metadata.result para histórico
+- [Supabase DB connection](supabase-db-connection.md) — DB_PASSWORD injeta senha automaticamente; tsx path; schema real de ai_usage_logs; scripts de validação

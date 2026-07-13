@@ -24,20 +24,18 @@ export default function Cadastro() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (password.length < 6) { setError("A senha deve ter pelo menos 6 caracteres."); return; }
     setLoading(true);
-    setTimeout(() => {
-      const result = register({ name, email, password, profileType });
-      if (result.ok) {
-        navigate("/planos");
-      } else {
-        setError(result.error ?? "Erro ao cadastrar.");
-      }
+    const result = await register({ name, email, password, profileType });
+    if (result.ok) {
+      navigate("/planos");
+    } else {
+      setError(result.error ?? "Erro ao cadastrar.");
       setLoading(false);
-    }, 700);
+    }
   };
 
   return (
@@ -154,7 +152,7 @@ export default function Cadastro() {
         </div>
 
         <p className="text-center text-xs text-[#475569] mt-6">
-          Protótipo MVP — dados armazenados localmente no seu dispositivo.
+          MVP acadêmico — autenticação via Supabase Auth.
         </p>
       </div>
     </div>

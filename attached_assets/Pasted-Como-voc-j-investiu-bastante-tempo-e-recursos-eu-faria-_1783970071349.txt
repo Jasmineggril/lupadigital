@@ -1,0 +1,227 @@
+Como você já investiu bastante tempo e recursos, eu faria um prompt de **congelamento e estabilização do MVP**. Ele impede que a IA saia criando funcionalidades novas e direciona o esforço para qualidade e entrega.
+
+---
+
+# CONSOLIDAÇÃO FINAL DO MVP — LUPA Digital / NIASci
+
+O LUPA Digital atingiu o escopo previsto para o MVP.
+
+**A partir desta etapa o objetivo NÃO é adicionar funcionalidades.**
+
+O objetivo é transformar o sistema em um MVP estável, consistente e pronto para demonstração, validação científica e implantação piloto.
+
+## Regras obrigatórias
+
+* NÃO criar novos módulos.
+* NÃO criar novas telas.
+* NÃO adicionar novos agentes de IA.
+* NÃO alterar a identidade visual.
+* NÃO reescrever a arquitetura.
+* NÃO substituir bibliotecas sem necessidade.
+* NÃO modificar a experiência do usuário.
+* NÃO remover funcionalidades existentes.
+
+Todas as alterações devem ser pequenas, seguras e justificadas.
+
+Antes de alterar qualquer arquivo, verificar se a mudança realmente é necessária.
+
+---
+
+# Prioridade 1 — Corrigir somente problemas críticos
+
+Resolver apenas problemas que impeçam:
+
+* funcionamento do sistema;
+* autenticação;
+* persistência dos dados;
+* integração com Supabase;
+* deploy;
+* segurança básica;
+* estabilidade.
+
+---
+
+# Prioridade 2 — Autenticação
+
+Verificar toda a autenticação.
+
+Caso existam múltiplos sistemas:
+
+* consolidar utilizando Supabase Auth;
+* garantir que frontend, backend e JWT utilizem o mesmo fluxo;
+* eliminar apenas código de autenticação realmente obsoleto.
+
+Não alterar o comportamento para o usuário.
+
+---
+
+# Prioridade 3 — Banco de dados
+
+Verificar:
+
+* migrations;
+* schema;
+* tabelas;
+* RLS;
+* policies;
+* foreign keys;
+* índices;
+* tipos.
+
+Comparar Drizzle e Supabase.
+
+Corrigir apenas divergências reais.
+
+Não criar tabelas desnecessárias.
+
+---
+
+# Prioridade 4 — Backend
+
+Revisar:
+
+* rotas;
+* middleware;
+* tratamento de erros;
+* logs;
+* validações Zod;
+* integração OpenAI;
+* OCR.
+
+Adicionar apenas tratamentos de erro que aumentem a estabilidade.
+
+---
+
+# Prioridade 5 — Frontend
+
+Revisar:
+
+* estados de loading;
+* mensagens de erro;
+* estados vazios;
+* navegação;
+* responsividade;
+* componentes duplicados;
+* imports desnecessários.
+
+Não alterar o layout.
+
+---
+
+# Prioridade 6 — IA
+
+Confirmar que todos os agentes continuam respeitando os princípios científicos implementados:
+
+* preservação do significado;
+* mediação linguística;
+* linguagem simples;
+* transparência;
+* rastreabilidade;
+* alertas de ambiguidades.
+
+Não alterar os prompts científicos existentes.
+
+---
+
+# Prioridade 7 — Segurança
+
+Validar:
+
+* JWT;
+* autenticação;
+* permissões;
+* variáveis de ambiente;
+* RLS;
+* acesso ao Supabase.
+
+---
+
+# Prioridade 8 — Código
+
+Remover:
+
+* código morto;
+* funções duplicadas;
+* imports não utilizados;
+* arquivos órfãos;
+* TODO/FIXME antigos.
+
+Adicionar comentários utilizando linguagem compatível com um estudante do 4º semestre de Engenharia de Software.
+
+Os comentários devem explicar:
+
+* objetivo da função;
+* parâmetros;
+* retorno;
+* decisões importantes.
+
+Evitar comentários óbvios.
+
+---
+
+# Prioridade 9 — Testes
+
+Executar testes completos em:
+
+* Home
+* Login
+* Cadastro
+* Dashboard
+* Editais
+* e-Lattes
+* Artigos
+* Projetos
+* Planetário
+* Assistente IA
+* Histórico
+
+Validar:
+
+* upload;
+* OCR;
+* IA;
+* persistência;
+* histórico;
+* exportação;
+* navegação.
+
+---
+
+# Prioridade 10 — Deploy
+
+Confirmar funcionamento em:
+
+* Replit;
+* Vercel;
+* Supabase.
+
+Validar todas as variáveis de ambiente.
+
+---
+
+# Relatório Final
+
+Ao concluir:
+
+1. listar todos os arquivos alterados;
+2. justificar cada alteração;
+3. informar bugs corrigidos;
+4. informar pendências restantes;
+5. informar riscos existentes;
+6. atribuir nota (0–10) para:
+
+   * Frontend
+   * Backend
+   * Banco de Dados
+   * IA
+   * Segurança
+   * UX
+   * Arquitetura
+7. informar se o sistema está pronto para:
+
+   * MVP acadêmico;
+   * demonstração institucional;
+   * validação científica;
+   * implantação piloto.
+
+**Importante:** qualquer alteração que possa modificar o comportamento do sistema deve ser apresentada antes de ser aplicada. Priorize estabilidade, consistência e qualidade técnica, mantendo o escopo atual do MVP.

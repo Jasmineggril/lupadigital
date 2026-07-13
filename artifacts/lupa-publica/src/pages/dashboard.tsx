@@ -17,6 +17,7 @@ import {
   Legend,
 } from "recharts";
 import { BarChart2, History, Sparkles, FileText, Clock, TrendingUp } from "lucide-react";
+import { formatDatetime } from "@/lib/utils/format";
 
 const AGENT_LABELS: Record<string, string> = {
   simples: "Simplificação",
@@ -46,16 +47,6 @@ const AGENT_BADGE: Record<string, { label: string; color: string }> = {
   documentacao: { label: "Documentação", color: "bg-rose-100 text-rose-700" },
   elegibilidade: { label: "Elegibilidade", color: "bg-teal-100 text-teal-700" },
 };
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export default function Dashboard() {
   const { data: agentHistory, isLoading: agentLoading } = useListAgentHistory();
@@ -338,7 +329,7 @@ export default function Dashboard() {
                       </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                         <Clock className="w-3 h-3" />
-                        {formatDate(item.createdAt)}
+                        {formatDatetime(item.createdAt)}
                       </div>
                     </div>
                   );

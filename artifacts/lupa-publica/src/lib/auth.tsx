@@ -1,21 +1,19 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import type { User } from "@supabase/supabase-js";
+import { supabase, isSupabaseConfigured } from "./supabase";
 
 export type ProfileType = "estudante" | "concurseiro" | "pesquisador" | "cidadao";
 
+/**
+ * Perfil do usuário autenticado exposto pelo contexto de auth.
+ * Os campos são mapeados a partir dos metadados salvos no Supabase.
+ */
 export interface AuthUser {
   name: string;
   email: string;
   profileType: ProfileType;
   verified: boolean;
   plan: "gratuito" | "estudante" | "concurseiro" | "premium";
-}
-
-interface AuthContextValue {
-  user: AuthUser | null;
-  login: (email: string, password: string) => { ok: boolean; error?: string };
-  register: (data: RegisterData) => { ok: boolean; error?: string };
-  logout: () => void;
-  isLoading: boolean;
 }
 
 interface RegisterData {
@@ -25,75 +23,137 @@ interface RegisterData {
   profileType: ProfileType;
 }
 
-interface StoredUser extends AuthUser {
-  passwordHash: string;
-}
-
-const KEY_USERS = "lupa_users";
-const KEY_SESSION = "lupa_session";
-
-function simpleHash(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = Math.imul(31, h) + s.charCodeAt(i) | 0;
-  return String(h);
-}
-
-function getUsers(): StoredUser[] {
-  try { return JSON.parse(localStorage.getItem(KEY_USERS) ?? "[]"); } catch { return []; }
-}
-
-function saveUsers(users: StoredUser[]) {
-  localStorage.setItem(KEY_USERS, JSON.stringify(users));
+interface AuthContextValue {
+  user: AuthUser | null;
+  /** Autentica com e-mail e senha. Retorna { ok, error? }. */
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Cria uma nova conta. Retorna { ok, error? }. */
+  register: (data: RegisterData) => Promise<{ ok: boolean; error?: string }>;
+  /** Encerra a sessão atual. */
+  logout: () => void;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Converte um objeto User do Supabase para o formato AuthUser do sistema.
+ *
+ * Os campos extras (name, profileType, plan) são gravados em user_metadata
+ * durante o cadastro via supabase.auth.signUp({ options: { data: {...} } }).
+ *
+ * @param u - Usuário retornado pela API do Supabase
+ * @returns Perfil normalizado para uso no frontend
+ */
+function toAuthUser(u: User): AuthUser {
+  const m = u.user_metadata ?? {};
+  return {
+    name: (m.name as string) || (u.email?.split("@")[0] ?? "Usuário"),
+    email: u.email ?? "",
+    profileType: (m.profileType as ProfileType) ?? "cidadao",
+    verified: u.email_confirmed_at != null,
+    plan: (m.plan as AuthUser["plan"]) ?? "gratuito",
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY_SESSION);
-      if (raw) setUser(JSON.parse(raw));
-    } catch {}
-    setIsLoading(false);
+    // Se o Supabase não estiver configurado, não há sessão a recuperar
+    if (!isSupabaseConfigured || !supabase) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Recupera a sessão já existente (ex: usuário que recarregou a página)
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) setUser(toAuthUser(data.session.user));
+      setIsLoading(false);
+    });
+
+    // Escuta eventos de auth: login, logout, refresh automático de token
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ? toAuthUser(session.user) : null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = (email: string, password: string) => {
-    const users = getUsers();
-    const found = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (!found) return { ok: false, error: "E-mail não cadastrado." };
-    if (found.passwordHash !== simpleHash(password)) return { ok: false, error: "Senha incorreta." };
-    const { passwordHash: _, ...sessionUser } = found;
-    setUser(sessionUser);
-    localStorage.setItem(KEY_SESSION, JSON.stringify(sessionUser));
-    return { ok: true };
+  /**
+   * Autentica o usuário com e-mail e senha via Supabase Auth.
+   *
+   * Erros do Supabase são convertidos em mensagens amigáveis em português.
+   *
+   * @param email - E-mail do usuário
+   * @param password - Senha em texto plano (Supabase valida e armazena com hash)
+   * @returns { ok: true } em caso de sucesso, ou { ok: false, error } com mensagem
+   */
+  const login = async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+    if (!isSupabaseConfigured || !supabase) {
+      return { ok: false, error: "Serviço de autenticação não configurado." };
+    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error) return { ok: true };
+
+    if (error.message.includes("Invalid login credentials")) {
+      return { ok: false, error: "E-mail ou senha incorretos." };
+    }
+    if (error.message.includes("Email not confirmed")) {
+      return { ok: false, error: "Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada." };
+    }
+    if (error.message.includes("rate limit") || error.status === 429) {
+      return { ok: false, error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
+    }
+    return { ok: false, error: "Erro ao entrar. Tente novamente." };
   };
 
-  const register = (data: RegisterData) => {
-    const users = getUsers();
-    if (users.find(u => u.email.toLowerCase() === data.email.toLowerCase())) {
+  /**
+   * Cria uma nova conta no Supabase Auth.
+   *
+   * Os metadados extras (name, profileType, plan) são passados em options.data
+   * para que fiquem disponíveis em user.user_metadata após o login.
+   *
+   * @param data - Dados do formulário de cadastro
+   * @returns { ok: true } em caso de sucesso, ou { ok: false, error } com mensagem
+   */
+  const register = async (data: RegisterData): Promise<{ ok: boolean; error?: string }> => {
+    if (!isSupabaseConfigured || !supabase) {
+      return { ok: false, error: "Serviço de autenticação não configurado." };
+    }
+    const { error } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        data: {
+          name: data.name,
+          profileType: data.profileType,
+          plan: "gratuito",
+        },
+      },
+    });
+    if (!error) return { ok: true };
+
+    if (error.message.includes("already registered") || error.message.includes("User already registered")) {
       return { ok: false, error: "Este e-mail já está cadastrado." };
     }
-    const newUser: StoredUser = {
-      name: data.name,
-      email: data.email,
-      profileType: data.profileType,
-      verified: false,
-      plan: "gratuito",
-      passwordHash: simpleHash(data.password),
-    };
-    saveUsers([...users, newUser]);
-    const { passwordHash: _, ...sessionUser } = newUser;
-    setUser(sessionUser);
-    localStorage.setItem(KEY_SESSION, JSON.stringify(sessionUser));
-    return { ok: true };
+    if (error.message.includes("Password should be at least")) {
+      return { ok: false, error: "A senha deve ter pelo menos 6 caracteres." };
+    }
+    if (error.message.includes("rate limit") || error.status === 429) {
+      return { ok: false, error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
+    }
+    return { ok: false, error: "Erro ao criar conta. Tente novamente." };
   };
 
+  /**
+   * Encerra a sessão do usuário atual e limpa o estado local.
+   * O signOut é chamado de forma assíncrona sem bloquear a UI.
+   */
   const logout = () => {
+    if (supabase) supabase.auth.signOut().catch(() => {});
     setUser(null);
-    localStorage.removeItem(KEY_SESSION);
   };
 
   return (
@@ -103,6 +163,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Hook para acessar o contexto de autenticação em qualquer componente filho.
+ * Lança erro se usado fora do AuthProvider.
+ */
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");

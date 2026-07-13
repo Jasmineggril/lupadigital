@@ -15,19 +15,17 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    setTimeout(() => {
-      const result = login(email, password);
-      if (result.ok) {
-        navigate("/testar");
-      } else {
-        setError(result.error ?? "Erro ao entrar.");
-      }
+    const result = await login(email, password);
+    if (result.ok) {
+      navigate("/testar");
+    } else {
+      setError(result.error ?? "Erro ao entrar.");
       setLoading(false);
-    }, 600);
+    }
   };
 
   return (
@@ -112,7 +110,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-xs text-[#475569] mt-6">
-          Protótipo MVP — dados armazenados localmente no seu dispositivo.
+          MVP acadêmico — autenticação via Supabase Auth.
         </p>
       </div>
     </div>

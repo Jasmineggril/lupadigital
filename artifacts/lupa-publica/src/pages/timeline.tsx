@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CalendarDays, CheckCircle2, Clock, XCircle, Circle, ChevronDown, ChevronRight } from "lucide-react";
+import { formatDate } from "@/lib/utils/format";
 
 interface TimelineItem {
   fase: string;
@@ -17,14 +18,6 @@ interface AcompanhamentoResult {
   type: "acompanhamento";
   timeline: TimelineItem[];
   observacao?: string;
-}
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 function StatusIcon({ status }: { status: TimelineItem["status"] }) {

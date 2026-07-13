@@ -878,23 +878,34 @@ export async function analyzeLattes(text: string, opts?: { userId?: string | nul
     "Retorne SOMENTE um JSON válido sem markdown.",
   ].join("\n");
 
-  const user = `Analise o currículo Lattes abaixo e retorne um JSON com exatamente esta estrutura:
+  const user = `Analise o currículo Lattes abaixo e retorne um JSON com exatamente esta estrutura.
+
+INSTRUÇÕES IMPORTANTES:
+1. TIMELINE: inclua TODOS os marcos cronológicos encontrados: formação escolar (fundamental, médio, graduação, mestrado, doutorado), eventos, publicações com ano, premiações, participações, empregos. Ordene do mais recente para o mais antigo. Nunca retorne [] se houver qualquer data ou marco no currículo.
+2. COMPETÊNCIAS: extraia competências de TODAS as fontes do currículo: áreas de interesse declaradas, linguagens de programação, ferramentas, técnicas, soft skills inferidas do texto, participações em feiras/eventos, portfólio no GitHub, projetos desenvolvidos, idiomas (ex: "Inglês fluente", "Espanhol fluente"). Nunca retorne [].
+3. SUGESTÕES DE EDITAIS: SEMPRE gere pelo menos 5 sugestões concretas de editais, bolsas ou programas compatíveis com o nível acadêmico e área do perfil. Para graduandos em Computação/TI: inclua PIBIC, PIBITI, PET, Edital de Extensão, Programa Jovem Talento (MCTI), bolsas de IC da FAPDF, bolsas de IC do CNPq, hackathons patrocinados. Seja específico com o nome do programa e o órgão financiador.
+4. OPORTUNIDADES: gere pelo menos 4 oportunidades de desenvolvimento relevantes para o nível do pesquisador (estágios, projetos de extensão, comunidades open-source, grupos de pesquisa, competições, certificações, eventos da área).
+5. ÁREAS: extraia todas as áreas e subáreas mencionadas ou inferidas do perfil.
+6. Nunca invente publicações — se não houver, retorne publicacoes: [].
+7. Ignore campos como endereço, telefone e URLs ao gerar o resumo.
+
+ESTRUTURA ESPERADA:
 {
-  "resumo": "Parágrafo executivo descrevendo o perfil acadêmico (3-5 frases, sem endereços, telefones ou URLs)",
-  "nomeInferido": "Nome do pesquisador inferido do texto (ou 'Não identificado')",
-  "timeline": [{"year": "2023", "text": "descrição do evento acadêmico"}],
-  "competencias": ["competência técnica ou habilidade relevante"],
-  "publicacoes": ["referência de publicação identificada no texto"],
-  "areas": ["área de pesquisa identificada"],
-  "sugestoes": ["sugestão de edital ou oportunidade de fomento compatível com o perfil"],
-  "oportunidades": ["oportunidade de desenvolvimento acadêmico, parceria ou colaboração"],
-  "alertas": ["⚠ [categoria] descrição — apenas se houver ambiguidades ou dados ausentes"]
+  "resumo": "Parágrafo executivo de 3-5 frases descrevendo o pesquisador: nível acadêmico, instituição, interesses, habilidades e perfil geral. Não inclua endereço, telefone ou URL.",
+  "nomeInferido": "Nome completo do pesquisador extraído do texto (ou 'Não identificado')",
+  "timeline": [{"year": "2024", "text": "Descrição clara do evento — ex: Iniciou graduação em Engenharia de Software na UnDF"}],
+  "competencias": ["competência ou habilidade — ex: Programação em Python", "Inglês fluente", "Versionamento com Git/GitHub"],
+  "publicacoes": ["referência bibliográfica completa identificada no texto — deixe [] se não houver"],
+  "areas": ["área de pesquisa ou atuação identificada"],
+  "sugestoes": ["Nome do edital/programa — Órgão financiador: breve descrição de por que é compatível com o perfil"],
+  "oportunidades": ["Oportunidade concreta de desenvolvimento: o que fazer e por quê é relevante para o perfil"],
+  "alertas": ["⚠ [categoria] descrição — apenas se houver ambiguidades reais ou informações contraditórias no currículo"]
 }
 
 CURRÍCULO LATTES:
 ${truncated}
 
-Retorne APENAS o JSON válido. O campo "alertas" é obrigatório (use [] se não houver).`;
+Retorne APENAS o JSON válido. Nunca retorne listas vazias para competencias, sugestoes ou oportunidades.`;
 
   return callNiasciAI(system, user, "NIASci.analyzeLattes", opts);
 }

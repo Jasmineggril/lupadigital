@@ -60,8 +60,8 @@ const modules = [
   },
   {
     title: "Assistente IA",
-    href: "/niasci",
-    description: "Central de apoio e orientações de ciência aplicada com IA.",
+    href: "/niasci/assistente",
+    description: "Chat científico contextual sobre pesquisa, editais, metodologias e muito mais.",
     icon: Sparkles,
     color: "bg-rose-500/10 text-rose-500",
     border: "hover:border-rose-500/30",

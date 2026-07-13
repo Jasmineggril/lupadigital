@@ -763,3 +763,396 @@ export async function analyzeAgent(
 }
 
 export default { analyzeAgent };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MÓDULOS NIASci — Funções de análise especializadas
+//
+// Cada função segue o mesmo padrão do analyzeAgent:
+//   1. Constrói prompt com os mandatos científicos do sistema
+//   2. Chama a API OpenAI via cliente centralizado
+//   3. Faz parse e validação com Zod
+//   4. Registra métricas de uso no Supabase (ai_usage_logs)
+//   5. Retorna resultado estruturado ou lança erro com mensagem clara
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Utilitário interno: chama OpenAI e retorna JSON parsed.
+ * Centraliza o tratamento de resposta JSON para todos os módulos NIASci.
+ *
+ * @param system - Prompt de sistema com instruções e mandatos científicos
+ * @param user - Prompt do usuário com o conteúdo a ser analisado
+ * @param module - Nome do módulo para logging (ex: "NIASci.eLattes")
+ * @param opts - Opções opcionais (userId para rastreabilidade)
+ */
+async function callNiasciAI(
+  system: string,
+  user: string,
+  module: string,
+  opts?: { userId?: string | null },
+): Promise<Record<string, unknown>> {
+  const model = getOpenAIModel();
+  const start = Date.now();
+
+  try {
+    // Chama a API OpenAI com formato JSON obrigatório para evitar parse errors
+    const completion = await openai.chat.completions.create({
+      model,
+      temperature: 0.3,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    });
+
+    const raw = completion.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const latency = Date.now() - start;
+    const usage = (completion as any)?.usage;
+
+    // Registra uso bem-sucedido no Supabase para rastreabilidade
+    await persistUsageLog({
+      module,
+      model,
+      userId: opts?.userId ?? null,
+      documentId: null,
+      latencyMs: latency,
+      success: true,
+      inputTokens: usage?.prompt_tokens ?? null,
+      outputTokens: usage?.completion_tokens ?? null,
+      totalTokens: usage?.total_tokens ?? null,
+      level: "info",
+      message: `${module} completed`,
+    });
+
+    return parsed;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const latency = Date.now() - start;
+
+    // Registra falha para diagnóstico
+    await persistUsageLog({
+      module,
+      model,
+      userId: opts?.userId ?? null,
+      documentId: null,
+      latencyMs: latency,
+      success: false,
+      errorMessage: message,
+      level: "error",
+      message: `${module} failed`,
+    });
+
+    throw new Error(`${module}: ${message}`);
+  }
+}
+
+// ── analyzeLattes ───────────────────────────────────────────────────────────
+/**
+ * Analisa um currículo Lattes e retorna dados acadêmicos estruturados.
+ *
+ * O prompt aplica os mandatos científicos do sistema (Princípios 1-4) para
+ * garantir que a IA preserve o conteúdo do currículo sem inferir nem inventar
+ * dados que não estão explicitamente presentes no texto.
+ *
+ * Integração: chamado pela rota POST /api/niasci/elattes/analyze
+ *
+ * @param text - Texto extraído do currículo Lattes (via PDF ou colar)
+ * @param opts - Opções: userId para logging e rastreabilidade
+ * @returns Objeto com resumo, timeline, competências, publicações, áreas e sugestões
+ */
+export async function analyzeLattes(text: string, opts?: { userId?: string | null }) {
+  const truncated = text.length > 14000 ? text.slice(0, 14000) + "\n[Texto truncado]" : text;
+
+  const system = [
+    "Você é um assistente especializado em análise de currículos Lattes do CNPq para pesquisadores brasileiros.",
+    "Sua função é estruturar as informações do currículo de forma organizada, acessível e útil para o pesquisador.",
+    "",
+    SEMANTIC_PRESERVATION_MANDATE,
+    "",
+    PLAIN_LANGUAGE_PRINCIPLES,
+    "",
+    TRANSPARENCY_MANDATE,
+    "",
+    "Responda SEMPRE em português brasileiro.",
+    "Retorne SOMENTE um JSON válido sem markdown.",
+  ].join("\n");
+
+  const user = `Analise o currículo Lattes abaixo e retorne um JSON com exatamente esta estrutura:
+{
+  "resumo": "Parágrafo executivo descrevendo o perfil acadêmico (3-5 frases, sem endereços, telefones ou URLs)",
+  "nomeInferido": "Nome do pesquisador inferido do texto (ou 'Não identificado')",
+  "timeline": [{"year": "2023", "text": "descrição do evento acadêmico"}],
+  "competencias": ["competência técnica ou habilidade relevante"],
+  "publicacoes": ["referência de publicação identificada no texto"],
+  "areas": ["área de pesquisa identificada"],
+  "sugestoes": ["sugestão de edital ou oportunidade de fomento compatível com o perfil"],
+  "oportunidades": ["oportunidade de desenvolvimento acadêmico, parceria ou colaboração"],
+  "alertas": ["⚠ [categoria] descrição — apenas se houver ambiguidades ou dados ausentes"]
+}
+
+CURRÍCULO LATTES:
+${truncated}
+
+Retorne APENAS o JSON válido. O campo "alertas" é obrigatório (use [] se não houver).`;
+
+  return callNiasciAI(system, user, "NIASci.analyzeLattes", opts);
+}
+
+// ── analyzeArtigo ───────────────────────────────────────────────────────────
+/**
+ * Analisa um artigo científico e extrai sua estrutura acadêmica completa.
+ *
+ * Identifica os componentes canônicos IMRaD (Introduction, Methods, Results
+ * and Discussion) além de referências, citações e palavras-chave.
+ *
+ * Integração: chamado pela rota POST /api/niasci/artigos/analyze
+ *
+ * @param text - Texto completo do artigo científico
+ * @param opts - Opções: userId para logging
+ * @returns Estrutura completa do artigo com todos os componentes acadêmicos
+ */
+export async function analyzeArtigo(text: string, opts?: { userId?: string | null }) {
+  const truncated = text.length > 14000 ? text.slice(0, 14000) + "\n[Texto truncado]" : text;
+
+  const system = [
+    "Você é um assistente de pesquisa acadêmica especializado em análise de artigos científicos brasileiros e internacionais.",
+    "Sua função é extrair e estruturar os componentes canônicos do artigo de forma clara e fiel ao texto original.",
+    "",
+    SEMANTIC_PRESERVATION_MANDATE,
+    "",
+    PLAIN_LANGUAGE_PRINCIPLES,
+    "",
+    TRANSPARENCY_MANDATE,
+    "",
+    "Responda SEMPRE em português brasileiro.",
+    "Retorne SOMENTE um JSON válido sem markdown.",
+  ].join("\n");
+
+  const user = `Analise o artigo científico abaixo e retorne um JSON com esta estrutura:
+{
+  "titulo": "Título do artigo (infira se não explícito)",
+  "tipo": "Tipo do artigo: Revisão sistemática | Estudo experimental | Estudo de caso | Meta-análise | Relato de experiência | Outro",
+  "resumo": "Resumo executivo em 3-5 frases claras preservando objetivo, método e resultados",
+  "objetivo": "Objetivo principal da pesquisa em 1-3 frases diretas",
+  "metodologia": "Abordagem metodológica utilizada (design, amostra, instrumentos, procedimentos)",
+  "resultados": "Principais achados e dados quantitativos/qualitativos encontrados",
+  "conclusoes": "Conclusões e contribuições do trabalho para a área",
+  "limitacoes": "Limitações declaradas ou inferidas do estudo",
+  "referencias": ["referência bibliográfica identificada no texto — máx 15"],
+  "citacoes": [{"trecho": "trecho relevante citado", "relevancia": "por que esta citação é importante"}],
+  "keywords": ["palavra-chave identificada — máx 8"],
+  "sugestoesDeUso": ["como este artigo pode ser utilizado em pesquisas, ensino ou aplicações práticas"],
+  "alertas": ["⚠ [categoria] descrição — apenas se houver problemas reais"]
+}
+
+ARTIGO:
+${truncated}
+
+Retorne APENAS o JSON válido.`;
+
+  return callNiasciAI(system, user, "NIASci.analyzeArtigo", opts);
+}
+
+// ── analyzeProject ──────────────────────────────────────────────────────────
+/**
+ * Transforma a descrição de uma ideia de pesquisa em um plano de projeto
+ * científico completo e estruturado.
+ *
+ * Gera todos os componentes necessários para gestão: objetivos, equipe
+ * sugerida, cronograma por fases, indicadores de desempenho e análise de riscos.
+ *
+ * Integração: chamado pela rota POST /api/niasci/projetos/analyze
+ *
+ * @param description - Descrição livre do projeto de pesquisa
+ * @param opts - Opções: userId para logging
+ * @returns Plano de projeto completo com todos os componentes de gestão
+ */
+export async function analyzeProject(description: string, opts?: { userId?: string | null }) {
+  const truncated = description.length > 8000 ? description.slice(0, 8000) + "\n[Truncado]" : description;
+
+  const system = [
+    "Você é um consultor especializado em gestão de projetos de pesquisa científica e inovação no Brasil.",
+    "Sua função é transformar descrições de ideias de pesquisa em planos de projeto completos, realistas e bem estruturados.",
+    "Baseie suas sugestões em boas práticas de gestão de projetos científicos e editais de fomento brasileiros (CNPq, CAPES, FAPs).",
+    "",
+    PLAIN_LANGUAGE_PRINCIPLES,
+    "",
+    TRANSPARENCY_MANDATE,
+    "",
+    "Responda SEMPRE em português brasileiro.",
+    "Retorne SOMENTE um JSON válido sem markdown.",
+  ].join("\n");
+
+  const user = `Com base na descrição do projeto abaixo, gere um plano de projeto científico completo:
+{
+  "titulo": "Título sugerido para o projeto",
+  "resumo": "Resumo executivo do projeto em 3-5 frases",
+  "objetivos": ["objetivo geral do projeto", "objetivo específico 1", "objetivo específico 2"],
+  "equipe": [{"papel": "Coordenador(a)", "responsabilidades": "descrição das responsabilidades"}, {"papel": "Pesquisador(a)", "responsabilidades": "..."}],
+  "cronograma": [{"fase": "Fase 1 — Revisão bibliográfica", "duracao": "3 meses", "descricao": "atividades desta fase"}],
+  "etapas": [{"nome": "nome da etapa", "descricao": "o que será feito", "entregavel": "produto ou resultado esperado"}],
+  "indicadores": [{"nome": "nome do indicador", "meta": "valor ou resultado esperado", "metodologia": "como será medido"}],
+  "riscos": [{"risco": "descrição do risco", "probabilidade": "Alta | Média | Baixa", "mitigacao": "estratégia de mitigação"}],
+  "pendencias": ["ação necessária antes de iniciar o projeto"],
+  "proximasAcoes": ["próxima ação concreta para avançar o projeto"],
+  "alertas": ["⚠ [categoria] descrição — informações ausentes na descrição que são necessárias"]
+}
+
+DESCRIÇÃO DO PROJETO:
+${truncated}
+
+Retorne APENAS o JSON válido.`;
+
+  return callNiasciAI(system, user, "NIASci.analyzeProject", opts);
+}
+
+// ── generatePlanetario ──────────────────────────────────────────────────────
+/**
+ * Gera conteúdo científico educativo e acessível sobre um tema específico.
+ *
+ * Adapta a linguagem ao público-alvo informado, aplicando os princípios
+ * de linguagem simples (ISO 24495-1:2023) e mediação linguística para
+ * tornar conceitos científicos complexos acessíveis a qualquer audiência.
+ *
+ * Integração: chamado pela rota POST /api/niasci/planetario/generate
+ *
+ * @param topic - Tema científico a ser explicado
+ * @param audience - Público-alvo: criancas | jovens | adultos | geral
+ * @param opts - Opções: userId para logging
+ * @returns Conteúdo educativo completo com roteiro, curiosidades, quiz e glossário
+ */
+export async function generatePlanetario(
+  topic: string,
+  audience: string,
+  opts?: { userId?: string | null },
+) {
+  const audienceLabel: Record<string, string> = {
+    criancas: "crianças de 6 a 11 anos — linguagem lúdica, frases curtas, analogias do cotidiano",
+    jovens: "adolescentes de 12 a 17 anos — linguagem engajante, exemplos práticos, conexão com tecnologia",
+    adultos: "adultos leigos — linguagem clara, objetiva, sem jargão técnico excessivo",
+    geral: "público geral de todas as idades — linguagem inclusiva, acessível e envolvente",
+  };
+
+  const system = [
+    "Você é um educador científico especializado em divulgação científica e comunicação da ciência no Brasil.",
+    `Crie conteúdo educativo para: ${audienceLabel[audience] ?? audienceLabel.geral}`,
+    "Aplique os princípios de linguagem simples, analogias do cotidiano e exemplos práticos.",
+    "",
+    PLAIN_LANGUAGE_PRINCIPLES,
+    "",
+    "Responda SEMPRE em português brasileiro.",
+    "Retorne SOMENTE um JSON válido sem markdown.",
+  ].join("\n");
+
+  const user = `Crie conteúdo científico educativo completo sobre o tema: "${topic}"
+
+Retorne um JSON com esta estrutura:
+{
+  "titulo": "Título criativo e atrativo para o conteúdo",
+  "introducao": "Parágrafo de introdução envolvente (3-4 frases que despertem curiosidade)",
+  "explicacaoSimplificada": "Explicação do conceito em linguagem muito simples (5-7 frases, sem jargão)",
+  "roteiro": [{"subtitulo": "subtítulo do tópico", "conteudo": "explicação clara do tópico em 3-4 frases"}],
+  "curiosidades": ["fato surpreendente e verificável sobre o tema"],
+  "perguntas": ["pergunta reflexiva para discussão em sala ou família"],
+  "quiz": [{"pergunta": "pergunta de múltipla escolha", "opcoes": ["A) opção", "B) opção", "C) opção", "D) opção"], "resposta": "A", "explicacao": "por que esta é a resposta correta"}],
+  "slides": [{"titulo": "título do slide", "conteudo": "texto do slide (máx 3 pontos)", "emoji": "emoji representativo"}],
+  "glossario": [{"termo": "termo técnico", "definicao": "definição em linguagem simples"}],
+  "fontes": ["nome da fonte confiável para aprofundamento"]
+}
+
+Retorne APENAS o JSON válido.`;
+
+  return callNiasciAI(system, user, "NIASci.generatePlanetario", opts);
+}
+
+// ── chatNiasci ───────────────────────────────────────────────────────────────
+/**
+ * Processa uma mensagem do chat científico do Assistente IA NIASci.
+ *
+ * Mantém o contexto da conversa via histórico de mensagens e aplica
+ * os princípios de linguagem simples para respostas acessíveis.
+ * Pode receber contexto adicional dos outros módulos (e-Lattes, artigos, etc.)
+ * para respostas mais personalizadas.
+ *
+ * Integração: chamado pela rota POST /api/niasci/chat
+ *
+ * @param messages - Histórico de mensagens no formato {role, content}[]
+ * @param context - Contexto opcional de outros módulos (texto adicional)
+ * @param opts - Opções: userId para logging
+ * @returns Resposta do assistente como string de texto
+ */
+export async function chatNiasci(
+  messages: { role: string; content: string }[],
+  context?: string,
+  opts?: { userId?: string | null },
+): Promise<string> {
+  const model = getOpenAIModel();
+  const start = Date.now();
+
+  // Prompt de sistema que define o papel do assistente científico
+  const systemContent = [
+    "Você é o Assistente IA do NIASci, um assistente científico especializado em apoiar pesquisadores, estudantes e educadores brasileiros.",
+    "Sua função é responder perguntas sobre ciência, metodologia de pesquisa, currículos Lattes, artigos científicos, projetos de pesquisa e editais de fomento.",
+    "Seja sempre preciso, cite fontes quando possível, e use linguagem acessível sem perder a precisão científica.",
+    context ? `\n\nCONTEXTO ADICIONAL DO USUÁRIO:\n${context.slice(0, 3000)}` : "",
+    "",
+    PLAIN_LANGUAGE_PRINCIPLES,
+    "",
+    "Responda SEMPRE em português brasileiro.",
+    "Seja direto, útil e encorajador. Não invente informações que não sabe.",
+  ].join("\n");
+
+  try {
+    // Monta as mensagens incluindo o histórico da conversa
+    const chatMessages = [
+      { role: "system" as const, content: systemContent },
+      ...messages.slice(-20).map((m) => ({ // Limita a 20 mensagens para não exceder contexto
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+    ];
+
+    const completion = await openai.chat.completions.create({
+      model,
+      messages: chatMessages,
+    });
+
+    const response = completion.choices[0]?.message?.content ?? "Não consegui gerar uma resposta. Tente novamente.";
+    const latency = Date.now() - start;
+    const usage = (completion as any)?.usage;
+
+    await persistUsageLog({
+      module: "NIASci.chat",
+      model,
+      userId: opts?.userId ?? null,
+      documentId: null,
+      latencyMs: latency,
+      success: true,
+      inputTokens: usage?.prompt_tokens ?? null,
+      outputTokens: usage?.completion_tokens ?? null,
+      totalTokens: usage?.total_tokens ?? null,
+      level: "info",
+      message: "Chat response generated",
+    });
+
+    return response;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const latency = Date.now() - start;
+
+    await persistUsageLog({
+      module: "NIASci.chat",
+      model,
+      userId: opts?.userId ?? null,
+      documentId: null,
+      latencyMs: latency,
+      success: false,
+      errorMessage: message,
+      level: "error",
+      message: "Chat failed",
+    });
+
+    throw new Error(`Chat error: ${message}`);
+  }
+}

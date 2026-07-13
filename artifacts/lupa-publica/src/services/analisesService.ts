@@ -401,6 +401,152 @@ export async function savePlanetariumContent(c: PlanetariumContent) {
   }
 }
 
+// ── Funções de listagem dos módulos NIASci ───────────────────────────────────
+// Cada função segue o mesmo padrão dual: Supabase preferido, localStorage fallback.
+
+/**
+ * Lista análises de artigos científicos salvas (módulo Artigos).
+ * Retorna do Supabase se autenticado, senão do localStorage.
+ */
+export async function listArticleAnalyses(): Promise<ArticleAnalysis[]> {
+  if (!(await useBackend())) {
+    return JSON.parse(window.localStorage.getItem("lupa-publica-article-analyses") || "[]");
+  }
+  try {
+    return await apiRequest<ArticleAnalysis[]>("/resources/article_analyses");
+  } catch {
+    return JSON.parse(window.localStorage.getItem("lupa-publica-article-analyses") || "[]");
+  }
+}
+
+/**
+ * Exclui uma análise de artigo por ID.
+ */
+export async function deleteArticleAnalysis(id: string): Promise<boolean> {
+  if (!(await useBackend())) {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-article-analyses") || "[]")
+      .filter((a: ArticleAnalysis) => a.id !== id);
+    window.localStorage.setItem("lupa-publica-article-analyses", JSON.stringify(items));
+    return true;
+  }
+  try {
+    await apiRequest<void>(`/resources/article_analyses/${id}`, { method: "DELETE" });
+    return true;
+  } catch {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-article-analyses") || "[]")
+      .filter((a: ArticleAnalysis) => a.id !== id);
+    window.localStorage.setItem("lupa-publica-article-analyses", JSON.stringify(items));
+    return true;
+  }
+}
+
+/**
+ * Lista projetos de pesquisa salvos (módulo Projetos).
+ */
+export async function listResearchProjects(): Promise<ResearchProject[]> {
+  if (!(await useBackend())) {
+    return JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]");
+  }
+  try {
+    return await apiRequest<ResearchProject[]>("/resources/research_projects");
+  } catch {
+    return JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]");
+  }
+}
+
+/**
+ * Exclui um projeto de pesquisa por ID.
+ */
+export async function deleteResearchProject(id: string): Promise<boolean> {
+  if (!(await useBackend())) {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]")
+      .filter((p: ResearchProject) => p.id !== id);
+    window.localStorage.setItem("lupa-publica-research-projects", JSON.stringify(items));
+    return true;
+  }
+  try {
+    await apiRequest<void>(`/resources/research_projects/${id}`, { method: "DELETE" });
+    return true;
+  } catch {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]")
+      .filter((p: ResearchProject) => p.id !== id);
+    window.localStorage.setItem("lupa-publica-research-projects", JSON.stringify(items));
+    return true;
+  }
+}
+
+/**
+ * Lista conteúdos do Planetário salvos.
+ */
+export async function listPlanetariumContents(): Promise<PlanetariumContent[]> {
+  if (!(await useBackend())) {
+    return JSON.parse(window.localStorage.getItem("lupa-publica-planetarium") || "[]");
+  }
+  try {
+    return await apiRequest<PlanetariumContent[]>("/resources/planetarium_contents");
+  } catch {
+    return JSON.parse(window.localStorage.getItem("lupa-publica-planetarium") || "[]");
+  }
+}
+
+/**
+ * Exclui um conteúdo do Planetário por ID.
+ */
+export async function deletePlanetariumContent(id: string): Promise<boolean> {
+  if (!(await useBackend())) {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-planetarium") || "[]")
+      .filter((c: PlanetariumContent) => c.id !== id);
+    window.localStorage.setItem("lupa-publica-planetarium", JSON.stringify(items));
+    return true;
+  }
+  try {
+    await apiRequest<void>(`/resources/planetarium_contents/${id}`, { method: "DELETE" });
+    return true;
+  } catch {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-planetarium") || "[]")
+      .filter((c: PlanetariumContent) => c.id !== id);
+    window.localStorage.setItem("lupa-publica-planetarium", JSON.stringify(items));
+    return true;
+  }
+}
+
+/**
+ * Lista mensagens do chat do Assistente IA por ID de conversa.
+ */
+export async function listChatMessages(conversationId?: string): Promise<ChatMessage[]> {
+  if (!(await useBackend())) {
+    const all = JSON.parse(window.localStorage.getItem("lupa-publica-chat-messages") || "[]") as ChatMessage[];
+    return conversationId ? all.filter((m) => m.conversation_id === conversationId) : all;
+  }
+  try {
+    return await apiRequest<ChatMessage[]>("/resources/chat_messages");
+  } catch {
+    const all = JSON.parse(window.localStorage.getItem("lupa-publica-chat-messages") || "[]") as ChatMessage[];
+    return conversationId ? all.filter((m) => m.conversation_id === conversationId) : all;
+  }
+}
+
+/**
+ * Exclui um perfil Lattes por ID (módulo e-Lattes).
+ */
+export async function deleteLattesProfile(id: string): Promise<boolean> {
+  if (!(await useBackend())) {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]")
+      .filter((p: LattesProfile) => p.id !== id);
+    window.localStorage.setItem("lupa-publica-lattes", JSON.stringify(items));
+    return true;
+  }
+  try {
+    await apiRequest<void>(`/resources/lattes_profiles/${id}`, { method: "DELETE" });
+    return true;
+  } catch {
+    const items = JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]")
+      .filter((p: LattesProfile) => p.id !== id);
+    window.localStorage.setItem("lupa-publica-lattes", JSON.stringify(items));
+    return true;
+  }
+}
+
 export async function saveChatMessage(m: ChatMessage) {
   if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-chat-messages") || "[]");

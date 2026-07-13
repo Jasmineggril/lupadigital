@@ -1,0 +1,1 @@
+- [NIASci Architecture](niasci-architecture.md) — ordem dos routers (niasci antes de resources), aiService functions, shared niasci-utils.tsx, padrão metadata.result para histórico

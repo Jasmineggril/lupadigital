@@ -1,125 +1,216 @@
+/**
+ * @file niasci.ts
+ * @description Rotas da API para os módulos NIASci do LUPA Digital.
+ *
+ * Cada módulo possui uma rota POST que:
+ * 1. Valida o corpo da requisição com Zod
+ * 2. Delega o processamento ao AIService (nunca chama OpenAI diretamente)
+ * 3. Retorna o resultado estruturado como JSON
+ * 4. Registra erros com mensagens amigáveis
+ *
+ * Todas as rotas ficam antes do resourcesRouter no index.ts para evitar
+ * conflito com o middleware requireAuth() global do resourcesRouter.
+ *
+ * Módulos:
+ *   POST /niasci/elattes/analyze    — Análise de currículo Lattes
+ *   POST /niasci/artigos/analyze    — Análise de artigo científico
+ *   POST /niasci/projetos/analyze   — Geração de plano de projeto
+ *   POST /niasci/planetario/generate — Conteúdo educativo científico
+ *   POST /niasci/chat               — Chat com Assistente IA
+ */
+
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { openai, getOpenAIModel } from "@workspace/integrations-openai-ai-server";
+import {
+  analyzeLattes,
+  analyzeArtigo,
+  analyzeProject,
+  generatePlanetario,
+  chatNiasci,
+} from "../lib/aiService";
+import { getReqUserId } from "../lib/supabase";
 
 const router: IRouter = Router();
 
-// ── Artigos ──────────────────────────────────────────────────────────────────
+// ── e-Lattes ─────────────────────────────────────────────────────────────────
 
-const ArtigosAnalyzeSchema = z.object({
-  text: z.string().min(50).max(20000),
+/**
+ * Schema de validação para a rota de análise do Lattes.
+ * O texto deve ter pelo menos 100 caracteres para garantir conteúdo suficiente.
+ */
+const LatteAnalyzeSchema = z.object({
+  text: z.string().min(100, "Texto do currículo muito curto para análise.").max(20000),
 });
 
-router.post("/niasci/artigos/analyze", async (req, res): Promise<void> => {
-  const parsed = ArtigosAnalyzeSchema.safeParse(req.body);
+/**
+ * POST /niasci/elattes/analyze
+ * Analisa um currículo Lattes e retorna dados estruturados.
+ *
+ * Corpo: { text: string } — texto extraído do PDF ou colado pelo usuário
+ * Resposta: objeto com resumo, timeline, competências, publicações, áreas, sugestões
+ */
+router.post("/niasci/elattes/analyze", async (req, res): Promise<void> => {
+  const parsed = LatteAnalyzeSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Texto inválido ou muito curto." });
+    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Texto inválido." });
     return;
   }
 
-  const { text } = parsed.data;
-  const truncated = text.length > 14000 ? text.slice(0, 14000) + "\n[Truncado]" : text;
+  try {
+    const result = await analyzeLattes(parsed.data.text, { userId: getReqUserId(req) });
+    res.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    req.log?.error({ error: message }, "e-Lattes analysis failed");
+    res.status(500).json({ error: "Falha ao analisar o currículo. Tente novamente." });
+  }
+});
+
+// ── Artigos Científicos ───────────────────────────────────────────────────────
+
+/**
+ * Schema de validação para a rota de análise de artigos.
+ */
+const ArtigoAnalyzeSchema = z.object({
+  text: z.string().min(50, "Texto do artigo muito curto.").max(20000),
+});
+
+/**
+ * POST /niasci/artigos/analyze
+ * Analisa um artigo científico e extrai sua estrutura acadêmica completa.
+ *
+ * Corpo: { text: string } — texto completo do artigo
+ * Resposta: objeto com título, tipo, resumo, objetivo, metodologia, resultados, etc.
+ */
+router.post("/niasci/artigos/analyze", async (req, res): Promise<void> => {
+  const parsed = ArtigoAnalyzeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Texto inválido." });
+    return;
+  }
 
   try {
-    const model = getOpenAIModel();
-    const completion = await openai.chat.completions.create({
-      model,
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: `Você é um assistente de pesquisa acadêmica brasileiro. Analise o artigo científico fornecido e retorne um JSON com os seguintes campos:
-- "titulo": título do artigo (string, infira se não estiver explícito)
-- "resumo": resumo executivo claro e estruturado em 3-5 frases (string)
-- "objetivo": objetivo principal do estudo (string)
-- "metodologia": abordagem metodológica usada (string)
-- "resultados": principais resultados encontrados (string)
-- "conclusoes": conclusões e contribuições do trabalho (string)
-- "referencias": lista das referências bibliográficas mencionadas no texto (array de strings, máx 15)
-- "citacoes": array de até 5 citações relevantes extraídas do texto, cada uma com "trecho" e "relevancia" (string descrevendo por que é importante)
-- "keywords": palavras-chave identificadas (array de strings, máx 8)
-- "tipo": tipo do artigo (ex: "Revisão sistemática", "Estudo experimental", "Estudo de caso", etc.)
-
-Responda apenas com JSON válido, sem markdown.`,
-        },
-        {
-          role: "user",
-          content: `Analise este artigo científico:\n\n${truncated}`,
-        },
-      ],
-    });
-
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    const result = JSON.parse(raw);
+    const result = await analyzeArtigo(parsed.data.text, { userId: getReqUserId(req) });
     res.json(result);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    req.log?.error({ error: message }, "Artigos AI failed");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    req.log?.error({ error: message }, "Artigo analysis failed");
     res.status(500).json({ error: "Falha ao analisar o artigo. Tente novamente." });
+  }
+});
+
+// ── Projetos ──────────────────────────────────────────────────────────────────
+
+/**
+ * Schema de validação para a geração de plano de projeto.
+ */
+const ProjetoAnalyzeSchema = z.object({
+  description: z.string().min(30, "Descreva o projeto com pelo menos 30 caracteres.").max(8000),
+});
+
+/**
+ * POST /niasci/projetos/analyze
+ * Gera um plano de projeto científico completo a partir de uma descrição.
+ *
+ * Corpo: { description: string } — descrição livre do projeto
+ * Resposta: plano completo com objetivos, equipe, cronograma, riscos, etc.
+ */
+router.post("/niasci/projetos/analyze", async (req, res): Promise<void> => {
+  const parsed = ProjetoAnalyzeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Descrição inválida." });
+    return;
+  }
+
+  try {
+    const result = await analyzeProject(parsed.data.description, { userId: getReqUserId(req) });
+    res.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    req.log?.error({ error: message }, "Projeto analysis failed");
+    res.status(500).json({ error: "Falha ao gerar o plano do projeto. Tente novamente." });
   }
 });
 
 // ── Planetário ────────────────────────────────────────────────────────────────
 
+/**
+ * Schema de validação para a geração de conteúdo educativo.
+ */
 const PlanetarioGenerateSchema = z.object({
-  topic: z.string().min(3).max(300),
+  topic: z.string().min(3, "Informe um tema com pelo menos 3 caracteres.").max(300),
   audience: z.enum(["criancas", "jovens", "adultos", "geral"]).default("geral"),
 });
 
+/**
+ * POST /niasci/planetario/generate
+ * Gera conteúdo científico educativo adaptado ao público-alvo.
+ *
+ * Corpo: { topic: string, audience: "criancas"|"jovens"|"adultos"|"geral" }
+ * Resposta: roteiro, curiosidades, quiz, slides, glossário e fontes
+ */
 router.post("/niasci/planetario/generate", async (req, res): Promise<void> => {
   const parsed = PlanetarioGenerateSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Tópico inválido." });
+    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Dados inválidos." });
     return;
   }
 
-  const { topic, audience } = parsed.data;
+  try {
+    const result = await generatePlanetario(
+      parsed.data.topic,
+      parsed.data.audience,
+      { userId: getReqUserId(req) },
+    );
+    res.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    req.log?.error({ error: message }, "Planetario generation failed");
+    res.status(500).json({ error: "Falha ao gerar conteúdo educativo. Tente novamente." });
+  }
+});
 
-  const audienceLabel: Record<string, string> = {
-    criancas: "crianças de 6 a 11 anos (linguagem lúdica e simples)",
-    jovens: "adolescentes de 12 a 17 anos (linguagem acessível e engajante)",
-    adultos: "adultos sem formação científica (linguagem clara e objetiva)",
-    geral: "público geral de todas as idades (linguagem acessível e inclusiva)",
-  };
+// ── Assistente IA ─────────────────────────────────────────────────────────────
+
+/**
+ * Schema de validação para o chat do Assistente IA.
+ * Aceita um histórico de mensagens e contexto opcional de outros módulos.
+ */
+const ChatSchema = z.object({
+  messages: z.array(
+    z.object({
+      role: z.enum(["user", "assistant"]),
+      content: z.string().min(1).max(4000),
+    }),
+  ).min(1).max(30),
+  context: z.string().max(4000).optional(),
+});
+
+/**
+ * POST /niasci/chat
+ * Processa uma mensagem do chat científico do Assistente IA.
+ *
+ * Corpo: { messages: {role, content}[], context?: string }
+ * Resposta: { reply: string } — resposta do assistente
+ */
+router.post("/niasci/chat", async (req, res): Promise<void> => {
+  const parsed = ChatSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Dados da mensagem inválidos." });
+    return;
+  }
 
   try {
-    const model = getOpenAIModel();
-    const completion = await openai.chat.completions.create({
-      model,
-      temperature: 0.6,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: `Você é um educador científico brasileiro especializado em divulgação científica. 
-Crie conteúdo educativo acessível sobre o tema fornecido para o público-alvo indicado.
-Retorne um JSON com:
-- "titulo": título criativo e atrativo para o conteúdo (string)
-- "introducao": parágrafo de introdução envolvente (string, 3-4 frases)
-- "roteiro": roteiro educativo completo em 5-7 tópicos, cada um com "subtitulo" e "conteudo" (array de objetos)
-- "curiosidades": 5 curiosidades surpreendentes e verificáveis sobre o tema (array de strings)
-- "perguntas": 5 perguntas reflexivas para discussão em sala ou família (array de strings)
-- "glossario": 4-6 termos técnicos com definições simples (array de objetos com "termo" e "definicao")
-- "fontes": 3 fontes confiáveis para aprofundamento (array de strings com nome da fonte)
-
-Use linguagem adequada para: ${audienceLabel[audience] ?? audienceLabel.geral}
-Responda apenas com JSON válido, sem markdown.`,
-        },
-        {
-          role: "user",
-          content: `Crie conteúdo educativo sobre: "${topic}"`,
-        },
-      ],
-    });
-
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    const result = JSON.parse(raw);
-    res.json(result);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    req.log?.error({ error: message }, "Planetario AI failed");
-    res.status(500).json({ error: "Falha ao gerar conteúdo. Tente novamente." });
+    const reply = await chatNiasci(
+      parsed.data.messages,
+      parsed.data.context,
+      { userId: getReqUserId(req) },
+    );
+    res.json({ reply });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    req.log?.error({ error: message }, "NIASci chat failed");
+    res.status(500).json({ error: "Falha ao processar sua mensagem. Tente novamente." });
   }
 });
 

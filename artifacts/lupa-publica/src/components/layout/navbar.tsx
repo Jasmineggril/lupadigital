@@ -14,7 +14,7 @@ const links = [
 ];
 
 const acessoRapidoLinks = [
-  { href: "/testar", label: "Editais" },
+  { href: "/niasci/editais", label: "Editais" },
   { href: "/niasci/elattes", label: "e-Lattes" },
   { href: "/niasci/artigos", label: "Artigos Científicos" },
   { href: "/niasci/projetos", label: "Projetos" },

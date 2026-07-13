@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { AuthProvider } from "@/lib/auth";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -25,6 +26,7 @@ import Projetos from "@/pages/projetos";
 import Planetario from "@/pages/planetario";
 import Assistente from "@/pages/assistente";
 import TestarIA from "@/pages/testar";
+import Editais from "@/pages/editais";
 import ComoFunciona from "@/pages/como-funciona";
 import Sobre from "@/pages/sobre";
 import Tecnologias from "@/pages/tecnologias";
@@ -58,6 +60,7 @@ function Router() {
           <Route path="/niasci/artigos" component={Artigos} />
           <Route path="/niasci/projetos" component={Projetos} />
           <Route path="/niasci/planetario" component={Planetario} />
+          <Route path="/niasci/editais" component={Editais} />
           <Route path="/niasci/assistente" component={Assistente} />
           <Route path="/como-funciona" component={ComoFunciona} />
           <Route path="/sobre" component={Sobre} />
@@ -71,8 +74,12 @@ function Router() {
           <Route path="/cadastro" component={Cadastro} />
           <Route path="/planos" component={Planos} />
           <Route path="/verificacao" component={Verificacao} />
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/timeline" component={Timeline} />
+          <Route path="/dashboard">
+            <ProtectedRoute><Dashboard /></ProtectedRoute>
+          </Route>
+          <Route path="/timeline">
+            <ProtectedRoute><Timeline /></ProtectedRoute>
+          </Route>
           <Route path="/esqueci-senha" component={EsqueciSenha} />
           <Route component={NotFound} />
         </Switch>

@@ -806,7 +806,20 @@ async function callNiasciAI(
     });
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
+
+    let parsed: Record<string, unknown>;
+    try {
+      const candidate = JSON.parse(raw);
+      // Valida que a resposta é um objeto não-nulo (nunca um array ou primitivo)
+      if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
+        throw new Error("Resposta da IA não é um objeto JSON válido.");
+      }
+      parsed = candidate as Record<string, unknown>;
+    } catch (parseErr) {
+      const parseMsg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      throw new Error(`${module}: JSON inválido recebido da IA — ${parseMsg}`);
+    }
+
     const latency = Date.now() - start;
     const usage = (completion as any)?.usage;
 

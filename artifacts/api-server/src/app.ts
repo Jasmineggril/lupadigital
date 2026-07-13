@@ -3,7 +3,6 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { supabaseAuthMiddleware } from "./lib/supabase";
 
 const app: Express = express();
 
@@ -29,9 +28,6 @@ app.use(
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Attach supabase auth payload (if provided) to each request
-app.use(supabaseAuthMiddleware());
 
 app.use("/api", router);
 

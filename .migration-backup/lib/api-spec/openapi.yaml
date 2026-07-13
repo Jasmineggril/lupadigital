@@ -1,0 +1,493 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: edital
+    description: Edital simplification operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /edital/simplify:
+    post:
+      operationId: simplifyEdital
+      tags: [edital]
+      summary: Simplify a public edital
+      description: Takes raw edital text and returns a structured simplified version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditalInput"
+      responses:
+        "200":
+          description: Simplified edital
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimplifiedEdital"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /edital/extract-url:
+    post:
+      operationId: extractEditalFromUrl
+      tags: [edital]
+      summary: Extract edital text from a public URL
+      description: Fetches and extracts the main text content from a public URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtractUrlInput"
+      responses:
+        "200":
+          description: Extracted text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractedText"
+        "400":
+          description: Invalid URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Could not extract text from URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /edital/history:
+    get:
+      operationId: listEditalHistory
+      tags: [edital]
+      summary: List saved edital history
+      description: Returns all previously simplified editals, newest first
+      responses:
+        "200":
+          description: List of saved editals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SavedEdital"
+    post:
+      operationId: saveEdital
+      tags: [edital]
+      summary: Save a simplified edital to history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveEditalInput"
+      responses:
+        "201":
+          description: Saved edital
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedEdital"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /edital/analyze:
+    post:
+      operationId: analyzeEdital
+      tags: [edital]
+      summary: Analyze edital with a specialized AI agent
+      description: Analyzes a public edital using one of six specialized AI agents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentAnalyzeInput"
+      responses:
+        "200":
+          description: Agent analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentAnalyzeResponse"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /edital/agent-history:
+    get:
+      operationId: listAgentHistory
+      tags: [edital]
+      summary: List saved agent analysis results
+      description: Returns all previously saved agent analyses, newest first
+      responses:
+        "200":
+          description: List of saved agent results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentResultRecord"
+    post:
+      operationId: saveAgentResult
+      tags: [edital]
+      summary: Save an agent analysis result to history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveAgentResultInput"
+      responses:
+        "201":
+          description: Saved agent result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentResultRecord"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /edital/agent-history/{id}:
+    delete:
+      operationId: deleteAgentResult
+      tags: [edital]
+      summary: Delete a saved agent result from history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /edital/history/{id}:
+    delete:
+      operationId: deleteEdital
+      tags: [edital]
+      summary: Delete a saved edital from history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /edital/stats:
+    get:
+      operationId: getEditalStats
+      tags: [edital]
+      summary: Get aggregate statistics for analyses
+      description: Returns totals broken down by agent type and recent activity
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EditalStats"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    EditalInput:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          minLength: 10
+          description: Raw edital text to be simplified
+    ExtractUrlInput:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: Public URL of the edital to extract text from
+    ExtractedText:
+      type: object
+      required:
+        - text
+        - title
+      properties:
+        text:
+          type: string
+          description: Extracted text content
+        title:
+          type: string
+          description: Page title if available
+    SimplifiedEdital:
+      type: object
+      required:
+        - resumo
+        - objetivo
+        - quemPodeParticipar
+        - prazoInscricao
+        - ondeSeInscrever
+        - principaisRequisitos
+        - linguagemSimples
+      properties:
+        resumo:
+          type: string
+        objetivo:
+          type: string
+        quemPodeParticipar:
+          type: string
+        prazoInscricao:
+          type: string
+        ondeSeInscrever:
+          type: string
+        principaisRequisitos:
+          type: string
+        linguagemSimples:
+          type: string
+    SaveEditalInput:
+      type: object
+      required:
+        - title
+        - originalText
+        - resumo
+        - objetivo
+        - quemPodeParticipar
+        - prazoInscricao
+        - ondeSeInscrever
+        - principaisRequisitos
+        - linguagemSimples
+      properties:
+        title:
+          type: string
+        originalText:
+          type: string
+        resumo:
+          type: string
+        objetivo:
+          type: string
+        quemPodeParticipar:
+          type: string
+        prazoInscricao:
+          type: string
+        ondeSeInscrever:
+          type: string
+        principaisRequisitos:
+          type: string
+        linguagemSimples:
+          type: string
+    SavedEdital:
+      type: object
+      required:
+        - id
+        - title
+        - originalText
+        - resumo
+        - objetivo
+        - quemPodeParticipar
+        - prazoInscricao
+        - ondeSeInscrever
+        - principaisRequisitos
+        - linguagemSimples
+        - createdAt
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        originalText:
+          type: string
+        resumo:
+          type: string
+        objetivo:
+          type: string
+        quemPodeParticipar:
+          type: string
+        prazoInscricao:
+          type: string
+        ondeSeInscrever:
+          type: string
+        principaisRequisitos:
+          type: string
+        linguagemSimples:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    SaveAgentResultInput:
+      type: object
+      required:
+        - agentId
+        - title
+        - originalText
+        - resultJson
+      properties:
+        agentId:
+          type: string
+        title:
+          type: string
+        originalText:
+          type: string
+        resultJson:
+          type: object
+          additionalProperties: true
+    AgentResultRecord:
+      type: object
+      required:
+        - id
+        - agentId
+        - title
+        - originalText
+        - resultJson
+        - createdAt
+      properties:
+        id:
+          type: integer
+        agentId:
+          type: string
+        title:
+          type: string
+        originalText:
+          type: string
+        resultJson:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+    AgentUserProfile:
+      type: object
+      properties:
+        escolaridade:
+          type: string
+        atuacao:
+          type: string
+        municipio:
+          type: string
+        rendaFamiliar:
+          type: string
+    AgentAnalyzeInput:
+      type: object
+      required:
+        - agentId
+        - text
+      properties:
+        agentId:
+          type: string
+          enum:
+            - simples
+            - analista
+            - estrategica
+            - acompanhamento
+            - documentacao
+            - elegibilidade
+        text:
+          type: string
+          minLength: 10
+          description: Raw edital text to be analyzed
+        profile:
+          $ref: "#/components/schemas/AgentUserProfile"
+    AgentAnalyzeResponse:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+      additionalProperties: true
+    EditalStats:
+      type: object
+      required:
+        - total
+        - byAgent
+        - recentAnalyses
+      properties:
+        total:
+          type: integer
+        byAgent:
+          type: array
+          items:
+            type: object
+            required: [agentId, count]
+            properties:
+              agentId:
+                type: string
+              count:
+                type: integer
+        recentAnalyses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentResultRecord"
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string

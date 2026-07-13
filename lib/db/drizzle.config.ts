@@ -1,19 +1,14 @@
 import { defineConfig } from "drizzle-kit";
-import { fileURLToPath } from "node:url";
+import path from "path";
 
-const migrationUrl = process.env.DIRECT_URL_IPV4 || process.env.DIRECT_URL || process.env.DATABASE_URL;
-if (!migrationUrl) {
-  throw new Error(
-    "DIRECT_URL_IPV4, DIRECT_URL or DATABASE_URL must be set for migrations. Provide the direct session-mode Postgres URL for drizzle migrations.",
-  );
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL, ensure the database is provisioned");
 }
 
-const schemaPath = fileURLToPath(new URL("./src/schema/index.ts", import.meta.url));
-
 export default defineConfig({
-  schema: schemaPath,
+  schema: path.join(__dirname, "./src/schema/index.ts"),
   dialect: "postgresql",
   dbCredentials: {
-    url: migrationUrl,
+    url: process.env.DATABASE_URL,
   },
 });

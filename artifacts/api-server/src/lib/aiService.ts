@@ -584,6 +584,7 @@ Responda SOMENTE com o JSON, sem markdown, sem código, sem texto adicional.`;
     const completion = await openai.chat.completions.create({
       model,
       max_completion_tokens: 4096,
+      response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

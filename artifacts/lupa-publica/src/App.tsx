@@ -30,6 +30,12 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { AuthProvider } from "@/lib/auth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { getSupabaseSessionToken } from "@/lib/supabase";
+
+// Configura o cliente API gerado para enviar JWT Supabase em todas as chamadas autenticadas.
+// Deve ser chamado antes de qualquer hook/mutation que use customFetch.
+setAuthTokenGetter(getSupabaseSessionToken);
 
 /**
  * Componente auxiliar que rola a janela para o topo sempre que a rota muda.

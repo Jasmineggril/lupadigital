@@ -36,36 +36,39 @@ import { z } from "zod";
  * tenta múltiplas estratégias para extrair o JSON.
  */
 function extractJsonFromResponse(raw: string): unknown {
-  // Estratégia 1: parse direto (caso ideal)
-  try { return JSON.parse(raw); } catch { /* segue */ }
+  // Estratégia 0: strip de blocos <thinking>…</thinking> do Gemini 2.5 Flash
+  // O modelo emite raciocínio interno antes do JSON quando em modo thinking
+  const noThinking = raw.replace(/[\s\S]*?<\/thinking>/gi, "").trim();
+  const base = noThinking || raw;
 
-  // Estratégia 2: strip de markdown code blocks
-  const stripped = raw
+  // Estratégia 1: parse direto
+  try { return JSON.parse(base); } catch { /* segue */ }
+
+  // Estratégia 2: strip markdown code blocks
+  const stripped = base
     .replace(/^```(?:json)?\s*/im, "")
     .replace(/\s*```\s*$/m, "")
     .trim();
   try { return JSON.parse(stripped); } catch { /* segue */ }
 
-  // Estratégia 3: encontra o primeiro { e o último } e extrai
+  // Estratégia 3: slice do primeiro { ao último }
   const first = stripped.indexOf("{");
   const last = stripped.lastIndexOf("}");
   if (first !== -1 && last > first) {
-    const candidate = stripped.slice(first, last + 1);
-    try { return JSON.parse(candidate); } catch { /* segue */ }
+    try { return JSON.parse(stripped.slice(first, last + 1)); } catch { /* segue */ }
   }
 
-  // Estratégia 4: igual ao raw original (sem o strip)
+  // Estratégia 4: igual no raw original
   const firstRaw = raw.indexOf("{");
   const lastRaw = raw.lastIndexOf("}");
   if (firstRaw !== -1 && lastRaw > firstRaw) {
-    const candidateRaw = raw.slice(firstRaw, lastRaw + 1);
-    try { return JSON.parse(candidateRaw); } catch { /* segue */ }
+    try { return JSON.parse(raw.slice(firstRaw, lastRaw + 1)); } catch { /* segue */ }
   }
 
-  const e = new Error("AI response is not valid JSON");
-  (e as any).raw = raw.slice(0, 500);
+  const e = new Error(`AI response is not valid JSON. Raw (first 300): ${raw.slice(0, 300)}`);
   throw e;
 }
+
 import { logger } from "./logger";
 import { getSupabaseAdmin } from "./supabase";
 

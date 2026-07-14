@@ -28,6 +28,44 @@
 import { openai, getOpenAIModel } from "@workspace/integrations-openai-ai-server";
 import { SimplifyEditalResponse } from "@workspace/api-zod";
 import { z } from "zod";
+
+/**
+ * Extrai o primeiro objeto JSON válido de uma string.
+ * O Gemini 2.5 Flash às vezes retorna texto antes/depois do JSON
+ * mesmo com responseMimeType: "application/json". Esta função
+ * tenta múltiplas estratégias para extrair o JSON.
+ */
+function extractJsonFromResponse(raw: string): unknown {
+  // Estratégia 1: parse direto (caso ideal)
+  try { return JSON.parse(raw); } catch { /* segue */ }
+
+  // Estratégia 2: strip de markdown code blocks
+  const stripped = raw
+    .replace(/^```(?:json)?\s*/im, "")
+    .replace(/\s*```\s*$/m, "")
+    .trim();
+  try { return JSON.parse(stripped); } catch { /* segue */ }
+
+  // Estratégia 3: encontra o primeiro { e o último } e extrai
+  const first = stripped.indexOf("{");
+  const last = stripped.lastIndexOf("}");
+  if (first !== -1 && last > first) {
+    const candidate = stripped.slice(first, last + 1);
+    try { return JSON.parse(candidate); } catch { /* segue */ }
+  }
+
+  // Estratégia 4: igual ao raw original (sem o strip)
+  const firstRaw = raw.indexOf("{");
+  const lastRaw = raw.lastIndexOf("}");
+  if (firstRaw !== -1 && lastRaw > firstRaw) {
+    const candidateRaw = raw.slice(firstRaw, lastRaw + 1);
+    try { return JSON.parse(candidateRaw); } catch { /* segue */ }
+  }
+
+  const e = new Error("AI response is not valid JSON");
+  (e as any).raw = raw.slice(0, 500);
+  throw e;
+}
 import { logger } from "./logger";
 import { getSupabaseAdmin } from "./supabase";
 
@@ -592,16 +630,7 @@ Responda SOMENTE com o JSON, sem markdown, sem código, sem texto adicional.`;
     });
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
-    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      const e = new Error("AI response is not valid JSON");
-      (e as any).raw = raw;
-      throw e;
-    }
-
+    const parsed = extractJsonFromResponse(raw);
     const validated = SimplifyEditalResponse.safeParse(parsed);
     const latency = Date.now() - start;
     const usage = (completion as any)?.usage;
@@ -689,16 +718,7 @@ export async function analyzeAgent(
     });
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
-    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      const e = new Error("AI response is not valid JSON");
-      (e as any).raw = raw;
-      throw e;
-    }
-
+    const parsed = extractJsonFromResponse(raw);
     const validator = VALIDATORS[agentId];
     const validated = validator.safeParse(parsed);
     const latency = Date.now() - start;

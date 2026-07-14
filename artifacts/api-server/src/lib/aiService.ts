@@ -681,6 +681,7 @@ export async function analyzeAgent(
     const completion = await openai.chat.completions.create({
       model,
       max_completion_tokens: 4096,
+      response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },

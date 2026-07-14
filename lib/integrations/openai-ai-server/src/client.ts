@@ -12,11 +12,7 @@ const validateKey = () => {
 };
 
 export function getOpenAIModel(): string {
-  const configured = process.env.OPENAI_MODEL?.trim() || "gpt-4.1";
-  if (/^gpt-5(\.|$)/i.test(configured)) {
-    return "gpt-4.1";
-  }
-  return configured;
+  return process.env.OPENAI_MODEL?.trim() || "gpt-5.4-mini";
 }
 
 export function getOpenAIClient(): OpenAI {

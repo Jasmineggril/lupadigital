@@ -110,7 +110,7 @@ async function testCrudAiLogs(): Promise<void> {
   // Colunas reais da tabela (sem agent_id — esse campo só vai pro logContext local)
   const testPayload = {
     module: "__validate_script__",
-    model: "gpt-4o-mini",
+    model: "gpt-5.4-mini",
     user_id: null,
     document_id: null,
     latency_ms: 0,

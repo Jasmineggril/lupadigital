@@ -621,13 +621,13 @@ Responda SOMENTE com o JSON, sem markdown, sem código, sem texto adicional.`;
   try {
     const completion = await openai.chat.completions.create({
       model,
-      max_completion_tokens: 4096,
+      max_tokens: 4096,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-    });
+    } as any);
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
     const parsed = extractJsonFromResponse(raw);
@@ -709,16 +709,22 @@ export async function analyzeAgent(
   try {
     const completion = await openai.chat.completions.create({
       model,
-      max_completion_tokens: 4096,
+      max_tokens: 4096,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },
       ],
-    });
+    } as any);
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed = extractJsonFromResponse(raw);
+    const parsedRaw = extractJsonFromResponse(raw);
+    // gpt-4o-mini frequentemente omite o campo "type" mesmo com instruções explícitas.
+    // Injetamos automaticamente antes de validar para evitar falha de schema.
+    const parsed =
+      parsedRaw !== null && typeof parsedRaw === "object" && !Array.isArray(parsedRaw) && !(parsedRaw as Record<string, unknown>).type
+        ? { type: agentId, ...(parsedRaw as Record<string, unknown>) }
+        : parsedRaw;
     const validator = VALIDATORS[agentId];
     const validated = validator.safeParse(parsed);
     const latency = Date.now() - start;
@@ -728,7 +734,7 @@ export async function analyzeAgent(
     const totalTokens = typeof usage?.total_tokens === "number" ? usage.total_tokens : null;
 
     if (!validated.success) {
-      const e = new Error("AI response did not match expected schema");
+      const e = new Error(`AI response did not match expected schema: ${JSON.stringify(validated.error.format()).slice(0, 300)} | raw: ${raw.slice(0, 200)}`);
       (e as any).validation = validated.error.format();
       (e as any).raw = raw;
       await persistUsageLog({

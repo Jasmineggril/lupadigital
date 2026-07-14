@@ -75,7 +75,9 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
       res.status(429).json({ error: "A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente." });
       return;
     }
-    res.status(500).json({ error: "Falha ao processar a resposta da IA. Tente novamente." });
+    // Inclui detalhes do erro no log e na resposta para facilitar diagnóstico em produção
+    const detail = process.env.NODE_ENV !== "production" ? ` (${message.slice(0, 200)})` : "";
+    res.status(500).json({ error: `Falha ao processar a resposta da IA. Tente novamente.${detail}` });
     return;
   }
 });

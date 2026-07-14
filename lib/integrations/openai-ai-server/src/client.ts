@@ -10,7 +10,7 @@ export function getOpenAIModel(): string {
   // Gemini direto
   if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
   // OpenAI direto (fallback)
-  return "gpt-4o-mini";
+  return "gpt-5.4-mini";
 }
 
 /** Converte mensagens OpenAI → payload nativo Gemini e devolve resposta no formato OpenAI. */

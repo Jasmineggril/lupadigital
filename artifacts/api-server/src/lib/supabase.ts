@@ -94,12 +94,11 @@ export function supabaseAuthMiddleware(): RequestHandler {
       if ((payload as any).sub) {
         (req as any).user = { id: String((payload as any).sub), ...(payload as object) };
       }
-      return next();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      res.status(401).json({ error: "Authentication failed", details: message });
-      return;
+    } catch {
+      // JWT inválido ou expirado — não bloqueia rotas públicas.
+      // requireAuth() bloqueia as rotas que realmente exigem login.
     }
+    return next();
   };
 }
 

@@ -93,15 +93,8 @@ export function getOpenAIClient(): OpenAI {
     return _client;
   }
 
-  // Prioridade 2: OpenAI direto (Vercel / qualquer ambiente com OPENAI_API_KEY)
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (openaiKey) {
-    _useGemini = false;
-    _client = new OpenAI({ apiKey: openaiKey });
-    return _client;
-  }
-
-  // Prioridade 3: Gemini direto (fallback — pode falhar se a chave for formato AQ.)
+  // Prioridade 2: Gemini direto (gratuito — requer chave AIzaSy... do Google AI Studio)
+  // Tem prioridade sobre OpenAI pois o plano free não tem custo para até 15 req/min
   const geminiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
   if (geminiKey) {
     _useGemini = true;
@@ -109,7 +102,15 @@ export function getOpenAIClient(): OpenAI {
     return _client;
   }
 
-  throw new Error("Nenhuma chave de IA configurada. Configure OPENAI_API_KEY ou GEMINI_API_KEY.");
+  // Prioridade 3: OpenAI direto (requer créditos na conta)
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey) {
+    _useGemini = false;
+    _client = new OpenAI({ apiKey: openaiKey });
+    return _client;
+  }
+
+  throw new Error("Nenhuma chave de IA configurada. Adicione GEMINI_API_KEY no painel do Vercel.");
 }
 
 export const openai = new Proxy({} as OpenAI, {

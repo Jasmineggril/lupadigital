@@ -55,6 +55,9 @@ async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
 
   if (!res.ok) {
     const txt = await res.text();
+    if (res.status === 429) {
+      throw new Error("GEMINI_RATE_LIMIT: A IA está sobrecarregada no momento. Aguarde alguns segundos e tente novamente.");
+    }
     throw new Error(`Gemini ${res.status}: ${txt}`);
   }
 

@@ -119,6 +119,11 @@ async function apiRequest<T>(path: string, opts: RequestInit = {}) {
 
   if (!response.ok) {
     const body = await response.text();
+    if (response.status === 429) {
+      let msg = "A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente.";
+      try { msg = (JSON.parse(body) as { error?: string }).error ?? msg; } catch { /* usa padrão */ }
+      throw new Error(`RATE_LIMIT: ${msg}`);
+    }
     throw new Error(`API request failed (${response.status}) ${body}`);
   }
 

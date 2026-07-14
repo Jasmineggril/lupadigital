@@ -71,6 +71,10 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     req.log?.error({ error: message }, "AIService failed");
+    if (message.includes("GEMINI_RATE_LIMIT")) {
+      res.status(429).json({ error: "A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente." });
+      return;
+    }
     res.status(500).json({ error: "Falha ao processar a resposta da IA. Tente novamente." });
     return;
   }
@@ -354,13 +358,15 @@ router.post("/edital/simplify", async (req, res): Promise<void> => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     req.log?.error({ error: message }, "AIService simplify failed");
+    if (message.includes("GEMINI_RATE_LIMIT")) {
+      res.status(429).json({ error: "A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente." });
+      return;
+    }
     res.status(500).json({
       error:
-        message.includes("OPENAI_API_KEY")
-          ? "OPENAI_API_KEY is not configured. Set it in Replit Secrets to enable OpenAI features."
-          : message === "AI response is not valid JSON" || message === "AI response did not match expected schema"
-            ? "Falha ao processar a resposta da IA. Tente novamente."
-            : "Falha ao conectar com o serviço OpenAI. Tente novamente mais tarde.",
+        message === "AI response is not valid JSON" || message === "AI response did not match expected schema"
+          ? "Falha ao processar a resposta da IA. Tente novamente."
+          : "Falha ao conectar com o serviço de IA. Tente novamente mais tarde.",
     });
     return;
   }

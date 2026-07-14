@@ -115,6 +115,9 @@ import {
 function getFriendlyErrorMessage(error: unknown) {
   if (typeof error === "string") {
     const normalized = error.toLowerCase();
+    if (normalized.includes("rate_limit") || normalized.includes("sobrecarregada")) {
+      return "⏳ A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente.";
+    }
     if (normalized.includes("minimo") || normalized.includes("20 caracteres")) {
       return "Insira um texto com pelo menos 20 caracteres para continuar.";
     }
@@ -132,6 +135,9 @@ function getFriendlyErrorMessage(error: unknown) {
 
   if (error instanceof Error) {
     const normalized = error.message.toLowerCase();
+    if (normalized.includes("rate_limit") || normalized.includes("sobrecarregada")) {
+      return "⏳ A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente.";
+    }
     if (normalized.includes("minimo") || normalized.includes("20 caracteres")) {
       return "Insira um texto com pelo menos 20 caracteres para continuar.";
     }

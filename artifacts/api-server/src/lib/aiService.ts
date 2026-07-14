@@ -590,7 +590,13 @@ export async function simplifyEdital(
   text: string,
   opts?: { userId?: string | null; documentId?: string | null },
 ) {
-  const truncated = text.length > 12000 ? text.slice(0, 12000) + "\n\n[Texto truncado para processamento]" : text;
+  // Limpa bytes binários e ruído antes de truncar (mesmo padrão da rota /analyze)
+  const cleaned = text
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  const truncated = cleaned.length > 6000 ? cleaned.slice(0, 6000) + "\n\n[Texto truncado para processamento]" : cleaned;
 
   const systemPrompt = [
     "Você é um especialista em simplificação de documentos públicos brasileiros.",
@@ -918,7 +924,13 @@ async function callNiasciAI(
  * @returns Objeto com resumo, timeline, competências, publicações, áreas e sugestões
  */
 export async function analyzeLattes(text: string, opts?: { userId?: string | null }) {
-  const truncated = text.length > 14000 ? text.slice(0, 14000) + "\n[Texto truncado]" : text;
+  // Limpa bytes binários de PDF e ruído tipográfico antes de truncar
+  const cleaned = text
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  const truncated = cleaned.length > 8000 ? cleaned.slice(0, 8000) + "\n[Texto truncado]" : cleaned;
 
   const system = [
     "Você é um assistente especializado em análise de currículos Lattes do CNPq para pesquisadores brasileiros.",
@@ -967,7 +979,7 @@ ESTRUTURA ESPERADA:
     "fatoresRedutores": ["Fator que reduziu a pontuação — ex: ausência de ORCID"],
     "acoesPrioritarias": ["Ação 1 para aumentar a pontuação", "Ação 2", "Ação 3"]
   },
-  "alertas": ["⚠ [categoria] descrição — apenas se houver ambiguidades ou informações contraditórias"]
+  "alertas": ["⚠ [categoria] descrição do problema. Impacto: consequência prática para o pesquisador — ex: '⚠ Não foi encontrado ORCID. Impacto: Alguns editais valorizam identificação internacional do pesquisador.'"]
 }
 
 CURRÍCULO LATTES:

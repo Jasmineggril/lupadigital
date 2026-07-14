@@ -6,8 +6,7 @@ tmp
 out-tsc
 *.tsbuildinfo
 
-# Vercel serverless bundle (gerado pelo build)
-api/index.mjs
+# Vercel serverless bundle intermediário
 api/handler.mjs
 .expo
 .expo-shared

@@ -123,13 +123,13 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     },
   });
 
-  // Bundle Vercel Serverless — auto-contido, sem pino workers, vai para api/handler.mjs
+  // Bundle Vercel Serverless — ESM auto-contido direto em api/index.mjs
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/serverless.ts")],
     platform: "node",
     bundle: true,
     format: "esm",
-    outfile: path.resolve(artifactDir, "../../api/handler.mjs"),
+    outfile: path.resolve(artifactDir, "../../api/index.mjs"),
     logLevel: "info",
     external: [
       "*.node", "sharp", "better-sqlite3", "sqlite3", "canvas", "bcrypt",

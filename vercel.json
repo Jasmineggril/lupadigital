@@ -2,14 +2,14 @@
   "buildCommand": "pnpm install && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/lupa-publica run build",
   "outputDirectory": "artifacts/lupa-publica/dist/public",
   "functions": {
-    "api/index.js": {
+    "api/index.mjs": {
       "maxDuration": 60
     }
   },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.js"
+      "destination": "/api/index.mjs"
     },
     {
       "source": "/((?!api/).*)",

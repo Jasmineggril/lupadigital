@@ -210,6 +210,15 @@ router.post("/niasci/chat", async (req, res): Promise<void> => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     req.log?.error({ error: message }, "NIASci chat failed");
+
+    // Limite diário/por minuto da IA esgotado — informa o usuário com linguagem clara
+    if (message.includes("429") || message.includes("Rate limit") || message.includes("TPD") || message.includes("TPM")) {
+      res.status(429).json({
+        error: "O assistente atingiu o limite de uso de hoje. Tente novamente amanhã ou em alguns minutos.",
+      });
+      return;
+    }
+
     res.status(500).json({ error: "Falha ao processar sua mensagem. Tente novamente." });
   }
 });

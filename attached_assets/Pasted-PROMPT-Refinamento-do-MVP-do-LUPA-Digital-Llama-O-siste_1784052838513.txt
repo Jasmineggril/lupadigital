@@ -1,0 +1,218 @@
+PROMPT — Refinamento do MVP do LUPA Digital (Llama)
+
+O sistema já está funcionando utilizando Llama. Não alterar a arquitetura, não trocar o provedor de IA e não modificar funcionalidades já concluídas.
+
+O objetivo agora é melhorar desempenho, experiência do usuário e qualidade das respostas.
+
+1. Corrigir erro 413 (Request too large)
+
+Atualmente ocorre:
+
+413 Request too large
+Limit 12000 TPM
+Requested 15096
+
+Implementar uma estratégia automática para evitar esse erro.
+
+Regras
+reduzir automaticamente textos muito grandes antes do envio;
+limitar quantidade máxima de caracteres enviados;
+remover espaços duplicados;
+remover linhas vazias consecutivas;
+não enviar páginas repetidas;
+dividir documentos muito grandes em blocos quando necessário;
+informar ao usuário quando o documento precisar ser resumido antes da análise.
+
+Nunca deixar a aplicação retornar erro HTTP 500 quando o problema for apenas excesso de tokens.
+
+Mostrar uma mensagem amigável como:
+
+"O documento é muito grande para ser analisado de uma só vez. A análise será realizada em partes."
+
+2. Melhorar Elegibilidade
+
+Hoje aparece:
+
+Status: true
+Status: false
+
+Alterar para português.
+
+Utilizar:
+
+Atende
+Não atende
+Não foi possível verificar
+Parcialmente atende
+
+ou, preferencialmente,
+
+🟢 Atende
+
+🟡 Informação insuficiente
+
+🔴 Não atende
+
+Também alterar o texto.
+
+Hoje:
+
+O perfil não especifica idade...
+
+Trocar para linguagem mais natural.
+
+Exemplo:
+
+Não foi possível verificar este requisito porque o currículo não informa a idade do pesquisador.
+
+ou
+
+Este requisito depende de uma informação que não está presente no currículo enviado.
+
+Nunca assumir informações que não existem.
+
+3. Melhorar o módulo e-Lattes
+
+Além do resumo atual, gerar automaticamente uma seção:
+
+Sugestões de melhoria
+
+Exemplo:
+
+Currículo
+Atualizar produções mais recentes.
+Informar experiência internacional.
+Adicionar palavras-chave.
+Completar projetos em andamento.
+Produção científica
+Priorizar artigos Qualis superior.
+Informar DOI quando existir.
+Atualizar ORCID.
+Competências
+
+Identificar competências pouco exploradas e sugerir melhorias.
+
+Editais
+
+Explicar por que determinado edital combina com aquele currículo.
+
+Oportunidades
+
+Sugerir:
+
+bolsas
+editais
+colaborações
+áreas promissoras
+possíveis linhas de pesquisa
+
+Sempre deixar claro quando uma sugestão é apenas recomendação da IA.
+
+4. Melhorar organização do e-Lattes
+
+Organizar exatamente nesta ordem:
+
+Resumo Executivo
+Linha do Tempo
+Competências
+Produção Científica
+Áreas de Pesquisa
+Editais Sugeridos
+Oportunidades
+Sugestões de Melhoria
+Alertas
+5. Melhorar os Alertas
+
+Quando faltar informação no currículo, não apenas informar.
+
+Também explicar o impacto.
+
+Exemplo:
+
+⚠ Não foi encontrado ORCID.
+
+Impacto:
+Alguns editais valorizam identificação internacional do pesquisador.
+
+Outro exemplo:
+
+⚠ Não foram encontrados projetos em andamento.
+
+Impacto:
+Pode reduzir a identificação de oportunidades compatíveis.
+6. Melhorar a Linguagem
+
+Todas as respostas devem utilizar Linguagem Simples.
+
+Evitar frases como:
+
+considera-se que...
+presume-se...
+é possível inferir...
+
+Trocar por:
+
+Não foi possível confirmar essa informação.
+
+ou
+
+O documento não apresenta esse dado.
+7. Melhorar desempenho
+
+Reduzir consumo de tokens.
+
+Evitar repetir:
+
+contexto
+prompts
+instruções
+
+Enviar apenas o necessário para cada agente.
+
+8. Preservar princípios científicos
+
+Manter obrigatoriamente:
+
+preservação semântica;
+mediação linguística;
+linguagem simples;
+transparência;
+alertas;
+nunca inventar informações;
+indicar quando algo não puder ser confirmado.
+9. Comentários
+
+Adicionar comentários em todo o código novo.
+
+Os comentários devem explicar:
+
+objetivo da função;
+entrada;
+saída;
+lógica utilizada.
+
+Utilizar comentários simples, claros e compatíveis com o nível de um estudante de aproximadamente 4º semestre de Engenharia de Software.
+
+Minha sugestão adicional
+
+Como você está desenvolvendo o LUPA Digital para o PJCS, acrescentaria mais um item no e-Lattes:
+
+⭐ Índice de Maturidade Científica
+
+Uma pontuação de 0 a 100 baseada em critérios objetivos, por exemplo:
+
+Produção científica.
+Participação em projetos.
+Formação.
+Experiência.
+Atualização do currículo.
+Internacionalização.
+Colaboração.
+Potencial para editais.
+
+Em vez de apenas dar a nota, o sistema deve explicar:
+
+Pontuação atual: 74/100.
+Os principais fatores que reduziram a pontuação foram a ausência de ORCID, poucos projetos cadastrados e currículo sem atualização recente. A IA sugere as ações prioritárias para aumentar essa pontuação.
+
+Esse indicador é coerente com a proposta do NIASci, agrega valor ao currículo do pesquisador e pode se tornar um diferencial do seu MVP no prêmio.

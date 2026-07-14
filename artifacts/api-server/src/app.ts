@@ -22,7 +22,7 @@
  * por rotas individuais que precisem de limites diferenciados.
  */
 
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -149,5 +149,17 @@ app.use("/api/niasci", aiLimiter); // todas as sub-rotas do NIASci usam IA
 // ── Router principal ─────────────────────────────────────────────────────────
 // Todas as rotas da API são prefixadas com /api
 app.use("/api", router);
+
+// ── Global JSON Error Handler ─────────────────────────────────────────────────
+// Captura qualquer erro não tratado nas rotas e devolve JSON em vez de HTML.
+// Deve ser o ÚLTIMO middleware registrado no Express.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  logger.error({ err }, "Unhandled error");
+  const status = (err as any).status ?? (err as any).statusCode ?? 500;
+  res.status(status).json({
+    error: err.message ?? "Internal server error",
+  });
+});
 
 export default app;

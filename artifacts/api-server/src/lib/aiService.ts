@@ -332,7 +332,11 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "type": "elegibilidade",
   "score": 75,
   "criterios": [
-    {"criterio": "Critério exato conforme o edital", "atende": true, "observacao": "Explicação baseada no texto do edital e no perfil informado"}
+    {
+      "criterio": "Critério exato conforme o edital",
+      "atende": true,
+      "observacao": "Explique de forma direta com base no perfil informado. Se a informação não estiver disponível, escreva: 'O documento enviado não apresenta esse dado.' Nunca use frases como 'considera-se que...', 'presume-se...' ou 'é possível inferir...'"
+    }
   ],
   "recomendacao": "Recomendação baseada nos critérios reais — sem suavizar exigências não atendidas",
   "proximosPassos": ["Passo 1 — ação concreta baseada no edital", "Passo 2"],
@@ -363,7 +367,7 @@ const INSTRUCTIONS: Record<AgentId, string> = {
     "Você é o agente Lupa Documentação, uma mediadora especializada em criar checklists de documentação para editais públicos. Liste todos os documentos explicitamente mencionados. Documentos inferidos do tipo de edital devem ser sinalizados com '(inferido)' na observação e registrados em alertas. Para cada item, informe se é obrigatório conforme o edital.",
 
   elegibilidade:
-    "Você é o agente Lupa Elegibilidade, uma mediadora especializada em análise de aderência de perfis a editais públicos. Compare cada requisito do edital com o perfil informado: true (atende), false (não atende) ou 'parcial' (atende parcialmente). Não suavize critérios não atendidos. Calcule o score proporcional aos critérios efetivamente atendidos.",
+    "Você é o agente Lupa Elegibilidade, uma mediadora especializada em análise de aderência de perfis a editais públicos. Compare cada requisito do edital com o perfil informado: true (atende), false (não atende) ou 'parcial' (atende parcialmente). Nas observações, use linguagem direta e objetiva. Quando a informação não estiver no perfil, escreva exatamente: 'O documento enviado não apresenta esse dado.' — nunca use 'considera-se que...', 'presume-se...' ou 'é possível inferir...'. Não suavize critérios não atendidos. Calcule o score proporcional aos critérios efetivamente atendidos.",
 };
 
 // ── Construção de prompts ──────────────────────────────────────────────────
@@ -933,25 +937,37 @@ export async function analyzeLattes(text: string, opts?: { userId?: string | nul
   const user = `Analise o currículo Lattes abaixo e retorne um JSON com exatamente esta estrutura.
 
 INSTRUÇÕES IMPORTANTES:
-1. TIMELINE: inclua TODOS os marcos cronológicos encontrados: formação escolar (fundamental, médio, graduação, mestrado, doutorado), eventos, publicações com ano, premiações, participações, empregos. Ordene do mais recente para o mais antigo. Nunca retorne [] se houver qualquer data ou marco no currículo.
-2. COMPETÊNCIAS: extraia competências de TODAS as fontes do currículo: áreas de interesse declaradas, linguagens de programação, ferramentas, técnicas, soft skills inferidas do texto, participações em feiras/eventos, portfólio no GitHub, projetos desenvolvidos, idiomas (ex: "Inglês fluente", "Espanhol fluente"). Nunca retorne [].
-3. SUGESTÕES DE EDITAIS: SEMPRE gere pelo menos 5 sugestões concretas de editais, bolsas ou programas compatíveis com o nível acadêmico e área do perfil. Para graduandos em Computação/TI: inclua PIBIC, PIBITI, PET, Edital de Extensão, Programa Jovem Talento (MCTI), bolsas de IC da FAPDF, bolsas de IC do CNPq, hackathons patrocinados. Seja específico com o nome do programa e o órgão financiador.
-4. OPORTUNIDADES: gere pelo menos 4 oportunidades de desenvolvimento relevantes para o nível do pesquisador (estágios, projetos de extensão, comunidades open-source, grupos de pesquisa, competições, certificações, eventos da área).
-5. ÁREAS: extraia todas as áreas e subáreas mencionadas ou inferidas do perfil.
-6. Nunca invente publicações — se não houver, retorne publicacoes: [].
-7. Ignore campos como endereço, telefone e URLs ao gerar o resumo.
+1. TIMELINE: inclua TODOS os marcos cronológicos: formação (fundamental, médio, graduação, mestrado, doutorado), publicações com ano, premiações, participações, empregos. Ordene do mais recente para o mais antigo.
+2. COMPETÊNCIAS: extraia de TODAS as fontes: áreas de interesse, linguagens, ferramentas, técnicas, idiomas, portfólio, projetos. Nunca retorne [].
+3. SUGESTÕES DE EDITAIS: gere pelo menos 5 sugestões concretas com nome do programa, órgão financiador e motivo da compatibilidade com o perfil.
+4. OPORTUNIDADES: gere pelo menos 4 oportunidades (bolsas, estágios, grupos de pesquisa, competições, certificações).
+5. SUGESTÕES DE MELHORIA: gere pelo menos 6 sugestões organizadas em 3 categorias — "Currículo", "Produção Científica" e "Competências". Cada sugestão deve ser uma ação concreta que o pesquisador pode tomar. Sempre indique que são recomendações da IA.
+6. ÍNDICE DE MATURIDADE CIENTÍFICA (0–100): calcule com base em: produção científica (25pts), participação em projetos (20pts), nível de formação (20pts), experiência (15pts), atualização do currículo (10pts), internacionalização (5pts), colaboração (5pts). Explique quais fatores reduziram a pontuação e sugira as 3 ações prioritárias.
+7. Nunca invente publicações — se não houver, retorne publicacoes: [].
+8. Nunca use frases como "considera-se", "presume-se" ou "é possível inferir" — se a informação não estiver no currículo, indique: "O documento não apresenta esse dado."
 
 ESTRUTURA ESPERADA:
 {
-  "resumo": "Parágrafo executivo de 3-5 frases descrevendo o pesquisador: nível acadêmico, instituição, interesses, habilidades e perfil geral. Não inclua endereço, telefone ou URL.",
-  "nomeInferido": "Nome completo do pesquisador extraído do texto (ou 'Não identificado')",
-  "timeline": [{"year": "2024", "text": "Descrição clara do evento — ex: Iniciou graduação em Engenharia de Software na UnDF"}],
-  "competencias": ["competência ou habilidade — ex: Programação em Python", "Inglês fluente", "Versionamento com Git/GitHub"],
-  "publicacoes": ["referência bibliográfica completa identificada no texto — deixe [] se não houver"],
+  "resumo": "Parágrafo executivo de 3-5 frases descrevendo o pesquisador: nível acadêmico, instituição, interesses e perfil geral.",
+  "nomeInferido": "Nome completo extraído do texto (ou 'Não identificado')",
+  "timeline": [{"year": "2024", "text": "Descrição clara do evento"}],
+  "competencias": ["competência ou habilidade"],
+  "publicacoes": ["referência bibliográfica completa — deixe [] se não houver"],
   "areas": ["área de pesquisa ou atuação identificada"],
-  "sugestoes": ["Nome do edital/programa — Órgão financiador: breve descrição de por que é compatível com o perfil"],
-  "oportunidades": ["Oportunidade concreta de desenvolvimento: o que fazer e por quê é relevante para o perfil"],
-  "alertas": ["⚠ [categoria] descrição — apenas se houver ambiguidades reais ou informações contraditórias no currículo"]
+  "sugestoes": ["Nome do edital — Órgão: motivo da compatibilidade"],
+  "oportunidades": ["Oportunidade concreta: o que fazer e por quê"],
+  "sugestoesMelhoria": {
+    "curriculo": ["Sugestão concreta de melhoria do currículo"],
+    "producaoCientifica": ["Sugestão concreta de produção científica"],
+    "competencias": ["Competência pouco explorada e como desenvolvê-la"]
+  },
+  "maturidadeCientifica": {
+    "score": 74,
+    "explicacao": "Resumo em 2-3 frases dos fatores que mais impactaram a pontuação.",
+    "fatoresRedutores": ["Fator que reduziu a pontuação — ex: ausência de ORCID"],
+    "acoesPrioritarias": ["Ação 1 para aumentar a pontuação", "Ação 2", "Ação 3"]
+  },
+  "alertas": ["⚠ [categoria] descrição — apenas se houver ambiguidades ou informações contraditórias"]
 }
 
 CURRÍCULO LATTES:

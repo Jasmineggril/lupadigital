@@ -68,6 +68,19 @@ interface LattesResult {
   areas?: string[];
   sugestoes?: string[];
   oportunidades?: string[];
+  /** Sugestões de melhoria organizadas por categoria */
+  sugestoesMelhoria?: {
+    curriculo?: string[];
+    producaoCientifica?: string[];
+    competencias?: string[];
+  };
+  /** Índice de Maturidade Científica (0-100) com explicação e ações prioritárias */
+  maturidadeCientifica?: {
+    score: number;
+    explicacao: string;
+    fatoresRedutores?: string[];
+    acoesPrioritarias?: string[];
+  };
   alertas?: string[];
 }
 
@@ -323,10 +336,11 @@ export default function ELattes() {
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
               <TabsTrigger value="timeline">Linha do Tempo</TabsTrigger>
               <TabsTrigger value="competencias">Competências</TabsTrigger>
-              <TabsTrigger value="publicacoes">Publicações</TabsTrigger>
-              <TabsTrigger value="areas">Áreas</TabsTrigger>
+              <TabsTrigger value="publicacoes">Produção Científica</TabsTrigger>
+              <TabsTrigger value="areas">Áreas de Pesquisa</TabsTrigger>
               <TabsTrigger value="sugestoes">Editais Sugeridos</TabsTrigger>
               <TabsTrigger value="oportunidades">Oportunidades</TabsTrigger>
+              <TabsTrigger value="melhorias">Sugestões de Melhoria</TabsTrigger>
               {(result.alertas?.length ?? 0) > 0 && <TabsTrigger value="alertas">Alertas</TabsTrigger>}
             </TabsList>
 
@@ -446,6 +460,110 @@ export default function ELattes() {
                   </ul>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Aba: Sugestões de Melhoria */}
+            <TabsContent value="melhorias">
+              <div className="space-y-4">
+                {/* Índice de Maturidade Científica */}
+                {result.maturidadeCientifica && (
+                  <Card className="border-emerald-500/30 bg-emerald-50/40">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <BarChart2 className="w-4 h-4 text-emerald-500" />
+                        ⭐ Índice de Maturidade Científica
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center gap-4">
+                        <p className={`text-4xl font-black ${(result.maturidadeCientifica.score ?? 0) >= 70 ? "text-emerald-600" : (result.maturidadeCientifica.score ?? 0) >= 40 ? "text-amber-600" : "text-red-500"}`}>
+                          {result.maturidadeCientifica.score}<span className="text-base font-normal text-muted-foreground">/100</span>
+                        </p>
+                        <div className="flex-1">
+                          <div className="w-full bg-muted rounded-full h-3">
+                            <div
+                              className={`h-3 rounded-full transition-all ${(result.maturidadeCientifica.score ?? 0) >= 70 ? "bg-emerald-500" : (result.maturidadeCientifica.score ?? 0) >= 40 ? "bg-amber-400" : "bg-red-400"}`}
+                              style={{ width: `${result.maturidadeCientifica.score ?? 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-foreground/80">{result.maturidadeCientifica.explicacao}</p>
+                      {(result.maturidadeCientifica.fatoresRedutores ?? []).length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Fatores que reduziram a pontuação</p>
+                          <ul className="space-y-1">
+                            {(result.maturidadeCientifica.fatoresRedutores ?? []).map((f, i) => (
+                              <li key={i} className="flex gap-2 text-sm"><span className="text-red-400 shrink-0">↓</span><span>{f}</span></li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {(result.maturidadeCientifica.acoesPrioritarias ?? []).length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Ações prioritárias para melhorar</p>
+                          <ol className="space-y-1">
+                            {(result.maturidadeCientifica.acoesPrioritarias ?? []).map((a, i) => (
+                              <li key={i} className="flex gap-2 text-sm">
+                                <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                                <span>{a}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground italic">⚠ Esta pontuação é uma estimativa gerada pela IA com base no conteúdo do currículo. Não substitui avaliação oficial.</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Sugestões por categoria */}
+                {result.sugestoesMelhoria && (
+                  <div className="space-y-3">
+                    {(result.sugestoesMelhoria.curriculo ?? []).length > 0 && (
+                      <Card>
+                        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-500" /> Currículo</CardTitle></CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2">
+                            {(result.sugestoesMelhoria.curriculo ?? []).map((s, i) => (
+                              <li key={i} className="flex gap-2 text-sm"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /><span>{s}</span></li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {(result.sugestoesMelhoria.producaoCientifica ?? []).length > 0 && (
+                      <Card>
+                        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><BookOpen className="w-4 h-4 text-emerald-500" /> Produção Científica</CardTitle></CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2">
+                            {(result.sugestoesMelhoria.producaoCientifica ?? []).map((s, i) => (
+                              <li key={i} className="flex gap-2 text-sm"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /><span>{s}</span></li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {(result.sugestoesMelhoria.competencias ?? []).length > 0 && (
+                      <Card>
+                        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Target className="w-4 h-4 text-emerald-500" /> Competências</CardTitle></CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2">
+                            {(result.sugestoesMelhoria.competencias ?? []).map((s, i) => (
+                              <li key={i} className="flex gap-2 text-sm"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /><span>{s}</span></li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+                    <p className="text-xs text-muted-foreground italic px-1">💡 Estas sugestões são recomendações geradas pela IA com base no conteúdo do currículo.</p>
+                  </div>
+                )}
+
+                {!result.sugestoesMelhoria && !result.maturidadeCientifica && (
+                  <p className="text-sm text-muted-foreground">Nenhuma sugestão de melhoria disponível.</p>
+                )}
+              </div>
             </TabsContent>
 
             {/* Aba: Alertas (exibida apenas se houver) */}

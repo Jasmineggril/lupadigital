@@ -55,6 +55,25 @@ const router: IRouter = Router();
 import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital, ocrPdf } from "../lib/aiService";
 import { getReqUserId, requireAuth } from "../lib/supabase";
 
+/**
+ * Remove caracteres binários e ruído de PDFs colados como texto.
+ * Também normaliza espaços, quebras de linha e linhas duplicadas.
+ * Objetivo: reduzir tokens enviados à IA sem perder conteúdo relevante.
+ *
+ * @param raw - Texto bruto recebido do frontend (pode conter bytes de PDF)
+ * @returns Texto limpo, pronto para envio à IA
+ */
+function cleanEditalText(raw: string): string {
+  return raw
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ") // remove bytes não-printáveis
+    .replace(/[ \t]{2,}/g, " ")       // colapsa espaços múltiplos
+    .replace(/\n{3,}/g, "\n\n")       // remove linhas em branco consecutivas
+    .split("\n")
+    .filter((l) => l.trim().length > 2 || l.trim() === "") // descarta linhas com só ruído
+    .join("\n")
+    .trim();
+}
+
 router.post("/edital/analyze", async (req, res): Promise<void> => {
   const parsed = AgentAnalyzeBodySchema.safeParse(req.body);
   if (!parsed.success) {
@@ -63,7 +82,16 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
   }
 
   const { agentId, text, profile } = parsed.data;
-  const truncated = text.length > 12000 ? text.slice(0, 12000) + "\n\n[Texto truncado para processamento]" : text;
+
+  // Limpa o texto antes de truncar — remove binário de PDF e ruído tipográfico
+  const cleaned = cleanEditalText(text);
+
+  // Limite conservador: 6.000 chars ≈ 1.500–2.500 tokens (seguro para Groq 12K TPM)
+  const MAX_CHARS = 6000;
+  const truncated =
+    cleaned.length > MAX_CHARS
+      ? cleaned.slice(0, MAX_CHARS) + "\n\n[Documento extenso — analisando os primeiros blocos de conteúdo relevante]"
+      : cleaned;
 
   try {
     const result = await analyzeAgent(agentId, truncated, profile, { userId: getReqUserId(req), documentId: null });
@@ -71,11 +99,18 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     req.log?.error({ error: message }, "AIService failed");
+
+    // Erro de taxa do Gemini
     if (message.includes("GEMINI_RATE_LIMIT")) {
       res.status(429).json({ error: "A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente." });
       return;
     }
-    // Inclui detalhes do erro na resposta para facilitar diagnóstico
+    // Documento muito grande mesmo após limpeza — instrui o usuário
+    if (message.includes("413") || message.includes("Request too large") || message.includes("TPM") || message.includes("token")) {
+      res.status(429).json({ error: "O documento é muito grande para ser analisado de uma só vez. Tente reduzir o texto antes de enviar, ou cole apenas as seções principais do edital." });
+      return;
+    }
+
     res.status(500).json({ error: `Falha ao processar a resposta da IA. Tente novamente. [${message.slice(0, 300)}]` });
     return;
   }

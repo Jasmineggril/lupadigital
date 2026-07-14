@@ -3762,10 +3762,12 @@ export default function TestarIA() {
                       <CardContent>
                         <div className="space-y-3">
                           {agentResult.criterios.map((c) => (
-                            <div key={c.criterio} className="rounded-xl border p-3">
+                            <div key={c.criterio} className={`rounded-xl border p-3 ${c.atende === true ? "bg-teal-50 border-teal-200" : c.atende === "parcial" ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}`}>
                               <p className="text-sm font-semibold">{c.criterio}</p>
-                              <p className="text-xs text-muted-foreground">{c.observacao}</p>
-                              <p className="text-sm mt-2">Status: {String(c.atende)}</p>
+                              <p className="text-xs text-muted-foreground mt-1">{c.observacao}</p>
+                              <p className={`text-xs font-semibold mt-2 ${c.atende === true ? "text-teal-700" : c.atende === "parcial" ? "text-amber-700" : "text-red-600"}`}>
+                                {c.atende === true ? "🟢 Atende" : c.atende === "parcial" ? "🟡 Atende parcialmente" : "🔴 Não atende"}
+                              </p>
                             </div>
                           ))}
                         </div>

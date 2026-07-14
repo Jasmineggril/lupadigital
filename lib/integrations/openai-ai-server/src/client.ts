@@ -8,8 +8,18 @@ export function getOpenAIModel(): string {
 
 /** Converte mensagens OpenAI → payload nativo Gemini e devolve resposta no formato OpenAI. */
 async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
-  const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL!;
-  const apiKey  = process.env.AI_INTEGRATIONS_GEMINI_API_KEY!;
+  // Usa o proxy Replit se disponível, senão cai no Google AI Studio direto (free tier)
+  const baseUrl =
+    process.env.AI_INTEGRATIONS_GEMINI_BASE_URL ||
+    "https://generativelanguage.googleapis.com/v1beta";
+
+  const apiKey =
+    process.env.AI_INTEGRATIONS_GEMINI_API_KEY ||
+    process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("Nenhuma chave Gemini encontrada. Configure AI_INTEGRATIONS_GEMINI_API_KEY ou GEMINI_API_KEY.");
+  }
 
   const messages = (params.messages as Array<{ role: string; content: unknown }>) ?? [];
   const systemMsg = messages.find((m) => m.role === "system");
@@ -45,7 +55,7 @@ async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
 
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`${res.status} ${txt}`);
+    throw new Error(`Gemini ${res.status}: ${txt}`);
   }
 
   const data = await res.json() as Record<string, unknown>;
@@ -68,8 +78,11 @@ async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
 export function getOpenAIClient(): OpenAI {
   if (_client) return _client;
 
-  if (!process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) {
-    throw new Error("Gemini não configurado. Reinicie o workflow para reprovisioná-lo.");
+  const hasReplit = !!process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  const hasGeminiKey = !!(process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
+
+  if (!hasReplit && !hasGeminiKey) {
+    throw new Error("Configure GEMINI_API_KEY no painel Vercel → Environment Variables.");
   }
 
   _client = { chat: { completions: { create: geminiCreate } } } as unknown as OpenAI;

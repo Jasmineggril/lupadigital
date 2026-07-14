@@ -3,34 +3,79 @@ import OpenAI from "openai";
 let _client: OpenAI | null = null;
 
 export function getOpenAIModel(): string {
-  if (process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
-  return process.env.OPENAI_MODEL?.trim() || "gpt-5.4-mini";
+  return "gemini-2.5-flash";
+}
+
+/** Converte mensagens OpenAI → payload nativo Gemini e devolve resposta no formato OpenAI. */
+async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
+  const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL!;
+  const apiKey  = process.env.AI_INTEGRATIONS_GEMINI_API_KEY!;
+
+  const messages = (params.messages as Array<{ role: string; content: unknown }>) ?? [];
+  const systemMsg = messages.find((m) => m.role === "system");
+  const turns     = messages.filter((m) => m.role !== "system");
+
+  const body: Record<string, unknown> = {
+    contents: turns.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }],
+    })),
+    generationConfig: {
+      maxOutputTokens:
+        (params.max_completion_tokens as number | undefined) ??
+        (params.max_tokens as number | undefined) ??
+        8192,
+    },
+  };
+
+  if (systemMsg) {
+    body.systemInstruction = { parts: [{ text: systemMsg.content }] };
+  }
+
+  const rf = params.response_format as { type?: string } | undefined;
+  if (rf?.type === "json_object") {
+    (body.generationConfig as Record<string, unknown>).responseMimeType = "application/json";
+  }
+
+  const res = await fetch(`${baseUrl}/models/gemini-2.5-flash:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`${res.status} ${txt}`);
+  }
+
+  const data = await res.json() as Record<string, unknown>;
+  const candidates = data.candidates as Array<Record<string, unknown>> | undefined;
+  const parts = (candidates?.[0]?.content as Record<string, unknown> | undefined)
+    ?.parts as Array<{ text?: string }> | undefined;
+  const text = parts?.[0]?.text ?? "";
+  const usage = data.usageMetadata as Record<string, number> | undefined;
+
+  return {
+    choices: [{ message: { content: text, role: "assistant" }, finish_reason: "stop" }],
+    usage: {
+      prompt_tokens:     usage?.promptTokenCount     ?? 0,
+      completion_tokens: usage?.candidatesTokenCount ?? 0,
+      total_tokens:      usage?.totalTokenCount      ?? 0,
+    },
+  };
 }
 
 export function getOpenAIClient(): OpenAI {
   if (_client) return _client;
 
-  // 1ª opção: chave gratuita do Google AI Studio (sem custo)
-  if (process.env.GEMINI_API_KEY) {
-    _client = new OpenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-    });
-    return _client;
+  if (!process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) {
+    throw new Error("Gemini não configurado. Reinicie o workflow para reprovisioná-lo.");
   }
 
-  // 2ª opção: OPENAI_API_KEY direta
-  if (process.env.OPENAI_API_KEY) {
-    _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    return _client;
-  }
-
-  throw new Error(
-    "IA não configurada. Defina GEMINI_API_KEY (Google AI Studio, grátis) ou OPENAI_API_KEY nos Secrets.",
-  );
+  _client = { chat: { completions: { create: geminiCreate } } } as unknown as OpenAI;
+  return _client;
 }
 
-// Lazy proxy — só inicializa na primeira chamada real
 export const openai = new Proxy({} as OpenAI, {
   get(_target, prop) {
     const client = getOpenAIClient();

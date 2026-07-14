@@ -3,8 +3,9 @@ import OpenAI from "openai";
 let _client: OpenAI | null = null;
 
 const validateKey = () => {
+  const hasDirectKey = !!process.env.OPENAI_API_KEY;
   const hasIntegration = process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  if (!hasIntegration && !process.env.OPENAI_API_KEY) {
+  if (!hasDirectKey && !hasIntegration) {
     throw new Error(
       "OpenAI not configured. Set OPENAI_API_KEY in Replit Secrets or enable the Replit AI Integration.",
     );
@@ -20,20 +21,21 @@ export function getOpenAIClient(): OpenAI {
 
   validateKey();
 
+  // Prefer OPENAI_API_KEY direto (key real do usuário).
+  // Só usa o proxy da integração se a key direta não estiver configurada.
+  const directKey = process.env.OPENAI_API_KEY;
   const hasIntegration = process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const apiKey = hasIntegration
-    ? process.env.AI_INTEGRATIONS_OPENAI_API_KEY!
-    : process.env.OPENAI_API_KEY!;
-  const options: { apiKey: string; baseURL?: string } = { apiKey };
 
-  if (hasIntegration) {
+  const options: { apiKey: string; baseURL?: string } = {
+    apiKey: directKey || process.env.AI_INTEGRATIONS_OPENAI_API_KEY!,
+  };
+
+  // Só aplica baseURL se estiver usando o proxy (sem key direta)
+  if (!directKey && hasIntegration) {
     options.baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL!;
-  } else if (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
-    options.baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   }
 
   _client = new OpenAI(options);
-
   return _client;
 }
 

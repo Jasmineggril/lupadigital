@@ -33,6 +33,10 @@ import { supabaseAuthMiddleware } from "./lib/supabase";
 
 const app: Express = express();
 
+// Confia no proxy reverso (Vercel, Replit, etc.) para X-Forwarded-For.
+// Necessário para que express-rate-limit identifique IPs corretamente em produção.
+app.set("trust proxy", 1);
+
 // ── CORS ─────────────────────────────────────────────────────────────────────
 // Lê origens permitidas da variável de ambiente ALLOWED_ORIGINS (CSV).
 // Em desenvolvimento (NODE_ENV=development), qualquer origem é aceita para

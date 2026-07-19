@@ -3065,15 +3065,51 @@ export default function TestarIA() {
     await generateShareToken();
   };
 
-  const handleAskQuestion = () => {
+  const handleAskQuestion = async () => {
     if (!agentResult || !question.trim()) return;
+    const q = question.trim();
     setIsAnswering(true);
-    const response = answerContextualQuestion(question, agentResult);
-    setAnswerHistory((prev) =>
-      [{ question: question.trim(), answer: response }, ...prev].slice(0, 5),
-    );
     setQuestion("");
-    setIsAnswering(false);
+
+    const API = ((import.meta.env.BASE_URL as string) || "/").replace(/\/$/, "") + "/api";
+
+    try {
+      // Monta contexto com o texto do edital + resultado atual da análise
+      const ctx = [
+        text ? `TEXTO DO EDITAL (trecho):\n${text.slice(0, 4000)}` : "",
+        `INTERPRETAÇÃO ATUAL (${agentResult.type}):\n${JSON.stringify(agentResult, null, 2).slice(0, 2000)}`,
+      ].filter(Boolean).join("\n\n");
+
+      const res = await fetch(`${API}/niasci/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: q }],
+          context: ctx,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      // Se o limite diário foi atingido, mostra mensagem amigável
+      if (res.status === 429) {
+        setAnswerHistory((prev) =>
+          [{ question: q, answer: data.error ?? "Limite de uso atingido. Tente novamente mais tarde." }, ...prev].slice(0, 5),
+        );
+        return;
+      }
+
+      const answer = data.reply ?? data.error ?? "Não consegui responder. Tente novamente.";
+      setAnswerHistory((prev) =>
+        [{ question: q, answer }, ...prev].slice(0, 5),
+      );
+    } catch {
+      setAnswerHistory((prev) =>
+        [{ question: q, answer: "Erro ao consultar a IA. Verifique sua conexão e tente novamente." }, ...prev].slice(0, 5),
+      );
+    } finally {
+      setIsAnswering(false);
+    }
   };
 
   const handleOpenShareOption = async (

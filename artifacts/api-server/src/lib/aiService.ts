@@ -596,7 +596,7 @@ export async function simplifyEdital(
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  const truncated = cleaned.length > 6000 ? cleaned.slice(0, 6000) + "\n\n[Texto truncado para processamento]" : cleaned;
+  const truncated = cleaned.length > 10000 ? cleaned.slice(0, 10000) + "\n\n[Texto truncado para processamento]" : cleaned;
 
   const systemPrompt = [
     "Você é um especialista em simplificação de documentos públicos brasileiros.",

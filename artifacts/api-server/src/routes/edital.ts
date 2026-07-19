@@ -86,8 +86,9 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
   // Limpa o texto antes de truncar — remove binário de PDF e ruído tipográfico
   const cleaned = cleanEditalText(text);
 
-  // Limite conservador: 6.000 chars ≈ 1.500–2.500 tokens (seguro para Groq 12K TPM)
-  const MAX_CHARS = 6000;
+  // Após limpeza de binários, texto limpo ≈ 3–4 chars/token.
+  // 10.000 chars ≈ 2.500–3.500 tokens — seguro para Groq 12K TPM e mantém prazos/datas do corpo do edital.
+  const MAX_CHARS = 10000;
   const truncated =
     cleaned.length > MAX_CHARS
       ? cleaned.slice(0, MAX_CHARS) + "\n\n[Documento extenso — analisando os primeiros blocos de conteúdo relevante]"

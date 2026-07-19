@@ -123,13 +123,14 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     },
   });
 
-  // Bundle Vercel Serverless — ESM auto-contido direto em api/index.mjs
+  // Bundle Vercel Serverless — ESM auto-contido em api/index.js
+  // api/package.json tem "type":"module" para Node.js tratar .js como ESM
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/serverless.ts")],
     platform: "node",
     bundle: true,
     format: "esm",
-    outfile: path.resolve(artifactDir, "../../api/index.mjs"),
+    outfile: path.resolve(artifactDir, "../../api/index.js"),
     logLevel: "info",
     external: [
       "*.node", "sharp", "better-sqlite3", "sqlite3", "canvas", "bcrypt",

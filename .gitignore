@@ -6,9 +6,10 @@ tmp
 out-tsc
 *.tsbuildinfo
 
-# Vercel serverless bundle legado
+# Vercel serverless bundles legados
 api/handler.mjs
-api/*.mjs.map
+api/index.mjs
+api/*.map
 .expo
 .expo-shared
 

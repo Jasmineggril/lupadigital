@@ -2,7 +2,7 @@
   "buildCommand": "npm install -g pnpm@9 && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/lupa-publica run build",
   "outputDirectory": "artifacts/lupa-publica/dist/public",
   "functions": {
-    "api/index.mjs": {
+    "api/index.js": {
       "maxDuration": 60
     }
   },

@@ -52,7 +52,7 @@ const upload = multer({
 
 const router: IRouter = Router();
 
-import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital, ocrPdf } from "../lib/aiService";
+import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital, ocrPdf, buildCanonicalAnalysis } from "../lib/aiService";
 import { getReqUserId, requireAuth } from "../lib/supabase";
 import { classifyAiError } from "../lib/processingErrors";
 
@@ -153,6 +153,27 @@ router.post("/edital/agent-history", async (req, res): Promise<void> => {
   }
 
   const payload = { ...parsed.data, userId: userId } as any;
+  try {
+    // Se existir um resultado estruturado dentro de `resultJson` (por exemplo,
+    // vindo de uma análise remota ou de um agente), construímos a versão
+    // canônica e a incorporamos ao JSON salvo. Isso garante que todas as
+    // áreas da interface possam consumir a mesma fonte de verdade sem mudar
+    // o schema do banco (usar `result_json` existente).
+    if (payload.resultJson && typeof payload.resultJson === "object") {
+      try {
+        const originalAgentResult = payload.resultJson as Record<string, unknown>;
+        const canonical = buildCanonicalAnalysis(payload.agentId, originalAgentResult, payload.originalText || "", undefined as any);
+        // Para compatibilidade com o frontend, salvamos a análise CANÔNICA em `resultJson`.
+        // Mantemos o resultado original do agente em `agentResult` para auditabilidade.
+        payload.resultJson = { ...canonical, agentResult: originalAgentResult } as any;
+      } catch (err) {
+        // Em caso de falha na construção canônica, logamos e prosseguimos salvando o resultado do agente.
+        req.log?.warn({ err }, "Falha ao construir análise canônica; salvando resultado do agente sem canonical.");
+      }
+    }
+  } catch (e) {
+    req.log?.warn({ e }, "Erro não crítico preparando payload de agent-history");
+  }
   const [saved] = await db.insert(agentResultsTable).values(payload).returning();
   res.status(201).json(saved);
 });

@@ -27,6 +27,7 @@
 
 import { openai, getOpenAIModel } from "@workspace/integrations-openai-ai-server";
 import { SimplifyEditalResponse } from "@workspace/api-zod";
+import { randomUUID } from "crypto";
 import { z } from "zod";
 
 /**
@@ -86,6 +87,174 @@ export const AgentAnalyzeBodySchema = z.object({
   text: z.string().min(10),
   profile: AgentUserProfileSchema.optional(),
 });
+
+export interface CanonicalAnalysis {
+  analysisId: string;
+  schemaVersion: "1.0.0";
+  source: {
+    agentId: AgentId;
+    generatedAt: string;
+    textLength: number;
+    profile?: z.infer<typeof AgentUserProfileSchema>;
+  };
+  interpretation: {
+    summary: string;
+    objective: string;
+    targetAudience: string;
+    deadlines: string;
+    registrationLocation: string;
+    requirements: string[];
+    simpleLanguage: string;
+  };
+  cronograma?: {
+    items: Array<{ fase: string; periodo: string; descricao: string; status: "passado" | "ativo" | "futuro" }>;
+    summary?: string;
+  };
+  checklist?: {
+    items: Array<{ doc: string; obrigatorio: boolean; observacao: string; checked: boolean }>;
+    summary?: string;
+  };
+  elegibilidade?: {
+    score?: number;
+    criteria: Array<{ criterio: string; atende: boolean | "parcial"; observacao: string }>;
+    recommendation?: string;
+    nextSteps?: string[];
+  };
+  valores?: {
+    valor?: string;
+    moeda?: string;
+    observacao?: string;
+  };
+  documentosExigidos: {
+    items: string[];
+    summary: string;
+  };
+  alertas: string[];
+  agentResult: Record<string, unknown>;
+}
+
+export function buildCanonicalAnalysis(
+  agentId: AgentId,
+  agentResult: Record<string, unknown>,
+  originalText: string,
+  profile?: z.infer<typeof AgentUserProfileSchema>,
+): CanonicalAnalysis {
+  const result = agentResult as Record<string, unknown>;
+  const alerts = Array.isArray(result.alertas) ? (result.alertas as string[]) : [];
+
+  const interpretation = {
+    summary:
+      (typeof result.tipoEdital === "string" && result.tipoEdital) ||
+      (typeof result.resumo === "string" && result.resumo) ||
+      (typeof result.oportunidade === "string" && result.oportunidade) ||
+      (typeof result.recomendacao === "string" && result.recomendacao) ||
+      (typeof result.observacao === "string" && result.observacao) ||
+      "Interpretação consolidada do edital.",
+    objective:
+      (typeof result.objetivo === "string" && result.objetivo) ||
+      (typeof result.oportunidade === "string" && result.oportunidade) ||
+      (typeof result.recomendacao === "string" && result.recomendacao) ||
+      "Objetivo não explicitado no documento.",
+    targetAudience:
+      (typeof result.publicoAlvo === "string" && result.publicoAlvo) ||
+      (typeof result.tipoEdital === "string" && result.tipoEdital) ||
+      "Público-alvo conforme o edital.",
+    deadlines:
+      (typeof result.prazo === "string" && result.prazo) ||
+      "Prazo não informado.",
+    registrationLocation:
+      (typeof result.ondeInscrever === "string" && result.ondeInscrever) ||
+      (typeof result.instituicao === "string" && result.instituicao) ||
+      "Local de inscrição não informado.",
+    requirements:
+      Array.isArray(result.requisitos)
+        ? (result.requisitos as string[]).filter(Boolean)
+        : Array.isArray(result.documentos)
+          ? (result.documentos as string[]).filter(Boolean)
+          : [],
+    simpleLanguage:
+      (typeof result.observacao === "string" && result.observacao) ||
+      (typeof result.dica === "string" && result.dica) ||
+      "Texto adaptado para leitura acessível.",
+  };
+
+  const cronograma = Array.isArray(result.timeline)
+    ? {
+        items: (result.timeline as Array<Record<string, unknown>>).map((item) => ({
+          fase: typeof item.fase === "string" ? item.fase : "",
+          periodo: typeof item.periodo === "string" ? item.periodo : "",
+          descricao: typeof item.descricao === "string" ? item.descricao : "",
+          status: (item.status as "passado" | "ativo" | "futuro") ?? "ativo",
+        })),
+        summary: typeof result.observacao === "string" ? result.observacao : undefined,
+      }
+    : undefined;
+
+  const checklist = Array.isArray(result.checklist)
+    ? {
+        items: (result.checklist as Array<Record<string, unknown>>).map((item) => ({
+          doc: typeof item.doc === "string" ? item.doc : "",
+          obrigatorio: Boolean(item.obrigatorio),
+          observacao: typeof item.observacao === "string" ? item.observacao : "",
+          checked: Boolean(item.checked),
+        })),
+        summary: typeof result.dica === "string" ? result.dica : undefined,
+      }
+    : undefined;
+
+  const elegibilidade = Array.isArray(result.criterios)
+    ? {
+        score: typeof result.score === "number" ? result.score : undefined,
+        criteria: (result.criterios as Array<Record<string, unknown>>).map((item) => ({
+          criterio: typeof item.criterio === "string" ? item.criterio : "",
+          atende: (item.atende === true || item.atende === "parcial") ? item.atende : false,
+          observacao: typeof item.observacao === "string" ? item.observacao : "",
+        })),
+        recommendation: typeof result.recomendacao === "string" ? result.recomendacao : undefined,
+        nextSteps: Array.isArray(result.proximosPassos)
+          ? (result.proximosPassos as string[]).filter(Boolean)
+          : undefined,
+      }
+    : undefined;
+
+  const documentosExigidos = {
+    items:
+      Array.isArray(result.documentos)
+        ? (result.documentos as string[]).filter(Boolean)
+        : Array.isArray(result.checklist)
+          ? (result.checklist as Array<Record<string, unknown>>).map((item) => (typeof item.doc === "string" ? item.doc : "")).filter(Boolean)
+          : [],
+    summary:
+      Array.isArray(result.documentos) && result.documentos.length > 0
+        ? `Documentos exigidos: ${String(result.documentos.join(", "))}`
+        : Array.isArray(result.checklist)
+          ? "Checklist de documentos listado na interpretação."
+          : "Não há documentos exigidos identificados no texto.",
+  };
+
+  return {
+    analysisId: `analysis-${randomUUID()}`,
+    schemaVersion: "1.0.0",
+    source: {
+      agentId,
+      generatedAt: new Date().toISOString(),
+      textLength: originalText.trim().length,
+      profile,
+    },
+    interpretation,
+    cronograma,
+    checklist,
+    elegibilidade,
+    valores: {
+      valor: typeof result.valor === "string" ? result.valor : undefined,
+      moeda: typeof result.valor === "string" && /R\$/i.test(result.valor) ? "BRL" : undefined,
+      observacao: typeof result.observacao === "string" ? result.observacao : undefined,
+    },
+    documentosExigidos,
+    alertas: alerts,
+    agentResult,
+  };
+}
 
 // ── Response validators ────────────────────────────────────────────────────
 export const SimplesResponseSchema = z.object({
@@ -768,6 +937,8 @@ export async function analyzeAgent(
       throw e;
     }
 
+    const canonical = buildCanonicalAnalysis(agentId, validated.data as Record<string, unknown>, text, parsedProfile.success ? parsedProfile.data : undefined);
+
     await persistUsageLog({
       module: "AIService.analyzeAgent",
       model,
@@ -784,7 +955,21 @@ export async function analyzeAgent(
       message: "AI request completed",
     });
 
-    return validated.data;
+    return {
+      ...canonical,
+      ...validated.data,
+      type: agentId,
+      agentResult: validated.data,
+      analysisId: canonical.analysisId,
+      schemaVersion: canonical.schemaVersion,
+      interpretation: canonical.interpretation,
+      cronograma: canonical.cronograma,
+      checklist: canonical.checklist,
+      elegibilidade: canonical.elegibilidade,
+      valores: canonical.valores,
+      documentosExigidos: canonical.documentosExigidos,
+      alertas: canonical.alertas,
+    } as Record<string, unknown>;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const latency = Date.now() - start;

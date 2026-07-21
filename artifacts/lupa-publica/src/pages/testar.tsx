@@ -112,6 +112,135 @@ import {
   type AnaliseSalva,
 } from "@/services/analisesService";
 
+interface CanonicalAnalysisLike {
+  analysisId?: string;
+  schemaVersion?: string;
+  source?: {
+    agentId?: string;
+    generatedAt?: string;
+    textLength?: number;
+    profile?: Record<string, unknown>;
+  };
+  interpretation?: {
+    summary?: string;
+    objective?: string;
+    targetAudience?: string;
+    deadlines?: string;
+    registrationLocation?: string;
+    requirements?: string[];
+    simpleLanguage?: string;
+  };
+  cronograma?: {
+    items?: Array<{ fase: string; periodo: string; descricao: string; status: "passado" | "ativo" | "futuro" }>;
+  };
+  checklist?: {
+    items?: Array<{ doc: string; obrigatorio: boolean; observacao: string; checked: boolean }>;
+  };
+  elegibilidade?: {
+    score?: number;
+    criteria?: Array<{ criterio: string; atende: boolean | "parcial"; observacao: string }>;
+    recommendation?: string;
+    nextSteps?: string[];
+  };
+  valores?: {
+    valor?: string;
+    moeda?: string;
+    observacao?: string;
+  };
+  documentosExigidos?: {
+    items?: string[];
+    summary?: string;
+  };
+  alertas?: string[];
+  agentResult?: Record<string, unknown>;
+}
+
+function canonicalToAgentResult(canonical: CanonicalAnalysisLike | null | undefined): AgentResult | null {
+  if (!canonical) return null;
+
+  const interpretation = canonical.interpretation ?? {};
+  const agentId = (canonical.source?.agentId as AgentId | undefined) ?? "simples";
+  const alerts = canonical.alertas ?? [];
+
+  switch (agentId) {
+    case "analista":
+      return {
+        type: "analista",
+        tipoEdital: interpretation.summary || "Edital público",
+        instituicao: interpretation.registrationLocation || "Instituição não identificada",
+        prazo: interpretation.deadlines || "Não informado",
+        publicoAlvo: interpretation.targetAudience || "Público-alvo conforme edital",
+        requisitos: interpretation.requirements ?? [],
+        documentos: canonical.documentosExigidos?.items ?? [],
+        valor: canonical.valores?.valor || "Não informado",
+        alertas: alerts,
+      };
+    case "documentacao":
+      return {
+        type: "documentacao",
+        checklist: (canonical.checklist?.items ?? []).map((item) => ({
+          doc: item.doc,
+          obrigatorio: item.obrigatorio,
+          observacao: item.observacao,
+          checked: item.checked,
+        })),
+        dica: interpretation.simpleLanguage || "Confira os documentos exigidos no edital original.",
+        alertas: alerts,
+      };
+    case "elegibilidade":
+      return {
+        type: "elegibilidade",
+        score: canonical.elegibilidade?.score ?? 0,
+        criterios: (canonical.elegibilidade?.criteria ?? []).map((item) => ({
+          criterio: item.criterio,
+          atende: item.atende,
+          observacao: item.observacao,
+        })),
+        recomendacao: canonical.elegibilidade?.recommendation || interpretation.summary || "Recomendação não informada.",
+        proximosPassos: canonical.elegibilidade?.nextSteps ?? [],
+        alertas: alerts,
+      };
+    case "acompanhamento":
+      return {
+        type: "acompanhamento",
+        timeline: (canonical.cronograma?.items ?? []).map((item) => ({
+          fase: item.fase,
+          periodo: item.periodo,
+          descricao: item.descricao,
+          status: item.status,
+        })),
+        observacao: interpretation.simpleLanguage || "Cronograma consolidado a partir do edital.",
+        alertas: alerts,
+      };
+    case "estrategica":
+      return {
+        type: "estrategica",
+        score: 70,
+        oportunidade: interpretation.summary || "Oportunidade a confirmar no documento.",
+        vantagens: [interpretation.objective || ""].filter(Boolean),
+        pontosAtencao: interpretation.requirements ?? [],
+        riscos: alerts,
+        recomendacao: interpretation.simpleLanguage || "Revise os pontos de atenção.",
+        alertas: alerts,
+      };
+    case "simples":
+    default:
+      return {
+        type: "simples",
+        scoreOportunidade: 70,
+        categoria: "Edital público",
+        resumo: interpretation.summary || "Resumo consolidado do edital.",
+        objetivo: interpretation.objective || "Objetivo não informado.",
+        publicoAlvo: interpretation.targetAudience || "Público-alvo conforme edital",
+        prazo: interpretation.deadlines || "Não informado",
+        requisitos: interpretation.requirements ?? [],
+        ondeInscrever: interpretation.registrationLocation || "Não informado",
+        observacao: interpretation.simpleLanguage || "Texto adaptado para leitura acessível.",
+        alertas: alerts,
+      };
+  }
+}
+
 function getFriendlyErrorMessage(error: unknown) {
   const normalize = (value: string) => value.toLowerCase();
 
@@ -2523,6 +2652,7 @@ export default function TestarIA() {
   const [activeTab, setActiveTab] = useState("texto");
   const [selectedAgent, setSelectedAgent] = useState<AgentId>("simples");
   const [agentResult, setAgentResult] = useState<AgentResult | null>(null);
+  const [canonicalAnalysis, setCanonicalAnalysis] = useState<CanonicalAnalysisLike | null>(null);
   const [checklistState, setChecklistState] = useState<ChecklistItem[]>([]);
   const [profile, setProfile] = useState<UserProfile>({
     escolaridade: "superior",
@@ -2639,8 +2769,28 @@ export default function TestarIA() {
   const isAnalyzing = analyzeEditalMutation.isPending;
   const analyzeButtonLabel = "Analisar Documento";
   const complexityProfile = useMemo(() => getComplexityProfile(text), [text]);
-  const timelineSteps = useMemo(() => buildTimelineSteps(text), [text]);
-  const checklistItems = useMemo(() => buildChecklist(text), [text]);
+  const timelineSteps = useMemo(() => {
+    const canonicalItems = canonicalAnalysis?.cronograma?.items;
+    if (canonicalItems && canonicalItems.length > 0) {
+      return canonicalItems.map((item) => ({
+        title: item.fase,
+        date: item.periodo,
+        description: item.descricao,
+      }));
+    }
+    return buildTimelineSteps(text);
+  }, [text, canonicalAnalysis]);
+  const checklistItems = useMemo(() => {
+    const canonicalItems = canonicalAnalysis?.checklist?.items;
+    if (canonicalItems && canonicalItems.length > 0) {
+      return canonicalItems.map((item) => ({
+        label: item.doc,
+        done: item.checked,
+        hint: item.observacao,
+      }));
+    }
+    return buildChecklist(text);
+  }, [text, canonicalAnalysis]);
   const faqItems = useMemo(() => buildEditalFAQ(agentResult), [agentResult]);
 
   const applyResult = (result: AgentResult) => {
@@ -2650,6 +2800,7 @@ export default function TestarIA() {
 
   const buildAnalysisPayload = (
     result: AgentResult | null,
+    canonicalData: CanonicalAnalysisLike | null,
     favorito = false,
     agentIdOverride: AgentId = selectedAgent,
   ): AnaliseSalva => {
@@ -2674,13 +2825,18 @@ export default function TestarIA() {
               .filter(Boolean)
               .join(" ");
           }
-          return JSON.stringify(result);
+          return [canonicalData?.interpretation?.summary, canonicalData?.interpretation?.simpleLanguage]
+            .filter(Boolean)
+            .join(" ");
         })()
       : "Interpretação concluída.";
 
     const indicators = result
       ? {
           tipo: result.type,
+          analysisId: canonicalData?.analysisId ?? null,
+          schemaVersion: canonicalData?.schemaVersion ?? null,
+          generatedAt: canonicalData?.source?.generatedAt ?? null,
           ...(result.type === "simples"
             ? {
                 scoreOportunidade: result.scoreOportunidade,
@@ -2767,9 +2923,13 @@ export default function TestarIA() {
     };
   };
 
-  const persistCurrentAnalysis = async (result: AgentResult | null, agentIdOverride: AgentId = selectedAgent) => {
+  const persistCurrentAnalysis = async (
+    result: AgentResult | null,
+    canonicalData: CanonicalAnalysisLike | null,
+    agentIdOverride: AgentId = selectedAgent,
+  ) => {
     try {
-      const payload = buildAnalysisPayload(result, isFavorite, agentIdOverride);
+      const payload = buildAnalysisPayload(result, canonicalData, isFavorite, agentIdOverride);
       let saved;
       if (currentSavedId) {
         payload.id = currentSavedId;
@@ -2788,9 +2948,9 @@ export default function TestarIA() {
               agentId: agentIdOverride,
               title: payload.titulo ?? `Interpretação ${AGENTS.find((a) => a.id === agentIdOverride)?.name ?? currentAgentMeta.name}`,
               originalText: payload.conteudo_original ?? text,
-              resultJson: (result
-                ? { ...result }
-                : { type: selectedAgent }) as Record<string, unknown>,
+              resultJson: (canonicalData
+                ? { ...canonicalData, type: agentIdOverride }
+                : (result ? { ...result } : { type: selectedAgent })) as Record<string, unknown>,
             },
           });
           queryClient.invalidateQueries({
@@ -2824,6 +2984,7 @@ export default function TestarIA() {
     setAnalysisError(null);
     setAnalysisStage("reading");
     setAgentResult(null);
+    setCanonicalAnalysis(null);
     setSavedThisResult(false);
 
     analyzeEditalMutation.mutate(
@@ -2836,10 +2997,12 @@ export default function TestarIA() {
       },
       {
         onSuccess: async (data) => {
-          const result = data as unknown as AgentResult;
+          const canonicalPayload = data as unknown as CanonicalAnalysisLike;
+          const result = canonicalToAgentResult(canonicalPayload) ?? (data as unknown as AgentResult);
+          setCanonicalAnalysis(canonicalPayload);
           applyResult(result);
           setAnalysisStage("completed");
-          await persistCurrentAnalysis(result, agentIdToUse);
+          await persistCurrentAnalysis(result, canonicalPayload, agentIdToUse);
           toast({
             title: "Interpretação concluída",
             description:
@@ -2877,7 +3040,7 @@ export default function TestarIA() {
 
     if (currentSavedId) {
       try {
-        const payload = buildAnalysisPayload(agentResult, nextFavorite);
+        const payload = buildAnalysisPayload(agentResult, canonicalAnalysis, nextFavorite);
         payload.id = currentSavedId;
         const updated = await atualizarAnalise(payload);
         setCurrentSavedId(updated.id ?? currentSavedId);
@@ -2910,6 +3073,22 @@ export default function TestarIA() {
       if (agentResult?.type === "documentacao") {
         setAgentResult({ ...agentResult, checklist: next });
       }
+      setCanonicalAnalysis((prev) =>
+        prev
+          ? {
+              ...prev,
+              checklist: {
+                ...(prev.checklist ?? {}),
+                items: next.map((item) => ({
+                  doc: item.doc,
+                  obrigatorio: item.obrigatorio,
+                  observacao: item.observacao,
+                  checked: item.checked,
+                })),
+              },
+            }
+          : prev,
+      );
       return next;
     });
   };
@@ -2926,6 +3105,7 @@ export default function TestarIA() {
       setPdfStructuredData(structured);
       setActiveTab("pdf");
       setAgentResult(null);
+      setCanonicalAnalysis(null);
       setAnalysisError(null);
       setShareToken(null);
       setShowShareLink(false);
@@ -2970,6 +3150,7 @@ export default function TestarIA() {
           setText(data.text);
           setActiveTab("texto");
           setAgentResult(null);
+          setCanonicalAnalysis(null);
           setAnalysisError(null);
           toast({
             title: "Texto extraído",
@@ -3010,7 +3191,9 @@ export default function TestarIA() {
   const handleAgentHistorySelect = (item: AgentResultRecord) => {
     setText(item.originalText);
     setSelectedAgent(item.agentId as AgentId);
-    const parsed = item.resultJson as unknown as AgentResult;
+    const parsedCanonical = item.resultJson as CanonicalAnalysisLike;
+    const parsed = canonicalToAgentResult(parsedCanonical) ?? (item.resultJson as unknown as AgentResult);
+    setCanonicalAnalysis(parsedCanonical && typeof parsedCanonical === "object" ? parsedCanonical : null);
     applyResult(parsed);
     setSavedThisResult(true);
     setShowHistory(false);
@@ -3039,7 +3222,7 @@ export default function TestarIA() {
         body: JSON.stringify({
           agentId: agentResult.type,
           title,
-          resultJson: agentResult,
+          resultJson: canonicalAnalysis ?? agentResult,
         }),
       });
       if (!res.ok) throw new Error();
@@ -3076,7 +3259,9 @@ export default function TestarIA() {
       // Monta contexto com o texto do edital + resultado atual da análise
       const ctx = [
         text ? `TEXTO DO EDITAL (trecho):\n${text.slice(0, 4000)}` : "",
-        `INTERPRETAÇÃO ATUAL (${agentResult.type}):\n${JSON.stringify(agentResult, null, 2).slice(0, 2000)}`,
+        canonicalAnalysis
+          ? `INTERPRETAÇÃO CANÔNICA:\n${JSON.stringify(canonicalAnalysis, null, 2).slice(0, 3000)}`
+          : `INTERPRETAÇÃO ATUAL (${agentResult.type}):\n${JSON.stringify(agentResult, null, 2).slice(0, 2000)}`,
       ].filter(Boolean).join("\n\n");
 
       const res = await fetch(`${API}/niasci/chat`, {
@@ -3158,7 +3343,7 @@ export default function TestarIA() {
   const handleSaveAgent = async () => {
     if (!agentResult || !text.trim()) return;
     try {
-      const saved = await persistCurrentAnalysis(agentResult);
+      const saved = await persistCurrentAnalysis(agentResult, canonicalAnalysis);
       setSavedThisResult(Boolean(saved));
       setCurrentSavedId(saved?.id ?? null);
       setIsFavorite(Boolean(saved?.favorito));

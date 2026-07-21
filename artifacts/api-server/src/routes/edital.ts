@@ -54,6 +54,7 @@ const router: IRouter = Router();
 
 import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital, ocrPdf } from "../lib/aiService";
 import { getReqUserId, requireAuth } from "../lib/supabase";
+import { classifyAiError } from "../lib/processingErrors";
 
 /**
  * Remove caracteres binários e ruído de PDFs colados como texto.
@@ -99,20 +100,15 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
     res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    req.log?.error({ error: message }, "AIService failed");
+    const classification = classifyAiError(message);
+    req.log?.error({ error: message, reason: classification.reason }, classification.logMessage ?? "AIService failed");
 
-    // Erro de taxa do Gemini
-    if (message.includes("GEMINI_RATE_LIMIT")) {
-      res.status(429).json({ error: "A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente." });
-      return;
-    }
-    // Documento muito grande mesmo após limpeza — instrui o usuário
     if (message.includes("413") || message.includes("Request too large") || message.includes("TPM") || message.includes("token")) {
-      res.status(429).json({ error: "O documento é muito grande para ser analisado de uma só vez. Tente reduzir o texto antes de enviar, ou cole apenas as seções principais do edital." });
+      res.status(413).json({ error: "O documento ultrapassa o limite da análise. Ele precisa ser processado em partes." });
       return;
     }
 
-    res.status(500).json({ error: `Falha ao processar a resposta da IA. Tente novamente. [${message.slice(0, 300)}]` });
+    res.status(classification.status).json({ error: classification.userMessage });
     return;
   }
 });
@@ -543,8 +539,9 @@ router.post("/edital/ocr-pdf", async (req, res): Promise<void> => {
     res.json({ text });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    req.log.error({ error: msg }, "ocr-pdf failed");
-    res.status(500).json({ error: "Falha no OCR. Tente novamente." });
+    const classification = classifyAiError(msg);
+    req.log.error({ error: msg, reason: classification.reason }, classification.logMessage ?? "ocr-pdf failed");
+    res.status(classification.status).json({ error: classification.userMessage });
   }
 });
 

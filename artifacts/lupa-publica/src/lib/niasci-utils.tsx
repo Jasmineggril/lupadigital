@@ -62,26 +62,25 @@ export type AnalysisStage = "idle" | "reading" | "extracting" | "finalizing" | "
 export function getFriendlyErrorMessage(error: unknown): string {
   const normalize = (s: string) => s.toLowerCase();
 
-  if (typeof error === "string") {
-    const n = normalize(error);
+  const getMessage = (message: string) => {
+    const n = normalize(message);
     if (n.includes("muito curto") || n.includes("min(")) return "O texto é muito curto para análise. Adicione mais conteúdo e tente novamente.";
-    if (n.includes("pdf")) return "Não foi possível ler o PDF. Verifique se o arquivo possui texto pesquisável.";
+    if (n.includes("texto pesquisável") || n.includes("ocr") || n.includes("pdf")) return "O PDF não possui texto pesquisável. Utilize OCR ou outro arquivo.";
+    if (n.includes("documento vazio") || n.includes("sem texto") || n.includes("texto do documento")) return "Não foi possível localizar texto no documento.";
+    if (n.includes("ultrapassa o limite") || n.includes("processado em partes")) return "O documento ultrapassa o limite da análise. Ele precisa ser processado em partes.";
+    if (n.includes("rate limit") || n.includes("sobrecarregada") || n.includes("limite tempor\u00e1rio")) return "O limite temporário de análises foi atingido. Aguarde e tente novamente.";
+    if (n.includes("temporariamente indispon") || n.includes("provider unavailable") || n.includes("serviço de ia")) return "O serviço de IA está temporariamente indisponível.";
+    if (n.includes("timeout") || n.includes("demorou mais") || n.includes("etimedout")) return "A análise demorou mais que o esperado. Tente novamente.";
+    if (n.includes("resposta incompleta") || n.includes("schema") || n.includes("json") || n.includes("validation")) return "A IA retornou uma resposta incompleta. A análise não foi salva.";
+    if (n.includes("banco") || n.includes("history") || n.includes("salvar")) return "A interpretação foi concluída, mas não foi possível salvá-la no histórico.";
     if (n.includes("network") || n.includes("fetch")) return "A conexão com o servidor falhou. Verifique sua internet e tente novamente.";
-    if (n.includes("timeout")) return "O servidor demorou muito para responder. Tente novamente em instantes.";
-    return "Não foi possível concluir a análise. Tente novamente.";
-  }
-
-  if (error instanceof Error) {
-    const n = normalize(error.message);
-    if (n.includes("muito curto") || n.includes("min(")) return "O texto é muito curto para análise. Adicione mais conteúdo e tente novamente.";
-    if (n.includes("pdf")) return "Não foi possível ler o PDF. Verifique se o arquivo possui texto pesquisável.";
-    if (n.includes("network") || n.includes("fetch")) return "A conexão com o servidor falhou. Verifique sua internet e tente novamente.";
-    if (n.includes("timeout")) return "O servidor demorou muito para responder. Tente novamente em instantes.";
     if (n.includes("nenhuma chave") || n.includes("api key") || n.includes("not configured")) return "O serviço de IA não está configurado. Entre em contato com o administrador do sistema.";
     if (n.includes("http 4") || n.includes("http 5") || n.includes("aiservice") || n.includes("falha ao processar")) return "Não foi possível concluir a análise. Tente novamente.";
     return "Não foi possível concluir a análise. Tente novamente.";
-  }
+  };
 
+  if (typeof error === "string") return getMessage(error);
+  if (error instanceof Error) return getMessage(error.message);
   return "Não foi possível concluir a análise. Tente novamente.";
 }
 

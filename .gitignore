@@ -55,3 +55,5 @@ Thumbs.db
 
 # GitHub Actions — não commitado (token sem scope workflow)
 .github/
+.vercel
+.env*

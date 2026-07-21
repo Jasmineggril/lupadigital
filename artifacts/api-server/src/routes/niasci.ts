@@ -29,6 +29,7 @@ import {
   chatNiasci,
 } from "../lib/aiService";
 import { getReqUserId } from "../lib/supabase";
+import { classifyAiError } from "../lib/processingErrors";
 
 const router: IRouter = Router();
 
@@ -61,8 +62,9 @@ router.post("/niasci/elattes/analyze", async (req, res): Promise<void> => {
     res.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    req.log?.error({ error: message }, "e-Lattes analysis failed");
-    res.status(500).json({ error: "Falha ao analisar o currículo. Tente novamente." });
+    const classification = classifyAiError(message);
+    req.log?.error({ error: message, reason: classification.reason }, classification.logMessage ?? "e-Lattes analysis failed");
+    res.status(classification.status).json({ error: classification.userMessage });
   }
 });
 
@@ -94,8 +96,9 @@ router.post("/niasci/artigos/analyze", async (req, res): Promise<void> => {
     res.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    req.log?.error({ error: message }, "Artigo analysis failed");
-    res.status(500).json({ error: "Falha ao analisar o artigo. Tente novamente." });
+    const classification = classifyAiError(message);
+    req.log?.error({ error: message, reason: classification.reason }, classification.logMessage ?? "Artigo analysis failed");
+    res.status(classification.status).json({ error: classification.userMessage });
   }
 });
 
@@ -127,8 +130,9 @@ router.post("/niasci/projetos/analyze", async (req, res): Promise<void> => {
     res.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    req.log?.error({ error: message }, "Projeto analysis failed");
-    res.status(500).json({ error: "Falha ao gerar o plano do projeto. Tente novamente." });
+    const classification = classifyAiError(message);
+    req.log?.error({ error: message, reason: classification.reason }, classification.logMessage ?? "Projeto analysis failed");
+    res.status(classification.status).json({ error: classification.userMessage });
   }
 });
 
@@ -165,8 +169,9 @@ router.post("/niasci/planetario/generate", async (req, res): Promise<void> => {
     res.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    req.log?.error({ error: message }, "Planetario generation failed");
-    res.status(500).json({ error: "Falha ao gerar conteúdo educativo. Tente novamente." });
+    const classification = classifyAiError(message);
+    req.log?.error({ error: message, reason: classification.reason }, classification.logMessage ?? "Planetario generation failed");
+    res.status(classification.status).json({ error: classification.userMessage });
   }
 });
 
@@ -209,17 +214,13 @@ router.post("/niasci/chat", async (req, res): Promise<void> => {
     res.json({ reply });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    req.log?.error({ error: message }, "NIASci chat failed");
-
-    // Limite diário/por minuto da IA esgotado — informa o usuário com linguagem clara
-    if (message.includes("429") || message.includes("Rate limit") || message.includes("TPD") || message.includes("TPM")) {
-      res.status(429).json({
-        error: "O assistente atingiu o limite de uso de hoje. Tente novamente amanhã ou em alguns minutos.",
-      });
+    const classification = classifyAiError(message);
+    req.log?.error({ error: message, reason: classification.reason }, classification.logMessage ?? "NIASci chat failed");
+    if (classification.status === 429) {
+      res.status(429).json({ error: classification.userMessage });
       return;
     }
-
-    res.status(500).json({ error: "Falha ao processar sua mensagem. Tente novamente." });
+    res.status(classification.status).json({ error: classification.userMessage });
   }
 });
 

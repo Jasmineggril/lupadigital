@@ -113,39 +113,39 @@ import {
 } from "@/services/analisesService";
 
 function getFriendlyErrorMessage(error: unknown) {
-  if (typeof error === "string") {
-    const normalized = error.toLowerCase();
-    if (normalized.includes("rate_limit") || normalized.includes("sobrecarregada")) {
-      return "⏳ A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente.";
-    }
-    if (normalized.includes("minimo") || normalized.includes("20 caracteres")) {
-      return "Insira um texto com pelo menos 20 caracteres para continuar.";
-    }
-    if (normalized.includes("url")) {
-      return "Não foi possível acessar a URL informada. Verifique se ela é pública e tente novamente.";
-    }
-    if (normalized.includes("pdf")) {
-      return "Não foi possível ler o PDF. Tente outro arquivo ou faça a cópia do texto manualmente.";
-    }
-    if (normalized.includes("network") || normalized.includes("fetch")) {
-      return "A conexão com o serviço de interpretação falhou. Tente novamente em instantes.";
-    }
-    return "Não foi possível concluir a interpretação neste momento. Tente novamente.";
-  }
+  const normalize = (value: string) => value.toLowerCase();
 
-  if (error instanceof Error) {
-    const normalized = error.message.toLowerCase();
-    if (normalized.includes("rate_limit") || normalized.includes("sobrecarregada")) {
-      return "⏳ A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente.";
-    }
+  const render = (message: string) => {
+    const normalized = normalize(message);
     if (normalized.includes("minimo") || normalized.includes("20 caracteres")) {
       return "Insira um texto com pelo menos 20 caracteres para continuar.";
     }
+    if (normalized.includes("texto pesquisável") || normalized.includes("ocr") || normalized.includes("pdf")) {
+      return "O PDF não possui texto pesquisável. Utilize OCR ou outro arquivo.";
+    }
+    if (normalized.includes("documento vazio") || normalized.includes("sem texto") || normalized.includes("texto do documento")) {
+      return "Não foi possível localizar texto no documento.";
+    }
+    if (normalized.includes("ultrapassa o limite") || normalized.includes("processado em partes")) {
+      return "O documento ultrapassa o limite da análise. Ele precisa ser processado em partes.";
+    }
+    if (normalized.includes("rate_limit") || normalized.includes("sobrecarregada") || normalized.includes("limite tempor\u00e1rio")) {
+      return "O limite temporário de análises foi atingido. Aguarde e tente novamente.";
+    }
+    if (normalized.includes("temporariamente indispon") || normalized.includes("provider unavailable") || normalized.includes("serviço de ia")) {
+      return "O serviço de IA está temporariamente indisponível.";
+    }
+    if (normalized.includes("timeout") || normalized.includes("demorou mais") || normalized.includes("etimedout")) {
+      return "A análise demorou mais que o esperado. Tente novamente.";
+    }
+    if (normalized.includes("resposta incompleta") || normalized.includes("schema") || normalized.includes("json") || normalized.includes("validation")) {
+      return "A IA retornou uma resposta incompleta. A análise não foi salva.";
+    }
+    if (normalized.includes("banco") || normalized.includes("history") || normalized.includes("salvar")) {
+      return "A interpretação foi concluída, mas não foi possível salvá-la no histórico.";
+    }
     if (normalized.includes("url")) {
       return "Não foi possível acessar a URL informada. Verifique se ela é pública e tente novamente.";
-    }
-    if (normalized.includes("pdf")) {
-      return "Não foi possível ler o PDF. Tente outro arquivo ou faça a cópia do texto manualmente.";
     }
     if (normalized.includes("network") || normalized.includes("fetch")) {
       return "A conexão com o serviço de interpretação falhou. Tente novamente em instantes.";
@@ -153,10 +153,15 @@ function getFriendlyErrorMessage(error: unknown) {
     if (normalized.includes("nenhuma chave") || normalized.includes("api key") || normalized.includes("not configured")) {
       return "O serviço de IA não está configurado. Entre em contato com o administrador do sistema.";
     }
-    if (normalized.includes("falha ao processar") || normalized.includes("aiservice") || normalized.includes("http 4") || normalized.includes("http 5")) {
-      return "Não foi possível concluir a interpretação neste momento. Tente novamente.";
-    }
     return "Não foi possível concluir a interpretação neste momento. Tente novamente.";
+  };
+
+  if (typeof error === "string") {
+    return render(error);
+  }
+
+  if (error instanceof Error) {
+    return render(error.message);
   }
 
   return "Não foi possível concluir a interpretação neste momento. Tente novamente.";
@@ -2847,23 +2852,11 @@ export default function TestarIA() {
           setIsAnalyzePressed(false);
           setAnalysisStage("error");
           setAnalysisError(getFriendlyErrorMessage(error));
-          try {
-            const result = runAgent(agentIdToUse, text, profile);
-            applyResult(result);
-            setAnalysisStage("completed");
-            void persistCurrentAnalysis(result, agentIdToUse);
-            toast({
-              title: "Interpretação simulada",
-              description:
-                "IA temporariamente indisponível. Usando interpretação por palavras-chave.",
-            });
-          } catch {
-            toast({
-              title: "Erro",
-              description: getFriendlyErrorMessage(error),
-              variant: "destructive",
-            });
-          }
+          toast({
+            title: "Erro na interpretação",
+            description: getFriendlyErrorMessage(error),
+            variant: "destructive",
+          });
         },
       },
     );

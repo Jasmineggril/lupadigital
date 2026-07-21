@@ -150,7 +150,13 @@ function getFriendlyErrorMessage(error: unknown) {
     if (normalized.includes("network") || normalized.includes("fetch")) {
       return "A conexão com o serviço de interpretação falhou. Tente novamente em instantes.";
     }
-    return error.message;
+    if (normalized.includes("nenhuma chave") || normalized.includes("api key") || normalized.includes("not configured")) {
+      return "O serviço de IA não está configurado. Entre em contato com o administrador do sistema.";
+    }
+    if (normalized.includes("falha ao processar") || normalized.includes("aiservice") || normalized.includes("http 4") || normalized.includes("http 5")) {
+      return "Não foi possível concluir a interpretação neste momento. Tente novamente.";
+    }
+    return "Não foi possível concluir a interpretação neste momento. Tente novamente.";
   }
 
   return "Não foi possível concluir a interpretação neste momento. Tente novamente.";

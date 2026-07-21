@@ -77,7 +77,9 @@ export function getFriendlyErrorMessage(error: unknown): string {
     if (n.includes("pdf")) return "Não foi possível ler o PDF. Verifique se o arquivo possui texto pesquisável.";
     if (n.includes("network") || n.includes("fetch")) return "A conexão com o servidor falhou. Verifique sua internet e tente novamente.";
     if (n.includes("timeout")) return "O servidor demorou muito para responder. Tente novamente em instantes.";
-    return error.message || "Não foi possível concluir a análise. Tente novamente.";
+    if (n.includes("nenhuma chave") || n.includes("api key") || n.includes("not configured")) return "O serviço de IA não está configurado. Entre em contato com o administrador do sistema.";
+    if (n.includes("http 4") || n.includes("http 5") || n.includes("aiservice") || n.includes("falha ao processar")) return "Não foi possível concluir a análise. Tente novamente.";
+    return "Não foi possível concluir a análise. Tente novamente.";
   }
 
   return "Não foi possível concluir a análise. Tente novamente.";

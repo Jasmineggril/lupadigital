@@ -116,7 +116,7 @@ export function getOpenAIClient(): OpenAI {
     return _client;
   }
 
-  throw new Error("Nenhuma chave de IA configurada. Adicione GROQ_API_KEY no Vercel (grátis em console.groq.com).");
+  throw new Error("Nenhuma chave de IA configurada. Adicione GROQ_API_KEY nas variáveis de ambiente (grátis em console.groq.com).");
 }
 
 export const openai = new Proxy({} as OpenAI, {

@@ -140,7 +140,7 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
-## Supabase Preview
+## Prévia do Supabase
 
 ```text
 failed to connect to postgres: failed to connect to `host=2600:1f1e:dbb:f600:60c2:61f9:8ba6:acbc user=postgres database=postgres`: dial error (timeout: dial tcp [2600:1f1e:dbb:f600:60c2:61f9:8ba6:acbc]:5432: i/o timeout)

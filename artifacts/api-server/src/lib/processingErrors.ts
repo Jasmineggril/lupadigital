@@ -44,6 +44,17 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
+  // Chave de IA não configurada — 503 para sinalizar "serviço indisponível", não 500
+  if (normalized.includes("nenhuma chave") || normalized.includes("groq_api_key") || normalized.includes("not configured") || normalized.includes("no api key")) {
+    return {
+      status: 503,
+      retryable: false,
+      reason: "ai_not_configured",
+      userMessage: "O serviço de IA está temporariamente indisponível. Tente novamente em alguns instantes.",
+      logMessage: "AI provider key not configured",
+    };
+  }
+
   if (normalized.includes("503") || normalized.includes("temporariamente indispon") || normalized.includes("fetch failed") || normalized.includes("network")) {
     return {
       status: 503,

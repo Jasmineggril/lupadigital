@@ -1,0 +1,258 @@
+# CORREÇÃO URGENTE DE ESTABILIDADE — LUPA Digital
+
+O sistema já está funcionando parcialmente, mas existem três falhas que precisam ser corrigidas sem criar funcionalidades novas.
+
+Não alterar layout.
+Não alterar identidade visual.
+Não alterar os princípios científicos do sistema.
+Não criar novo projeto.
+Não executar migrations sem autorização.
+Não mascarar erros.
+Primeiro diagnostique a causa raiz e depois corrija.
+
+==================================================
+PROBLEMA 1 — INTERPRETAÇÃO SIMULADA
+==================================================
+
+A interface está exibindo:
+
+“Interpretação simulada
+IA temporariamente indisponível.
+Usando interpretação por palavras-chave.”
+
+Isso não deve acontecer quando o provedor Llama estiver disponível.
+
+Verifique:
+
+- qual provedor de IA está ativo;
+- qual variável de ambiente seleciona o provedor;
+- se a chave da API está configurada;
+- se o modelo está correto;
+- se o backend consegue chamar o provedor;
+- se existe erro de autenticação;
+- se existe erro de limite;
+- se existe timeout;
+- se a resposta está chegando;
+- se o parser JSON ou o schema Zod estão rejeitando a resposta;
+- se uma exceção está ativando o fallback de forma indevida.
+
+Objetivo:
+
+- usar IA real sempre que o provedor estiver disponível;
+- ativar o fallback por palavras-chave apenas em indisponibilidade real;
+- registrar internamente a causa exata do fallback;
+- não mostrar ao usuário uma análise simulada como se fosse equivalente à análise por IA.
+
+Na interface, quando a IA estiver indisponível, mostrar:
+
+“Serviço de IA temporariamente indisponível.
+Tente novamente em alguns instantes.”
+
+Não gerar resultado simulado automaticamente, a menos que exista uma configuração explícita de demonstração.
+
+==================================================
+PROBLEMA 2 — CONEXÃO COM POSTGRESQL
+==================================================
+
+O erro atual é:
+
+failed to connect to postgres:
+failed to connect to `user=postgres database=postgres`
+dial error: timeout: context deadline exceeded
+
+O endereço mostrado é IPv6 e a conexão expira.
+
+Investigue:
+
+- DATABASE_URL;
+- DIRECT_URL;
+- URL do pooler do Supabase;
+- porta utilizada;
+- SSL;
+- IPv4/IPv6;
+- senha;
+- host;
+- formato da connection string;
+- uso incorreto da conexão direta em ambiente que não suporta IPv6;
+- cliente PostgreSQL utilizado;
+- prioridade entre DATABASE_URL e DIRECT_URL.
+
+Regras:
+
+1. Para execução normal no Replit e em produção serverless, priorizar a URL do pooler do Supabase compatível com IPv4.
+2. Usar DIRECT_URL apenas para operações que realmente precisem de conexão direta, como migrations, quando suportado.
+3. Garantir `sslmode=require` ou configuração SSL equivalente.
+4. Não expor usuário, senha ou connection string nos logs.
+5. Implementar timeout de conexão controlado.
+6. Se a conexão falhar, a aplicação não deve travar completamente quando a operação puder funcionar apenas com a API Supabase.
+7. Criar um health check seguro para confirmar:
+   - banco acessível;
+   - latência;
+   - tipo de conexão utilizada;
+   - sem exibir secrets.
+
+Não tente corrigir esse erro criando banco PostgreSQL local.
+Não use sudo.
+Não altere a senha automaticamente.
+
+==================================================
+PROBLEMA 3 — ERRO GENÉRICO NA INTERPRETAÇÃO
+==================================================
+
+A interface está exibindo:
+
+“Não foi possível concluir a interpretação.
+Não foi possível concluir a interpretação neste momento. Tente novamente.”
+
+Essa mensagem esconde a etapa real que falhou.
+
+Audite o fluxo completo:
+
+entrada do documento
+→ extração de texto
+→ normalização
+→ verificação de tamanho
+→ montagem do prompt
+→ chamada ao Llama
+→ recebimento da resposta
+→ extração de JSON
+→ validação Zod
+→ persistência
+→ resposta ao frontend
+
+Identifique exatamente onde a falha ocorre.
+
+Mapeie erros para mensagens específicas:
+
+- documento vazio:
+  “Não foi possível localizar texto no documento.”
+
+- PDF digitalizado:
+  “O PDF não possui texto pesquisável. Utilize OCR ou outro arquivo.”
+
+- documento grande:
+  “O documento ultrapassa o limite da análise. Ele precisa ser processado em partes.”
+
+- provedor indisponível:
+  “O serviço de IA está temporariamente indisponível.”
+
+- limite de uso:
+  “O limite temporário de análises foi atingido. Aguarde e tente novamente.”
+
+- timeout:
+  “A análise demorou mais que o esperado. Tente novamente.”
+
+- resposta inválida:
+  “A IA retornou uma resposta incompleta. A análise não foi salva.”
+
+- banco indisponível após análise:
+  “A interpretação foi concluída, mas não foi possível salvá-la no histórico.”
+
+Não expor ao usuário:
+- stack trace;
+- nome de organização;
+- chave;
+- URL privada;
+- mensagem completa do provedor.
+
+Usar status HTTP coerentes:
+- 400 para entrada inválida;
+- 413 para documento muito grande;
+- 422 para resposta não validável;
+- 429 para limite;
+- 502 para resposta inválida do provedor;
+- 503 para indisponibilidade;
+- 500 apenas para falha interna inesperada.
+
+==================================================
+OBSERVABILIDADE
+==================================================
+
+Adicionar logs estruturados apenas no backend:
+
+[AI]
+- provedor;
+- modelo;
+- duração;
+- status;
+- quantidade aproximada de tokens;
+- tipo do erro.
+
+[DATABASE]
+- conectado ou não;
+- latência;
+- pooler ou conexão direta;
+- sem host completo e sem credenciais.
+
+[PARSER]
+- JSON encontrado;
+- validação concluída;
+- erro de schema resumido.
+
+[DOCUMENT]
+- tipo;
+- tamanho;
+- quantidade de caracteres;
+- sem registrar o conteúdo completo.
+
+Nunca registrar secrets nem documentos integrais.
+
+==================================================
+TESTES OBRIGATÓRIOS
+==================================================
+
+Depois da correção, testar:
+
+1. Texto curto válido.
+2. Texto grande.
+3. PDF com texto pesquisável.
+4. PDF sem texto pesquisável.
+5. Provedor de IA disponível.
+6. Provedor de IA indisponível.
+7. Banco disponível.
+8. Banco indisponível após a análise.
+9. Resposta JSON válida.
+10. Resposta incompleta ou inválida.
+
+Validar pelo menos:
+- Editais;
+- e-Lattes;
+- Artigos.
+
+==================================================
+COMENTÁRIOS NO CÓDIGO
+==================================================
+
+Adicionar comentários JSDoc apenas nos arquivos alterados.
+
+Os comentários devem ser claros, didáticos e compatíveis com um estudante do 4º semestre de Engenharia de Software.
+
+Explicar:
+- responsabilidade da função;
+- entrada;
+- saída;
+- regra de negócio;
+- motivo do tratamento de erro;
+- integração com IA;
+- integração com banco.
+
+Não comentar linhas óbvias.
+
+==================================================
+RELATÓRIO FINAL
+==================================================
+
+Ao terminar, informar:
+
+1. causa raiz da “Interpretação simulada”;
+2. causa raiz da falha de conexão PostgreSQL;
+3. causa raiz do erro genérico de interpretação;
+4. arquivos alterados;
+5. variáveis de ambiente esperadas, sem revelar valores;
+6. provedor e modelo utilizados;
+7. testes executados;
+8. resultados dos testes;
+9. pendências restantes;
+10. confirmação de que nenhum secret foi exposto.
+
+Não faça alterações fora deste escopo.

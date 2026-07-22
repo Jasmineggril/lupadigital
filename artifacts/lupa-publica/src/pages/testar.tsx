@@ -422,208 +422,6 @@ function getSimplifiedText(result: AgentResult) {
   }
 }
 
-function highlightDifficultTerms(text: string) {
-  const parts = text.split(/(\s+)/);
-  return parts.map((part, index) => {
-    if (!part.trim()) return <span key={index}>{part}</span>;
-    const cleaned = part.replace(/[^\p{L}\p{N}]/gu, "");
-    const isDifficult =
-      cleaned.length > 7 ||
-      /^(inscrição|habilitação|homologação|impugnação|recurso|interposição|documentação|cadastro|requisito|benefício)$/i.test(
-        cleaned,
-      );
-    return (
-      <span
-        key={index}
-        className={
-          isDifficult
-            ? "rounded-md bg-amber-100 px-1.5 py-0.5 text-amber-800 font-medium"
-            : ""
-        }
-      >
-        {part}
-      </span>
-    );
-  });
-}
-
-function getComplexityProfile(text: string) {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  const words = normalized.split(" ").filter(Boolean);
-  const longWords = words.filter((word) => word.length > 7).length;
-  const longWordRatio = words.length ? longWords / words.length : 0;
-  const hasDates =
-    /\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}|\b\d{1,2}\s+de\s+[a-záéíóúâêîôûãõ]+\s+de\s+\d{4}\b/i.test(
-      normalized,
-    );
-  const hasRequirements =
-    /(requisito|documento|inscrição|prazo|benefício|cadastro|habilitação|homologação)/i.test(
-      normalized,
-    );
-
-  const score = Math.min(
-    100,
-    Math.round(
-      25 +
-        longWordRatio * 45 +
-        (hasDates ? 18 : 0) +
-        (hasRequirements ? 20 : 0) +
-        (normalized.length > 800 ? 15 : normalized.length > 300 ? 8 : 0),
-    ),
-  );
-  const level = score >= 70 ? "Difícil" : score >= 45 ? "Médio" : "Fácil";
-  const tone =
-    score >= 70
-      ? {
-          label: "Alta complexidade",
-          badge: "bg-rose-100 text-rose-700",
-          bar: "bg-rose-500",
-        }
-      : score >= 45
-        ? {
-            label: "Complexidade moderada",
-            badge: "bg-amber-100 text-amber-700",
-            bar: "bg-amber-500",
-          }
-        : {
-            label: "Baixa complexidade",
-            badge: "bg-emerald-100 text-emerald-700",
-            bar: "bg-emerald-500",
-          };
-
-  return {
-    score,
-    level,
-    tone,
-    description:
-      score >= 70
-        ? "O edital apresenta linguagem técnica e muitos critérios, o que pode dificultar a compreensão inicial."
-        : score >= 45
-          ? "O texto tem estrutura razoável, mas ainda exige atenção em alguns pontos."
-          : "O edital é relativamente claro e direto para leitura inicial.",
-  };
-}
-
-function buildTimelineSteps(text: string) {
-  const matches =
-    text.match(
-      /\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b|\b\d{1,2}\s+de\s+[a-záéíóúâêîôûãõ]+\s+de\s+\d{4}\b/gi,
-    ) ?? [];
-  const dates = Array.from(new Set(matches)).slice(0, 4);
-    return [
-    {
-      title: "Publicação",
-      date: dates[0] ?? "A confirmar",
-      description: "Momento em que o edital foi disponibilizado.",
-    },
-    {
-      title: "Inscrições",
-      date: dates[1] ?? "A confirmar",
-      description: "Período para participação e envio da documentação.",
-    },
-    {
-      title: "Resultado",
-      date: dates[2] ?? "A confirmar",
-      description: "Divulgação da interpretação das inscrições.",
-    },
-    {
-      title: "Convocação",
-      date: dates[3] ?? "A confirmar",
-      description: "Etapa final para confirmação e abertura do processo.",
-    },
-  ];
-}
-
-function buildChecklist(text: string) {
-  const normalized = text.toLowerCase();
-  return [
-    {
-      label: "Ler o edital",
-      done: normalized.length > 120,
-      hint: "Entender a proposta e as regras principais.",
-    },
-    {
-      label: "Verificar requisitos",
-      done: /(requisito|documento|inscrição|prazo)/i.test(normalized),
-      hint: "Confirmar se o seu perfil atende.",
-    },
-    {
-      label: "Separar documentos",
-      done: /(documento|comprovante|certidão|currículo|histórico)/i.test(
-        normalized,
-      ),
-      hint: "Organizar a documentação exigida.",
-    },
-    {
-      label: "Fazer inscrição",
-      done: /(inscrição|inscreva|submeter)/i.test(normalized),
-      hint: "Realizar o procedimento dentro do prazo.",
-    },
-    {
-      label: "Acompanhar resultado",
-      done: /(resultado|convocação|homologação|recurso)/i.test(normalized),
-      hint: "Monitorar as próximas etapas.",
-    },
-  ];
-}
-
-function computeTextIndicators(text: string) {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  const words = normalized.split(" ").filter(Boolean);
-  const sentences = normalized
-    .split(/[.!?]+/)
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-  const wordCount = words.length;
-  const sentenceCount = Math.max(sentences.length, 1);
-  const avgWords = wordCount / sentenceCount;
-  const longWords = words.filter((word) => word.length > 7).length;
-  const longWordRatio = wordCount ? longWords / wordCount : 0;
-
-  const clarity = Math.round(
-    Math.max(20, Math.min(100, 110 - avgWords * 3 - longWordRatio * 35)),
-  );
-  const complexity = Math.round(
-    Math.max(0, Math.min(100, avgWords * 4 + longWordRatio * 40)),
-  );
-  const transparency = Math.round(
-    Math.max(
-      20,
-      Math.min(
-        100,
-        20 +
-          (/(prazo|inscrição|inscrições|site|portal|www\.|http|valor|benefício|documento|requisito)/i.test(
-            normalized,
-          )
-            ? 30
-            : 0) +
-          (/(órgão|secretaria|ministério|fundação|universidade|instituto|autarquia)/i.test(
-            normalized,
-          )
-            ? 20
-            : 0),
-      ),
-    ),
-  );
-  const accessibility = Math.round(
-    Math.max(
-      20,
-      Math.min(100, 100 - longWordRatio * 25 - Math.max(0, avgWords - 14) * 2),
-    ),
-  );
-  const legibility = Math.round(
-    Math.max(20, Math.min(100, 120 - avgWords * 2 - longWordRatio * 25)),
-  );
-
-  return {
-    clareza: clarity,
-    complexidade: complexity,
-    transparencia: transparency,
-    acessibilidade: accessibility,
-    legibilidade: legibility,
-  };
-}
-
 function buildEditalFAQ(result: AgentResult | null) {
   if (!result) return [];
 
@@ -2768,7 +2566,14 @@ export default function TestarIA() {
   };
   const isAnalyzing = analyzeEditalMutation.isPending;
   const analyzeButtonLabel = "Analisar Documento";
-  const complexityProfile = useMemo(() => getComplexityProfile(text), [text]);
+  
+  /**
+   * Cronograma: SEMPRE usa dados da IA (canonicalAnalysis.cronograma).
+   * Se não houver análise, retorna array vazio — NUNCA usa fallback de regex.
+   * 
+   * Racionale: O cronograma é uma estrutura crítica que deve vir da IA especializada.
+   * Regex simples não consegue diferenciar datas de lei de datas de prazo.
+   */
   const timelineSteps = useMemo(() => {
     const canonicalItems = canonicalAnalysis?.cronograma?.items;
     if (canonicalItems && canonicalItems.length > 0) {
@@ -2778,8 +2583,17 @@ export default function TestarIA() {
         description: item.descricao,
       }));
     }
-    return buildTimelineSteps(text);
-  }, [text, canonicalAnalysis]);
+    // Se não houver análise canônica, mostrar vazio — não usar buildTimelineSteps
+    return [];
+  }, [canonicalAnalysis]);
+  
+  /**
+   * Checklist: SEMPRE usa dados da IA (canonicalAnalysis.checklist).
+   * Se não houver análise, retorna array vazio — NUNCA usa fallback de regex.
+   * 
+   * Racionale: Documentos obrigatórios vs opcionais é uma distinção crítica
+   * que regex não consegue fazer corretamente.
+   */
   const checklistItems = useMemo(() => {
     const canonicalItems = canonicalAnalysis?.checklist?.items;
     if (canonicalItems && canonicalItems.length > 0) {
@@ -2789,8 +2603,10 @@ export default function TestarIA() {
         hint: item.observacao,
       }));
     }
-    return buildChecklist(text);
-  }, [text, canonicalAnalysis]);
+    // Se não houver análise canônica, mostrar vazio — não usar buildChecklist
+    return [];
+  }, [canonicalAnalysis]);
+  
   const faqItems = useMemo(() => buildEditalFAQ(agentResult), [agentResult]);
 
   const applyResult = (result: AgentResult) => {

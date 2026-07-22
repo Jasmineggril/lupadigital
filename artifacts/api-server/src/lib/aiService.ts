@@ -88,14 +88,91 @@ export const AgentAnalyzeBodySchema = z.object({
   profile: AgentUserProfileSchema.optional(),
 });
 
+/**
+ * Alerta estruturado para indicar inconsistências, ambiguidades ou ausências de informação.
+ * Permite rastreamento fino de problemas e navegação para fontes.
+ */
+export interface ValidationAlert {
+  categoria: "ambiguidade" | "contradição" | "ausência" | "inferência" | "temporal";
+  descricao: string;
+  pagina?: number;
+  secao?: string;
+  trechoFonte?: string;
+  severidade: "baixa" | "média" | "alta";
+}
+
+/**
+ * Item de cronograma validado com informações de origem e confiança.
+ * Garante rastreabilidade de cada data e detecção de inconsistências temporais.
+ */
+export interface CronogramaItem {
+  fase: string;
+  periodo: string;
+  dataInicio?: string; // ISO 8601 quando possível
+  dataFim?: string;    // ISO 8601 quando possível
+  descricao: string;
+  status: "passado" | "ativo" | "futuro";
+  pagina?: number;
+  secao?: string;
+  trechoFonte?: string;
+  confianca: "alta" | "média" | "baixa";
+}
+
+/**
+ * Documento estruturado com informações de obrigatoriedade e rastreamento.
+ */
+export interface DocumentoExigido {
+  nome: string;
+  obrigatorio: boolean;
+  observacao: string;
+  pagina?: number;
+  secao?: string;
+  trechoFonte?: string;
+}
+
+/**
+ * Critério de elegibilidade com rastreamento de origem.
+ */
+export interface CriterioElegibilidade {
+  criterio: string;
+  atende?: boolean | "parcial";
+  observacao: string;
+  pagina?: number;
+  secao?: string;
+  trechoFonte?: string;
+  confianca: "alta" | "média" | "baixa";
+}
+
+/**
+ * Estrutura canônica unificada para todas as análises de edital.
+ * 
+ * PRINCÍPIO: Fonte Única de Verdade
+ * Todas as áreas da interface (Interpretação, Cronograma, Checklist, Elegibilidade, Chat, Exportação)
+ * consomem SOMENTE esta estrutura. Não há análises independentes por área.
+ *
+ * VALIDAÇÃO: Todos os campos críticos incluem rastreamento de origem (página, trecho, confiança).
+ *
+ * ALERTAS: Inconsistências temporais, ambiguidades, dados faltantes são sinalizados em `alertas`.
+ */
 export interface CanonicalAnalysis {
   analysisId: string;
-  schemaVersion: "1.0.0";
+  schemaVersion: "1.0.1";
   source: {
     agentId: AgentId;
     generatedAt: string;
     textLength: number;
     profile?: z.infer<typeof AgentUserProfileSchema>;
+    documentHash?: string;
+    promptVersion?: string;
+  };
+  documento: {
+    titulo?: string;
+    numero?: string;
+    orgao?: string;
+    anoPublicacao?: number;
+    tipo?: string;
+    fonte?: string;
+    totalPaginas?: number;
   };
   interpretation: {
     summary: string;
@@ -107,8 +184,12 @@ export interface CanonicalAnalysis {
     simpleLanguage: string;
   };
   cronograma?: {
-    items: Array<{ fase: string; periodo: string; descricao: string; status: "passado" | "ativo" | "futuro" }>;
+    items: CronogramaItem[];
     summary?: string;
+    validacaoTemporal?: {
+      temConflitos: boolean;
+      conflitos: Array<{ evento1: string; evento2: string; problema: string }>;
+    };
   };
   checklist?: {
     items: Array<{ doc: string; obrigatorio: boolean; observacao: string; checked: boolean }>;
@@ -129,8 +210,116 @@ export interface CanonicalAnalysis {
     items: string[];
     summary: string;
   };
-  alertas: string[];
+  alertas: (string | ValidationAlert)[];
   agentResult: Record<string, unknown>;
+}
+
+/**
+ * Tenta fazer parse de uma data em múltiplos formatos brasileiros.
+ * Retorna Date se conseguir, null caso contrário.
+ *
+ * Suporta:
+ * - "31 de dezembro de 2026" (português completo)
+ * - "31/12/2026" (DD/MM/YYYY)
+ * - "2026-12-31" (ISO 8601)
+ * - "december 31, 2026" (inglês — detecta contexto)
+ *
+ * @param dateString - String contendo uma data
+ * @returns Date válido ou null
+ */
+function parseDate(dateString: string): Date | null {
+  if (!dateString || typeof dateString !== "string") return null;
+
+  // Tira espaços extras
+  const clean = dateString.trim();
+
+  // Padrão: "31 de dezembro de 2026"
+  const ptMatch = clean.match(
+    /(\d{1,2})\s+de\s+([a-záéíóúâêîôûãõ]+)\s+de\s+(\d{4})/i
+  );
+  if (ptMatch) {
+    const meses: Record<string, number> = {
+      janeiro: 1, fevereiro: 2, março: 3, abril: 4, maio: 5, junho: 6,
+      julho: 7, agosto: 8, setembro: 9, outubro: 10, novembro: 11, dezembro: 12,
+    };
+    const dia = parseInt(ptMatch[1], 10);
+    const mesStr = ptMatch[2].toLowerCase();
+    const ano = parseInt(ptMatch[3], 10);
+    const mes = meses[mesStr];
+    if (mes) {
+      return new Date(ano, mes - 1, dia);
+    }
+  }
+
+  // Padrão: "31/12/2026"
+  const brMatch = clean.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (brMatch) {
+    const dia = parseInt(brMatch[1], 10);
+    const mes = parseInt(brMatch[2], 10);
+    const ano = parseInt(brMatch[3], 10);
+    return new Date(ano, mes - 1, dia);
+  }
+
+  // Padrão: "2026-12-31" (ISO)
+  try {
+    const isoDate = new Date(clean);
+    if (!isNaN(isoDate.getTime())) return isoDate;
+  } catch { /* ignore */ }
+
+  return null;
+}
+
+/**
+ * Detecta conflitos temporais em um cronograma.
+ * 
+ * Valida:
+ * - Data de início < data de fim
+ * - Fases em sequência cronológica
+ * - Ausência de datas inconsistentes
+ *
+ * @param items - Array de items do cronograma com datas parseadas
+ * @returns Array de conflitos encontrados
+ */
+function validateTemporalConsistency(
+  items: CronogramaItem[]
+): Array<{ evento1: string; evento2: string; problema: string }> {
+  const conflitos: Array<{ evento1: string; evento2: string; problema: string }> = [];
+
+  // Tenta fazer parse de datas
+  const itemsWithDates = items
+    .map((item) => ({
+      ...item,
+      inicio: item.dataInicio ? parseDate(item.dataInicio) : null,
+      fim: item.dataFim ? parseDate(item.dataFim) : null,
+    }))
+    .filter((item) => item.inicio || item.fim);
+
+  // Verifica se data de fim é anterior à de início (no mesmo evento)
+  itemsWithDates.forEach((item) => {
+    if (item.inicio && item.fim && item.inicio > item.fim) {
+      conflitos.push({
+        evento1: item.fase,
+        evento2: item.fase,
+        problema: `Data de fim anterior à data de início no evento "${item.fase}"`,
+      });
+    }
+  });
+
+  // Verifica ordem cronológica entre eventos
+  for (let i = 0; i < itemsWithDates.length - 1; i++) {
+    const curr = itemsWithDates[i];
+    const next = itemsWithDates[i + 1];
+
+    if (curr.fim && next.inicio && curr.fim > next.inicio) {
+      conflitos.push({
+        evento1: curr.fase,
+        evento2: next.fase,
+        problema: `"${curr.fase}" termina após o início de "${next.fase}"`,
+      });
+    }
+  }
+
+  return conflitos;
 }
 
 export function buildCanonicalAnalysis(
@@ -140,7 +329,50 @@ export function buildCanonicalAnalysis(
   profile?: z.infer<typeof AgentUserProfileSchema>,
 ): CanonicalAnalysis {
   const result = agentResult as Record<string, unknown>;
-  const alerts = Array.isArray(result.alertas) ? (result.alertas as string[]) : [];
+  
+  /**
+   * Normaliza alertas para formato estruturado.
+   * Suporta tanto strings simples quanto ValidationAlert completos.
+   */
+  const normalizeAlerts = (): (string | ValidationAlert)[] => {
+    const rawAlerts = Array.isArray(result.alertas) ? (result.alertas as unknown[]) : [];
+    return rawAlerts.map((alert) => {
+      if (typeof alert === "string") {
+        // Classifica automáticamente por pattern
+        if (/ambiguid/i.test(alert)) {
+          return {
+            categoria: "ambiguidade" as const,
+            descricao: alert,
+            severidade: "média" as const,
+          };
+        }
+        if (/contradi/i.test(alert)) {
+          return {
+            categoria: "contradição" as const,
+            descricao: alert,
+            severidade: "alta" as const,
+          };
+        }
+        if (/ausênc|não informad/i.test(alert)) {
+          return {
+            categoria: "ausência" as const,
+            descricao: alert,
+            severidade: "baixa" as const,
+          };
+        }
+        if (/inferid|pressum|consider/i.test(alert)) {
+          return {
+            categoria: "inferência" as const,
+            descricao: alert,
+            severidade: "média" as const,
+          };
+        }
+        // Default
+        return alert;
+      }
+      return alert;
+    });
+  };
 
   const interpretation = {
     summary:
@@ -178,39 +410,91 @@ export function buildCanonicalAnalysis(
       "Texto adaptado para leitura acessível.",
   };
 
+  /**
+   * Constrói cronograma com validação temporal.
+   * Se houver conflitos de datas, adiciona alertas estruturados.
+   */
   const cronograma = Array.isArray(result.timeline)
-    ? {
-        items: (result.timeline as Array<Record<string, unknown>>).map((item) => ({
-          fase: typeof item.fase === "string" ? item.fase : "",
-          periodo: typeof item.periodo === "string" ? item.periodo : "",
-          descricao: typeof item.descricao === "string" ? item.descricao : "",
-          status: (item.status as "passado" | "ativo" | "futuro") ?? "ativo",
-        })),
-        summary: typeof result.observacao === "string" ? result.observacao : undefined,
-      }
+    ? (() => {
+        const items = (result.timeline as Array<Record<string, unknown>>).map(
+          (item): CronogramaItem => ({
+            fase: typeof item.fase === "string" ? item.fase : "",
+            periodo: typeof item.periodo === "string" ? item.periodo : "",
+            dataInicio:
+              typeof item.dataInicio === "string"
+                ? item.dataInicio
+                : undefined,
+            dataFim:
+              typeof item.dataFim === "string" ? item.dataFim : undefined,
+            descricao: typeof item.descricao === "string" ? item.descricao : "",
+            status: (item.status as "passado" | "ativo" | "futuro") ?? "ativo",
+            pagina:
+              typeof item.pagina === "number" ? item.pagina : undefined,
+            secao:
+              typeof item.secao === "string" ? item.secao : undefined,
+            trechoFonte:
+              typeof item.trechoFonte === "string"
+                ? item.trechoFonte
+                : undefined,
+            confianca: (item.confianca as "alta" | "média" | "baixa") ?? "média",
+          })
+        );
+
+        const conflitos = validateTemporalConsistency(items);
+        
+        return {
+          items,
+          summary: typeof result.observacao === "string" ? result.observacao : undefined,
+          validacaoTemporal:
+            conflitos.length > 0
+              ? {
+                  temConflitos: true,
+                  conflitos,
+                }
+              : undefined,
+        };
+      })()
     : undefined;
 
   const checklist = Array.isArray(result.checklist)
     ? {
-        items: (result.checklist as Array<Record<string, unknown>>).map((item) => ({
-          doc: typeof item.doc === "string" ? item.doc : "",
-          obrigatorio: Boolean(item.obrigatorio),
-          observacao: typeof item.observacao === "string" ? item.observacao : "",
-          checked: Boolean(item.checked),
-        })),
-        summary: typeof result.dica === "string" ? result.dica : undefined,
+        items: (result.checklist as Array<Record<string, unknown>>).map(
+          (item) => ({
+            doc: typeof item.doc === "string" ? item.doc : "",
+            obrigatorio: Boolean(item.obrigatorio),
+            observacao:
+              typeof item.observacao === "string" ? item.observacao : "",
+            checked: Boolean(item.checked),
+          })
+        ),
+        summary:
+          typeof result.dica === "string" ? result.dica : undefined,
       }
     : undefined;
 
   const elegibilidade = Array.isArray(result.criterios)
     ? {
-        score: typeof result.score === "number" ? result.score : undefined,
-        criteria: (result.criterios as Array<Record<string, unknown>>).map((item) => ({
-          criterio: typeof item.criterio === "string" ? item.criterio : "",
-          atende: (item.atende === true || item.atende === "parcial") ? item.atende : false,
-          observacao: typeof item.observacao === "string" ? item.observacao : "",
-        })),
-        recommendation: typeof result.recomendacao === "string" ? result.recomendacao : undefined,
+        score:
+          typeof result.score === "number" ? result.score : undefined,
+        criteria: (result.criterios as Array<Record<string, unknown>>).map(
+          (item) => ({
+            criterio:
+              typeof item.criterio === "string" ? item.criterio : "",
+            atende:
+              item.atende === true ||
+              item.atende === "parcial"
+                ? item.atende
+                : false,
+            observacao:
+              typeof item.observacao === "string"
+                ? item.observacao
+                : "",
+          })
+        ),
+        recommendation:
+          typeof result.recomendacao === "string"
+            ? result.recomendacao
+            : undefined,
         nextSteps: Array.isArray(result.proximosPassos)
           ? (result.proximosPassos as string[]).filter(Boolean)
           : undefined,
@@ -222,36 +506,96 @@ export function buildCanonicalAnalysis(
       Array.isArray(result.documentos)
         ? (result.documentos as string[]).filter(Boolean)
         : Array.isArray(result.checklist)
-          ? (result.checklist as Array<Record<string, unknown>>).map((item) => (typeof item.doc === "string" ? item.doc : "")).filter(Boolean)
+          ? (result.checklist as Array<Record<string, unknown>>)
+              .map((item) =>
+                typeof item.doc === "string" ? item.doc : ""
+              )
+              .filter(Boolean)
           : [],
     summary:
-      Array.isArray(result.documentos) && result.documentos.length > 0
-        ? `Documentos exigidos: ${String(result.documentos.join(", "))}`
+      Array.isArray(result.documentos) &&
+      (result.documentos as string[]).length > 0
+        ? `Documentos exigidos: ${(result.documentos as string[]).join(
+            ", "
+          )}`
         : Array.isArray(result.checklist)
           ? "Checklist de documentos listado na interpretação."
           : "Não há documentos exigidos identificados no texto.",
   };
 
+  const allAlerts = normalizeAlerts();
+
+  // Adiciona alerta para conflitos temporais
+  if (
+    cronograma?.validacaoTemporal?.temConflitos &&
+    cronograma.validacaoTemporal.conflitos.length > 0
+  ) {
+    cronograma.validacaoTemporal.conflitos.forEach((conf) => {
+      allAlerts.push({
+        categoria: "temporal" as const,
+        descricao: conf.problema,
+        severidade: "alta" as const,
+      });
+    });
+  }
+
   return {
     analysisId: `analysis-${randomUUID()}`,
-    schemaVersion: "1.0.0",
+    schemaVersion: "1.0.1",
     source: {
       agentId,
       generatedAt: new Date().toISOString(),
       textLength: originalText.trim().length,
       profile,
     },
+    documento: {
+      titulo:
+        typeof result.tipoEdital === "string"
+          ? result.tipoEdital
+          : undefined,
+      numero:
+        typeof result.numero === "string"
+          ? result.numero
+          : undefined,
+      orgao:
+        typeof result.instituicao === "string"
+          ? result.instituicao
+          : undefined,
+      anoPublicacao:
+        typeof result.anoPublicacao === "number"
+          ? result.anoPublicacao
+          : undefined,
+      tipo:
+        typeof result.tipoEdital === "string"
+          ? result.tipoEdital
+          : undefined,
+      fonte:
+        typeof result.fonte === "string"
+          ? result.fonte
+          : undefined,
+      totalPaginas:
+        typeof result.totalPaginas === "number"
+          ? result.totalPaginas
+          : undefined,
+    },
     interpretation,
     cronograma,
     checklist,
     elegibilidade,
     valores: {
-      valor: typeof result.valor === "string" ? result.valor : undefined,
-      moeda: typeof result.valor === "string" && /R\$/i.test(result.valor) ? "BRL" : undefined,
-      observacao: typeof result.observacao === "string" ? result.observacao : undefined,
+      valor:
+        typeof result.valor === "string" ? result.valor : undefined,
+      moeda:
+        typeof result.valor === "string" && /R\$/i.test(result.valor)
+          ? "BRL"
+          : undefined,
+      observacao:
+        typeof result.observacao === "string"
+          ? result.observacao
+          : undefined,
     },
     documentosExigidos,
-    alertas: alerts,
+    alertas: allAlerts,
     agentResult,
   };
 }
@@ -268,6 +612,11 @@ export const SimplesResponseSchema = z.object({
   requisitos: z.array(z.string()),
   ondeInscrever: z.string(),
   observacao: z.string(),
+  /** Metadados do documento para rastreabilidade */
+  numero: z.string().optional(),
+  anoPublicacao: z.number().int().optional(),
+  fonte: z.string().optional(),
+  totalPaginas: z.number().int().optional(),
   /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -281,6 +630,11 @@ export const AnalistaResponseSchema = z.object({
   requisitos: z.array(z.string()),
   documentos: z.array(z.string()),
   valor: z.string(),
+  /** Metadados do documento para rastreabilidade */
+  numero: z.string().optional(),
+  anoPublicacao: z.number().int().optional(),
+  fonte: z.string().optional(),
+  totalPaginas: z.number().int().optional(),
   /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -293,6 +647,11 @@ export const EstrategicaResponseSchema = z.object({
   pontosAtencao: z.array(z.string()),
   riscos: z.array(z.string()),
   recomendacao: z.string(),
+  /** Metadados do documento para rastreabilidade */
+  numero: z.string().optional(),
+  anoPublicacao: z.number().int().optional(),
+  fonte: z.string().optional(),
+  totalPaginas: z.number().int().optional(),
   /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -308,6 +667,11 @@ export const AcompanhamentoResponseSchema = z.object({
   type: z.literal("acompanhamento"),
   timeline: z.array(TimelineItemSchema),
   observacao: z.string(),
+  /** Metadados do documento para rastreabilidade */
+  numero: z.string().optional(),
+  anoPublicacao: z.number().int().optional(),
+  fonte: z.string().optional(),
+  totalPaginas: z.number().int().optional(),
   /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -323,6 +687,11 @@ export const DocumentacaoResponseSchema = z.object({
   type: z.literal("documentacao"),
   checklist: z.array(ChecklistItemSchema),
   dica: z.string(),
+  /** Metadados do documento para rastreabilidade */
+  numero: z.string().optional(),
+  anoPublicacao: z.number().int().optional(),
+  fonte: z.string().optional(),
+  totalPaginas: z.number().int().optional(),
   /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -339,6 +708,11 @@ export const ElegibilidadeResponseSchema = z.object({
   criterios: z.array(ElegibilidadeCriterioSchema),
   recomendacao: z.string(),
   proximosPassos: z.array(z.string()),
+  /** Metadados do documento para rastreabilidade */
+  numero: z.string().optional(),
+  anoPublicacao: z.number().int().optional(),
+  fonte: z.string().optional(),
+  totalPaginas: z.number().int().optional(),
   /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -453,6 +827,10 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "requisitos": ["Requisito 1 — fiel ao documento", "Requisito 2", "Requisito 3"],
   "ondeInscrever": "Como e onde se inscrever exatamente como consta",
   "observacao": "Dica prática para o candidato — sem criar expectativas não previstas",
+  "numero": "Número/identificador do edital se disponível",
+  "anoPublicacao": 2024,
+  "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
+  "totalPaginas": 45,
   "alertas": ["⚠ [ambiguidade] exemplo — apenas se houver problemas reais"]
 }`,
   analista: `{
@@ -464,6 +842,10 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "requisitos": ["Requisito 1 — fiel ao texto", "Requisito 2"],
   "documentos": ["Documento 1", "Documento 2"],
   "valor": "Valor EXATAMENTE como consta (ou 'Não especificado')",
+  "numero": "Número/identificador do edital se disponível",
+  "anoPublicacao": 2024,
+  "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
+  "totalPaginas": 45,
   "alertas": ["⚠ [inferência] exemplo — apenas se houver problemas reais"]
 }`,
   estrategica: `{
@@ -474,6 +856,10 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "pontosAtencao": ["Ponto de atenção 1 — exigência real do edital", "Ponto 2"],
   "riscos": ["Risco 1 — fundamentado no texto", "Risco 2"],
   "recomendacao": "Recomendação estratégica baseada exclusivamente nas condições reais",
+  "numero": "Número/identificador do edital se disponível",
+  "anoPublicacao": 2024,
+  "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
+  "totalPaginas": 45,
   "alertas": ["⚠ [ambiguidade] exemplo — apenas se houver problemas reais"]
 }`,
   acompanhamento: `{
@@ -487,6 +873,10 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
     {"fase": "🏆 Resultado Final", "periodo": "data EXATA ou 'Verificar no edital'", "descricao": "descrição fiel", "status": "futuro"}
   ],
   "observacao": "Observação sobre os prazos — se não constar no edital, indicar 'Verificar no edital'",
+  "numero": "Número/identificador do edital se disponível",
+  "anoPublicacao": 2024,
+  "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
+  "totalPaginas": 45,
   "alertas": ["⚠ [ausência] exemplo — apenas se houver datas não informadas ou ambíguas"]
 }`,
   documentacao: `{
@@ -495,6 +885,10 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
     {"doc": "Nome exato do documento conforme o edital", "obrigatorio": true, "observacao": "Como obter ou preparar — sem adicionar exigências ausentes no edital", "checked": false}
   ],
   "dica": "Dica prática baseada no que o edital efetivamente exige",
+  "numero": "Número/identificador do edital se disponível",
+  "anoPublicacao": 2024,
+  "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
+  "totalPaginas": 45,
   "alertas": ["⚠ [inferência] exemplo — apenas para documentos inferidos, não declarados"]
 }`,
   elegibilidade: `{
@@ -509,6 +903,10 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   ],
   "recomendacao": "Recomendação baseada nos critérios reais — sem suavizar exigências não atendidas",
   "proximosPassos": ["Passo 1 — ação concreta baseada no edital", "Passo 2"],
+  "numero": "Número/identificador do edital se disponível",
+  "anoPublicacao": 2024,
+  "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
+  "totalPaginas": 45,
   "alertas": ["⚠ [ambiguidade] exemplo — apenas se critérios forem ambíguos ou imprecisos"]
 }`,
 };

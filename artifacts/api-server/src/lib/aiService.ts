@@ -30,6 +30,382 @@ import { SimplifyEditalResponse } from "@workspace/api-zod";
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
 
+const DEFAULT_AI_MAX_INPUT_TOKENS = 12000;
+const DEFAULT_AI_CHUNK_TARGET_TOKENS = 1800;
+const DEFAULT_AI_CHUNK_OVERLAP_TOKENS = 300;
+const DEFAULT_AI_CHUNK_CONCURRENCY = 1;
+
+function getChunkingConfig() {
+  return {
+    maxInputTokens: Number.parseInt(process.env.AI_MAX_INPUT_TOKENS ?? "", 10) || DEFAULT_AI_MAX_INPUT_TOKENS,
+    targetTokens: Number.parseInt(process.env.AI_CHUNK_TARGET_TOKENS ?? "", 10) || DEFAULT_AI_CHUNK_TARGET_TOKENS,
+    overlapTokens: Number.parseInt(process.env.AI_CHUNK_OVERLAP_TOKENS ?? "", 10) || DEFAULT_AI_CHUNK_OVERLAP_TOKENS,
+    concurrency: Number.parseInt(process.env.AI_CHUNK_CONCURRENCY ?? "", 10) || DEFAULT_AI_CHUNK_CONCURRENCY,
+  };
+}
+
+function estimateTokens(text: string): number {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (!compact) return 0;
+  const words = compact.split(/\s+/).length;
+  const chars = compact.length;
+  return Math.max(1, Math.ceil((words * 1.3 + chars / 4) / 2));
+}
+
+function normalizeControlCharacters(text: string): string {
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ");
+}
+
+function normalizeDocumentText(raw: string): { text: string; pages: Array<{ pageNumber: number; text: string }> } {
+  const withoutControl = normalizeControlCharacters(raw ?? "");
+  const collapsed = withoutControl
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[\u00A0]/g, " ").trim())
+    .filter((line, index, arr) => {
+      if (!line) return true;
+      const prev = arr[index - 1];
+      return !(prev && prev === line);
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  const pages: Array<{ pageNumber: number; text: string }> = [];
+  const pagePattern = /(?:^|\n)\s*(?:p[aá]gina|page)\s*[:#-]?\s*(\d+)/gi;
+  const matches = [...collapsed.matchAll(pagePattern)];
+  if (matches.length > 0) {
+    for (let index = 0; index < matches.length; index += 1) {
+      const match = matches[index];
+      const start = match.index ?? 0;
+      const next = matches[index + 1]?.index ?? collapsed.length;
+      const pageText = collapsed.slice(start, next).trim();
+      pages.push({ pageNumber: Number.parseInt(match[1], 10), text: pageText });
+    }
+  }
+
+  return { text: collapsed, pages };
+}
+
+export interface DocumentChunk {
+  chunkId: string;
+  index: number;
+  pageStart: number | null;
+  pageEnd: number | null;
+  sectionTitles: string[];
+  text: string;
+  estimatedTokens: number;
+}
+
+export interface ChunkAnalysisFacts {
+  documentInfo: Array<{ title?: string; organization?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
+  dates: Array<{ event?: string; value?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
+  requirements: Array<{ requirement?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
+  eligibility: Array<{ criterion?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
+  documents: Array<{ document?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
+  values: Array<{ value?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
+  contacts: Array<{ contact?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
+  obligations: Array<{ obligation?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
+  restrictions: Array<{ restriction?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
+  alerts: Array<{ message?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
+}
+
+function getSectionTitles(text: string): string[] {
+  const lines = text.split(/\n/).map((line) => line.trim()).filter(Boolean);
+  return lines.filter((line) => line.length <= 120 && /[A-ZÁÉÍÓÚÂÊÔÃÕ]/.test(line) && !/^(http|www)/i.test(line)).slice(0, 3);
+}
+
+function getChunkOverlapText(previousText: string, overlapTokens: number): string {
+  if (!previousText) return "";
+  const compact = previousText.replace(/\s+/g, " ").trim();
+  const maxChars = Math.max(120, Math.round(overlapTokens * 4));
+  return compact.slice(-maxChars).trim();
+}
+
+/**
+ * Divide um documento grande em blocos menores, preservando seções, títulos e contexto.
+ * A função prioriza parágrafos e seções antes de cortar o texto em partes menores,
+ * evitando truncamento silencioso e preservando a estrutura do documento.
+ */
+export function chunkDocument(text: string): DocumentChunk[] {
+  const { text: normalizedText } = normalizeDocumentText(text);
+  if (!normalizedText.trim()) return [];
+
+  const { targetTokens, overlapTokens } = getChunkingConfig();
+  const paragraphs = normalizedText
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  const chunks: DocumentChunk[] = [];
+  let currentText = "";
+  let currentTitles: string[] = [];
+
+  const flushChunk = (chunkText: string, sectionTitles: string[], previousText: string) => {
+    if (!chunkText.trim()) return previousText;
+    const estimatedTokens = estimateTokens(chunkText);
+    chunks.push({
+      chunkId: `chunk-${chunks.length + 1}`,
+      index: chunks.length,
+      pageStart: null,
+      pageEnd: null,
+      sectionTitles: sectionTitles.slice(0, 3),
+      text: chunkText,
+      estimatedTokens,
+    });
+    return chunkText;
+  };
+
+  paragraphs.forEach((paragraph) => {
+    const titles = getSectionTitles(paragraph);
+    const paragraphTokens = estimateTokens(paragraph);
+    const nextText = currentText ? `${currentText}\n\n${paragraph}` : paragraph;
+    const nextTokens = estimateTokens(nextText);
+    if (!currentText || nextTokens <= targetTokens) {
+      currentText = nextText;
+      currentTitles = currentTitles.length ? [...new Set([...currentTitles, ...titles])] : titles;
+      return;
+    }
+
+    const overlapText = overlapTokens > 0 ? getChunkOverlapText(currentText, overlapTokens) : "";
+    const chunkText = overlapText ? `${overlapText}\n\n${currentText}` : currentText;
+    flushChunk(chunkText, currentTitles, currentText);
+    currentText = overlapText ? `${overlapText}\n\n${paragraph}` : paragraph;
+    currentTitles = titles;
+  });
+
+  if (currentText.trim()) {
+    const overlapText = overlapTokens > 0 ? getChunkOverlapText(currentText, overlapTokens) : "";
+    const chunkText = overlapText ? `${overlapText}\n\n${currentText}` : currentText;
+    flushChunk(chunkText, currentTitles, currentText);
+  }
+
+  return chunks.map((chunk, index) => ({ ...chunk, index }));
+}
+
+function normalizeFactText(value?: string): string {
+  return (value ?? "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function mergeFacts<T extends Record<string, unknown>>(items: T[], keyField: string): T[] {
+  const merged = new Map<string, T>();
+
+  items.forEach((item) => {
+    const key = normalizeFactText(String((item as Record<string, unknown>)[keyField] ?? ""));
+    if (!key) return;
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, item);
+      return;
+    }
+
+    Object.entries(item).forEach(([field, value]) => {
+      const currentValue = (existing as Record<string, unknown>)[field];
+      if (currentValue && !String(currentValue).trim()) {
+        (existing as Record<string, unknown>)[field] = value;
+      }
+    });
+  });
+
+  return Array.from(merged.values());
+}
+
+/**
+ * Consolida fatos extraídos de blocos diferentes, removendo duplicidades e preservando as fontes.
+ */
+export function consolidateChunkFacts(chunkResults: Array<{ chunkId: string; facts: ChunkAnalysisFacts }>): ChunkAnalysisFacts {
+  return {
+    documentInfo: mergeFacts(chunkResults.flatMap((entry) => entry.facts.documentInfo.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "title"),
+    dates: mergeFacts(chunkResults.flatMap((entry) => entry.facts.dates.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "event"),
+    requirements: mergeFacts(chunkResults.flatMap((entry) => entry.facts.requirements.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "requirement"),
+    eligibility: mergeFacts(chunkResults.flatMap((entry) => entry.facts.eligibility.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "criterion"),
+    documents: mergeFacts(chunkResults.flatMap((entry) => entry.facts.documents.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "document"),
+    values: mergeFacts(chunkResults.flatMap((entry) => entry.facts.values.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "value"),
+    contacts: mergeFacts(chunkResults.flatMap((entry) => entry.facts.contacts.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "contact"),
+    obligations: mergeFacts(chunkResults.flatMap((entry) => entry.facts.obligations.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "obligation"),
+    restrictions: mergeFacts(chunkResults.flatMap((entry) => entry.facts.restrictions.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "restriction"),
+    alerts: mergeFacts(chunkResults.flatMap((entry) => entry.facts.alerts.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "message"),
+  };
+}
+
+function buildFallbackChunkFacts(chunkText: string): ChunkAnalysisFacts {
+  const lines = chunkText.split(/\n/).map((line) => line.trim()).filter(Boolean);
+  const dates = Array.from(chunkText.matchAll(/\b(\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+de\s+[\wáéíóúçãõ]+\s+de\s+\d{4})\b/gi)).map((match) => ({ value: match[0], text: match[0] }));
+  const requirements = lines.filter((line) => /deve|obrigat|requisito|documento|inscri/i.test(line)).slice(0, 5).map((line) => ({ requirement: line }));
+  const obligations = lines.filter((line) => /deve|obrigat|entreg|apresent|cumpr/i.test(line)).slice(0, 5).map((line) => ({ obligation: line }));
+  const documents = lines.filter((line) => /rg|cpf|cnh|currículo|comprovante|declara/i.test(line)).slice(0, 5).map((line) => ({ document: line }));
+  const alerts = lines.filter((line) => /atenção|importante|aviso|alerta/i.test(line)).slice(0, 3).map((line) => ({ message: line }));
+
+  return {
+    documentInfo: lines.slice(0, 2).filter((line) => line.length < 140).map((line) => ({ title: line })),
+    dates,
+    requirements,
+    eligibility: lines.filter((line) => /idade|residir|renda|escolaridade|perfil/i.test(line)).slice(0, 3).map((line) => ({ criterion: line })),
+    documents,
+    values: Array.from(chunkText.matchAll(/R\$\s*\d{1,3}(?:[\.,]\d{3})*(?:[\.,]\d{2})?/gi)).map((match) => ({ value: match[0] })),
+    contacts: [],
+    obligations,
+    restrictions: lines.filter((line) => /não|proib|restri/i.test(line)).slice(0, 3).map((line) => ({ restriction: line })),
+    alerts,
+  };
+}
+
+const ChunkFactsSchema = z.object({
+  documentInfo: z.array(z.object({ title: z.string().optional(), organization: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
+  dates: z.array(z.object({ event: z.string().optional(), value: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
+  requirements: z.array(z.object({ requirement: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
+  eligibility: z.array(z.object({ criterion: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
+  documents: z.array(z.object({ document: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
+  values: z.array(z.object({ value: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
+  contacts: z.array(z.object({ contact: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
+  obligations: z.array(z.object({ obligation: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
+  restrictions: z.array(z.object({ restriction: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
+  alerts: z.array(z.object({ message: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
+});
+
+function buildChunkFactPrompt(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>) {
+  const profileInfo = profile && agentId === "elegibilidade"
+    ? `\n\nPERFIL DO USUÁRIO:\n- Escolaridade: ${profile.escolaridade}\n- Área de atuação: ${profile.atuacao || "não informada"}\n- Município/UF: ${profile.municipio || "não informada"}\n- Renda familiar: ${profile.rendaFamiliar}`
+    : "";
+
+  const system = [
+    "Você é um assistente especializado em extração estruturada de fatos de editais públicos.",
+    "Extraia apenas fatos explícitos e rastreáveis do trecho abaixo.",
+    "Não invente ou adicione informações ausentes.",
+    "Preserve páginas, seções e trechos de origem quando possível.",
+    "Responda apenas em JSON válido.",
+  ].join("\n");
+
+  const user = `Extraia fatos estruturados do trecho abaixo e devolva um JSON com as chaves documentInfo, dates, requirements, eligibility, documents, values, contacts, obligations, restrictions e alerts.${profileInfo}\n\nTRECHO:\n${chunkText}`;
+
+  return { system, user };
+}
+
+async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null }) {
+  const { system, user } = buildChunkFactPrompt(agentId, chunkText, profile);
+  try {
+    const { parsed } = await createJsonChatCompletion({
+      model: getOpenAIModel(),
+      max_tokens: 2048,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    } as any, "AIService.analyzeChunkFacts");
+
+    const validated = ChunkFactsSchema.safeParse(parsed);
+    if (!validated.success) {
+      return buildFallbackChunkFacts(chunkText);
+    }
+
+    return validated.data as ChunkAnalysisFacts;
+  } catch {
+    return buildFallbackChunkFacts(chunkText);
+  }
+}
+
+async function processChunkWithRetry(agentId: AgentId, chunk: DocumentChunk, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null }) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const facts = await analyzeChunkFacts(agentId, chunk.text, profile, opts);
+      return { ok: true as const, chunk, facts };
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      const classification = classifyAiError(message);
+      if (attempt < 2 && classification.retryable) continue;
+      return { ok: false as const, chunk, error: message };
+    }
+  }
+  return { ok: false as const, chunk, error: lastError instanceof Error ? lastError.message : String(lastError) };
+}
+
+async function processDocumentInChunks(agentId: AgentId, text: string, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null }) {
+  const { text: normalizedText } = normalizeDocumentText(text);
+  const chunks = chunkDocument(normalizedText);
+  const concurrency = Math.max(1, getChunkingConfig().concurrency);
+  const results: Array<{ ok: boolean; chunk: DocumentChunk; facts?: ChunkAnalysisFacts; error?: string }> = [];
+
+  for (let index = 0; index < chunks.length; index += concurrency) {
+    const batch = chunks.slice(index, index + concurrency);
+    const batchResults = await Promise.all(batch.map((chunk) => processChunkWithRetry(agentId, chunk, profile, opts)));
+    results.push(...batchResults);
+  }
+
+  const processing = {
+    mode: "chunked" as const,
+    totalChunks: chunks.length,
+    processedChunks: results.filter((result) => result.ok).length,
+    failedChunks: results.filter((result) => !result.ok).length,
+    complete: results.filter((result) => !result.ok).length === 0,
+  };
+
+  return {
+    chunks,
+    chunkResults: results.filter((result): result is { ok: true; chunk: DocumentChunk; facts: ChunkAnalysisFacts } => result.ok).map((result) => ({ chunkId: result.chunk.chunkId, facts: result.facts! })),
+    processing,
+  };
+}
+
+function buildConsolidatedAgentResult(agentId: AgentId, chunkResults: Array<{ chunkId: string; facts: ChunkAnalysisFacts }>, originalText: string) {
+  const consolidatedFacts = consolidateChunkFacts(chunkResults);
+  const firstDocument = consolidatedFacts.documentInfo[0];
+  const timeline = consolidatedFacts.dates.map((date) => ({
+    fase: date.event || "Evento",
+    periodo: date.value || "Verificar no edital",
+    descricao: date.text || date.event || "Evento identificado no documento",
+    status: "ativo" as const,
+    pagina: date.page,
+    secao: date.section,
+    trechoFonte: date.text,
+    confianca: (date.confidence ?? "média") as "alta" | "média" | "baixa",
+  }));
+
+  return {
+    type: agentId,
+    tipoEdital: firstDocument?.title || "Edital público",
+    instituicao: firstDocument?.organization || "Não informado",
+    prazo: consolidatedFacts.dates.map((date) => `${date.event || "Evento"}: ${date.value || "Verificar no edital"}`).join(" | ") || "Não informado",
+    publicoAlvo: "Público-alvo conforme o edital",
+    requisitos: consolidatedFacts.requirements.map((item) => item.requirement || "Requisito identificado").filter(Boolean),
+    documentos: consolidatedFacts.documents.map((item) => item.document || "Documento identificado").filter(Boolean),
+    valor: consolidatedFacts.values.map((item) => item.value || "Valor identificado").filter(Boolean).join(" | ") || "Não informado",
+    timeline,
+    checklist: consolidatedFacts.documents.map((item) => ({
+      doc: item.document || "Documento identificado",
+      obrigatorio: true,
+      observacao: item.text || "Documento identificado no documento.",
+      checked: false,
+    })),
+    criterios: consolidatedFacts.eligibility.map((item) => ({
+      criterio: item.criterion || "Critério identificado",
+      atende: true,
+      observacao: item.text || "Critério identificado no documento.",
+    })),
+    observacao: consolidatedFacts.alerts.length > 0
+      ? "Análise consolidada a partir de múltiplas partes do documento."
+      : "Análise consolidada a partir de todas as partes do documento.",
+    alertas: consolidatedFacts.alerts.map((item) => item.message || item.text || "Alerta identificado no documento.")
+      .filter(Boolean),
+    numero: undefined,
+    anoPublicacao: undefined,
+    fonte: undefined,
+    totalPaginas: undefined,
+    processing: {
+      mode: "chunked" as const,
+      totalChunks: chunkResults.length,
+      processedChunks: chunkResults.length,
+      failedChunks: 0,
+      complete: true,
+    },
+    originalText,
+  };
+}
+
 /**
  * Extrai o primeiro objeto JSON válido de uma string.
  * O Gemini 2.5 Flash às vezes retorna texto antes/depois do JSON
@@ -128,6 +504,7 @@ async function createJsonChatCompletion(
 
 import { logger } from "./logger";
 import { getSupabaseAdmin } from "./supabase";
+import { classifyAiError } from "./processingErrors";
 
 export type AgentId = "simples" | "analista" | "estrategica" | "acompanhamento" | "documentacao" | "elegibilidade";
 
@@ -213,6 +590,13 @@ export interface CriterioElegibilidade {
 export interface CanonicalAnalysis {
   analysisId: string;
   schemaVersion: "1.0.1";
+  processing?: {
+    mode: "single" | "chunked";
+    totalChunks: number;
+    processedChunks: number;
+    failedChunks: number;
+    complete: boolean;
+  };
   source: {
     agentId: AgentId;
     generatedAt: string;
@@ -494,6 +878,14 @@ export function buildCanonicalAnalysis(
     }, []);
   };
 
+  const processing = (result.processing as CanonicalAnalysis["processing"] | undefined) ?? {
+    mode: "single",
+    totalChunks: 1,
+    processedChunks: 1,
+    failedChunks: 0,
+    complete: true,
+  };
+
   const interpretation = {
     summary:
       (typeof result.tipoEdital === "string" && result.tipoEdital) ||
@@ -695,6 +1087,7 @@ export function buildCanonicalAnalysis(
   return {
     analysisId: `analysis-${randomUUID()}`,
     schemaVersion: "1.0.1",
+    processing,
     source: {
       agentId,
       generatedAt: new Date().toISOString(),
@@ -1434,83 +1827,124 @@ export async function analyzeAgent(
   profile?: unknown,
   opts?: { userId?: string | null; documentId?: string | null },
 ) {
-  const truncated = text.length > 12000 ? text.slice(0, 12000) + "\n\n[Texto truncado para processamento]" : text;
   const parsedProfile = AgentUserProfileSchema.safeParse(profile ?? undefined);
-  const { system, user } = buildAgentPrompt(agentId, truncated, parsedProfile.success ? parsedProfile.data : undefined);
-
+  const { text: normalizedText } = normalizeDocumentText(text);
   const model = getOpenAIModel();
   const start = Date.now();
 
   try {
-    const { raw, parsed: parsedRaw, usage } = await createJsonChatCompletion(
-      {
-        model,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-      } as any,
-      "AIService.analyzeAgent",
-    );
+    const { text: normalizedDocumentText } = normalizeDocumentText(text);
+    const shouldChunk = estimateTokens(normalizedDocumentText) > getChunkingConfig().maxInputTokens * 0.75;
 
-    const parsed =
-      parsedRaw !== null && typeof parsedRaw === "object" && !Array.isArray(parsedRaw) && !(parsedRaw as Record<string, unknown>).type
-        ? { type: agentId, ...(parsedRaw as Record<string, unknown>) }
-        : parsedRaw;
-    const validator = VALIDATORS[agentId];
-    const validated = validator.safeParse(parsed);
-    const latency = Date.now() - start;
-    const inputTokens = typeof usage?.prompt_tokens === "number" ? usage.prompt_tokens : null;
-    const outputTokens = typeof usage?.completion_tokens === "number" ? usage.completion_tokens : null;
-    const totalTokens = typeof usage?.total_tokens === "number" ? usage.total_tokens : null;
+    if (!shouldChunk) {
+      const { system, user } = buildAgentPrompt(agentId, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
+      const { raw, parsed: parsedRaw, usage } = await createJsonChatCompletion(
+        {
+          model,
+          max_tokens: 4096,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+        } as any,
+        "AIService.analyzeAgent",
+      );
 
-    if (!validated.success) {
-      const e = new Error(`AI response did not match expected schema: ${JSON.stringify(validated.error.format()).slice(0, 300)} | raw: ${raw.slice(0, 200)}`);
-      (e as any).validation = validated.error.format();
-      (e as any).raw = raw;
+      const parsed =
+        parsedRaw !== null && typeof parsedRaw === "object" && !Array.isArray(parsedRaw) && !(parsedRaw as Record<string, unknown>).type
+          ? { type: agentId, ...(parsedRaw as Record<string, unknown>) }
+          : parsedRaw;
+      const validator = VALIDATORS[agentId];
+      const validated = validator.safeParse(parsed);
+      const latency = Date.now() - start;
+      const inputTokens = typeof usage?.prompt_tokens === "number" ? usage.prompt_tokens : null;
+      const outputTokens = typeof usage?.completion_tokens === "number" ? usage.completion_tokens : null;
+      const totalTokens = typeof usage?.total_tokens === "number" ? usage.total_tokens : null;
+
+      if (!validated.success) {
+        const e = new Error(`AI response did not match expected schema: ${JSON.stringify(validated.error.format()).slice(0, 300)} | raw: ${raw.slice(0, 200)}`);
+        (e as any).validation = validated.error.format();
+        (e as any).raw = raw;
+        await persistUsageLog({
+          module: "AIService.analyzeAgent",
+          model,
+          userId: opts?.userId ?? null,
+          documentId: opts?.documentId ?? null,
+          latencyMs: latency,
+          success: false,
+          errorMessage: "validation_failure",
+          inputTokens,
+          outputTokens,
+          totalTokens,
+          agentId,
+          level: "warn",
+          message: "AI response validation failed",
+        });
+        throw e;
+      }
+
+      const canonical = buildCanonicalAnalysis(agentId, validated.data as Record<string, unknown>, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
+
       await persistUsageLog({
         module: "AIService.analyzeAgent",
         model,
         userId: opts?.userId ?? null,
         documentId: opts?.documentId ?? null,
         latencyMs: latency,
-        success: false,
-        errorMessage: "validation_failure",
+        success: true,
+        errorMessage: null,
         inputTokens,
         outputTokens,
         totalTokens,
         agentId,
-        level: "warn",
-        message: "AI response validation failed",
+        level: "info",
+        message: "AI request completed",
       });
-      throw e;
+
+      return {
+        ...canonical,
+        ...validated.data,
+        type: agentId,
+        agentResult: validated.data,
+        analysisId: canonical.analysisId,
+        schemaVersion: canonical.schemaVersion,
+        interpretation: canonical.interpretation,
+        cronograma: canonical.cronograma,
+        checklist: canonical.checklist,
+        elegibilidade: canonical.elegibilidade,
+        valores: canonical.valores,
+        documentosExigidos: canonical.documentosExigidos,
+        alertas: canonical.alertas,
+      } as Record<string, unknown>;
     }
 
-    const canonical = buildCanonicalAnalysis(agentId, validated.data as Record<string, unknown>, text, parsedProfile.success ? parsedProfile.data : undefined);
+    const chunkProcessing = await processDocumentInChunks(agentId, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined, opts);
+    const consolidatedAgentResult = buildConsolidatedAgentResult(agentId, chunkProcessing.chunkResults, normalizedDocumentText);
+    const canonical = buildCanonicalAnalysis(agentId, { ...consolidatedAgentResult, processing: chunkProcessing.processing } as Record<string, unknown>, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
 
+    const latency = Date.now() - start;
     await persistUsageLog({
       module: "AIService.analyzeAgent",
       model,
       userId: opts?.userId ?? null,
       documentId: opts?.documentId ?? null,
       latencyMs: latency,
-      success: true,
-      errorMessage: null,
-      inputTokens,
-      outputTokens,
-      totalTokens,
+      success: chunkProcessing.processing.complete,
+      errorMessage: chunkProcessing.processing.complete ? null : "partial_chunk_failure",
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
       agentId,
-      level: "info",
-      message: "AI request completed",
+      level: chunkProcessing.processing.complete ? "info" : "warn",
+      message: chunkProcessing.processing.complete ? "Chunked analysis completed" : "Chunked analysis completed with partial failures",
     });
 
     return {
       ...canonical,
-      ...validated.data,
+      ...consolidatedAgentResult,
       type: agentId,
-      agentResult: validated.data,
+      agentResult: consolidatedAgentResult,
       analysisId: canonical.analysisId,
       schemaVersion: canonical.schemaVersion,
       interpretation: canonical.interpretation,
@@ -1520,6 +1954,7 @@ export async function analyzeAgent(
       valores: canonical.valores,
       documentosExigidos: canonical.documentosExigidos,
       alertas: canonical.alertas,
+      processing: canonical.processing,
     } as Record<string, unknown>;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

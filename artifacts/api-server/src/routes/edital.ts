@@ -84,21 +84,12 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
 
   const { agentId, text, profile } = parsed.data;
 
-  // Limpa o texto antes de truncar — remove binário de PDF e ruído tipográfico
+  // Limpa o texto antes de processar — remove binário de PDF e ruído tipográfico.
+  // Documentos extensos não são bloqueados; eles são analisados em partes e consolidados.
   const cleaned = cleanEditalText(text);
 
-  // Após limpeza de binários, texto limpo ≈ 3–4 chars/token.
-  // Não truncar silenciosamente: se o documento for extenso, devolver 413
-  // e instruir o cliente a processar por seções ou reduzir o tamanho.
-  const MAX_CHARS = 12000;
-  if (cleaned.length > MAX_CHARS) {
-    res.status(413).json({ error: "O documento é extenso e precisa ser processado em partes." });
-    return;
-  }
-  const truncated = cleaned;
-
   try {
-    const result = await analyzeAgent(agentId, truncated, profile, { userId: getReqUserId(req), documentId: null });
+    const result = await analyzeAgent(agentId, cleaned, profile, { userId: getReqUserId(req), documentId: null });
     res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -106,7 +97,7 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
     req.log?.error({ error: message, reason: classification.reason }, classification.logMessage ?? "AIService failed");
 
     if (message.includes("413") || message.includes("Request too large") || message.includes("TPM") || message.includes("token")) {
-      res.status(413).json({ error: "O documento ultrapassa o limite da análise. Ele precisa ser processado em partes." });
+      res.status(413).json({ error: "Este documento é extenso e será analisado em partes. O processo pode levar um pouco mais de tempo." });
       return;
     }
 

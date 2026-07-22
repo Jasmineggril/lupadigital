@@ -270,6 +270,7 @@ function getFriendlyErrorMessage(error: unknown) {
     if (
       normalized.includes("ultrapassa o limite") ||
       normalized.includes("processado em partes") ||
+      normalized.includes("será analisado em partes") ||
       normalized.includes("content too large") ||
       normalized.includes("request too large") ||
       normalized.includes("input limit") ||
@@ -279,7 +280,7 @@ function getFriendlyErrorMessage(error: unknown) {
       normalized.includes("token limit") ||
       normalized.includes("input is too long")
     ) {
-      return "O documento ultrapassa o limite da análise. Ele precisa ser processado em partes.";
+      return "Este documento é extenso e será analisado em partes. O processo pode levar um pouco mais de tempo.";
     }
     if (normalized.includes("rate_limit") || normalized.includes("sobrecarregada") || normalized.includes("limite tempor\u00e1rio")) {
       return "O limite temporário de análises foi atingido. Aguarde e tente novamente.";
@@ -367,27 +368,27 @@ function getAnalysisStageMeta(stage: AnalysisStage) {
   switch (stage) {
     case "reading":
       return {
-        title: "Lendo o edital",
-        description: "Estamos interpretando o conteúdo principal e a estrutura do documento.",
+        title: "Preparando documento",
+        description: "Estamos normalizando o texto e organizando o processamento do edital.",
       };
     case "extracting":
       return {
-        title: "Extraindo detalhes",
-        description: "Os pontos mais relevantes do edital estão sendo identificados.",
+        title: "Analisando parte 1",
+        description: "Os blocos do documento estão sendo processados para preservar todas as partes do conteúdo.",
       };
     case "requirements":
       return {
-        title: "Validando requisitos",
-        description: "Estamos mapeando obrigações, prazos e critérios de elegibilidade.",
+        title: "Consolidando informações",
+        description: "Estamos unindo os fatos extraídos, removendo duplicidades e validando as fontes.",
       };
     case "summary":
       return {
-        title: "Montando síntese",
-        description: "A resposta final está sendo organizada para leitura rápida.",
+        title: "Validando datas e requisitos",
+        description: "A análise final está sendo organizada com rastreabilidade e consistência.",
       };
     case "finalizing":
       return {
-        title: "Finalizando interpretação",
+        title: "Finalizando análise",
         description: "Ajustando a apresentação e os próximos passos para você.",
       };
     case "completed":

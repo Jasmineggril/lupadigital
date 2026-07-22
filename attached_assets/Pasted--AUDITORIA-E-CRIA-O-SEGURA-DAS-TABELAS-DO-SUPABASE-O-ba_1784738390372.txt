@@ -1,0 +1,433 @@
+# AUDITORIA E CRIAÇÃO SEGURA DAS TABELAS DO SUPABASE
+
+O backend do LUPA Digital possui rotas `/resources/*` que utilizam o cliente admin do Supabase para acessar tabelas como:
+
+- edital_analyses;
+- lattes_profiles;
+- article_analyses;
+- project_analyses;
+- planetarium_analyses;
+- chat_sessions;
+- chat_messages;
+- export_history;
+- outras tabelas utilizadas pelo arquivo resources.ts.
+
+Existe o risco de essas tabelas não existirem no projeto Supabase ou possuírem colunas incompatíveis com os schemas Zod.
+
+Quando isso acontece, as rotas retornam erro HTTP 500 ao tentar salvar ou consultar dados.
+
+Não quero apenas esconder o erro.
+
+Quero auditar o contrato entre:
+
+- schemas Zod;
+- tipos TypeScript;
+- rotas `/resources/*`;
+- consultas Supabase;
+- tabelas reais do PostgreSQL.
+
+==================================================
+1. AUDITORIA INICIAL
+==================================================
+
+Antes de criar ou alterar qualquer tabela:
+
+1. localizar o arquivo `resources.ts`;
+2. identificar todos os schemas Zod;
+3. identificar todas as tabelas referenciadas;
+4. identificar operações:
+   - select;
+   - insert;
+   - update;
+   - delete;
+   - upsert;
+5. listar todas as colunas utilizadas;
+6. identificar colunas obrigatórias e opcionais;
+7. identificar os tipos esperados;
+8. identificar relacionamentos;
+9. identificar campos JSON;
+10. identificar campos de usuário, análise e documento.
+
+Não inferir colunas apenas pelo nome da tabela.
+
+Usar como fonte:
+
+- schemas Zod;
+- tipos TypeScript;
+- payloads das rotas;
+- consultas `.from()`;
+- campos enviados nos inserts e updates;
+- campos utilizados no frontend.
+
+==================================================
+2. GERAR MATRIZ DE CONTRATO
+==================================================
+
+Produzir uma matriz contendo:
+
+| Tabela | Coluna | Tipo PostgreSQL | Obrigatória | Default | Origem no código |
+|---|---|---|---|---|---|
+
+Exemplo:
+
+| edital_analyses | id | uuid | sim | gen_random_uuid() | retorno da análise |
+| edital_analyses | user_id | uuid | sim | nenhum | usuário autenticado |
+| edital_analyses | analysis_data | jsonb | sim | nenhum | objeto canônico |
+| edital_analyses | created_at | timestamptz | sim | now() | histórico |
+
+Essa matriz deve ser apresentada antes da execução da migration.
+
+==================================================
+3. CRIAR MIGRATION VERSIONADA
+==================================================
+
+Criar uma migration SQL única e idempotente.
+
+Não executar automaticamente sem autorização.
+
+Salvar em uma pasta de migrations já existente no projeto.
+
+Caso não exista, criar uma pasta adequada, por exemplo:
+
+supabase/migrations/
+
+Usar um nome como:
+
+YYYYMMDDHHMM_create_resource_tables.sql
+
+A migration deve utilizar:
+
+- `create table if not exists`;
+- `alter table ... add column if not exists`, quando necessário;
+- tipos PostgreSQL corretos;
+- `uuid`;
+- `jsonb`;
+- `text`;
+- `boolean`;
+- `integer`;
+- `numeric`;
+- `timestamptz`;
+- defaults adequados;
+- índices;
+- foreign keys;
+- constraints.
+
+Não apagar tabelas existentes.
+
+Não utilizar `drop table`.
+
+Não perder dados existentes.
+
+==================================================
+4. ESTRUTURA BASE DAS TABELAS DE ANÁLISE
+==================================================
+
+Sempre que compatível com os schemas existentes, as tabelas de análise devem possuir uma estrutura consistente.
+
+Campos recomendados:
+
+- id;
+- user_id;
+- document_id;
+- analysis_id;
+- title;
+- source_type;
+- source_name;
+- source_url;
+- document_hash;
+- status;
+- analysis_data;
+- alerts;
+- provider;
+- model;
+- prompt_version;
+- schema_version;
+- created_at;
+- updated_at.
+
+Não adicionar esses campos cegamente.
+
+Adicionar somente quando forem compatíveis com o código ou quando o código for ajustado de maneira controlada.
+
+Usar `jsonb` para o objeto canônico da análise quando a estrutura possuir muitos campos ou puder evoluir.
+
+==================================================
+5. TABELAS PRINCIPAIS
+==================================================
+
+Auditar e criar somente as tabelas efetivamente utilizadas.
+
+Verificar especialmente:
+
+## edital_analyses
+
+Deve armazenar o resultado canônico utilizado por:
+
+- Interpretação;
+- Cronograma;
+- Checklist;
+- Elegibilidade;
+- Chat;
+- Histórico;
+- Exportação.
+
+A análise salva deve ser a mesma utilizada em todas as telas.
+
+## lattes_profiles
+
+Deve armazenar:
+
+- identificação do perfil;
+- dados estruturados;
+- análise;
+- competências;
+- produção científica;
+- áreas;
+- sugestões;
+- alertas;
+- metadados.
+
+## article_analyses
+
+Deve armazenar:
+
+- identificação do artigo;
+- título;
+- autores;
+- texto ou referência;
+- referências localizadas;
+- análise estruturada;
+- páginas;
+- trechos;
+- alertas;
+- metadados.
+
+Criar outras tabelas somente quando houver uso real no código.
+
+==================================================
+6. AUTENTICAÇÃO E USER_ID
+==================================================
+
+As tabelas privadas devem possuir `user_id`.
+
+O backend não deve confiar em um `user_id` enviado pelo frontend.
+
+O identificador deve vir da sessão ou do token autenticado.
+
+Sempre que aplicável, criar foreign key:
+
+user_id uuid references auth.users(id) on delete cascade
+
+Antes de aplicar, verificar se o projeto utiliza Supabase Auth dessa maneira.
+
+==================================================
+7. ROW LEVEL SECURITY
+==================================================
+
+Ativar RLS nas tabelas privadas.
+
+Criar policies compatíveis com o modelo de autenticação atual.
+
+Exemplo conceitual:
+
+- usuário pode consultar somente registros cujo `user_id = auth.uid()`;
+- usuário pode inserir somente registros com `user_id = auth.uid()`;
+- usuário pode atualizar somente seus registros;
+- usuário pode excluir somente seus registros.
+
+O cliente `service_role` do backend pode ignorar RLS, mas isso não elimina a necessidade das policies para acessos feitos com chave pública.
+
+Não criar policies genéricas permitindo acesso público.
+
+Não usar:
+
+using (true)
+
+em tabelas privadas.
+
+==================================================
+8. ÍNDICES
+==================================================
+
+Criar índices para campos usados frequentemente:
+
+- user_id;
+- analysis_id;
+- document_id;
+- document_hash;
+- created_at;
+- status.
+
+Criar índice único quando necessário para cache, por exemplo:
+
+- user_id;
+- document_hash;
+- prompt_version;
+- schema_version.
+
+Não criar índices duplicados.
+
+==================================================
+9. CREATED_AT E UPDATED_AT
+==================================================
+
+Usar:
+
+created_at timestamptz not null default now()
+
+updated_at timestamptz not null default now()
+
+Criar trigger reutilizável para atualização de `updated_at`, se o projeto já não possuir um.
+
+Não criar várias funções duplicadas para o mesmo comportamento.
+
+==================================================
+10. CAMPOS JSONB
+==================================================
+
+Utilizar `jsonb` para:
+
+- análise canônica;
+- alertas;
+- metadados;
+- resultados estruturados;
+- dados de perfil;
+- resultados de referências.
+
+Adicionar defaults somente quando fizer sentido:
+
+default '{}'::jsonb
+
+ou
+
+default '[]'::jsonb
+
+Não usar string para salvar JSON serializado quando o PostgreSQL puder armazenar `jsonb`.
+
+==================================================
+11. VALIDAÇÃO DO BACKEND
+==================================================
+
+Depois de gerar a migration, revisar as rotas `/resources/*`.
+
+Garantir que:
+
+- nomes das tabelas correspondem exatamente;
+- nomes das colunas correspondem;
+- inserts usam apenas colunas existentes;
+- selects usam apenas colunas existentes;
+- updates usam apenas colunas existentes;
+- campos opcionais não causam erro;
+- respostas do Supabase são verificadas;
+- erros são tratados de forma específica.
+
+Não retornar apenas:
+
+“Internal Server Error”.
+
+Quando a tabela não existir, registrar internamente:
+
+- tabela;
+- operação;
+- código Supabase;
+- mensagem resumida.
+
+No frontend, mostrar:
+
+“Não foi possível salvar a análise porque o armazenamento ainda não está configurado.”
+
+Não expor detalhes do banco ao usuário.
+
+==================================================
+12. HEALTH CHECK DAS TABELAS
+==================================================
+
+Criar ou melhorar um endpoint administrativo seguro para verificar:
+
+- conexão com Supabase;
+- presença das tabelas necessárias;
+- permissão de leitura;
+- permissão de gravação controlada;
+- compatibilidade básica do schema.
+
+Esse endpoint não deve:
+
+- expor secrets;
+- retornar dados dos usuários;
+- inserir registros permanentes;
+- estar publicamente acessível sem proteção.
+
+Resultado sugerido:
+
+{
+  "supabase": "ok",
+  "tables": {
+    "edital_analyses": "ok",
+    "lattes_profiles": "missing",
+    "article_analyses": "schema_mismatch"
+  }
+}
+
+==================================================
+13. TESTES
+==================================================
+
+Testar:
+
+1. salvar análise de edital;
+2. consultar análise de edital;
+3. atualizar análise;
+4. excluir análise;
+5. salvar perfil Lattes;
+6. consultar perfil Lattes;
+7. salvar análise de artigo;
+8. consultar análise de artigo;
+9. usuário não acessar dados de outro usuário;
+10. histórico carregar o mesmo objeto salvo;
+11. exportação utilizar o mesmo resultado;
+12. tabela ausente produzir erro tratado;
+13. coluna ausente produzir diagnóstico claro.
+
+==================================================
+14. SEGURANÇA
+==================================================
+
+Nunca expor:
+
+- SUPABASE_SERVICE_ROLE_KEY;
+- DATABASE_URL;
+- senha;
+- JWT secreto;
+- connection string;
+- dados de outros usuários.
+
+Confirmar que:
+
+- service role existe somente no backend;
+- frontend usa somente chave pública permitida;
+- logs não exibem payloads sensíveis;
+- RLS está habilitado;
+- rotas verificam autenticação.
+
+==================================================
+15. RELATÓRIO FINAL
+==================================================
+
+Ao concluir a auditoria, apresentar:
+
+1. tabelas encontradas no código;
+2. tabelas obrigatórias;
+3. tabelas opcionais;
+4. colunas esperadas;
+5. divergências detectadas;
+6. migration criada;
+7. policies RLS criadas;
+8. índices criados;
+9. arquivos alterados;
+10. comandos necessários para aplicar a migration;
+11. testes executados;
+12. erros restantes.
+
+Não executar a migration sem minha autorização.
+
+Primeiro gerar os arquivos e apresentar a revisão.

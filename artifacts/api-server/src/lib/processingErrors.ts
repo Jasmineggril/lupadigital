@@ -13,7 +13,18 @@ function normalize(message: string): string {
 export function classifyAiError(message: string): ProcessErrorClassification {
   const normalized = normalize(message);
 
-  if (normalized.includes("content too large") || normalized.includes("request too large") || normalized.includes("input limit") || normalized.includes("exceeds the input") || normalized.includes("too large")) {
+  if (
+    normalized.includes("content too large") ||
+    normalized.includes("request too large") ||
+    normalized.includes("input limit") ||
+    normalized.includes("exceeds the input") ||
+    normalized.includes("too large") ||
+    normalized.includes("context length") ||
+    normalized.includes("maximum context") ||
+    normalized.includes("context window") ||
+    normalized.includes("input is too long") ||
+    normalized.includes("token limit")
+  ) {
     return {
       status: 413,
       retryable: false,

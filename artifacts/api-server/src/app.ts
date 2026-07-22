@@ -30,6 +30,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { supabaseAuthMiddleware } from "./lib/supabase";
+import { getRateLimitConfig } from "./lib/runtimeConfig";
 
 const app: Express = express();
 
@@ -64,32 +65,34 @@ const corsOptions: cors.CorsOptions = {
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 // Três níveis de limite para proteger recursos com custos diferentes:
-// - defaultLimiter: rotas leves (HTML, JSON simples) — 120 req/min
-// - aiLimiter: chamadas à OpenAI (custo por token) — 30 req/min
-// - ocrLimiter: OCR de PDF (CPU + memória intensivos) — 10 req/min
+// - defaultLimiter: rotas leves (HTML, JSON simples) — valor configurável por ambiente
+// - aiLimiter: chamadas à OpenAI (custo por token) — valor configurável por ambiente
+// - ocrLimiter: OCR de PDF (CPU + memória intensivos) — valor configurável por ambiente
 
-/** Limite geral para todas as rotas não-IA: 120 requisições por minuto por IP */
+const { defaultMax, aiMax, ocrMax } = getRateLimitConfig();
+
+/** Limite geral para todas as rotas não-IA */
 const defaultLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 120,
+  max: defaultMax,
   standardHeaders: true,  // inclui RateLimit-* headers na resposta (RFC 6585)
   legacyHeaders: false,   // remove X-RateLimit-* headers legados
   message: { error: "Muitas requisições. Tente novamente em um minuto." },
 });
 
-/** Limite para endpoints de IA (OpenAI): 30 requisições por minuto por IP */
+/** Limite para endpoints de IA (OpenAI) */
 export const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: aiMax,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Limite de análises atingido. Aguarde um minuto e tente novamente." },
 });
 
-/** Limite para OCR de PDF (alto custo computacional): 10 requisições por minuto por IP */
+/** Limite para OCR de PDF (alto custo computacional) */
 export const ocrLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: ocrMax,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Limite de processamento de PDF atingido. Aguarde um minuto." },

@@ -267,7 +267,18 @@ function getFriendlyErrorMessage(error: unknown) {
     if (normalized.includes("documento vazio") || normalized.includes("sem texto") || normalized.includes("texto do documento")) {
       return "Não foi possível localizar texto no documento.";
     }
-    if (normalized.includes("ultrapassa o limite") || normalized.includes("processado em partes")) {
+    if (
+      normalized.includes("ultrapassa o limite") ||
+      normalized.includes("processado em partes") ||
+      normalized.includes("content too large") ||
+      normalized.includes("request too large") ||
+      normalized.includes("input limit") ||
+      normalized.includes("context length") ||
+      normalized.includes("maximum context") ||
+      normalized.includes("context window") ||
+      normalized.includes("token limit") ||
+      normalized.includes("input is too long")
+    ) {
       return "O documento ultrapassa o limite da análise. Ele precisa ser processado em partes.";
     }
     if (normalized.includes("rate_limit") || normalized.includes("sobrecarregada") || normalized.includes("limite tempor\u00e1rio")) {

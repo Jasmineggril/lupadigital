@@ -67,7 +67,20 @@ export function getFriendlyErrorMessage(error: unknown): string {
     if (n.includes("muito curto") || n.includes("min(")) return "O texto é muito curto para análise. Adicione mais conteúdo e tente novamente.";
     if (n.includes("texto pesquisável") || n.includes("ocr") || n.includes("pdf")) return "O PDF não possui texto pesquisável. Utilize OCR ou outro arquivo.";
     if (n.includes("documento vazio") || n.includes("sem texto") || n.includes("texto do documento")) return "Não foi possível localizar texto no documento.";
-    if (n.includes("ultrapassa o limite") || n.includes("processado em partes")) return "O documento ultrapassa o limite da análise. Ele precisa ser processado em partes.";
+    if (
+      n.includes("ultrapassa o limite") ||
+      n.includes("processado em partes") ||
+      n.includes("content too large") ||
+      n.includes("request too large") ||
+      n.includes("input limit") ||
+      n.includes("context length") ||
+      n.includes("maximum context") ||
+      n.includes("context window") ||
+      n.includes("token limit") ||
+      n.includes("input is too long")
+    ) {
+      return "O documento ultrapassa o limite da análise. Ele precisa ser processado em partes.";
+    }
     if (n.includes("rate limit") || n.includes("sobrecarregada") || n.includes("limite tempor\u00e1rio")) return "O limite temporário de análises foi atingido. Aguarde e tente novamente.";
     if (n.includes("temporariamente indispon") || n.includes("provider unavailable") || n.includes("serviço de ia")) return "O serviço de IA está temporariamente indisponível.";
     if (n.includes("timeout") || n.includes("demorou mais") || n.includes("etimedout")) return "A análise demorou mais que o esperado. Tente novamente.";

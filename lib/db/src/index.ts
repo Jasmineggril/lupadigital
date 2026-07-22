@@ -4,6 +4,12 @@ import net from "net";
 import pg from "pg";
 import * as schema from "./schema";
 
+const poolConfig = {
+  max: Number(process.env.PG_POOL_MAX ?? 10),
+  idleTimeoutMillis: Number(process.env.PG_POOL_IDLE_TIMEOUT_MS ?? 30000),
+  connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT ?? 10000),
+};
+
 const { Pool } = pg;
 
 function isIpv6Address(host: string) {
@@ -173,10 +179,7 @@ async function createPool() {
   // Configure reasonable timeouts to fail fast on network issues
   const pool = new Pool({
     connectionString: connString,
-    connectionTimeoutMillis: process.env.PG_CONNECTION_TIMEOUT
-      ? Number(process.env.PG_CONNECTION_TIMEOUT)
-      : 10000,
-    idleTimeoutMillis: 30000,
+    ...poolConfig,
   });
 
   return pool;

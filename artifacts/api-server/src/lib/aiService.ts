@@ -70,6 +70,62 @@ function extractJsonFromResponse(raw: string): unknown {
   throw e;
 }
 
+function isJsonRetryableError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return [
+    "json inválido",
+    "resposta da ia não é um objeto json válido",
+    "is not valid json",
+    "response is not valid json",
+    "ai response is not valid json",
+    "did not match expected schema",
+    "validation failed",
+    "unexpected token",
+    "invalid json",
+    "json parse",
+  ].some((indicator) => normalized.includes(indicator));
+}
+
+async function createJsonChatCompletion(
+  payload: Record<string, unknown>,
+  module: string,
+  attempts = 2,
+): Promise<{ raw: string; parsed: Record<string, unknown>; usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null }> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const completion = await openai.chat.completions.create(payload as any);
+      const raw = completion.choices[0]?.message?.content ?? "";
+      const parsed = extractJsonFromResponse(raw);
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        throw new Error(`${module}: resposta da IA não é um objeto JSON válido.`);
+      }
+      const usage = (completion as any)?.usage ?? null;
+      return { raw, parsed: parsed as Record<string, unknown>, usage };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < attempts && isJsonRetryableError(lastError.message)) {
+        payload = {
+          ...payload,
+          messages: [
+            ...(Array.isArray(payload.messages) ? (payload.messages as unknown[]) : []),
+            {
+              role: "user",
+              content:
+                "A resposta anterior não foi um JSON válido. Responda APENAS com JSON válido, sem markdown, sem texto adicional e sem explicações.",
+            },
+          ],
+        };
+        continue;
+      }
+      throw lastError;
+    }
+  }
+
+  throw lastError ?? new Error(`${module}: falha desconhecida ao chamar a IA`);
+}
+
 import { logger } from "./logger";
 import { getSupabaseAdmin } from "./supabase";
 
@@ -1298,21 +1354,21 @@ Responda SOMENTE com o JSON, sem markdown, sem código, sem texto adicional.`;
   const start = Date.now();
 
   try {
-    const completion = await openai.chat.completions.create({
-      model,
-      max_tokens: 4096,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    } as any);
+    const { raw, parsed, usage } = await createJsonChatCompletion(
+      {
+        model,
+        max_tokens: 4096,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      } as any,
+      "AIService.simplifyEdital",
+    );
 
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed = extractJsonFromResponse(raw);
     const validated = SimplifyEditalResponse.safeParse(parsed);
     const latency = Date.now() - start;
-    const usage = (completion as any)?.usage;
     const inputTokens = typeof usage?.prompt_tokens === "number" ? usage.prompt_tokens : null;
     const outputTokens = typeof usage?.completion_tokens === "number" ? usage.completion_tokens : null;
     const totalTokens = typeof usage?.total_tokens === "number" ? usage.total_tokens : null;
@@ -1386,20 +1442,19 @@ export async function analyzeAgent(
   const start = Date.now();
 
   try {
-    const completion = await openai.chat.completions.create({
-      model,
-      max_tokens: 4096,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    } as any);
+    const { raw, parsed: parsedRaw, usage } = await createJsonChatCompletion(
+      {
+        model,
+        max_tokens: 4096,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      } as any,
+      "AIService.analyzeAgent",
+    );
 
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsedRaw = extractJsonFromResponse(raw);
-    // gpt-4o-mini frequentemente omite o campo "type" mesmo com instruções explícitas.
-    // Injetamos automaticamente antes de validar para evitar falha de schema.
     const parsed =
       parsedRaw !== null && typeof parsedRaw === "object" && !Array.isArray(parsedRaw) && !(parsedRaw as Record<string, unknown>).type
         ? { type: agentId, ...(parsedRaw as Record<string, unknown>) }
@@ -1407,7 +1462,6 @@ export async function analyzeAgent(
     const validator = VALIDATORS[agentId];
     const validated = validator.safeParse(parsed);
     const latency = Date.now() - start;
-    const usage = (completion as any)?.usage;
     const inputTokens = typeof usage?.prompt_tokens === "number" ? usage.prompt_tokens : null;
     const outputTokens = typeof usage?.completion_tokens === "number" ? usage.completion_tokens : null;
     const totalTokens = typeof usage?.total_tokens === "number" ? usage.total_tokens : null;
@@ -1526,33 +1580,20 @@ async function callNiasciAI(
     // caso contrário, a API retorna erro 400 "Must contain word JSON".
     // temperature: 0.3 reduz criatividade para respostas mais determinísticas
     // e estruturadas (importante para manter o schema JSON estável).
-    const completion = await openai.chat.completions.create({
-      model,
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    });
-
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-
-    let parsed: Record<string, unknown>;
-    try {
-      const candidate = JSON.parse(raw);
-      // Valida que a resposta é um objeto não-nulo (nunca um array ou primitivo)
-      if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
-        throw new Error("Resposta da IA não é um objeto JSON válido.");
-      }
-      parsed = candidate as Record<string, unknown>;
-    } catch (parseErr) {
-      const parseMsg = parseErr instanceof Error ? parseErr.message : String(parseErr);
-      throw new Error(`${module}: JSON inválido recebido da IA — ${parseMsg}`);
-    }
+    const { raw, parsed, usage } = await createJsonChatCompletion(
+      {
+        model,
+        temperature: 0.3,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      },
+      module,
+    );
 
     const latency = Date.now() - start;
-    const usage = (completion as any)?.usage;
 
     // Registra uso bem-sucedido no Supabase para rastreabilidade
     await persistUsageLog({

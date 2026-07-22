@@ -88,12 +88,14 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
   const cleaned = cleanEditalText(text);
 
   // Após limpeza de binários, texto limpo ≈ 3–4 chars/token.
-  // 10.000 chars ≈ 2.500–3.500 tokens — seguro para Groq 12K TPM e mantém prazos/datas do corpo do edital.
-  const MAX_CHARS = 10000;
-  const truncated =
-    cleaned.length > MAX_CHARS
-      ? cleaned.slice(0, MAX_CHARS) + "\n\n[Documento extenso — analisando os primeiros blocos de conteúdo relevante]"
-      : cleaned;
+  // Não truncar silenciosamente: se o documento for extenso, devolver 413
+  // e instruir o cliente a processar por seções ou reduzir o tamanho.
+  const MAX_CHARS = 12000;
+  if (cleaned.length > MAX_CHARS) {
+    res.status(413).json({ error: "O documento é extenso e precisa ser processado em partes." });
+    return;
+  }
+  const truncated = cleaned;
 
   try {
     const result = await analyzeAgent(agentId, truncated, profile, { userId: getReqUserId(req), documentId: null });
@@ -354,7 +356,7 @@ router.post("/edital/extract-url", async (req, res): Promise<void> => {
     return;
   }
 
-  const $ = cheerio.load(html, { decodeEntities: true });
+  const $ = cheerio.load(html);
 
   // Remove elements that don't contain useful content
   $("script, style, nav, header, footer, aside, iframe, noscript, [aria-hidden='true']").remove();

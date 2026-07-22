@@ -155,6 +155,18 @@ interface CanonicalAnalysisLike {
   agentResult?: Record<string, unknown>;
 }
 
+type TimelineStep = {
+  title: string;
+  date: string;
+  description: string;
+};
+
+type ChecklistItemSummary = {
+  label: string;
+  done: boolean;
+  hint: string;
+};
+
 function canonicalToAgentResult(canonical: CanonicalAnalysisLike | null | undefined): AgentResult | null {
   if (!canonical) return null;
 
@@ -501,7 +513,7 @@ function getPrimaryDeadline(text: string, result: AgentResult | null) {
   return match?.[0] ?? "Não identificado no texto";
 }
 
-function getDocumentSummary(result: AgentResult | null, checklistItems: ReturnType<typeof buildChecklist>, pdfStructuredData: PdfStructuredData | null) {
+function getDocumentSummary(result: AgentResult | null, checklistItems: ChecklistItemSummary[], pdfStructuredData: PdfStructuredData | null) {
   if (result?.type === "documentacao") {
     return result.checklist.length > 0
       ? `${result.checklist.length} documentos detectados. Principais: ${result.checklist.slice(0, 4).map((item) => item.doc).join(", ")}.`
@@ -517,7 +529,7 @@ function getDocumentSummary(result: AgentResult | null, checklistItems: ReturnTy
     : "Use o texto completo do edital para extrair documentos e requisitos.";
 }
 
-function buildEditalFaqs(text: string, result: AgentResult | null, timelineSteps: ReturnType<typeof buildTimelineSteps>, checklistItems: ReturnType<typeof buildChecklist>, pdfStructuredData: PdfStructuredData | null) {
+function buildEditalFaqs(text: string, result: AgentResult | null, timelineSteps: TimelineStep[], checklistItems: ChecklistItemSummary[], pdfStructuredData: PdfStructuredData | null) {
   const deadline = getPrimaryDeadline(text, result);
   const docs = getDocumentSummary(result, checklistItems, pdfStructuredData);
   const simplified = result ? getSimplifiedText(result) : "";
@@ -599,7 +611,7 @@ function answerContextualQuestion(question: string, result: AgentResult) {
   return `Com base na interpretação atual: ${getSimplifiedText(result) || "não há informação suficiente para responder com precisão."}`;
 }
 
-function getContextualAnswer(question: string, text: string, result: AgentResult | null, timelineSteps: ReturnType<typeof buildTimelineSteps>, checklistItems: ReturnType<typeof buildChecklist>, pdfStructuredData: PdfStructuredData | null, profile: UserProfile) {
+function getContextualAnswer(question: string, text: string, result: AgentResult | null, timelineSteps: TimelineStep[], checklistItems: ChecklistItemSummary[], pdfStructuredData: PdfStructuredData | null, profile: UserProfile) {
   const normalized = question.toLowerCase();
   const deadline = getPrimaryDeadline(text, result);
   const docs = getDocumentSummary(result, checklistItems, pdfStructuredData);
@@ -645,7 +657,7 @@ function getContextualAnswer(question: string, text: string, result: AgentResult
   return `Posso ajudar com prazo, documentos, elegibilidade, cronograma e resumo simples. Se quiser, pergunte algo mais específico sobre o edital que você enviou.`;
 }
 
-function buildChatSuggestions(text: string, result: AgentResult | null, timelineSteps: ReturnType<typeof buildTimelineSteps>, checklistItems: ReturnType<typeof buildChecklist>, pdfStructuredData: PdfStructuredData | null) {
+function buildChatSuggestions(text: string, result: AgentResult | null, timelineSteps: TimelineStep[], checklistItems: ChecklistItemSummary[], pdfStructuredData: PdfStructuredData | null) {
   const suggestions = [
     "Qual é o prazo principal?",
     "Quais documentos preciso enviar?",
@@ -674,7 +686,7 @@ function buildChatSuggestions(text: string, result: AgentResult | null, timeline
 }
 
 // ── PDF export ───────────────────────────────────────────────────
-async function exportToPDF(result: AgentResult, title: string) {
+async function exportToPDF(result: AgentResult, title: string, canonicalData?: CanonicalAnalysisLike | null) {
   const { default: jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -744,6 +756,11 @@ async function exportToPDF(result: AgentResult, title: string) {
   };
 
   const theme = themeByAgent[result.type];
+  const canonicalSummary = canonicalData?.interpretation?.summary ?? "";
+  const canonicalObjective = canonicalData?.interpretation?.objective ?? "";
+  const canonicalChecklist = canonicalData?.checklist?.items ?? [];
+  const canonicalTimeline = canonicalData?.cronograma?.items ?? [];
+  const canonicalEligibility = canonicalData?.elegibilidade?.criteria ?? [];
 
   const ensureSpace = (neededHeight: number) => {
     if (cursorY + neededHeight > bottomLimit) {
@@ -3183,6 +3200,7 @@ export default function TestarIA() {
       await exportToPDF(
         agentResult,
         `lupa-${agentResult.type}-${currentAgentMeta.name}`,
+        canonicalAnalysis,
       );
     } catch {
       toast({

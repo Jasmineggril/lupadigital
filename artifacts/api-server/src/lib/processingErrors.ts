@@ -13,6 +13,16 @@ function normalize(message: string): string {
 export function classifyAiError(message: string): ProcessErrorClassification {
   const normalized = normalize(message);
 
+  if (normalized.includes("content too large") || normalized.includes("request too large") || normalized.includes("input limit") || normalized.includes("exceeds the input") || normalized.includes("too large")) {
+    return {
+      status: 413,
+      retryable: false,
+      reason: "content_too_large",
+      userMessage: "O documento é extenso e precisa ser processado em partes.",
+      logMessage: "AI request too large",
+    };
+  }
+
   if (normalized.includes("429") || normalized.includes("rate limit") || normalized.includes("tpm") || normalized.includes("tpd")) {
     return {
       status: 429,

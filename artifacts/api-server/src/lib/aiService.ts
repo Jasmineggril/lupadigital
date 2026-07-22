@@ -27,7 +27,7 @@
 
 import { openai, getOpenAIModel } from "@workspace/integrations-openai-ai-server";
 import { SimplifyEditalResponse } from "@workspace/api-zod";
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
 
 /**
@@ -210,6 +210,15 @@ export interface CanonicalAnalysis {
     items: string[];
     summary: string;
   };
+  evidencias?: Array<{
+    campo: string;
+    evento?: string;
+    descricao: string;
+    pagina?: number;
+    secao?: string;
+    trecho?: string;
+    confianca?: "alta" | "média" | "baixa";
+  }>;
   alertas: (string | ValidationAlert)[];
   agentResult: Record<string, unknown>;
 }
@@ -280,10 +289,41 @@ function parseDate(dateString: string): Date | null {
  * @param items - Array de items do cronograma com datas parseadas
  * @returns Array de conflitos encontrados
  */
+function hasExplicitTemporalSupport(item: CronogramaItem, originalText: string, editalYear?: number): boolean {
+  if (!originalText || !originalText.trim()) return false;
+
+  const normalizedOriginal = originalText.toLowerCase();
+  const normalizedDate = item.periodo?.toLowerCase().trim();
+  const hasDateInOriginal = normalizedDate ? normalizedOriginal.includes(normalizedDate) : false;
+  const sourceSnippet = [item.trechoFonte, item.fase, item.descricao].filter(Boolean).join(" ").toLowerCase();
+  const hasSourceEvidence = Boolean(item.trechoFonte?.trim()) && /inscri|resultado|recurso|execu|vigên|publica|retifica|lei|documento|referênc|evento/i.test(sourceSnippet);
+
+  if (!hasDateInOriginal && !hasSourceEvidence) {
+    return false;
+  }
+
+  if (editalYear) {
+    const yearMatch = normalizedDate?.match(/(19|20)\d{2}/);
+    const eventYear = yearMatch ? Number(yearMatch[0]) : undefined;
+    const isHistoricalReference = /históric|referência histórica|referência|anterior|passado|anterio/i.test(normalizedOriginal);
+
+    if (eventYear && eventYear < editalYear && !isHistoricalReference) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function validateTemporalConsistency(
-  items: CronogramaItem[]
+  items: CronogramaItem[],
+  originalText: string,
 ): Array<{ evento1: string; evento2: string; problema: string }> {
+  if (!Array.isArray(items) || items.length === 0) {
+    return [];
+  }
   const conflitos: Array<{ evento1: string; evento2: string; problema: string }> = [];
+  const hasExplicitEvidence = (item: CronogramaItem) => hasExplicitTemporalSupport(item, originalText);
 
   // Tenta fazer parse de datas
   const itemsWithDates = items
@@ -296,6 +336,13 @@ function validateTemporalConsistency(
 
   // Verifica se data de fim é anterior à de início (no mesmo evento)
   itemsWithDates.forEach((item) => {
+    if (!hasExplicitEvidence(item)) {
+      conflitos.push({
+        evento1: item.fase || "evento sem nome",
+        evento2: item.fase || "evento sem nome",
+        problema: `Data sem evidência explícita no edital para o evento "${item.fase || "evento sem nome"}"`,
+      });
+    }
     if (item.inicio && item.fim && item.inicio > item.fim) {
       conflitos.push({
         evento1: item.fase,
@@ -329,49 +376,66 @@ export function buildCanonicalAnalysis(
   profile?: z.infer<typeof AgentUserProfileSchema>,
 ): CanonicalAnalysis {
   const result = agentResult as Record<string, unknown>;
+  const editalYear = typeof result.anoPublicacao === "number" ? result.anoPublicacao : undefined;
+  /**
+   * Calcula um hash do texto original normalizado para permitir cache,
+   * detecção de duplicatas e rastreabilidade sem expor o conteúdo bruto.
+   */
+  const documentHash = originalText && originalText.trim().length > 0 ? createHash("sha256").update(originalText.trim()).digest("hex") : undefined;
   
   /**
    * Normaliza alertas para formato estruturado.
    * Suporta tanto strings simples quanto ValidationAlert completos.
    */
   const normalizeAlerts = (): (string | ValidationAlert)[] => {
-    const rawAlerts = Array.isArray(result.alertas) ? (result.alertas as unknown[]) : [];
-    return rawAlerts.map((alert) => {
+    const rawAlerts = Array.isArray(result.alertas)
+      ? (result.alertas as Array<string | ValidationAlert>)
+      : [];
+
+    return rawAlerts.reduce<(string | ValidationAlert)[]>((acc, alert) => {
       if (typeof alert === "string") {
-        // Classifica automáticamente por pattern
         if (/ambiguid/i.test(alert)) {
-          return {
-            categoria: "ambiguidade" as const,
+          acc.push({
+            categoria: "ambiguidade",
             descricao: alert,
-            severidade: "média" as const,
-          };
+            severidade: "média",
+          });
+          return acc;
         }
         if (/contradi/i.test(alert)) {
-          return {
-            categoria: "contradição" as const,
+          acc.push({
+            categoria: "contradição",
             descricao: alert,
-            severidade: "alta" as const,
-          };
+            severidade: "alta",
+          });
+          return acc;
         }
         if (/ausênc|não informad/i.test(alert)) {
-          return {
-            categoria: "ausência" as const,
+          acc.push({
+            categoria: "ausência",
             descricao: alert,
-            severidade: "baixa" as const,
-          };
+            severidade: "baixa",
+          });
+          return acc;
         }
         if (/inferid|pressum|consider/i.test(alert)) {
-          return {
-            categoria: "inferência" as const,
+          acc.push({
+            categoria: "inferência",
             descricao: alert,
-            severidade: "média" as const,
-          };
+            severidade: "média",
+          });
+          return acc;
         }
-        // Default
-        return alert;
+        acc.push(alert);
+        return acc;
       }
-      return alert;
-    });
+
+      if (typeof alert === "object" && alert !== null) {
+        acc.push(alert as ValidationAlert);
+      }
+
+      return acc;
+    }, []);
   };
 
   const interpretation = {
@@ -440,7 +504,7 @@ export function buildCanonicalAnalysis(
           })
         );
 
-        const conflitos = validateTemporalConsistency(items);
+        const conflitos = validateTemporalConsistency(items, originalText);
         
         return {
           items,
@@ -477,19 +541,25 @@ export function buildCanonicalAnalysis(
         score:
           typeof result.score === "number" ? result.score : undefined,
         criteria: (result.criterios as Array<Record<string, unknown>>).map(
-          (item) => ({
-            criterio:
-              typeof item.criterio === "string" ? item.criterio : "",
-            atende:
-              item.atende === true ||
-              item.atende === "parcial"
-                ? item.atende
-                : false,
-            observacao:
-              typeof item.observacao === "string"
-                ? item.observacao
-                : "",
-          })
+          (item) => {
+            const atendeValue = item.atende;
+            const atende: boolean | "parcial" =
+              atendeValue === "parcial"
+                ? "parcial"
+                : atendeValue === true
+                ? true
+                : false;
+
+            return {
+              criterio:
+                typeof item.criterio === "string" ? item.criterio : "",
+              atende,
+              observacao:
+                typeof item.observacao === "string"
+                  ? item.observacao
+                  : "",
+            };
+          }
         ),
         recommendation:
           typeof result.recomendacao === "string"
@@ -524,6 +594,33 @@ export function buildCanonicalAnalysis(
   };
 
   const allAlerts = normalizeAlerts();
+  const evidencias: CanonicalAnalysis["evidencias"] = [];
+
+  if (cronograma?.items?.length) {
+    cronograma.items.forEach((item) => {
+      if (item.fase || item.periodo) {
+        const isExplicitlySupported = hasExplicitTemporalSupport(item, originalText, editalYear);
+
+        evidencias.push({
+          campo: "cronograma",
+          evento: item.fase || "evento",
+          descricao: isExplicitlySupported ? `Evidência de cronograma para ${item.fase || "evento"}` : `Data sem evidência explícita no edital para ${item.fase || "evento"}`,
+          pagina: item.pagina,
+          secao: item.secao,
+          trecho: item.trechoFonte,
+          confianca: item.confianca,
+        });
+
+        if (!isExplicitlySupported) {
+          allAlerts.push({
+            categoria: "temporal" as const,
+            descricao: `O evento "${item.fase || "evento"}" usa uma data sem suporte explícito no edital.`,
+            severidade: "alta" as const,
+          });
+        }
+      }
+    });
+  }
 
   // Adiciona alerta para conflitos temporais
   if (
@@ -547,6 +644,7 @@ export function buildCanonicalAnalysis(
       generatedAt: new Date().toISOString(),
       textLength: originalText.trim().length,
       profile,
+      documentHash,
     },
     documento: {
       titulo:
@@ -595,6 +693,7 @@ export function buildCanonicalAnalysis(
           : undefined,
     },
     documentosExigidos,
+    evidencias,
     alertas: allAlerts,
     agentResult,
   };

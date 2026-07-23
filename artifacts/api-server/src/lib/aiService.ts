@@ -25,7 +25,7 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 
-import { openai, getOpenAIModel } from "@workspace/integrations-openai-ai-server";
+import { openai, getOpenAIModel, createWithFallback, type FallbackResult } from "@workspace/integrations-openai-ai-server";
 import { SimplifyEditalResponse } from "@workspace/api-zod";
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
@@ -44,7 +44,14 @@ function getChunkingConfig() {
   };
 }
 
-function estimateTokens(text: string): number {
+function getProviderNameFromModel(model: string): string {
+  if (model.includes("llama")) return "groq";
+  if (model.includes("gemini")) return "gemini";
+  if (model.includes("gpt")) return "openai";
+  return "unknown";
+}
+
+export function estimateTokens(text: string): number {
   const compact = text.replace(/\s+/g, " ").trim();
   if (!compact) return 0;
   const words = compact.split(/\s+/).length;
@@ -284,8 +291,9 @@ function buildChunkFactPrompt(agentId: AgentId, chunkText: string, profile?: z.i
 
 async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null }) {
   const { system, user } = buildChunkFactPrompt(agentId, chunkText, profile);
+  const chunkStart = Date.now();
   try {
-    const { parsed } = await createJsonChatCompletion({
+    const completionResult = await createJsonChatCompletion({
       model: getOpenAIModel(),
       max_tokens: 2048,
       temperature: 0.1,
@@ -296,13 +304,31 @@ async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: 
       ],
     } as any, "AIService.analyzeChunkFacts");
 
+    const { parsed } = completionResult;
+
+    if (completionResult.fallbackAttempted) {
+      logger.warn({
+        module: "analyzeChunkFacts",
+        provider: completionResult.provider,
+        model: completionResult.model,
+        durationMs: Date.now() - chunkStart,
+        fallbackAttempted: true,
+        fallbackSucceeded: completionResult.fallbackSucceeded,
+      }, "Chunk fallback triggered");
+    }
+
     const validated = ChunkFactsSchema.safeParse(parsed);
     if (!validated.success) {
       return buildFallbackChunkFacts(chunkText);
     }
 
     return validated.data as ChunkAnalysisFacts;
-  } catch {
+  } catch (err) {
+    logger.warn({
+      module: "analyzeChunkFacts",
+      durationMs: Date.now() - chunkStart,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    }, "Chunk failed, using fallback facts");
     return buildFallbackChunkFacts(chunkText);
   }
 }
@@ -466,19 +492,38 @@ async function createJsonChatCompletion(
   payload: Record<string, unknown>,
   module: string,
   attempts = 2,
-): Promise<{ raw: string; parsed: Record<string, unknown>; usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null }> {
+): Promise<{
+  raw: string;
+  parsed: Record<string, unknown>;
+  usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null;
+  provider?: string;
+  model?: string;
+  fallbackAttempted?: boolean;
+  fallbackSucceeded?: boolean;
+}> {
   let lastError: Error | null = null;
+  let lastFallback: FallbackResult | null = null;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const completion = await openai.chat.completions.create(payload as any);
-      const raw = completion.choices[0]?.message?.content ?? "";
+      const fallbackResult = await createWithFallback(payload);
+      lastFallback = fallbackResult;
+      const completion = fallbackResult.result as any;
+      const raw = completion.choices?.[0]?.message?.content ?? "";
       const parsed = extractJsonFromResponse(raw);
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
         throw new Error(`${module}: resposta da IA não é um objeto JSON válido.`);
       }
-      const usage = (completion as any)?.usage ?? null;
-      return { raw, parsed: parsed as Record<string, unknown>, usage };
+      const usage = completion?.usage ?? null;
+      return {
+        raw,
+        parsed: parsed as Record<string, unknown>,
+        usage,
+        provider: fallbackResult.provider,
+        model: fallbackResult.model,
+        fallbackAttempted: fallbackResult.fallbackAttempted,
+        fallbackSucceeded: fallbackResult.fallbackSucceeded,
+      };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < attempts && isJsonRetryableError(lastError.message)) {
@@ -1831,14 +1876,30 @@ export async function analyzeAgent(
   const { text: normalizedText } = normalizeDocumentText(text);
   const model = getOpenAIModel();
   const start = Date.now();
+  const requestId = randomUUID();
 
   try {
     const { text: normalizedDocumentText } = normalizeDocumentText(text);
-    const shouldChunk = estimateTokens(normalizedDocumentText) > getChunkingConfig().maxInputTokens * 0.75;
+    const estimatedTokens = estimateTokens(normalizedDocumentText);
+    const chunkThreshold = getChunkingConfig().maxInputTokens * 0.6;
+    const shouldChunk = estimatedTokens > chunkThreshold;
+
+    logger.info({
+      requestId,
+      module: "analyzeAgent",
+      agentId,
+      provider: getProviderNameFromModel(model),
+      model,
+      inputCharacters: normalizedDocumentText.length,
+      estimatedTokens,
+      chunkThreshold,
+      shouldChunk,
+      userId: opts?.userId ?? null,
+    }, "AI analysis started");
 
     if (!shouldChunk) {
       const { system, user } = buildAgentPrompt(agentId, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
-      const { raw, parsed: parsedRaw, usage } = await createJsonChatCompletion(
+      const completionResult = await createJsonChatCompletion(
         {
           model,
           max_tokens: 4096,
@@ -1850,6 +1911,23 @@ export async function analyzeAgent(
         } as any,
         "AIService.analyzeAgent",
       );
+
+      const { raw, parsed: parsedRaw, usage } = completionResult;
+
+      logger.info({
+        requestId,
+        module: "analyzeAgent",
+        provider: completionResult.provider ?? getProviderNameFromModel(model),
+        model: completionResult.model ?? model,
+        durationMs: Date.now() - start,
+        inputCharacters: normalizedDocumentText.length,
+        estimatedTokens,
+        statusCode: 200,
+        fallbackAttempted: completionResult.fallbackAttempted ?? false,
+        fallbackSucceeded: completionResult.fallbackSucceeded ?? false,
+        promptTokens: usage?.prompt_tokens ?? null,
+        completionTokens: usage?.completion_tokens ?? null,
+      }, "AI single-pass completed");
 
       const parsed =
         parsedRaw !== null && typeof parsedRaw === "object" && !Array.isArray(parsedRaw) && !(parsedRaw as Record<string, unknown>).type
@@ -1959,6 +2037,20 @@ export async function analyzeAgent(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const latency = Date.now() - start;
+
+    logger.error({
+      requestId,
+      module: "analyzeAgent",
+      provider: getProviderNameFromModel(model),
+      model,
+      agentId,
+      durationMs: latency,
+      inputCharacters: normalizedText.length,
+      estimatedTokens: estimateTokens(normalizedText),
+      errorMessage: message,
+      userId: opts?.userId ?? null,
+    }, "AI analysis failed");
+
     await persistUsageLog({
       module: "AIService.analyzeAgent",
       model,

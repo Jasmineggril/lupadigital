@@ -3,14 +3,14 @@ import OpenAI from "openai";
 let _client: OpenAI | null = null;
 
 export function getOpenAIModel(): string {
-  // Groq (llama) quando disponível
   if (process.env.GROQ_API_KEY) return "llama-3.3-70b-versatile";
-  // Gemini proxy do Replit
   if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
-  // Gemini direto
   if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
-  // OpenAI direto (fallback)
   return "gpt-5.4-mini";
+}
+
+function getGeminiApiKey(): string | undefined {
+  return process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 }
 
 /** Converte mensagens OpenAI → payload nativo Gemini e devolve resposta no formato OpenAI. */
@@ -19,9 +19,7 @@ async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
     process.env.AI_INTEGRATIONS_GEMINI_BASE_URL ||
     "https://generativelanguage.googleapis.com/v1beta";
 
-  const apiKey =
-    process.env.AI_INTEGRATIONS_GEMINI_API_KEY ||
-    process.env.GEMINI_API_KEY;
+  const apiKey = getGeminiApiKey();
 
   if (!apiKey) throw new Error("Nenhuma chave Gemini encontrada.");
 
@@ -49,10 +47,7 @@ async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
   }
 
   const model = "gemini-2.5-flash";
-  const isProxy = baseUrl.includes("localhost") || baseUrl.includes("modelfarm");
-  const url = isProxy
-    ? `${baseUrl}/models/${model}:generateContent`
-    : `${baseUrl}/models/${model}:generateContent`;
+  const url = `${baseUrl}/models/${model}:generateContent`;
 
   const res = await fetch(url, {
     method: "POST",
@@ -102,33 +97,30 @@ async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
 export function getOpenAIClient(): OpenAI {
   if (_client) return _client;
 
-  // Prioridade 1: Groq (grátis, sem cartão, llama-3.3-70b)
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey) {
     _client = new OpenAI({
       apiKey: groqKey,
       baseURL: "https://api.groq.com/openai/v1",
+      timeout: 120_000,
     });
     return _client;
   }
 
-  // Prioridade 2: Proxy Gemini do Replit (localhost:1106 — só funciona no Replit)
   if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) {
     _client = { chat: { completions: { create: geminiCreate } } } as unknown as OpenAI;
     return _client;
   }
 
-  // Prioridade 3: Gemini direto (requer chave AIzaSy do Google AI Studio)
-  const geminiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const geminiKey = getGeminiApiKey();
   if (geminiKey) {
     _client = { chat: { completions: { create: geminiCreate } } } as unknown as OpenAI;
     return _client;
   }
 
-  // Prioridade 4: OpenAI direto (requer créditos)
   const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey) {
-    _client = new OpenAI({ apiKey: openaiKey });
+    _client = new OpenAI({ apiKey: openaiKey, timeout: 120_000 });
     return _client;
   }
 
@@ -143,3 +135,125 @@ export const openai = new Proxy({} as OpenAI, {
     return value;
   },
 });
+
+function isRetryableProviderError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("500") ||
+    m.includes("502") ||
+    m.includes("503") ||
+    m.includes("504") ||
+    m.includes("internal server error") ||
+    m.includes("server had an error") ||
+    m.includes("bad gateway") ||
+    m.includes("overloaded") ||
+    m.includes("service unavailable") ||
+    m.includes("temporarily") ||
+    m.includes("econnreset") ||
+    m.includes("econnrefused") ||
+    m.includes("etimedout") ||
+    m.includes("timeout") ||
+    m.includes("aborted") ||
+    m.includes("upstream")
+  );
+}
+
+export interface FallbackResult {
+  result: unknown;
+  provider: string;
+  model: string;
+  fallbackAttempted: boolean;
+  fallbackSucceeded: boolean;
+}
+
+export async function createWithFallback(
+  payload: Record<string, unknown>,
+): Promise<FallbackResult> {
+  const primaryProvider = getProviderName();
+  const primaryModel = getOpenAIModel();
+
+  try {
+    const result = await openai.chat.completions.create(payload as any);
+    return {
+      result,
+      provider: primaryProvider,
+      model: primaryModel,
+      fallbackAttempted: false,
+      fallbackSucceeded: false,
+    };
+  } catch (primaryError) {
+    const msg = primaryError instanceof Error ? primaryError.message : String(primaryError);
+
+    if (!isRetryableProviderError(msg)) {
+      throw primaryError;
+    }
+
+    const fallbackProvider = getFallbackProvider();
+    if (!fallbackProvider) {
+      throw primaryError;
+    }
+
+    try {
+      const fallbackResult = await fallbackProvider.client.chat.completions.create(payload as any);
+      return {
+        result: fallbackResult,
+        provider: fallbackProvider.name,
+        model: fallbackProvider.model,
+        fallbackAttempted: true,
+        fallbackSucceeded: true,
+      };
+    } catch {
+      throw primaryError;
+    }
+  }
+}
+
+function getProviderName(): string {
+  if (process.env.GROQ_API_KEY) return "groq";
+  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  return "unknown";
+}
+
+interface FallbackProvider {
+  name: string;
+  model: string;
+  client: OpenAI;
+}
+
+function getFallbackProvider(): FallbackProvider | null {
+  const current = getProviderName();
+
+  if (current === "groq") {
+    if (getGeminiApiKey()) {
+      return {
+        name: "gemini",
+        model: "gemini-2.5-flash",
+        client: { chat: { completions: { create: geminiCreate } } } as unknown as OpenAI,
+      };
+    }
+    if (process.env.OPENAI_API_KEY) {
+      return {
+        name: "openai",
+        model: "gpt-5.4-mini",
+        client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 120_000 }),
+      };
+    }
+  }
+
+  if (current === "gemini") {
+    if (process.env.GROQ_API_KEY) {
+      return {
+        name: "groq",
+        model: "llama-3.3-70b-versatile",
+        client: new OpenAI({
+          apiKey: process.env.GROQ_API_KEY,
+          baseURL: "https://api.groq.com/openai/v1",
+          timeout: 120_000,
+        }),
+      };
+    }
+  }
+
+  return null;
+}

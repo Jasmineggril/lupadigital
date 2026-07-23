@@ -75,29 +75,49 @@ function ensureSslMode(urlStr: string): string {
 }
 
 /**
- * Força o uso do Connection Pooler (porta 6543) em vez da conexão direta (5432).
+ * Valida se a connection string aponta para o Supabase Connection Pooler (Supavisor)
+ * e não para a conexão direta.
  *
- * Em serverless (Vercel), a conexão direta ao Supabase pode usar IPv6
- * que não é roteável, causando timeout. O Connection Pooler (PgBouncer) na porta
- * 6543 aceita IPv4 e é compatível com ambientes serverless.
+ * Em serverless (Vercel), a conexão direta ao Supabase usa IPv6 que não é
+ * roteável, causando timeout. O Shared Pooler (Supavisor) em
+ * aws-0-[region].pooler.supabase.com:6543 aceita IPv4.
+ *
+ * Hostnames do Supabase:
+ *   Direct:       db.xxx.supabase.co:5432          (IPv6, NÃO funciona em Vercel)
+ *   Session mode: aws-0-[region].pooler.supabase.com:5432 (IPv4)
+ *   Transaction:  aws-0-[region].pooler.supabase.com:6543 (IPv4, recomendado serverless)
+ *   Dedicated:    db.xxx.supabase.co:6543           (pago, co-located, pode ser IPv6)
+ *
+ * Trocar apenas a porta de 5432 para 6543 no hostname "db.xxx.supabase.co" NÃO
+ * funciona — o Dedicated Pooler (6543) continua em IPv6. O hostname precisa ser
+ * "pooler.supabase.com" para alcançar o Supavisor IPv4.
+ *
+ * @throws {Error} se o hostname não for um endpoint de pooler Supabase
  */
-function forcePoolerPort(urlStr: string): string {
+function validatePoolerUrl(urlStr: string): void {
   try {
     const u = new URL(urlStr);
     const host = u.hostname;
-    const isSupabase = host.includes("supabase");
-    const currentPort = u.port || "5432";
 
-    if (isSupabase && currentPort !== "6543") {
-      u.port = "6543";
-      if (!u.searchParams.has("pgbouncer")) {
-        u.searchParams.set("pgbouncer", "true");
-      }
-      return u.toString();
+    if (!host.includes("supabase")) return;
+
+    const isPoolerHost =
+      host.includes("pooler.supabase.com") ||
+      host.includes("pooler.supabase.co");
+
+    if (!isPoolerHost) {
+      throw new Error(
+        `DATABASE_URL aponta para a conexão direta do Supabase (${host}), ` +
+        `que usa IPv6 e NÃO funciona em ambientes serverless (Vercel).\n\n` +
+        `Use a Connection Pooler URL (Supavisor) com hostname "pooler.supabase.com":\n` +
+        `  Settings → Database → Connection string → Transaction mode (port 6543)\n` +
+        `  Formato: postgres://postgres.PROJETO_REF:SENHA@aws-0-REGION.pooler.supabase.com:6543/postgres\n\n` +
+        `No Vercel: Settings → Environment Variables → DATABASE_URL → cole a URL acima.`
+      );
     }
-    return urlStr;
-  } catch {
-    return urlStr;
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("DATABASE_URL aponta")) throw e;
+    // URL malformada — deixa o driver tratar
   }
 }
 
@@ -147,7 +167,11 @@ async function prepareConnectionString(urlStr: string) {
     const host = url.hostname;
 
     if (isIpv6Address(host)) {
-      return forcePoolerPort(urlStr);
+      throw new Error(
+        `Host IPv6 detectado (${host}). ` +
+        `Use a Connection Pooler URL do Supabase com hostname "pooler.supabase.com": ` +
+        `Settings → Database → Connection string → Transaction mode (port 6543)`
+      );
     }
 
     const resolvedHost = await resolveHost(host);
@@ -165,7 +189,11 @@ async function prepareConnectionString(urlStr: string) {
     const host = params.get("host");
     if (host) {
       if (isIpv6Address(host)) {
-        return forcePoolerPort(urlStr);
+        throw new Error(
+          `Host IPv6 detectado (${host}) no formato DSN. ` +
+          `Use a Connection Pooler URL do Supabase com hostname "pooler.supabase.com": ` +
+          `Settings → Database → Connection string → Transaction mode (port 6543)`
+        );
       }
       const resolvedHost = await resolveHost(host);
       if (resolvedHost !== host) {
@@ -193,7 +221,7 @@ function resolveDatabaseUrl(): string | undefined {
     url = injectPassword(url, dbPassword);
   }
 
-  url = forcePoolerPort(url);
+  validatePoolerUrl(url);
   url = ensureSslMode(url);
 
   return url;

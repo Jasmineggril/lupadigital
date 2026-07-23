@@ -358,7 +358,16 @@ async function processDocumentInChunks(agentId: AgentId, text: string, profile?:
 
   for (let index = 0; index < chunks.length; index += concurrency) {
     const batch = chunks.slice(index, index + concurrency);
+    const chunkIds = batch.map((c) => c.chunkId);
+    logger.info({ step: "chunk_started", agentId, chunkIds, batchStart: index }, `Processing batch of ${batch.length} chunk(s)`);
     const batchResults = await Promise.all(batch.map((chunk) => processChunkWithRetry(agentId, chunk, profile, opts)));
+    for (const result of batchResults) {
+      if (result.ok) {
+        logger.info({ step: "chunk_completed", agentId, chunkId: result.chunk.chunkId, estimatedTokens: result.chunk.estimatedTokens }, "Chunk processed successfully");
+      } else {
+        logger.warn({ step: "chunk_failed", agentId, chunkId: result.chunk.chunkId, error: result.error }, "Chunk processing failed");
+      }
+    }
     results.push(...batchResults);
   }
 
@@ -508,7 +517,7 @@ async function createJsonChatCompletion(
     try {
       const fallbackResult = await createWithFallback(payload);
       lastFallback = fallbackResult;
-      const completion = fallbackResult.result as any;
+      const completion = (fallbackResult.result as any) ?? {};
       const raw = completion.choices?.[0]?.message?.content ?? "";
       const parsed = extractJsonFromResponse(raw);
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
@@ -1878,6 +1887,7 @@ export async function analyzeAgent(
   const start = Date.now();
   const requestId = randomUUID();
 
+  let currentStep = "initialization";
   try {
     const { text: normalizedDocumentText } = normalizeDocumentText(text);
     const estimatedTokens = estimateTokens(normalizedDocumentText);
@@ -1886,6 +1896,7 @@ export async function analyzeAgent(
 
     logger.info({
       requestId,
+      step: "analysis_started",
       module: "analyzeAgent",
       agentId,
       provider: getProviderNameFromModel(model),
@@ -1898,7 +1909,11 @@ export async function analyzeAgent(
     }, "AI analysis started");
 
     if (!shouldChunk) {
+      currentStep = "single_pass_prompt_build";
       const { system, user } = buildAgentPrompt(agentId, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
+
+      currentStep = "single_pass_api_call";
+      logger.info({ requestId, step: "single_pass_started", agentId, estimatedTokens }, "Single-pass analysis started");
       const completionResult = await createJsonChatCompletion(
         {
           model,
@@ -1916,19 +1931,20 @@ export async function analyzeAgent(
 
       logger.info({
         requestId,
+        step: "single_pass_completed",
         module: "analyzeAgent",
         provider: completionResult.provider ?? getProviderNameFromModel(model),
         model: completionResult.model ?? model,
         durationMs: Date.now() - start,
         inputCharacters: normalizedDocumentText.length,
         estimatedTokens,
-        statusCode: 200,
         fallbackAttempted: completionResult.fallbackAttempted ?? false,
         fallbackSucceeded: completionResult.fallbackSucceeded ?? false,
         promptTokens: usage?.prompt_tokens ?? null,
         completionTokens: usage?.completion_tokens ?? null,
       }, "AI single-pass completed");
 
+      currentStep = "single_pass_validation";
       const parsed =
         parsedRaw !== null && typeof parsedRaw === "object" && !Array.isArray(parsedRaw) && !(parsedRaw as Record<string, unknown>).type
           ? { type: agentId, ...(parsedRaw as Record<string, unknown>) }
@@ -1941,7 +1957,16 @@ export async function analyzeAgent(
       const totalTokens = typeof usage?.total_tokens === "number" ? usage.total_tokens : null;
 
       if (!validated.success) {
-        const e = new Error(`AI response did not match expected schema: ${JSON.stringify(validated.error.format()).slice(0, 300)} | raw: ${raw.slice(0, 200)}`);
+        const schemaPreview = JSON.stringify(validated.error.format()).slice(0, 300);
+        logger.warn({
+          requestId,
+          step: "single_pass_validation_failed",
+          agentId,
+          schemaPreview,
+          rawPreview: raw.slice(0, 200),
+        }, "AI response validation failed");
+        const e = new Error(`AI response did not match expected schema: ${schemaPreview} | raw: ${raw.slice(0, 200)}`);
+        (e as any).requestId = requestId;
         (e as any).validation = validated.error.format();
         (e as any).raw = raw;
         await persistUsageLog({
@@ -1962,7 +1987,11 @@ export async function analyzeAgent(
         throw e;
       }
 
+      currentStep = "single_pass_canonical";
       const canonical = buildCanonicalAnalysis(agentId, validated.data as Record<string, unknown>, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
+
+      currentStep = "response_sent";
+      logger.info({ requestId, step: "response_sent", agentId, mode: "single" }, "Analysis response ready");
 
       await persistUsageLog({
         module: "AIService.analyzeAgent",
@@ -1997,9 +2026,33 @@ export async function analyzeAgent(
       } as Record<string, unknown>;
     }
 
+    currentStep = "chunk_processing_started";
+    logger.info({ requestId, step: "chunk_processing_started", agentId, estimatedTokens, chunkThreshold }, "Chunked analysis started");
     const chunkProcessing = await processDocumentInChunks(agentId, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined, opts);
+
+    currentStep = "consolidation_started";
+    logger.info({
+      requestId,
+      step: "consolidation_started",
+      agentId,
+      totalChunks: chunkProcessing.processing.totalChunks,
+      processedChunks: chunkProcessing.processing.processedChunks,
+      failedChunks: chunkProcessing.processing.failedChunks,
+    }, "Consolidating chunk results");
     const consolidatedAgentResult = buildConsolidatedAgentResult(agentId, chunkProcessing.chunkResults, normalizedDocumentText);
+
+    currentStep = "consolidation_canonical";
     const canonical = buildCanonicalAnalysis(agentId, { ...consolidatedAgentResult, processing: chunkProcessing.processing } as Record<string, unknown>, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
+
+    currentStep = "response_sent";
+    logger.info({
+      requestId,
+      step: "consolidation_completed",
+      agentId,
+      totalChunks: chunkProcessing.processing.totalChunks,
+      processedChunks: chunkProcessing.processing.processedChunks,
+      complete: chunkProcessing.processing.complete,
+    }, "Chunked analysis consolidated");
 
     const latency = Date.now() - start;
     await persistUsageLog({
@@ -2036,10 +2089,13 @@ export async function analyzeAgent(
     } as Record<string, unknown>;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    const errorName = err instanceof Error ? err.name : "UnknownError";
+    const errorStack = err instanceof Error ? err.stack : undefined;
     const latency = Date.now() - start;
 
     logger.error({
       requestId,
+      step: currentStep,
       module: "analyzeAgent",
       provider: getProviderNameFromModel(model),
       model,
@@ -2047,7 +2103,9 @@ export async function analyzeAgent(
       durationMs: latency,
       inputCharacters: normalizedText.length,
       estimatedTokens: estimateTokens(normalizedText),
+      errorName,
       errorMessage: message,
+      errorStack: errorStack?.slice(0, 500),
       userId: opts?.userId ?? null,
     }, "AI analysis failed");
 
@@ -2066,7 +2124,10 @@ export async function analyzeAgent(
       level: "error",
       message: `AIService error (${model})`,
     });
-    throw new Error(`AIService error (${model}): ${message}`);
+
+    const wrapped = new Error(message);
+    (wrapped as any).requestId = requestId;
+    throw wrapped;
   }
 }
 

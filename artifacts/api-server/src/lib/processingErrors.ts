@@ -50,16 +50,20 @@ export function classifyAiError(message: string): ProcessErrorClassification {
 
   // ── Conteúdo excessivamente longo (413 / token limit) ─────────────────
   if (
+    normalized.includes("413") ||
     normalized.includes("content too large") ||
     normalized.includes("request too large") ||
+    normalized.includes("payload too large") ||
     normalized.includes("input limit") ||
     normalized.includes("exceeds the input") ||
     normalized.includes("too large") ||
     normalized.includes("context length") ||
+    normalized.includes("context_length_exceeded") ||
     normalized.includes("maximum context") ||
     normalized.includes("context window") ||
     normalized.includes("input is too long") ||
     normalized.includes("token limit") ||
+    normalized.includes("tpm limit") ||
     normalized.includes("max tokens") ||
     normalized.includes("maximum tokens") ||
     normalized.includes("prompt too long") ||
@@ -245,13 +249,38 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
+  // ── Erro JavaScript inesperado (TypeError, ReferenceError, etc.) ────
+  if (
+    normalized.includes("typeerror") ||
+    normalized.includes("referenceerror") ||
+    normalized.includes("syntaxerror") ||
+    normalized.includes("cannot read propert") ||
+    normalized.includes("is not a function") ||
+    normalized.includes("is not defined") ||
+    normalized.includes("cannot access") ||
+    normalized.includes("assignment to constant") ||
+    normalized.includes("unexpected token") ||
+    normalized.includes("normalizefactstext") ||
+    normalized.includes("consolidatechunkfacts") ||
+    normalized.includes("buildconsolidatedagentresult") ||
+    normalized.includes("buildcanonicalanalysis")
+  ) {
+    return {
+      status: 500,
+      retryable: false,
+      reason: "internal_error",
+      userMessage: "Ocorreu um erro interno ao processar a análise. Tente novamente.",
+      logMessage: "Unexpected JavaScript error in AI processing pipeline",
+    };
+  }
+
   // ── Fallback: erro genérico ──────────────────────────────────────────
   return {
     status: 500,
     retryable: false,
     reason: "internal_error",
     userMessage: "Não foi possível concluir a interpretação neste momento.",
-    logMessage: "AI processing failed",
+    logMessage: "AI processing failed — unclassified error",
   };
 }
 

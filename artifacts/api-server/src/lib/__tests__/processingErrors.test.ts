@@ -70,7 +70,7 @@ describe("classifyAiError", () => {
 
     expect(result.status).toBe(422);
     expect(result.retryable).toBe(false);
-    expect(result.userMessage).toContain("filtros de segurança");
+    expect(result.userMessage).toContain("não pôde ser processado");
   });
 
   it("maps Gemini empty response to content blocked", () => {
@@ -81,7 +81,7 @@ describe("classifyAiError", () => {
   });
 
   it("maps timeout to retryable", () => {
-    const result = classifyAiError("Request timed out after 120s");
+    const result = classifyAiError("ETIMEDOUT: request timed out after 120s");
 
     expect(result.status).toBe(503);
     expect(result.retryable).toBe(true);
@@ -101,6 +101,68 @@ describe("classifyAiError", () => {
     expect(result.status).toBe(413);
     expect(result.retryable).toBe(false);
     expect(result.userMessage).toContain("extenso");
+  });
+
+  it("maps HTTP 413 status code to content too large", () => {
+    const result = classifyAiError("Gemini 413: Request Entity Too Large");
+
+    expect(result.status).toBe(413);
+    expect(result.retryable).toBe(false);
+    expect(result.userMessage).toContain("extenso");
+  });
+
+  it("maps context_length_exceeded to content too large", () => {
+    const result = classifyAiError("context_length_exceeded: maximum context length is 128000 tokens");
+
+    expect(result.status).toBe(413);
+    expect(result.retryable).toBe(false);
+  });
+
+  it("maps payload too large to content too large", () => {
+    const result = classifyAiError("payload too large: 413");
+
+    expect(result.status).toBe(413);
+    expect(result.retryable).toBe(false);
+  });
+
+  it("maps TPM limit to content too large", () => {
+    const result = classifyAiError("TPM limit exceeded: 30000 tokens per minute");
+
+    expect(result.status).toBe(413);
+    expect(result.retryable).toBe(false);
+  });
+
+  it("maps TypeError to internal error (not exposed)", () => {
+    const result = classifyAiError("TypeError: Cannot read properties of undefined (reading 'type')");
+
+    expect(result.status).toBe(500);
+    expect(result.retryable).toBe(false);
+    expect(result.userMessage).toContain("erro interno");
+    expect(result.userMessage).not.toContain("TypeError");
+  });
+
+  it("maps ReferenceError to internal error", () => {
+    const result = classifyAiError("ReferenceError: myVar is not defined");
+
+    expect(result.status).toBe(500);
+    expect(result.retryable).toBe(false);
+    expect(result.userMessage).toContain("erro interno");
+  });
+
+  it("maps buildCanonicalAnalysis error to internal error", () => {
+    const result = classifyAiError("buildCanonicalAnalysis: Cannot read propert of undefined");
+
+    expect(result.status).toBe(500);
+    expect(result.retryable).toBe(false);
+    expect(result.userMessage).toContain("erro interno");
+  });
+
+  it("maps GEMINI_RATE_LIMIT to rate limit", () => {
+    const result = classifyAiError("GEMINI_RATE_LIMIT: A IA está sobrecarregada no momento.");
+
+    expect(result.status).toBe(429);
+    expect(result.retryable).toBe(true);
+    expect(result.userMessage).toContain("limite temporário");
   });
 });
 

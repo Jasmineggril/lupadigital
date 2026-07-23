@@ -100,7 +100,7 @@ describe("chunking com texto sintético de ~6.800 palavras", () => {
 
     chunks.forEach((chunk, i) => {
       expect(chunk.index).toBe(i);
-      expect(chunk.chunkId).toBe(`chunk-${i}`);
+      expect(chunk.chunkId).toBe(`chunk-${i + 1}`);
     });
   });
 
@@ -111,7 +111,7 @@ describe("chunking com texto sintético de ~6.800 palavras", () => {
       chunkId: chunk.chunkId,
       facts: {
         documentInfo: [{ title: `Documento chunk ${chunk.index}` }],
-        dates: [{ event: "Publicação", value: "01/01/2025" }],
+        dates: [{ event: `Publicação chunk ${chunk.index}`, value: "01/01/2025" }],
         requirements: [{ requirement: `Requisito do chunk ${chunk.index}` }],
         eligibility: [],
         documents: [],
@@ -148,17 +148,18 @@ describe("fallback provider", () => {
     delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
     delete process.env.OPENAI_API_KEY;
 
-    const mockResult = {
-      choices: [{ message: { content: '{"test": true}', role: "assistant" } }],
-      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    const geminiBody = {
+      candidates: [{ content: { parts: [{ text: '{"test": true}' }] }, finishReason: "STOP" }],
+      usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5, totalTokenCount: 15 },
     };
 
-    const mockCreate = vi.fn()
-      .mockRejectedValueOnce(new Error("503 Service Unavailable: server overloaded"))
-      .mockResolvedValueOnce(mockResult);
-
     const { openai } = await import("@workspace/integrations-openai-ai-server");
-    vi.spyOn(openai.chat.completions, "create" as any).mockImplementation(mockCreate as any);
+    vi.spyOn(openai.chat.completions, "create" as any).mockRejectedValueOnce(new Error("503 Service Unavailable: server overloaded"));
+
+    vi.spyOn(globalThis, "fetch" as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => geminiBody,
+    } as Response);
 
     const result = await createWithFallback({
       model: "llama-3.3-70b-versatile",
@@ -167,7 +168,6 @@ describe("fallback provider", () => {
 
     expect(result.fallbackAttempted).toBe(true);
     expect(result.fallbackSucceeded).toBe(true);
-    expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
   it("createWithFallback NÃO tenta fallback em erro não-retryable 401", async () => {
@@ -204,17 +204,18 @@ describe("fallback provider", () => {
     delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
     delete process.env.OPENAI_API_KEY;
 
-    const mockResult = {
-      choices: [{ message: { content: '{"fallback": true}', role: "assistant" } }],
-      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    const geminiBody = {
+      candidates: [{ content: { parts: [{ text: '{"fallback": true}' }] }, finishReason: "STOP" }],
+      usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5, totalTokenCount: 15 },
     };
 
-    const mockCreate = vi.fn()
-      .mockRejectedValueOnce(new Error("ETIMEDOUT: request timed out"))
-      .mockResolvedValueOnce(mockResult);
-
     const { openai } = await import("@workspace/integrations-openai-ai-server");
-    vi.spyOn(openai.chat.completions, "create" as any).mockImplementation(mockCreate as any);
+    vi.spyOn(openai.chat.completions, "create" as any).mockRejectedValueOnce(new Error("ETIMEDOUT: request timed out"));
+
+    vi.spyOn(globalThis, "fetch" as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => geminiBody,
+    } as Response);
 
     const result = await createWithFallback({
       model: "llama-3.3-70b-versatile",
@@ -266,5 +267,147 @@ describe("logs não expõem dados sensíveis", () => {
 
     expect(typeof tokens).toBe("number");
     expect(tokens).toBeGreaterThan(0);
+  });
+});
+
+describe("end-to-end: analyzeAgent com ~6.800 palavras via chunking", () => {
+  const syntheticText = generateSyntheticEdital(6800);
+
+  it("fluxo completo: chunking → processamento → consolidação → resposta válida", async () => {
+    const { analyzeAgent } = await import("../aiService");
+
+    const mockAnalysisResult = {
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            documentInfo: [{ title: "Edital de Bolsa", organization: "MEC" }],
+            dates: [{ event: "Publicação", value: "01/03/2025" }],
+            requirements: [{ requirement: "Ser brasileiro" }],
+            eligibility: [{ criterion: "Renda familiar" }],
+            documents: [{ document: "RG" }],
+            values: [{ value: "R$ 1.500,00" }],
+            contacts: [],
+            obligations: [{ obligation: "Manter aproveitamento" }],
+            restrictions: [],
+            alerts: [],
+          }),
+          role: "assistant",
+        },
+      }],
+      usage: { prompt_tokens: 1500, completion_tokens: 200, total_tokens: 1700 },
+    };
+
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+    vi.spyOn(openai.chat.completions, "create" as any).mockResolvedValue(mockAnalysisResult as any);
+
+    const result = await analyzeAgent("simples", syntheticText, undefined, { userId: "test-user", documentId: null }) as Record<string, unknown>;
+
+    expect(result).toBeDefined();
+    expect(result.type).toBe("simples");
+    expect(result.analysisId).toBeDefined();
+    expect(result.schemaVersion).toBe("1.0.1");
+
+    const processing = result.processing as Record<string, unknown> | undefined;
+    expect(processing).toBeDefined();
+    expect(processing?.mode).toBe("chunked");
+    expect(processing?.totalChunks).toBeGreaterThan(1);
+    expect(processing?.processedChunks).toBeGreaterThan(0);
+    expect(processing?.complete).toBe(true);
+  }, 60_000);
+
+  it("resposta contém campos canônicos obrigatórios", async () => {
+    const { analyzeAgent } = await import("../aiService");
+
+    const mockResult = {
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            documentInfo: [{ title: "Edital Teste" }],
+            dates: [],
+            requirements: [],
+            eligibility: [],
+            documents: [],
+            values: [],
+            contacts: [],
+            obligations: [],
+            restrictions: [],
+            alerts: [],
+          }),
+          role: "assistant",
+        },
+      }],
+      usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+    };
+
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+    vi.spyOn(openai.chat.completions, "create" as any).mockResolvedValue(mockResult as any);
+
+    const result = await analyzeAgent("simples", syntheticText) as Record<string, unknown>;
+
+    expect(result.interpretation).toBeDefined();
+    expect(result.documentosExigidos).toBeDefined();
+    expect(result.alertas).toBeDefined();
+    expect(result.source).toBeDefined();
+    expect((result.source as Record<string, unknown>).agentId).toBe("simples");
+  }, 60_000);
+});
+
+describe("fallback Groq 503 → Gemini conclui análise", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    process.env = { ...originalEnv };
+  });
+
+  it("quando Groq retorna 503, fallback para Gemini retorna resposta válida", async () => {
+    process.env.GROQ_API_KEY = "test-groq-key";
+    process.env.AI_INTEGRATIONS_GEMINI_API_KEY = "test-gemini-key";
+    process.env.AI_INTEGRATIONS_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+
+    const geminiContent = JSON.stringify({
+      type: "simples",
+      scoreOportunidade: 75,
+      categoria: "Bolsa",
+      resumo: "Edital de bolsa para estudantes de baixa renda.",
+      objetivo: "Apoio financeiro a estudantes.",
+      publicoAlvo: "Estudantes de baixa renda.",
+      prazo: "15/03 a 15/04/2025",
+      requisitos: ["Ser brasileiro", "Renda familiar baixa"],
+      ondeInscrever: "Portal do MEC",
+      observacao: "Bolsa mensal de até R$ 1.500.",
+      alertas: [],
+    });
+
+    const geminiBody = {
+      candidates: [{ content: { parts: [{ text: geminiContent }] }, finishReason: "STOP" }],
+      usageMetadata: { promptTokenCount: 500, candidatesTokenCount: 150, totalTokenCount: 650 },
+    };
+
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+    vi.spyOn(openai.chat.completions, "create" as any).mockRejectedValueOnce(new Error("503 Service Unavailable: Groq server overloaded"));
+
+    vi.spyOn(globalThis, "fetch" as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => geminiBody,
+    } as Response);
+
+    const { createWithFallback } = await import("@workspace/integrations-openai-ai-server");
+    const result = await createWithFallback({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: "Analise este edital." }],
+    });
+
+    expect(result.fallbackAttempted).toBe(true);
+    expect(result.fallbackSucceeded).toBe(true);
+    expect(result.provider).toBe("gemini");
+    expect(result.model).toBe("gemini-2.5-flash");
+
+    const content = (result.result as any).choices[0].message.content;
+    const parsed = JSON.parse(content);
+    expect(parsed.type).toBe("simples");
+    expect(parsed.resumo).toBeDefined();
   });
 });

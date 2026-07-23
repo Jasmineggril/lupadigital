@@ -337,7 +337,7 @@ router.post("/edital/extract-url", async (req, res): Promise<void> => {
     html = rawHtml;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    req.log.warn({ url: fetchedUrl, message }, "Failed to fetch URL");
+    req.log?.warn({ url: fetchedUrl, message }, "Failed to fetch URL");
     res.status(422).json({ error: "Não foi possível acessar a URL. Verifique se ela está correta e disponível." });
     return;
   }
@@ -399,17 +399,9 @@ router.post("/edital/simplify", async (req, res): Promise<void> => {
     res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    req.log?.error({ error: message }, "AIService simplify failed");
-    if (message.includes("GEMINI_RATE_LIMIT")) {
-      res.status(429).json({ error: "A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente." });
-      return;
-    }
-    res.status(500).json({
-      error:
-        message === "AI response is not valid JSON" || message === "AI response did not match expected schema"
-          ? "Falha ao processar a resposta da IA. Tente novamente."
-          : "Falha ao conectar com o serviço de IA. Tente novamente mais tarde.",
-    });
+    const classification = classifyAiError(message);
+    req.log?.error({ requestId: (error as any)?.requestId, error: message, reason: classification.reason }, classification.logMessage ?? "AIService simplify failed");
+    res.status(classification.status).json({ error: classification.userMessage });
     return;
   }
 });
@@ -549,7 +541,7 @@ router.post("/edital/ocr-pdf", async (req, res): Promise<void> => {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     const classification = classifyAiError(msg);
-    req.log.error({ error: msg, reason: classification.reason }, classification.logMessage ?? "ocr-pdf failed");
+    req.log?.error({ error: msg, reason: classification.reason }, classification.logMessage ?? "ocr-pdf failed");
     res.status(classification.status).json({ error: classification.userMessage });
   }
 });

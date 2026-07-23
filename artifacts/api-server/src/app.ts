@@ -98,6 +98,15 @@ export const ocrLimiter = rateLimit({
   message: { error: "Limite de processamento de PDF atingido. Aguarde um minuto." },
 });
 
+/** Limite rigoroso para rota de diagnóstico de IA (5 req/min por IP) */
+const diagLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Limite de diagnóstico atingido." },
+});
+
 // ── Middlewares globais (aplicados a todas as rotas) ─────────────────────────
 
 // Logging estruturado: registra method, URL (sem query string) e statusCode
@@ -148,6 +157,7 @@ app.use("/api/edital/analyze", aiLimiter);
 app.use("/api/edital/simplify", aiLimiter);
 app.use("/api/edital/extract-url", aiLimiter);
 app.use("/api/niasci", aiLimiter); // todas as sub-rotas do NIASci usam IA
+app.use("/api/diag", diagLimiter); // diagnóstico de provedores (5 req/min)
 
 // ── Router principal ─────────────────────────────────────────────────────────
 // Todas as rotas da API são prefixadas com /api

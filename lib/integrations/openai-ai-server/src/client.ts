@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 
+export { OpenAI };
+
 let _client: OpenAI | null = null;
 
 export function getOpenAIModel(): string {
@@ -14,7 +16,7 @@ function getGeminiApiKey(): string | undefined {
 }
 
 /** Converte mensagens OpenAI → payload nativo Gemini e devolve resposta no formato OpenAI. */
-async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
+export async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
   const baseUrl =
     process.env.AI_INTEGRATIONS_GEMINI_BASE_URL ||
     "https://generativelanguage.googleapis.com/v1beta";

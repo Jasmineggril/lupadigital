@@ -16,10 +16,12 @@ import healthRouter from "./health";
 import editalRouter from "./edital";
 import resourcesRouter from "./resources";
 import niasciRouter from "./niasci";
+import diagRouter from "./diag";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(diagRouter);   // antes de edital/niasci (não requer auth Supabase)
 router.use(editalRouter);
 router.use(niasciRouter);   // antes do resourcesRouter (que tem requireAuth global)
 router.use(resourcesRouter);

@@ -94,12 +94,7 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const classification = classifyAiError(message);
-    req.log?.error({ error: message, reason: classification.reason }, classification.logMessage ?? "AIService failed");
-
-    if (message.includes("413") || message.includes("Request too large") || message.includes("TPM") || message.includes("token")) {
-      res.status(413).json({ error: "Este documento é extenso e será analisado em partes. O processo pode levar um pouco mais de tempo." });
-      return;
-    }
+    req.log?.error({ requestId: (error as any)?.requestId, error: message, reason: classification.reason }, classification.logMessage ?? "AIService failed");
 
     res.status(classification.status).json({ error: classification.userMessage });
     return;

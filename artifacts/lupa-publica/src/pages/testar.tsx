@@ -316,30 +316,6 @@ function getFriendlyErrorMessage(error: unknown) {
     return render(error.message);
   }
 
-  if (normalized.includes("rate_limit") || normalized.includes("sobrecarregada") || normalized.includes("429")) {
-    return "⏳ A IA está sobrecarregada agora. Aguarde alguns segundos e tente novamente.";
-  }
-  if (normalized.includes("serviço de ia não está disponível") || normalized.includes("503") || normalized.includes("nenhuma chave") || normalized.includes("not configured")) {
-    return "⚠️ O serviço de IA está temporariamente indisponível. Tente novamente em alguns instantes.";
-  }
-  if (normalized.includes("muito grande") || normalized.includes("413") || normalized.includes("context_length")) {
-    return "📄 O documento é muito grande. Cole apenas as seções principais do edital e tente novamente.";
-  }
-  if (normalized.includes("timeout") || normalized.includes("504") || normalized.includes("demorou")) {
-    return "⌛ A IA demorou muito para responder. Tente novamente em alguns instantes.";
-  }
-  if (normalized.includes("mínimo") || normalized.includes("20 caracteres")) {
-    return "Insira um texto com pelo menos 20 caracteres para continuar.";
-  }
-  if (normalized.includes("url")) {
-    return "Não foi possível acessar a URL informada. Verifique se ela é pública e tente novamente.";
-  }
-  if (normalized.includes("pdf")) {
-    return "Não foi possível ler o PDF. Tente outro arquivo ou faça a cópia do texto manualmente.";
-  }
-  if (normalized.includes("network") || normalized.includes("fetch") || normalized.includes("failed to fetch")) {
-    return "A conexão com o serviço de interpretação falhou. Verifique sua internet e tente novamente.";
-  }
   return "Não foi possível concluir a interpretação neste momento. Tente novamente.";
 }
 

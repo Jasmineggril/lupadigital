@@ -4,45 +4,37 @@ import net from "net";
 import pg from "pg";
 import * as schema from "./schema";
 
-const poolConfig = {
-  max: Number(process.env.PG_POOL_MAX ?? 10),
-  idleTimeoutMillis: Number(process.env.PG_POOL_IDLE_TIMEOUT_MS ?? 30000),
-  connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT ?? 10000),
-};
-
 const { Pool } = pg;
+
+// ── Pool config (lazily read from env at pool creation time) ─────────────────
+function getPoolConfig() {
+  return {
+    max: Number(process.env.PG_POOL_MAX ?? 5),
+    idleTimeoutMillis: Number(process.env.PG_POOL_IDLE_TIMEOUT_MS ?? 10000),
+    connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT ?? 10000),
+  };
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function isIpv6Address(host: string) {
   return net.isIP(host) === 6 || /^\[[0-9a-fA-F:]+\]$/.test(host);
 }
 
-function getIpv6HostError(host: string) {
-  return [
-    `Detected an IPv6-only Postgres host in the connection URL: ${host}`,
-    "Supabase Preview environments may not be able to reach IPv6 Postgres addresses.",
-    "Set DIRECT_URL_IPV4 or DATABASE_URL to an IPv4-accessible Supabase pooler endpoint instead:",
-    "postgresql://postgres:<password>@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true",
-  ].join(" ");
-}
-
 /**
  * Normaliza uma connection string que pode ter sido colada no formato de arquivo .env
  * (ex: DATABASE_URL="postgresql://...") removendo o prefixo KEY= e as aspas envolventes.
- * Isso protege contra o erro comum de copiar a linha inteira do arquivo .env.
  */
 function normalizeConnectionString(raw: string | undefined): string | undefined {
   if (!raw) return raw;
   let s = raw.trim();
-  // Remove prefixo "KEY=" ou "KEY =" (case insensitive, qualquer nome de variável)
   const eqIdx = s.indexOf("=");
   if (eqIdx > 0) {
     const key = s.slice(0, eqIdx).trim();
-    // Só strip se o "key" não contém caracteres de URL (protocolo, @, etc.)
     if (/^[A-Z][A-Z0-9_]*$/i.test(key)) {
       s = s.slice(eqIdx + 1).trim();
     }
   }
-  // Remove aspas duplas ou simples envolventes
   if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
     s = s.slice(1, -1);
   }
@@ -51,13 +43,11 @@ function normalizeConnectionString(raw: string | undefined): string | undefined 
 
 /**
  * Se DB_PASSWORD estiver definido, substitui a senha na connection string.
- * Isso permite que o usuário corrija apenas a senha sem reformatar a URL inteira.
- * Também remove colchetes [ ] ao redor da senha (formato visual do Supabase).
+ * Remove colchetes [ ] ao redor da senha (formato visual do Supabase).
  */
 function injectPassword(urlStr: string, password: string): string {
   try {
     const u = new URL(urlStr);
-    // Remove colchetes ao redor da senha (ex: [minhaSenha] → minhaSenha)
     const clean = password.replace(/^\[|\]$/g, "").trim();
     u.password = encodeURIComponent(clean);
     return u.toString();
@@ -66,34 +56,55 @@ function injectPassword(urlStr: string, password: string): string {
   }
 }
 
-function resolveConnectionString(): string | undefined {
-  const raw = normalizeConnectionString(
-    process.env.DIRECT_URL_IPV4 || process.env.DIRECT_URL || process.env.DATABASE_URL,
-  );
-  if (!raw) return undefined;
-
-  // Se DB_PASSWORD estiver definido, injeta a senha correta na URL
-  const dbPassword = normalizeConnectionString(process.env.DB_PASSWORD);
-  if (dbPassword) {
-    return injectPassword(raw, dbPassword);
+/**
+ * Garante sslmode=require para conexões com o Supabase.
+ */
+function ensureSslMode(urlStr: string): string {
+  try {
+    const u = new URL(urlStr);
+    if (!u.searchParams.has("sslmode")) {
+      u.searchParams.set("sslmode", "require");
+    }
+    return u.toString();
+  } catch {
+    if (!/\bsslmode=/i.test(urlStr)) {
+      return `${urlStr} sslmode=require`;
+    }
+    return urlStr;
   }
-
-  return raw;
 }
 
-const databaseUrl = resolveConnectionString();
+/**
+ * Força o uso do Connection Pooler (porta 6543) em vez da conexão direta (5432).
+ *
+ * Em serverless (Vercel), a conexão direta ao Supabase pode usar IPv6
+ * que não é roteável, causando timeout. O Connection Pooler (PgBouncer) na porta
+ * 6543 aceita IPv4 e é compatível com ambientes serverless.
+ */
+function forcePoolerPort(urlStr: string): string {
+  try {
+    const u = new URL(urlStr);
+    const host = u.hostname;
+    const isSupabase = host.includes("supabase");
+    const currentPort = u.port || "5432";
 
-if (!databaseUrl) {
-  throw new Error(
-    "DIRECT_URL_IPV4, DIRECT_URL or DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+    if (isSupabase && currentPort !== "6543") {
+      u.port = "6543";
+      if (!u.searchParams.has("pgbouncer")) {
+        u.searchParams.set("pgbouncer", "true");
+      }
+      return u.toString();
+    }
+    return urlStr;
+  } catch {
+    return urlStr;
+  }
 }
 
 function parseDsnConnectionString(dsn: string) {
   const params = new Map<string, string>();
-  const regex = /([a-zA-Z0-9_]+)=('(?:[^']|\\')*'|"(?:[^\"]|\\")*"|[^'"\s]+)/g;
+  const regex = /([a-zA-Z0-9_]+)=('(?:[^']|\\')*'|"(?:[^"]|\\")*"|[^'"\s]+)/g;
   let match: RegExpExecArray | null;
-
   while ((match = regex.exec(dsn)) !== null) {
     let value = match[2];
     if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
@@ -101,7 +112,6 @@ function parseDsnConnectionString(dsn: string) {
     }
     params.set(match[1], value);
   }
-
   return params;
 }
 
@@ -114,6 +124,9 @@ function buildDsnConnectionString(params: Map<string, string>) {
     .join(" ");
 }
 
+/**
+ * Prepara a connection string: resolve DNS para IPv4 e garante compatibilidade.
+ */
 async function prepareConnectionString(urlStr: string) {
   async function resolveHost(host: string) {
     if (!net.isIP(host)) {
@@ -126,41 +139,34 @@ async function prepareConnectionString(urlStr: string) {
         // ignore lookup errors and fall back to original host
       }
     }
-
     return host;
   }
 
-  // Try parsing as a normal URL first.
   try {
     const url = new URL(urlStr);
     const host = url.hostname;
 
     if (isIpv6Address(host)) {
-      throw new Error(getIpv6HostError(host));
+      return forcePoolerPort(urlStr);
     }
 
     const resolvedHost = await resolveHost(host);
-
     if (resolvedHost !== host) {
       url.hostname = resolvedHost;
       return url.toString();
     }
-
     return urlStr;
   } catch {
     // not a URL, continue to DSN parsing
   }
 
-  // If the connection string uses libpq key/value syntax, convert host to IPv4 when possible.
   if (/\bhost=[^\s]+/i.test(urlStr)) {
     const params = parseDsnConnectionString(urlStr);
     const host = params.get("host");
-
     if (host) {
       if (isIpv6Address(host)) {
-        throw new Error(getIpv6HostError(host));
+        return forcePoolerPort(urlStr);
       }
-
       const resolvedHost = await resolveHost(host);
       if (resolvedHost !== host) {
         params.set("host", resolvedHost);
@@ -172,23 +178,104 @@ async function prepareConnectionString(urlStr: string) {
   return urlStr;
 }
 
-async function createPool() {
-  const raw = databaseUrl as string;
-  const connString = await prepareConnectionString(raw);
+// ── Resolução da connection string (executada no import, sem await) ──────────
 
-  // Configure reasonable timeouts to fail fast on network issues
-  const pool = new Pool({
-    connectionString: connString,
-    ...poolConfig,
-  });
+function resolveDatabaseUrl(): string | undefined {
+  const raw = normalizeConnectionString(
+    process.env.DIRECT_URL_IPV4 || process.env.DIRECT_URL || process.env.DATABASE_URL,
+  );
+  if (!raw) return undefined;
 
-  return pool;
+  let url = raw;
+
+  const dbPassword = normalizeConnectionString(process.env.DB_PASSWORD);
+  if (dbPassword) {
+    url = injectPassword(url, dbPassword);
+  }
+
+  url = forcePoolerPort(url);
+  url = ensureSslMode(url);
+
+  return url;
 }
 
-const pool = await createPool();
-export const db = drizzle(pool, { schema });
+// ── Lazy singleton ───────────────────────────────────────────────────────────
+// O pool e o cliente Drizzle são criados APENAS na primeira query ao banco.
+// Isso evita conexões desnecessárias durante importação do módulo ou build.
 
-export { pool };
+type DrizzleDB = ReturnType<typeof drizzle<typeof schema>>;
 
-    export * from "./schema";
+let _pool: pg.Pool | null = null;
+let _db: DrizzleDB | null = null;
+let _initPromise: Promise<DrizzleDB> | null = null;
 
+/**
+ * Inicializa a conexão com o banco de forma lazy (só na primeira query).
+ * Thread-safe: múltiplas chamadas concorrentes aguardam a mesma inicialização.
+ */
+async function ensureDb(): Promise<DrizzleDB> {
+  if (_db) return _db;
+  if (_initPromise) return _initPromise;
+
+  _initPromise = (async () => {
+    const databaseUrl = resolveDatabaseUrl();
+    if (!databaseUrl) {
+      throw new Error(
+        "DIRECT_URL_IPV4, DIRECT_URL ou DATABASE_URL deve estar definido. " +
+        "Use a Connection Pooler URL do Supabase (porta 6543, modo Transaction): " +
+        "Settings → Database → Connection string → Transaction mode (port 6543)",
+      );
+    }
+
+    const connString = await prepareConnectionString(databaseUrl);
+    _pool = new Pool({
+      connectionString: connString,
+      ...getPoolConfig(),
+    });
+
+    _db = drizzle(_pool, { schema });
+    return _db;
+  })();
+
+  return _initPromise;
+}
+
+/**
+ * Proxy de `db` que inicializa a conexão de forma lazy (só na primeira query).
+ *
+ * O proxy intercepta TODAS as chamadas de método e propriedade:
+ * - Para métodos que retornam builders (select, insert, update, delete):
+ *   aguarda a inicialização e delega ao Drizzle real
+ * - Para propriedades conhecidas ($schema): retorna síncrono
+ * - Para tudo mais: aguarda init e delega
+ *
+ * Isso permite `import { db } from "@workspace/db"` sem top-level await.
+ */
+export const db = new Proxy({} as DrizzleDB, {
+  get(_target, prop, _receiver) {
+    // Propriedades síncronas que não precisam de conexão
+    if (prop === "$schema") return schema;
+    if (prop === Symbol.toStringTag) return "LazyDrizzleDB";
+
+    // Para métodos: retorna uma função que aguarda inicialização
+    return (...args: unknown[]) => {
+      // Fast path: já inicializado
+      if (_db) {
+        const method = (_db as any)[prop];
+        return typeof method === "function" ? method.apply(_db, args) : method;
+      }
+
+      // Slow path: aguarda inicialização
+      return ensureDb().then((realDb) => {
+        const method = (realDb as any)[prop];
+        return typeof method === "function" ? method.apply(realDb, args) : method;
+      });
+    };
+  },
+});
+
+// Expõe ensureDb para uso avançado (health checks, scripts, etc.)
+export { ensureDb as getDb };
+export { ensureDb as getPool };
+
+export * from "./schema";

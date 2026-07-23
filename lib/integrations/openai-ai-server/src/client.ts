@@ -58,6 +58,7 @@ async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(120_000),
   });
 
   if (!res.ok) {
@@ -68,9 +69,24 @@ async function geminiCreate(params: Record<string, unknown>): Promise<unknown> {
 
   const data = await res.json() as Record<string, unknown>;
   const candidates = data.candidates as Array<Record<string, unknown>> | undefined;
-  const parts = (candidates?.[0]?.content as Record<string, unknown> | undefined)
+  const firstCandidate = candidates?.[0];
+  const finishReason = (firstCandidate?.finishReason ?? firstCandidate?.finish_reason) as string | undefined;
+
+  if (finishReason && finishReason !== "STOP" && finishReason !== "stop") {
+    if (finishReason === "SAFETY" || finishReason === "RECITATION") {
+      throw new Error("SAFETY_BLOCK: O conteúdo foi bloqueado pelos filtros de segurança do modelo.");
+    }
+    throw new Error(`Gemini finish_reason=${finishReason}: A resposta foi truncada ou bloqueada.`);
+  }
+
+  const parts = (firstCandidate?.content as Record<string, unknown> | undefined)
     ?.parts as Array<{ text?: string }> | undefined;
   const text = parts?.[0]?.text ?? "";
+
+  if (!text) {
+    throw new Error("GEMINI_EMPTY: O modelo retornou uma resposta vazia. O conteúdo pode ter sido bloqueado.");
+  }
+
   const usage = data.usageMetadata as Record<string, number> | undefined;
 
   return {

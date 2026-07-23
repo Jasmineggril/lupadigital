@@ -277,21 +277,79 @@ function getFriendlyErrorMessage(error: unknown) {
       normalized.includes("maximum context") ||
       normalized.includes("context window") ||
       normalized.includes("token limit") ||
-      normalized.includes("input is too long")
+      normalized.includes("input is too long") ||
+      normalized.includes("documento é extenso")
     ) {
       return "Este documento é extenso e será analisado em partes. O processo pode levar um pouco mais de tempo.";
     }
-    if (normalized.includes("rate_limit") || normalized.includes("sobrecarregada") || normalized.includes("limite tempor\u00e1rio")) {
+    if (
+      normalized.includes("rate_limit") ||
+      normalized.includes("rate limit") ||
+      normalized.includes("sobrecarregada") ||
+      normalized.includes("limite tempor") ||
+      normalized.includes("quota exceeded")
+    ) {
       return "O limite temporário de análises foi atingido. Aguarde e tente novamente.";
     }
-    if (normalized.includes("temporariamente indispon") || normalized.includes("provider unavailable") || normalized.includes("serviço de ia")) {
+    if (
+      normalized.includes("401") ||
+      normalized.includes("unauthorized") ||
+      normalized.includes("invalid api key") ||
+      normalized.includes("incorrect api key") ||
+      normalized.includes("chave de api") ||
+      normalized.includes("chave de api do serviço")
+    ) {
+      return "A chave de API do serviço de IA é inválida. Entre em contato com o administrador.";
+    }
+    if (
+      normalized.includes("403") ||
+      normalized.includes("forbidden") ||
+      normalized.includes("permission denied") ||
+      normalized.includes("não tem permissão")
+    ) {
+      return "O serviço de IA não tem permissão para processar esta solicitação.";
+    }
+    if (
+      normalized.includes("404") ||
+      normalized.includes("model not found") ||
+      normalized.includes("does not exist") ||
+      normalized.includes("modelo") && normalized.includes("não está disponível")
+    ) {
+      return "O modelo de IA configurado não está disponível. Entre em contato com o administrador.";
+    }
+    if (
+      normalized.includes("temporariamente indispon") ||
+      normalized.includes("provider unavailable") ||
+      normalized.includes("serviço de ia") ||
+      normalized.includes("serviço de ia está") ||
+      normalized.includes("passando por instabilidade")
+    ) {
       return "O serviço de IA está temporariamente indisponível.";
     }
-    if (normalized.includes("timeout") || normalized.includes("demorou mais") || normalized.includes("etimedout")) {
+    if (
+      normalized.includes("timeout") ||
+      normalized.includes("demorou mais") ||
+      normalized.includes("etimedout") ||
+      normalized.includes("aborted")
+    ) {
       return "A análise demorou mais que o esperado. Tente novamente.";
+    }
+    if (
+      normalized.includes("500") ||
+      normalized.includes("502") ||
+      normalized.includes("504") ||
+      normalized.includes("internal server error") ||
+      normalized.includes("server had an error") ||
+      normalized.includes("bad gateway") ||
+      normalized.includes("upstream")
+    ) {
+      return "O serviço de IA está passando por instabilidade. Tente novamente em alguns instantes.";
     }
     if (normalized.includes("resposta incompleta") || normalized.includes("schema") || normalized.includes("json") || normalized.includes("validation")) {
       return "A IA retornou uma resposta incompleta. A análise não foi salva.";
+    }
+    if (normalized.includes("safety") || normalized.includes("blocked") || normalized.includes("harmful") || normalized.includes("conteúdo do documento não pôde")) {
+      return "O conteúdo do documento não pôde ser processado pelo modelo de IA. Tente com outro documento.";
     }
     if (normalized.includes("banco") || normalized.includes("history") || normalized.includes("salvar")) {
       return "A interpretação foi concluída, mas não foi possível salvá-la no histórico.";
@@ -299,10 +357,10 @@ function getFriendlyErrorMessage(error: unknown) {
     if (normalized.includes("url")) {
       return "Não foi possível acessar a URL informada. Verifique se ela é pública e tente novamente.";
     }
-    if (normalized.includes("network") || normalized.includes("fetch")) {
+    if (normalized.includes("network") || normalized.includes("fetch") || normalized.includes("econnrefused") || normalized.includes("econnreset")) {
       return "A conexão com o serviço de interpretação falhou. Tente novamente em instantes.";
     }
-    if (normalized.includes("nenhuma chave") || normalized.includes("api key") || normalized.includes("not configured")) {
+    if (normalized.includes("nenhuma chave") || normalized.includes("api key") || normalized.includes("not configured") || normalized.includes("chave de api")) {
       return "O serviço de IA não está configurado. Entre em contato com o administrador do sistema.";
     }
     return "Não foi possível concluir a interpretação neste momento. Tente novamente.";

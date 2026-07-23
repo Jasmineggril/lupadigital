@@ -13,6 +13,42 @@ function normalize(message: string): string {
 export function classifyAiError(message: string): ProcessErrorClassification {
   const normalized = normalize(message);
 
+  // ── Autenticação / chave inválida (401) ──────────────────────────────
+  if (
+    normalized.includes("401") ||
+    normalized.includes("unauthorized") ||
+    normalized.includes("invalid api key") ||
+    normalized.includes("incorrect api key") ||
+    normalized.includes("authentication") ||
+    normalized.includes("api_key_invalid") ||
+    normalized.includes("invalid_key")
+  ) {
+    return {
+      status: 503,
+      retryable: false,
+      reason: "ai_not_configured",
+      userMessage: "A chave de API do serviço de IA é inválida. Entre em contato com o administrador.",
+      logMessage: "AI provider authentication failed — invalid or revoked API key",
+    };
+  }
+
+  // ── Acesso negado / sem permissão (403) ──────────────────────────────
+  if (
+    normalized.includes("403") ||
+    normalized.includes("forbidden") ||
+    normalized.includes("permission denied") ||
+    normalized.includes("access denied")
+  ) {
+    return {
+      status: 503,
+      retryable: false,
+      reason: "ai_not_configured",
+      userMessage: "O serviço de IA não tem permissão para processar esta solicitação.",
+      logMessage: "AI provider access denied (403)",
+    };
+  }
+
+  // ── Conteúdo excessivamente longo (413 / token limit) ─────────────────
   if (
     normalized.includes("content too large") ||
     normalized.includes("request too large") ||
@@ -23,7 +59,11 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     normalized.includes("maximum context") ||
     normalized.includes("context window") ||
     normalized.includes("input is too long") ||
-    normalized.includes("token limit")
+    normalized.includes("token limit") ||
+    normalized.includes("max tokens") ||
+    normalized.includes("maximum tokens") ||
+    normalized.includes("prompt too long") ||
+    normalized.includes("prompt + completion")
   ) {
     return {
       status: 413,
@@ -34,7 +74,17 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
-  if (normalized.includes("429") || normalized.includes("rate limit") || normalized.includes("tpm") || normalized.includes("tpd")) {
+  // ── Limite de taxa (429 / rate limit / TPM / TPD) ────────────────────
+  if (
+    normalized.includes("429") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("rate_limit") ||
+    normalized.includes("tpm") ||
+    normalized.includes("tpd") ||
+    normalized.includes("quota exceeded") ||
+    normalized.includes("requests per") ||
+    normalized.includes("requests per day")
+  ) {
     return {
       status: 429,
       retryable: true,
@@ -44,8 +94,33 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
-  // Chave de IA não configurada — 503 para sinalizar "serviço indisponível", não 500
-  if (normalized.includes("nenhuma chave") || normalized.includes("groq_api_key") || normalized.includes("not configured") || normalized.includes("no api key")) {
+  // ── Modelo não encontrado (404) ──────────────────────────────────────
+  if (
+    normalized.includes("404") ||
+    normalized.includes("model not found") ||
+    normalized.includes("model not available") ||
+    normalized.includes("does not exist") ||
+    normalized.includes("no such model")
+  ) {
+    return {
+      status: 503,
+      retryable: false,
+      reason: "ai_not_configured",
+      userMessage: "O modelo de IA configurado não está disponível. Entre em contato com o administrador.",
+      logMessage: "AI model not found or not available",
+    };
+  }
+
+  // ── Chave de IA não configurada ──────────────────────────────────────
+  if (
+    normalized.includes("nenhuma chave") ||
+    normalized.includes("groq_api_key") ||
+    normalized.includes("not configured") ||
+    normalized.includes("no api key") ||
+    normalized.includes("api key not set") ||
+    normalized.includes("missing api key") ||
+    normalized.includes("x-goog-api-key")
+  ) {
     return {
       status: 503,
       retryable: false,
@@ -55,7 +130,16 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
-  if (normalized.includes("503") || normalized.includes("temporariamente indispon") || normalized.includes("fetch failed") || normalized.includes("network")) {
+  // ── Indisponibilidade do provedor (503 / fetch failed / network) ──────
+  if (
+    normalized.includes("503") ||
+    normalized.includes("temporariamente indispon") ||
+    normalized.includes("fetch failed") ||
+    normalized.includes("network") ||
+    normalized.includes("econnrefused") ||
+    normalized.includes("enotfound") ||
+    normalized.includes("econnreset")
+  ) {
     return {
       status: 503,
       retryable: true,
@@ -65,7 +149,14 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
-  if (normalized.includes("timeout") || normalized.includes("etimedout") || normalized.includes("deadline exceeded")) {
+  // ── Timeout ──────────────────────────────────────────────────────────
+  if (
+    normalized.includes("timeout") ||
+    normalized.includes("etimedout") ||
+    normalized.includes("deadline exceeded") ||
+    normalized.includes("aborted") ||
+    normalized.includes("signal timed out")
+  ) {
     return {
       status: 503,
       retryable: true,
@@ -75,7 +166,54 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
-  if (normalized.includes("schema") || normalized.includes("json") || normalized.includes("invalid") || normalized.includes("validation")) {
+  // ── Erro interno do servidor do provedor (500 / 502) ──────────────────
+  if (
+    normalized.includes("500") ||
+    normalized.includes("502") ||
+    normalized.includes("504") ||
+    normalized.includes("internal server error") ||
+    normalized.includes("server had an error") ||
+    normalized.includes("bad gateway") ||
+    normalized.includes("upstream") ||
+    normalized.includes("overloaded") ||
+    normalized.includes("service unavailable") ||
+    normalized.includes("temporarily overloaded")
+  ) {
+    return {
+      status: 503,
+      retryable: true,
+      reason: "provider_unavailable",
+      userMessage: "O serviço de IA está passando por instabilidade. Tente novamente em alguns instantes.",
+      logMessage: "AI provider internal server error",
+    };
+  }
+
+  // ── Requisição inválida (400) ────────────────────────────────────────
+  if (
+    normalized.includes("400") ||
+    normalized.includes("bad request") ||
+    normalized.includes("invalid request") ||
+    normalized.includes("invalid parameter") ||
+    normalized.includes("unsupported") ||
+    normalized.includes("not supported")
+  ) {
+    return {
+      status: 422,
+      retryable: false,
+      reason: "invalid_response",
+      userMessage: "A solicitação de análise é inválida. Tente novamente com um documento diferente.",
+      logMessage: "AI provider rejected the request (400)",
+    };
+  }
+
+  // ── Resposta inválida / validação ────────────────────────────────────
+  if (
+    normalized.includes("schema") ||
+    normalized.includes("json") ||
+    normalized.includes("validation") ||
+    normalized.includes("did not match expected schema") ||
+    normalized.includes("unexpected token")
+  ) {
     return {
       status: 422,
       retryable: false,
@@ -85,6 +223,29 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
+  // ── Safety / conteúdo bloqueado ──────────────────────────────────────
+  if (
+    normalized.includes("safety") ||
+    normalized.includes("blocked") ||
+    normalized.includes("recitation") ||
+    normalized.includes("harmful") ||
+    normalized.includes("finishreason") ||
+    normalized.includes("finish_reason") ||
+    normalized.includes("safetyrating") ||
+    normalized.includes("safety_block") ||
+    normalized.includes("gemini_empty") ||
+    normalized.includes("resposta vazia")
+  ) {
+    return {
+      status: 422,
+      retryable: false,
+      reason: "invalid_response",
+      userMessage: "O conteúdo do documento não pôde ser processado pelo modelo de IA. Tente com outro documento.",
+      logMessage: "AI content blocked by safety filters",
+    };
+  }
+
+  // ── Fallback: erro genérico ──────────────────────────────────────────
   return {
     status: 500,
     retryable: false,

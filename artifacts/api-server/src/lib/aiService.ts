@@ -1972,9 +1972,9 @@ export async function analyzeAgent(
       totalTokens: null,
       agentId,
       level: "error",
-      message: "AIService error",
+      message: `AIService error (${model})`,
     });
-    throw new Error(`AIService error: ${message}`);
+    throw new Error(`AIService error (${model}): ${message}`);
   }
 }
 

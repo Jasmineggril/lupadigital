@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install -g pnpm@9 && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/lupa-publica run build",
+  "buildCommand": "npm install -g pnpm@9.15.9 && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/lupa-publica run build",
   "outputDirectory": "artifacts/lupa-publica/dist/public",
   "functions": {
     "api/index.js": {

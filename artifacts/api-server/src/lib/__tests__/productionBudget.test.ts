@@ -420,4 +420,12 @@ describe("separação de classificação de erros", () => {
     expect(result.reason).toBe("content_too_large");
     expect(result.status).toBe(413);
   });
+
+  it("max_tokens é classificado como max_output_tokens_invalid, não rate_limit", async () => {
+    const { classifyAiError } = await import("../processingErrors");
+    const result = classifyAiError("max_tokens exceeds the maximum allowed");
+    expect(result.reason).toBe("max_output_tokens_invalid");
+    expect(result.status).toBe(500);
+    expect(result.retryable).toBe(false);
+  });
 });

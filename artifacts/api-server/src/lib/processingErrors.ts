@@ -95,10 +95,7 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     normalized.includes("tpd") ||
     normalized.includes("quota exceeded") ||
     normalized.includes("requests per") ||
-    normalized.includes("requests per day") ||
-    normalized.includes("max tokens") ||
-    normalized.includes("max_tokens") ||
-    normalized.includes("maximum tokens")
+    normalized.includes("requests per day")
   ) {
     return {
       status: 429,
@@ -106,6 +103,22 @@ export function classifyAiError(message: string): ProcessErrorClassification {
       reason: "rate_limit",
       userMessage: "O limite temporário de análises foi atingido. Aguarde e tente novamente.",
       logMessage: "AI provider rate limit",
+    };
+  }
+
+  // ── max_tokens inválido (configuração do modelo) ──────────────────────
+  if (
+    normalized.includes("max tokens") ||
+    normalized.includes("max_tokens") ||
+    normalized.includes("maximum tokens") ||
+    normalized.includes("max_output_tokens")
+  ) {
+    return {
+      status: 500,
+      retryable: false,
+      reason: "max_output_tokens_invalid",
+      userMessage: "Erro de configuração do modelo de IA. Entre em contato com o administrador.",
+      logMessage: "AI max_output_tokens exceeds model limit — configuration error",
     };
   }
 

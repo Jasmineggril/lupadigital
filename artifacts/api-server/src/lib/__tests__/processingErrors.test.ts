@@ -136,12 +136,12 @@ describe("classifyAiError", () => {
     expect(result.reason).toBe("rate_limit");
   });
 
-  it("maps max tokens to rate_limit (output limit, not input size)", () => {
+  it("maps max tokens to max_output_tokens_invalid (configuration error, not rate limit)", () => {
     const result = classifyAiError("max_tokens exceeds the maximum allowed");
 
-    expect(result.status).toBe(429);
-    expect(result.retryable).toBe(true);
-    expect(result.reason).toBe("rate_limit");
+    expect(result.status).toBe(500);
+    expect(result.retryable).toBe(false);
+    expect(result.reason).toBe("max_output_tokens_invalid");
   });
 
   it("maps TypeError to internal error (not exposed)", () => {

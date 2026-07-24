@@ -93,9 +93,28 @@ function getProviderNameFromModel(model: string): string {
   return "unknown";
 }
 
-const MODEL_CONTEXT_WINDOW = 128_000;
-const PROMPT_OVERHEAD_ESTIMATE = 4_000;
+interface ModelContextConfig {
+  contextWindow: number;
+  maxOutputTokens: number;
+  promptOverhead: number;
+}
+
+const MODEL_CONFIGS: Record<string, ModelContextConfig> = {
+  groq: { contextWindow: 128_000, maxOutputTokens: 32_768, promptOverhead: 4_000 },
+  gemini: { contextWindow: 1_000_000, maxOutputTokens: 8_192, promptOverhead: 4_000 },
+  openai: { contextWindow: 128_000, maxOutputTokens: 16_384, promptOverhead: 4_000 },
+};
+
+const DEFAULT_MODEL_CONFIG: ModelContextConfig = { contextWindow: 128_000, maxOutputTokens: 4_096, promptOverhead: 4_000 };
 const OUTPUT_RESERVE = 512;
+
+function getModelContextConfig(model?: string): ModelContextConfig {
+  const m = (model ?? getOpenAIModel()).toLowerCase();
+  if (m.includes("llama") || m.includes("groq")) return MODEL_CONFIGS.groq;
+  if (m.includes("gemini")) return MODEL_CONFIGS.gemini;
+  if (m.includes("gpt")) return MODEL_CONFIGS.openai;
+  return DEFAULT_MODEL_CONFIG;
+}
 
 function isContextLengthError(message: string): boolean {
   const m = message.toLowerCase();
@@ -106,9 +125,10 @@ function isContextLengthError(message: string): boolean {
   );
 }
 
-function calcMaxOutputTokens(): number {
-  const available = MODEL_CONTEXT_WINDOW - PROMPT_OVERHEAD_ESTIMATE - OUTPUT_RESERVE;
-  return Math.min(4096, Math.max(512, available));
+function calcMaxOutputTokens(model?: string): number {
+  const config = getModelContextConfig(model);
+  const available = config.contextWindow - config.promptOverhead - OUTPUT_RESERVE;
+  return Math.min(config.maxOutputTokens, Math.max(512, available));
 }
 
 export function estimateTokens(text: string): number {
@@ -349,21 +369,70 @@ function buildChunkFactPrompt(agentId: AgentId, chunkText: string, profile?: z.i
   return { system, user };
 }
 
-async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null; chunkTimeoutMs?: number }) {
+async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null; chunkTimeoutMs?: number; chunkId?: string }) {
   const { system, user } = buildChunkFactPrompt(agentId, chunkText, profile);
   const chunkStart = Date.now();
   const timeoutMs = opts?.chunkTimeoutMs ?? 60_000;
-  const completionResult = await createJsonChatCompletion({
-    model: getOpenAIModel(),
-    max_tokens: calcMaxOutputTokens(),
-    temperature: 0.1,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    signal: AbortSignal.timeout(timeoutMs),
-  } as any, "AIService.analyzeChunkFacts");
+  const model = getOpenAIModel();
+  const provider = getProviderNameFromModel(model);
+  const estimatedInputTokens = estimateTokens(chunkText);
+  const estimatedPromptTokens = estimateTokens(system) + estimateTokens(user);
+  const requestedMaxOutputTokens = calcMaxOutputTokens(model);
+  const estimatedTotalTokens = estimatedInputTokens + estimatedPromptTokens + requestedMaxOutputTokens;
+
+  logger.info({
+    step: "chunk_ai_request",
+    provider,
+    model,
+    chunkId: opts?.chunkId ?? "unknown",
+    estimatedInputTokens,
+    estimatedPromptTokens,
+    requestedMaxOutputTokens,
+    estimatedTotalTokens,
+    contextWindow: getModelContextConfig(model).contextWindow,
+    messageCount: 2,
+    timeoutMs,
+  }, `AI request: ${provider}/${model} — ~${estimatedTotalTokens} tokens (input: ~${estimatedInputTokens}, prompt: ~${estimatedPromptTokens}, max_output: ${requestedMaxOutputTokens})`);
+
+  let completionResult;
+  try {
+    completionResult = await createJsonChatCompletion({
+      model,
+      max_tokens: requestedMaxOutputTokens,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      signal: AbortSignal.timeout(timeoutMs),
+    } as any, "AIService.analyzeChunkFacts");
+  } catch (error) {
+    const errMessage = error instanceof Error ? error.message : String(error);
+    const httpMatch = errMessage.match(/status[_\s]*(\d{3})/i) ?? errMessage.match(/\b(4\d{2}|5\d{2})\b/);
+    const httpStatus = httpMatch ? Number(httpMatch[1]) : null;
+    const sanitizedError = errMessage
+      .replace(/sk-[a-zA-Z0-9]{20,}/g, "[REDACTED]")
+      .replace(/gsk_[a-zA-Z0-9]{20,}/g, "[REDACTED]")
+      .replace(/key[_\s]*[:=][_\s]*["']?[a-zA-Z0-9]{20,}["']?/gi, "key=[REDACTED]")
+      .slice(0, 500);
+
+    logger.error({
+      step: "chunk_ai_error",
+      provider,
+      model,
+      chunkId: opts?.chunkId ?? "unknown",
+      estimatedInputTokens,
+      estimatedPromptTokens,
+      requestedMaxOutputTokens,
+      estimatedTotalTokens,
+      httpStatus,
+      sanitizedError,
+      durationMs: Date.now() - chunkStart,
+    }, `AI error: ${provider}/${model} — HTTP ${httpStatus ?? "unknown"} — ${sanitizedError.slice(0, 200)}`);
+
+    throw error;
+  }
 
   const { parsed } = completionResult;
 
@@ -442,6 +511,7 @@ async function processChunkWithRetry(
       const facts = await analyzeChunkFacts(agentId, chunk.text, profile, {
         ...opts,
         chunkTimeoutMs: timeoutMs,
+        chunkId: chunk.chunkId,
       });
       return { ok: true as const, chunk, facts };
     } catch (error) {
@@ -2144,7 +2214,7 @@ export async function analyzeAgent(
       const completionResult = await createJsonChatCompletion(
         {
           model,
-          max_tokens: calcMaxOutputTokens(),
+          max_tokens: calcMaxOutputTokens(model),
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: system },

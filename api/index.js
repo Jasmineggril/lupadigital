@@ -154243,13 +154243,22 @@ function classifyAiError(message2) {
       logMessage: "AI request too large"
     };
   }
-  if (normalized.includes("429") || normalized.includes("rate limit") || normalized.includes("rate_limit") || normalized.includes("tpm") || normalized.includes("tpd") || normalized.includes("quota exceeded") || normalized.includes("requests per") || normalized.includes("requests per day") || normalized.includes("max tokens") || normalized.includes("max_tokens") || normalized.includes("maximum tokens")) {
+  if (normalized.includes("429") || normalized.includes("rate limit") || normalized.includes("rate_limit") || normalized.includes("tpm") || normalized.includes("tpd") || normalized.includes("quota exceeded") || normalized.includes("requests per") || normalized.includes("requests per day")) {
     return {
       status: 429,
       retryable: true,
       reason: "rate_limit",
       userMessage: "O limite tempor\xE1rio de an\xE1lises foi atingido. Aguarde e tente novamente.",
       logMessage: "AI provider rate limit"
+    };
+  }
+  if (normalized.includes("max tokens") || normalized.includes("max_tokens") || normalized.includes("maximum tokens") || normalized.includes("max_output_tokens")) {
+    return {
+      status: 500,
+      retryable: false,
+      reason: "max_output_tokens_invalid",
+      userMessage: "Erro de configura\xE7\xE3o do modelo de IA. Entre em contato com o administrador.",
+      logMessage: "AI max_output_tokens exceeds model limit \u2014 configuration error"
     };
   }
   if (normalized.includes("404") || normalized.includes("model not found") || normalized.includes("model not available") || normalized.includes("does not exist") || normalized.includes("no such model")) {
@@ -154405,16 +154414,28 @@ function getProviderNameFromModel(model) {
   if (model.includes("gpt")) return "openai";
   return "unknown";
 }
-var MODEL_CONTEXT_WINDOW = 128e3;
-var PROMPT_OVERHEAD_ESTIMATE = 4e3;
+var MODEL_CONFIGS = {
+  groq: { contextWindow: 128e3, maxOutputTokens: 32768, promptOverhead: 4e3 },
+  gemini: { contextWindow: 1e6, maxOutputTokens: 8192, promptOverhead: 4e3 },
+  openai: { contextWindow: 128e3, maxOutputTokens: 16384, promptOverhead: 4e3 }
+};
+var DEFAULT_MODEL_CONFIG = { contextWindow: 128e3, maxOutputTokens: 4096, promptOverhead: 4e3 };
 var OUTPUT_RESERVE = 512;
+function getModelContextConfig(model) {
+  const m = (model ?? getOpenAIModel()).toLowerCase();
+  if (m.includes("llama") || m.includes("groq")) return MODEL_CONFIGS.groq;
+  if (m.includes("gemini")) return MODEL_CONFIGS.gemini;
+  if (m.includes("gpt")) return MODEL_CONFIGS.openai;
+  return DEFAULT_MODEL_CONFIG;
+}
 function isContextLengthError(message2) {
   const m = message2.toLowerCase();
   return m.includes("context_length_exceeded") || m.includes("maximum context length") || m.includes("context") && m.includes("length") && m.includes("exceed");
 }
-function calcMaxOutputTokens() {
-  const available = MODEL_CONTEXT_WINDOW - PROMPT_OVERHEAD_ESTIMATE - OUTPUT_RESERVE;
-  return Math.min(4096, Math.max(512, available));
+function calcMaxOutputTokens(model) {
+  const config2 = getModelContextConfig(model);
+  const available = config2.contextWindow - config2.promptOverhead - OUTPUT_RESERVE;
+  return Math.min(config2.maxOutputTokens, Math.max(512, available));
 }
 function estimateTokens(text4) {
   const compact = text4.replace(/\s+/g, " ").trim();
@@ -154583,17 +154604,58 @@ async function analyzeChunkFacts(agentId, chunkText, profile, opts) {
   const { system, user } = buildChunkFactPrompt(agentId, chunkText, profile);
   const chunkStart = Date.now();
   const timeoutMs = opts?.chunkTimeoutMs ?? 6e4;
-  const completionResult = await createJsonChatCompletion({
-    model: getOpenAIModel(),
-    max_tokens: calcMaxOutputTokens(),
-    temperature: 0.1,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user }
-    ],
-    signal: AbortSignal.timeout(timeoutMs)
-  }, "AIService.analyzeChunkFacts");
+  const model = getOpenAIModel();
+  const provider = getProviderNameFromModel(model);
+  const estimatedInputTokens = estimateTokens(chunkText);
+  const estimatedPromptTokens = estimateTokens(system) + estimateTokens(user);
+  const requestedMaxOutputTokens = calcMaxOutputTokens(model);
+  const estimatedTotalTokens = estimatedInputTokens + estimatedPromptTokens + requestedMaxOutputTokens;
+  logger.info({
+    step: "chunk_ai_request",
+    provider,
+    model,
+    chunkId: opts?.chunkId ?? "unknown",
+    estimatedInputTokens,
+    estimatedPromptTokens,
+    requestedMaxOutputTokens,
+    estimatedTotalTokens,
+    contextWindow: getModelContextConfig(model).contextWindow,
+    messageCount: 2,
+    timeoutMs
+  }, `AI request: ${provider}/${model} \u2014 ~${estimatedTotalTokens} tokens (input: ~${estimatedInputTokens}, prompt: ~${estimatedPromptTokens}, max_output: ${requestedMaxOutputTokens})`);
+  let completionResult;
+  try {
+    completionResult = await createJsonChatCompletion({
+      model,
+      max_tokens: requestedMaxOutputTokens,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user }
+      ],
+      signal: AbortSignal.timeout(timeoutMs)
+    }, "AIService.analyzeChunkFacts");
+  } catch (error40) {
+    const errMessage = error40 instanceof Error ? error40.message : String(error40);
+    const httpMatch = errMessage.match(/status[_\s]*(\d{3})/i) ?? errMessage.match(/\b(4\d{2}|5\d{2})\b/);
+    const httpStatus = httpMatch ? Number(httpMatch[1]) : null;
+    const sanitizedError = errMessage.replace(/sk-[a-zA-Z0-9]{20,}/g, "[REDACTED]").replace(/gsk_[a-zA-Z0-9]{20,}/g, "[REDACTED]").replace(/key[_\s]*[:=][_\s]*["']?[a-zA-Z0-9]{20,}["']?/gi, "key=[REDACTED]").slice(0, 500);
+    logger.error({
+      step: "chunk_ai_error",
+      provider,
+      model,
+      chunkId: opts?.chunkId ?? "unknown",
+      estimatedInputTokens,
+      estimatedPromptTokens,
+      requestedMaxOutputTokens,
+      estimatedTotalTokens,
+      httpStatus,
+      sanitizedError,
+      durationMs: Date.now() - chunkStart
+    }, `AI error: ${provider}/${model} \u2014 HTTP ${httpStatus ?? "unknown"} \u2014 ${sanitizedError.slice(0, 200)}`);
+    throw error40;
+  }
   const { parsed } = completionResult;
   if (completionResult.fallbackAttempted) {
     logger.warn({
@@ -154653,7 +154715,8 @@ async function processChunkWithRetry(agentId, chunk, budget, totalChunks, proces
     try {
       const facts = await analyzeChunkFacts(agentId, chunk.text, profile, {
         ...opts,
-        chunkTimeoutMs: timeoutMs
+        chunkTimeoutMs: timeoutMs,
+        chunkId: chunk.chunkId
       });
       return { ok: true, chunk, facts };
     } catch (error40) {
@@ -155804,7 +155867,7 @@ async function analyzeAgent(agentId, text4, profile, opts) {
       const completionResult = await createJsonChatCompletion(
         {
           model,
-          max_tokens: calcMaxOutputTokens(),
+          max_tokens: calcMaxOutputTokens(model),
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: system },

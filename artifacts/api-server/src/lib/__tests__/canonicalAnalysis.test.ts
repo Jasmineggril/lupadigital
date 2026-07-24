@@ -55,12 +55,11 @@ describe("buildCanonicalAnalysis", () => {
     expect(classification.userMessage).toContain("processado em partes");
   });
 
-  it("classifica limites de contexto da IA como documento grande para processamento em partes", () => {
+  it("classifica limites de contexto da IA como contexto excedido", () => {
     const classification = classifyAiError("The document exceeds the maximum context length for this model");
 
     expect(classification.status).toBe(413);
-    expect(classification.retryable).toBe(false);
-    expect(classification.userMessage).toContain("processado em partes");
+    expect(classification.userMessage).toContain("excedeu o limite");
   });
 
   it("registra evidência e alerta quando um cronograma usa data sem suporte explícito no edital", () => {

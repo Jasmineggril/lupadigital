@@ -268,19 +268,21 @@ function getFriendlyErrorMessage(error: unknown) {
     }
     if (
       normalized.includes("ultrapassa o limite") ||
-      normalized.includes("processado em partes") ||
-      normalized.includes("será analisado em partes") ||
       normalized.includes("content too large") ||
       normalized.includes("request too large") ||
       normalized.includes("input limit") ||
-      normalized.includes("context length") ||
-      normalized.includes("maximum context") ||
-      normalized.includes("context window") ||
-      normalized.includes("token limit") ||
-      normalized.includes("input is too long") ||
-      normalized.includes("documento é extenso")
+      normalized.includes("input is too long")
     ) {
-      return "Este documento é extenso e será analisado em partes. O processo pode levar um pouco mais de tempo.";
+      return "O documento é extenso e está sendo processado em partes. Aguarde a conclusão.";
+    }
+    if (
+      normalized.includes("context_length_exceeded") ||
+      normalized.includes("maximum context length") ||
+      normalized.includes("muito extenso") ||
+      normalized.includes("excedeu o limite") ||
+      normalized.includes("bloco") && normalized.includes("excedeu")
+    ) {
+      return "Um dos blocos do documento ainda excedeu o limite de processamento.";
     }
     if (
       normalized.includes("rate_limit") ||
@@ -3803,6 +3805,11 @@ export default function TestarIA() {
                     <p className="text-sm text-muted-foreground">{getAnalysisStageMeta(analysisStage).title}</p>
                   </div>
                 </div>
+                {text.length > 8000 && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    Documento extenso detectado. A análise está sendo processada em partes — pode levar um pouco mais de tempo.
+                  </div>
+                )}
                 <div className="space-y-2">
                   {ANALYSIS_STAGES.map((stage) => {
                     const active = analysisStage === stage;

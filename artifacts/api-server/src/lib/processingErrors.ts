@@ -48,7 +48,22 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
-  // ── Conteúdo excessivamente longo (413 / token limit) ─────────────────
+  // ── Context length excedido (chunk precisa ser subdividido) ──────────
+  if (
+    normalized.includes("context_length_exceeded") ||
+    normalized.includes("maximum context length") ||
+    (normalized.includes("context") && normalized.includes("length") && normalized.includes("exceed"))
+  ) {
+    return {
+      status: 413,
+      retryable: false,
+      reason: "context_length_exceeded",
+      userMessage: "Um dos blocos do documento ainda excedeu o limite de processamento.",
+      logMessage: "AI context length exceeded — chunk must be subdivided",
+    };
+  }
+
+  // ── Conteúdo excessivamente longo (413 / payload) ────────────────────
   if (
     normalized.includes("413") ||
     normalized.includes("content too large") ||
@@ -57,15 +72,8 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     normalized.includes("input limit") ||
     normalized.includes("exceeds the input") ||
     normalized.includes("too large") ||
-    normalized.includes("context length") ||
-    normalized.includes("context_length_exceeded") ||
-    normalized.includes("maximum context") ||
     normalized.includes("context window") ||
     normalized.includes("input is too long") ||
-    normalized.includes("token limit") ||
-    normalized.includes("tpm limit") ||
-    normalized.includes("max tokens") ||
-    normalized.includes("maximum tokens") ||
     normalized.includes("prompt too long") ||
     normalized.includes("prompt + completion")
   ) {
@@ -87,7 +95,10 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     normalized.includes("tpd") ||
     normalized.includes("quota exceeded") ||
     normalized.includes("requests per") ||
-    normalized.includes("requests per day")
+    normalized.includes("requests per day") ||
+    normalized.includes("max tokens") ||
+    normalized.includes("max_tokens") ||
+    normalized.includes("maximum tokens")
   ) {
     return {
       status: 429,

@@ -341,3 +341,83 @@ describe("documentação de flags temporárias", () => {
     }
   });
 });
+
+describe("subdivisão de chunk por context_length_exceeded", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    process.env.GROQ_API_KEY = "test-key";
+    delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.AI_SKIP_GEMINI_FALLBACK;
+    delete process.env.AI_SKIP_OPENAI_FALLBACK;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.env = { ...originalEnv };
+  });
+
+  it("chunk com context_length_exceeded é subdividido e subchunks consolidam", async () => {
+    const { analyzeAgent, chunkDocument } = await import("../aiService");
+    const longText = generateSyntheticEdital(7000);
+
+    const mockCompletion = buildChunkCompletion();
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+    const spy = vi.spyOn(openai.chat.completions, "create" as any);
+
+    let callCount = 0;
+    spy.mockImplementation(async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        throw new Error("context_length_exceeded: maximum context length is 128000 tokens (request: 130000)");
+      }
+      return mockCompletion as any;
+    });
+
+    const result = await analyzeAgent("simples", longText, undefined, { userId: "test-user", documentId: null }) as Record<string, unknown>;
+
+    expect(result).toBeDefined();
+    expect(result.type).toBe("simples");
+    expect(callCount).toBeGreaterThanOrEqual(2);
+  }, 60_000);
+
+  it("chunk normal passa sem subdivisão", async () => {
+    const { analyzeAgent } = await import("../aiService");
+    const shortText = generateSyntheticEdital(500);
+
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+    vi.spyOn(openai.chat.completions, "create" as any).mockResolvedValue(buildSimplesCompletion() as any);
+
+    const result = await analyzeAgent("simples", shortText, undefined, { userId: "test-user", documentId: null }) as Record<string, unknown>;
+
+    expect(result).toBeDefined();
+    expect(result.type).toBe("simples");
+  }, 30_000);
+});
+
+describe("separação de classificação de erros", () => {
+  it("TPM limit é classificado como rate_limit, não content_too_large", async () => {
+    const { classifyAiError } = await import("../processingErrors");
+    const result = classifyAiError("TPM limit exceeded: 30000 tokens per minute");
+    expect(result.reason).toBe("rate_limit");
+    expect(result.status).toBe(429);
+    expect(result.retryable).toBe(true);
+  });
+
+  it("context_length_exceeded é classificado separadamente", async () => {
+    const { classifyAiError } = await import("../processingErrors");
+    const result = classifyAiError("context_length_exceeded: maximum context length is 128000 tokens");
+    expect(result.reason).toBe("context_length_exceeded");
+    expect(result.status).toBe(413);
+  });
+
+  it("content too large permanece como content_too_large", async () => {
+    const { classifyAiError } = await import("../processingErrors");
+    const result = classifyAiError("Content too large: exceeds maximum token limit");
+    expect(result.reason).toBe("content_too_large");
+    expect(result.status).toBe(413);
+  });
+});

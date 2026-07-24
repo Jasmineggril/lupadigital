@@ -69,17 +69,21 @@ export function getFriendlyErrorMessage(error: unknown): string {
     if (n.includes("documento vazio") || n.includes("sem texto") || n.includes("texto do documento")) return "Não foi possível localizar texto no documento.";
     if (
       n.includes("ultrapassa o limite") ||
-      n.includes("processado em partes") ||
       n.includes("content too large") ||
       n.includes("request too large") ||
       n.includes("input limit") ||
-      n.includes("context length") ||
-      n.includes("maximum context") ||
-      n.includes("context window") ||
-      n.includes("token limit") ||
       n.includes("input is too long")
     ) {
-      return "O documento ultrapassa o limite da análise. Ele precisa ser processado em partes.";
+      return "O documento é extenso e está sendo processado em partes. Aguarde a conclusão.";
+    }
+    if (
+      n.includes("context_length_exceeded") ||
+      n.includes("maximum context length") ||
+      n.includes("muito extenso") ||
+      n.includes("excedeu o limite") ||
+      (n.includes("bloco") && n.includes("excedeu"))
+    ) {
+      return "Um dos blocos do documento ainda excedeu o limite de processamento.";
     }
     if (n.includes("rate limit") || n.includes("sobrecarregada") || n.includes("limite tempor\u00e1rio")) return "O limite temporário de análises foi atingido. Aguarde e tente novamente.";
     if (n.includes("temporariamente indispon") || n.includes("provider unavailable") || n.includes("serviço de ia")) return "O serviço de IA está temporariamente indisponível.";

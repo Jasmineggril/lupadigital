@@ -111,25 +111,37 @@ describe("classifyAiError", () => {
     expect(result.userMessage).toContain("extenso");
   });
 
-  it("maps context_length_exceeded to content too large", () => {
+  it("maps context_length_exceeded to context_length_exceeded (not content_too_large)", () => {
     const result = classifyAiError("context_length_exceeded: maximum context length is 128000 tokens");
 
     expect(result.status).toBe(413);
     expect(result.retryable).toBe(false);
+    expect(result.reason).toBe("context_length_exceeded");
+    expect(result.userMessage).toContain("bloco");
   });
 
-  it("maps payload too large to content too large", () => {
+  it("maps payload too large to content_too_large", () => {
     const result = classifyAiError("payload too large: 413");
 
     expect(result.status).toBe(413);
     expect(result.retryable).toBe(false);
+    expect(result.reason).toBe("content_too_large");
   });
 
-  it("maps TPM limit to content too large", () => {
+  it("maps TPM limit to rate_limit (not content_too_large)", () => {
     const result = classifyAiError("TPM limit exceeded: 30000 tokens per minute");
 
-    expect(result.status).toBe(413);
-    expect(result.retryable).toBe(false);
+    expect(result.status).toBe(429);
+    expect(result.retryable).toBe(true);
+    expect(result.reason).toBe("rate_limit");
+  });
+
+  it("maps max tokens to rate_limit (output limit, not input size)", () => {
+    const result = classifyAiError("max_tokens exceeds the maximum allowed");
+
+    expect(result.status).toBe(429);
+    expect(result.retryable).toBe(true);
+    expect(result.reason).toBe("rate_limit");
   });
 
   it("maps TypeError to internal error (not exposed)", () => {

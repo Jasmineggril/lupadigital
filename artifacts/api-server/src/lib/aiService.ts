@@ -93,6 +93,24 @@ function getProviderNameFromModel(model: string): string {
   return "unknown";
 }
 
+const MODEL_CONTEXT_WINDOW = 128_000;
+const PROMPT_OVERHEAD_ESTIMATE = 4_000;
+const OUTPUT_RESERVE = 512;
+
+function isContextLengthError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("context_length_exceeded") ||
+    m.includes("maximum context length") ||
+    (m.includes("context") && m.includes("length") && m.includes("exceed"))
+  );
+}
+
+function calcMaxOutputTokens(): number {
+  const available = MODEL_CONTEXT_WINDOW - PROMPT_OVERHEAD_ESTIMATE - OUTPUT_RESERVE;
+  return Math.min(4096, Math.max(512, available));
+}
+
 export function estimateTokens(text: string): number {
   const compact = text.replace(/\s+/g, " ").trim();
   if (!compact) return 0;
@@ -337,7 +355,7 @@ async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: 
   const timeoutMs = opts?.chunkTimeoutMs ?? 60_000;
   const completionResult = await createJsonChatCompletion({
     model: getOpenAIModel(),
-    max_tokens: 2048,
+    max_tokens: calcMaxOutputTokens(),
     temperature: 0.1,
     response_format: { type: "json_object" },
     messages: [
@@ -385,6 +403,25 @@ function parseRetryAfterMs(err: unknown): number | null {
   return null;
 }
 
+function splitChunkText(text: string): [string, string] {
+  const paragraphs = text.split(/\n{2,}/).filter((p) => p.trim());
+  if (paragraphs.length <= 1) {
+    const mid = Math.ceil(text.length / 2);
+    return [text.slice(0, mid), text.slice(mid)];
+  }
+  const mid = Math.ceil(paragraphs.length / 2);
+  return [paragraphs.slice(0, mid).join("\n\n"), paragraphs.slice(mid).join("\n\n")];
+}
+
+function buildSubChunk(original: DocumentChunk, text: string, suffix: string): DocumentChunk {
+  return {
+    ...original,
+    chunkId: `${original.chunkId}-${suffix}`,
+    text,
+    estimatedTokens: estimateTokens(text),
+  };
+}
+
 async function processChunkWithRetry(
   agentId: AgentId,
   chunk: DocumentChunk,
@@ -393,8 +430,10 @@ async function processChunkWithRetry(
   processedCount: number,
   profile?: z.infer<typeof AgentUserProfileSchema>,
   opts?: { userId?: string | null; documentId?: string | null },
-) {
+  depth = 0,
+): Promise<{ ok: true; chunk: DocumentChunk; facts: ChunkAnalysisFacts } | { ok: false; chunk: DocumentChunk; error: string }> {
   const maxAttempts = 3;
+  const maxDepth = 2;
   const timeoutMs = budget.getChunkTimeoutMs(totalChunks, processedCount);
   let lastError: unknown;
 
@@ -408,6 +447,41 @@ async function processChunkWithRetry(
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
+
+      if (isContextLengthError(message) && depth < maxDepth) {
+        logger.warn({
+          step: "context_length_subdivide",
+          agentId,
+          chunkId: chunk.chunkId,
+          depth,
+          chunkTokens: chunk.estimatedTokens,
+        }, `Chunk exceeded context length — subdividing (depth ${depth + 1}/${maxDepth})`);
+
+        const [textA, textB] = splitChunkText(chunk.text);
+        const subA = buildSubChunk(chunk, textA, "a");
+        const subB = buildSubChunk(chunk, textB, "b");
+
+        const [resultA, resultB] = await Promise.all([
+          processChunkWithRetry(agentId, subA, budget, totalChunks, processedCount, profile, opts, depth + 1),
+          processChunkWithRetry(agentId, subB, budget, totalChunks, processedCount, profile, opts, depth + 1),
+        ]);
+
+        const successes = [resultA, resultB].filter((r) => r.ok) as Array<{ ok: true; chunk: DocumentChunk; facts: ChunkAnalysisFacts }>;
+        if (successes.length === 0) {
+          const firstErr = !resultA.ok ? resultA.error : !resultB.ok ? resultB.error : "subdivision failed";
+          return { ok: false as const, chunk, error: `Subdivisão falhou para ${chunk.chunkId}: ${firstErr}` };
+        }
+
+        const consolidated = consolidateChunkFacts(successes.map((s) => ({ chunkId: s.chunk.chunkId, facts: s.facts })));
+        logger.info({
+          step: "context_length_subdivided_ok",
+          agentId,
+          chunkId: chunk.chunkId,
+          subChunksProcessed: successes.length,
+        }, `Subdivision succeeded: ${successes.length}/2 sub-chunks OK`);
+        return { ok: true as const, chunk, facts: consolidated };
+      }
+
       const classification = classifyAiError(message);
       const isRateLimit = classification.reason === "rate_limit";
 
@@ -2070,7 +2144,7 @@ export async function analyzeAgent(
       const completionResult = await createJsonChatCompletion(
         {
           model,
-          max_tokens: 4096,
+          max_tokens: calcMaxOutputTokens(),
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: system },

@@ -154225,7 +154225,16 @@ function classifyAiError(message2) {
       logMessage: "AI provider access denied (403)"
     };
   }
-  if (normalized.includes("413") || normalized.includes("content too large") || normalized.includes("request too large") || normalized.includes("payload too large") || normalized.includes("input limit") || normalized.includes("exceeds the input") || normalized.includes("too large") || normalized.includes("context length") || normalized.includes("context_length_exceeded") || normalized.includes("maximum context") || normalized.includes("context window") || normalized.includes("input is too long") || normalized.includes("token limit") || normalized.includes("tpm limit") || normalized.includes("max tokens") || normalized.includes("maximum tokens") || normalized.includes("prompt too long") || normalized.includes("prompt + completion")) {
+  if (normalized.includes("context_length_exceeded") || normalized.includes("maximum context length") || normalized.includes("context") && normalized.includes("length") && normalized.includes("exceed")) {
+    return {
+      status: 413,
+      retryable: false,
+      reason: "context_length_exceeded",
+      userMessage: "Um dos blocos do documento ainda excedeu o limite de processamento.",
+      logMessage: "AI context length exceeded \u2014 chunk must be subdivided"
+    };
+  }
+  if (normalized.includes("413") || normalized.includes("content too large") || normalized.includes("request too large") || normalized.includes("payload too large") || normalized.includes("input limit") || normalized.includes("exceeds the input") || normalized.includes("too large") || normalized.includes("context window") || normalized.includes("input is too long") || normalized.includes("prompt too long") || normalized.includes("prompt + completion")) {
     return {
       status: 413,
       retryable: false,
@@ -154234,7 +154243,7 @@ function classifyAiError(message2) {
       logMessage: "AI request too large"
     };
   }
-  if (normalized.includes("429") || normalized.includes("rate limit") || normalized.includes("rate_limit") || normalized.includes("tpm") || normalized.includes("tpd") || normalized.includes("quota exceeded") || normalized.includes("requests per") || normalized.includes("requests per day")) {
+  if (normalized.includes("429") || normalized.includes("rate limit") || normalized.includes("rate_limit") || normalized.includes("tpm") || normalized.includes("tpd") || normalized.includes("quota exceeded") || normalized.includes("requests per") || normalized.includes("requests per day") || normalized.includes("max tokens") || normalized.includes("max_tokens") || normalized.includes("maximum tokens")) {
     return {
       status: 429,
       retryable: true,
@@ -154395,6 +154404,17 @@ function getProviderNameFromModel(model) {
   if (model.includes("gemini")) return "gemini";
   if (model.includes("gpt")) return "openai";
   return "unknown";
+}
+var MODEL_CONTEXT_WINDOW = 128e3;
+var PROMPT_OVERHEAD_ESTIMATE = 4e3;
+var OUTPUT_RESERVE = 512;
+function isContextLengthError(message2) {
+  const m = message2.toLowerCase();
+  return m.includes("context_length_exceeded") || m.includes("maximum context length") || m.includes("context") && m.includes("length") && m.includes("exceed");
+}
+function calcMaxOutputTokens() {
+  const available = MODEL_CONTEXT_WINDOW - PROMPT_OVERHEAD_ESTIMATE - OUTPUT_RESERVE;
+  return Math.min(4096, Math.max(512, available));
 }
 function estimateTokens(text4) {
   const compact = text4.replace(/\s+/g, " ").trim();
@@ -154565,7 +154585,7 @@ async function analyzeChunkFacts(agentId, chunkText, profile, opts) {
   const timeoutMs = opts?.chunkTimeoutMs ?? 6e4;
   const completionResult = await createJsonChatCompletion({
     model: getOpenAIModel(),
-    max_tokens: 2048,
+    max_tokens: calcMaxOutputTokens(),
     temperature: 0.1,
     response_format: { type: "json_object" },
     messages: [
@@ -154607,8 +154627,26 @@ function parseRetryAfterMs(err) {
   if (body && typeof body["retry_after"] === "number") return body["retry_after"] * 1e3;
   return null;
 }
-async function processChunkWithRetry(agentId, chunk, budget, totalChunks, processedCount, profile, opts) {
+function splitChunkText(text4) {
+  const paragraphs = text4.split(/\n{2,}/).filter((p) => p.trim());
+  if (paragraphs.length <= 1) {
+    const mid2 = Math.ceil(text4.length / 2);
+    return [text4.slice(0, mid2), text4.slice(mid2)];
+  }
+  const mid = Math.ceil(paragraphs.length / 2);
+  return [paragraphs.slice(0, mid).join("\n\n"), paragraphs.slice(mid).join("\n\n")];
+}
+function buildSubChunk(original, text4, suffix) {
+  return {
+    ...original,
+    chunkId: `${original.chunkId}-${suffix}`,
+    text: text4,
+    estimatedTokens: estimateTokens(text4)
+  };
+}
+async function processChunkWithRetry(agentId, chunk, budget, totalChunks, processedCount, profile, opts, depth = 0) {
   const maxAttempts = 3;
+  const maxDepth = 2;
   const timeoutMs = budget.getChunkTimeoutMs(totalChunks, processedCount);
   let lastError;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -154621,6 +154659,35 @@ async function processChunkWithRetry(agentId, chunk, budget, totalChunks, proces
     } catch (error40) {
       lastError = error40;
       const message2 = error40 instanceof Error ? error40.message : String(error40);
+      if (isContextLengthError(message2) && depth < maxDepth) {
+        logger.warn({
+          step: "context_length_subdivide",
+          agentId,
+          chunkId: chunk.chunkId,
+          depth,
+          chunkTokens: chunk.estimatedTokens
+        }, `Chunk exceeded context length \u2014 subdividing (depth ${depth + 1}/${maxDepth})`);
+        const [textA, textB] = splitChunkText(chunk.text);
+        const subA = buildSubChunk(chunk, textA, "a");
+        const subB = buildSubChunk(chunk, textB, "b");
+        const [resultA, resultB] = await Promise.all([
+          processChunkWithRetry(agentId, subA, budget, totalChunks, processedCount, profile, opts, depth + 1),
+          processChunkWithRetry(agentId, subB, budget, totalChunks, processedCount, profile, opts, depth + 1)
+        ]);
+        const successes = [resultA, resultB].filter((r) => r.ok);
+        if (successes.length === 0) {
+          const firstErr = !resultA.ok ? resultA.error : !resultB.ok ? resultB.error : "subdivision failed";
+          return { ok: false, chunk, error: `Subdivis\xE3o falhou para ${chunk.chunkId}: ${firstErr}` };
+        }
+        const consolidated = consolidateChunkFacts(successes.map((s) => ({ chunkId: s.chunk.chunkId, facts: s.facts })));
+        logger.info({
+          step: "context_length_subdivided_ok",
+          agentId,
+          chunkId: chunk.chunkId,
+          subChunksProcessed: successes.length
+        }, `Subdivision succeeded: ${successes.length}/2 sub-chunks OK`);
+        return { ok: true, chunk, facts: consolidated };
+      }
       const classification = classifyAiError(message2);
       const isRateLimit = classification.reason === "rate_limit";
       if (!classification.retryable || attempt >= maxAttempts) {
@@ -155737,7 +155804,7 @@ async function analyzeAgent(agentId, text4, profile, opts) {
       const completionResult = await createJsonChatCompletion(
         {
           model,
-          max_tokens: 4096,
+          max_tokens: calcMaxOutputTokens(),
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: system },

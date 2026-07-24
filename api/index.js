@@ -144691,11 +144691,11 @@ function isRetryableProviderError(message2) {
   const m = message2.toLowerCase();
   return m.includes("500") || m.includes("502") || m.includes("503") || m.includes("504") || m.includes("internal server error") || m.includes("server had an error") || m.includes("bad gateway") || m.includes("overloaded") || m.includes("service unavailable") || m.includes("temporarily") || m.includes("econnreset") || m.includes("econnrefused") || m.includes("etimedout") || m.includes("timeout") || m.includes("aborted") || m.includes("upstream");
 }
-async function createWithFallback(payload) {
+async function createWithFallback(payload, requestOptions) {
   const primaryProvider = getProviderName();
   const primaryModel = getOpenAIModel();
   try {
-    const result = await openai.chat.completions.create(payload);
+    const result = await openai.chat.completions.create(payload, requestOptions);
     return {
       result,
       provider: primaryProvider,
@@ -144719,7 +144719,7 @@ async function createWithFallback(payload) {
       throw new Error(providerErrors[providerName] ?? "Todos os provedores de IA est\xE3o indispon\xEDveis. Nenhum fallback configurado.");
     }
     try {
-      const fallbackResult = await fallbackProvider.client.chat.completions.create(payload);
+      const fallbackResult = await fallbackProvider.client.chat.completions.create(payload, requestOptions);
       return {
         result: fallbackResult,
         provider: fallbackProvider.name,
@@ -154633,9 +154633,8 @@ async function analyzeChunkFacts(agentId, chunkText, profile, opts) {
       messages: [
         { role: "system", content: system },
         { role: "user", content: user }
-      ],
-      signal: AbortSignal.timeout(timeoutMs)
-    }, "AIService.analyzeChunkFacts");
+      ]
+    }, "AIService.analyzeChunkFacts", 2, { signal: AbortSignal.timeout(timeoutMs) });
   } catch (error40) {
     const errMessage = error40 instanceof Error ? error40.message : String(error40);
     const httpMatch = errMessage.match(/status[_\s]*(\d{3})/i) ?? errMessage.match(/\b(4\d{2}|5\d{2})\b/);
@@ -154958,12 +154957,12 @@ function isJsonRetryableError(message2) {
     "json parse"
   ].some((indicator) => normalized.includes(indicator));
 }
-async function createJsonChatCompletion(payload, module, attempts = 2) {
+async function createJsonChatCompletion(payload, module, attempts = 2, requestOptions) {
   let lastError = null;
   let lastFallback = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const fallbackResult = await createWithFallback(payload);
+      const fallbackResult = await createWithFallback(payload, requestOptions);
       lastFallback = fallbackResult;
       const completion = fallbackResult.result ?? {};
       const raw = completion.choices?.[0]?.message?.content ?? "";

@@ -170,12 +170,13 @@ export interface FallbackResult {
 
 export async function createWithFallback(
   payload: Record<string, unknown>,
+  requestOptions?: { signal?: AbortSignal | null; timeout?: number },
 ): Promise<FallbackResult> {
   const primaryProvider = getProviderName();
   const primaryModel = getOpenAIModel();
 
   try {
-    const result = await openai.chat.completions.create(payload as any);
+    const result = await openai.chat.completions.create(payload as any, requestOptions as any);
     return {
       result,
       provider: primaryProvider,
@@ -202,7 +203,7 @@ export async function createWithFallback(
     }
 
     try {
-      const fallbackResult = await fallbackProvider.client.chat.completions.create(payload as any);
+      const fallbackResult = await fallbackProvider.client.chat.completions.create(payload as any, requestOptions as any);
       return {
         result: fallbackResult,
         provider: fallbackProvider.name,

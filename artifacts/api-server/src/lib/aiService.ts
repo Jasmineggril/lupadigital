@@ -405,8 +405,7 @@ async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: 
         { role: "system", content: system },
         { role: "user", content: user },
       ],
-      signal: AbortSignal.timeout(timeoutMs),
-    } as any, "AIService.analyzeChunkFacts");
+    }, "AIService.analyzeChunkFacts", 2, { signal: AbortSignal.timeout(timeoutMs) });
   } catch (error) {
     const errMessage = error instanceof Error ? error.message : String(error);
     const httpMatch = errMessage.match(/status[_\s]*(\d{3})/i) ?? errMessage.match(/\b(4\d{2}|5\d{2})\b/);
@@ -798,6 +797,7 @@ async function createJsonChatCompletion(
   payload: Record<string, unknown>,
   module: string,
   attempts = 2,
+  requestOptions?: { signal?: AbortSignal | null; timeout?: number },
 ): Promise<{
   raw: string;
   parsed: Record<string, unknown>;
@@ -812,7 +812,7 @@ async function createJsonChatCompletion(
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const fallbackResult = await createWithFallback(payload);
+      const fallbackResult = await createWithFallback(payload, requestOptions);
       lastFallback = fallbackResult;
       const completion = (fallbackResult.result as any) ?? {};
       const raw = completion.choices?.[0]?.message?.content ?? "";

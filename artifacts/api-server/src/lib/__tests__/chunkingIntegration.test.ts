@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   chunkDocument,
   estimateTokens,
@@ -409,5 +409,110 @@ describe("fallback Groq 503 → Gemini conclui análise", () => {
     const parsed = JSON.parse(content);
     expect(parsed.type).toBe("simples");
     expect(parsed.resumo).toBeDefined();
+  });
+});
+
+describe("createWithFallback - signal not in payload body", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    process.env = { ...originalEnv };
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  it("não envia signal no body JSON para o Groq", async () => {
+    process.env.GROQ_API_KEY = "test-key";
+    delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+    const createSpy = vi.spyOn(openai.chat.completions, "create" as any).mockResolvedValueOnce({
+      choices: [{ message: { content: '{"ok":true}', role: "assistant" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+
+    const { createWithFallback } = await import("@workspace/integrations-openai-ai-server");
+    const signal = AbortSignal.timeout(30000);
+
+    await createWithFallback(
+      {
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: "test" }],
+        max_tokens: 1024,
+      },
+      { signal },
+    );
+
+    expect(createSpy).toHaveBeenCalledOnce();
+    const callArgs = createSpy.mock.calls[0] as [Record<string, unknown>, Record<string, unknown> | undefined];
+    const [bodyArg, optionsArg] = callArgs;
+    expect(bodyArg.signal).toBeUndefined();
+    expect(bodyArg).not.toHaveProperty("signal");
+    expect(bodyArg).not.toHaveProperty("requestId");
+    expect(bodyArg).not.toHaveProperty("chunkId");
+    expect(bodyArg).not.toHaveProperty("provider");
+    expect(bodyArg).not.toHaveProperty("estimatedTokens");
+    expect(bodyArg).not.toHaveProperty("metadata");
+    expect(bodyArg).not.toHaveProperty("retry");
+    expect(bodyArg).not.toHaveProperty("abortController");
+    expect(optionsArg).toBeDefined();
+    expect(optionsArg!.signal).toBe(signal);
+  });
+
+  it("passa signal via RequestOptions e timeout continua funcionando", async () => {
+    process.env.GROQ_API_KEY = "test-key";
+    delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+    vi.spyOn(openai.chat.completions, "create" as any).mockResolvedValueOnce({
+      choices: [{ message: { content: '{"ok":true}', role: "assistant" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+
+    const { createWithFallback } = await import("@workspace/integrations-openai-ai-server");
+    const signal = AbortSignal.timeout(60000);
+
+    const result = await createWithFallback(
+      {
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: "test" }],
+      },
+      { signal, timeout: 60000 },
+    );
+
+    expect(result.result).toBeDefined();
+    expect(result.fallbackAttempted).toBe(false);
+  });
+
+  it("chamada sem signal funciona normalmente (compatibilidade)", async () => {
+    process.env.GROQ_API_KEY = "test-key";
+    delete process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+    delete process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+    vi.spyOn(openai.chat.completions, "create" as any).mockResolvedValueOnce({
+      choices: [{ message: { content: '{"ok":true}', role: "assistant" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+
+    const { createWithFallback } = await import("@workspace/integrations-openai-ai-server");
+    const result = await createWithFallback({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: "test" }],
+    });
+
+    expect(result.result).toBeDefined();
+    expect(result.fallbackAttempted).toBe(false);
   });
 });

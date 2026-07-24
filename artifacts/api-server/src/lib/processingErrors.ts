@@ -274,6 +274,22 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
+  // ── Todos os provedores indisponíveis / sem fallback ──────────────────
+  if (
+    normalized.includes("todos os provedores") ||
+    normalized.includes("nenhum fallback") ||
+    normalized.includes("provedor primário") && normalized.includes("fallback") ||
+    normalized.includes("fallback está disponível")
+  ) {
+    return {
+      status: 503,
+      retryable: false,
+      reason: "provider_unavailable",
+      userMessage: "O serviço de IA está temporariamente indisponível. Tente novamente em alguns instantes.",
+      logMessage: "All AI providers unavailable — no fallback configured",
+    };
+  }
+
   // ── Fallback: erro genérico ──────────────────────────────────────────
   return {
     status: 500,

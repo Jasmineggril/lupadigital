@@ -88,7 +88,7 @@ describe("chunking com texto sintético de ~6.800 palavras", () => {
 
   it("cada chunk tem estimatedTokens dentro do limite alvo", () => {
     const chunks = chunkDocument(syntheticText);
-    const targetTokens = 1800;
+    const targetTokens = 1500;
 
     for (const chunk of chunks) {
       expect(chunk.estimatedTokens).toBeLessThanOrEqual(targetTokens * 1.5);

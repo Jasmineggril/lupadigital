@@ -192,7 +192,13 @@ export async function createWithFallback(
 
     const fallbackProvider = getFallbackProvider();
     if (!fallbackProvider) {
-      throw primaryError;
+      const providerName = getProviderName();
+      const providerErrors: Record<string, string> = {
+        groq: "Provedor primário (Groq) falhou e nenhum fallback está disponível. Verifique as chaves de API dos provedores alternativos.",
+        gemini: "Provedor primário (Gemini) falhou e nenhum fallback está disponível. Verifique as chaves de API dos provedores alternativos.",
+        openai: "Provedor primário (OpenAI) falhou e nenhum fallback está disponível. Verifique as chaves de API dos provedores alternativos.",
+      };
+      throw new Error(providerErrors[providerName] ?? "Todos os provedores de IA estão indisponíveis. Nenhum fallback configurado.");
     }
 
     try {
@@ -225,16 +231,18 @@ interface FallbackProvider {
 
 function getFallbackProvider(): FallbackProvider | null {
   const current = getProviderName();
+  const skipGemini = process.env.AI_SKIP_GEMINI_FALLBACK === "true";
+  const skipOpenai = process.env.AI_SKIP_OPENAI_FALLBACK === "true";
 
   if (current === "groq") {
-    if (getGeminiApiKey()) {
+    if (!skipGemini && getGeminiApiKey()) {
       return {
         name: "gemini",
         model: "gemini-2.5-flash",
         client: { chat: { completions: { create: geminiCreate } } } as unknown as OpenAI,
       };
     }
-    if (process.env.OPENAI_API_KEY) {
+    if (!skipOpenai && process.env.OPENAI_API_KEY) {
       return {
         name: "openai",
         model: "gpt-5.4-mini",

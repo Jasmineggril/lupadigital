@@ -31,9 +31,51 @@ import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
 
 const DEFAULT_AI_MAX_INPUT_TOKENS = 12000;
-const DEFAULT_AI_CHUNK_TARGET_TOKENS = 1800;
-const DEFAULT_AI_CHUNK_OVERLAP_TOKENS = 300;
+const DEFAULT_AI_CHUNK_TARGET_TOKENS = 1500;
+const DEFAULT_AI_CHUNK_OVERLAP_TOKENS = 250;
 const DEFAULT_AI_CHUNK_CONCURRENCY = 1;
+
+const GLOBAL_BUDGET_MS = 240_000;
+const RESERVE_MS = 30_000;
+const MIN_CHUNK_TIMEOUT_MS = 20_000;
+const MAX_BACKOFF_MS = 30_000;
+
+interface TimeBudget {
+  startMs: number;
+  globalBudgetMs: number;
+  reserveMs: number;
+  getElapsedMs(): number;
+  getRemainingMs(): number;
+  getChunksRemaining(totalChunks: number, processedCount: number): number;
+  getChunkTimeoutMs(totalChunks: number, processedCount: number): number;
+  canStartChunk(totalChunks: number, processedCount: number): boolean;
+}
+
+export function createTimeBudget(startMs: number, globalBudgetMs = GLOBAL_BUDGET_MS, reserveMs = RESERVE_MS): TimeBudget {
+  return {
+    startMs,
+    globalBudgetMs,
+    reserveMs,
+    getElapsedMs() { return Date.now() - this.startMs; },
+    getRemainingMs() { return Math.max(0, this.globalBudgetMs - this.getElapsedMs()); },
+    getChunksRemaining(totalChunks: number, processedCount: number) { return totalChunks - processedCount; },
+    getChunkTimeoutMs(totalChunks: number, processedCount: number) {
+      const remaining = this.getRemainingMs();
+      const chunksLeft = this.getChunksRemaining(totalChunks, processedCount);
+      if (chunksLeft <= 0 || remaining <= this.reserveMs) return MIN_CHUNK_TIMEOUT_MS;
+      const available = remaining - this.reserveMs;
+      const perChunk = Math.floor(available / chunksLeft);
+      return Math.max(MIN_CHUNK_TIMEOUT_MS, Math.min(perChunk, 60_000));
+    },
+    canStartChunk(totalChunks: number, processedCount: number) {
+      const remaining = this.getRemainingMs();
+      const chunksLeft = this.getChunksRemaining(totalChunks, processedCount);
+      if (chunksLeft <= 0) return false;
+      const perChunk = (remaining - this.reserveMs) / chunksLeft;
+      return perChunk >= MIN_CHUNK_TIMEOUT_MS;
+    },
+  };
+}
 
 function getChunkingConfig() {
   return {
@@ -289,64 +331,119 @@ function buildChunkFactPrompt(agentId: AgentId, chunkText: string, profile?: z.i
   return { system, user };
 }
 
-async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null }) {
+async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null; chunkTimeoutMs?: number }) {
   const { system, user } = buildChunkFactPrompt(agentId, chunkText, profile);
   const chunkStart = Date.now();
-  try {
-    const completionResult = await createJsonChatCompletion({
-      model: getOpenAIModel(),
-      max_tokens: 2048,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    } as any, "AIService.analyzeChunkFacts");
+  const timeoutMs = opts?.chunkTimeoutMs ?? 60_000;
+  const completionResult = await createJsonChatCompletion({
+    model: getOpenAIModel(),
+    max_tokens: 2048,
+    temperature: 0.1,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    signal: AbortSignal.timeout(timeoutMs),
+  } as any, "AIService.analyzeChunkFacts");
 
-    const { parsed } = completionResult;
+  const { parsed } = completionResult;
 
-    if (completionResult.fallbackAttempted) {
-      logger.warn({
-        module: "analyzeChunkFacts",
-        provider: completionResult.provider,
-        model: completionResult.model,
-        durationMs: Date.now() - chunkStart,
-        fallbackAttempted: true,
-        fallbackSucceeded: completionResult.fallbackSucceeded,
-      }, "Chunk fallback triggered");
-    }
-
-    const validated = ChunkFactsSchema.safeParse(parsed);
-    if (!validated.success) {
-      return buildFallbackChunkFacts(chunkText);
-    }
-
-    return validated.data as ChunkAnalysisFacts;
-  } catch (err) {
+  if (completionResult.fallbackAttempted) {
     logger.warn({
       module: "analyzeChunkFacts",
+      provider: completionResult.provider,
+      model: completionResult.model,
       durationMs: Date.now() - chunkStart,
-      errorMessage: err instanceof Error ? err.message : String(err),
-    }, "Chunk failed, using fallback facts");
-    return buildFallbackChunkFacts(chunkText);
+      fallbackAttempted: true,
+      fallbackSucceeded: completionResult.fallbackSucceeded,
+    }, "Chunk fallback triggered");
   }
+
+  const validated = ChunkFactsSchema.safeParse(parsed);
+  if (!validated.success) {
+    throw new Error(`AIService: resposta da IA não é um ChunkFacts válido: ${validated.error.message}`);
+  }
+
+  return validated.data as ChunkAnalysisFacts;
 }
 
-async function processChunkWithRetry(agentId: AgentId, chunk: DocumentChunk, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null }) {
+function parseRetryAfterMs(err: unknown): number | null {
+  if (!err || typeof err !== "object") return null;
+  const anyErr = err as Record<string, unknown>;
+  const cause = anyErr.cause as Record<string, unknown> | undefined;
+  const headers = (cause?.headers ?? anyErr.headers) as Record<string, unknown> | undefined;
+  if (headers) {
+    const raw = headers["retry-after"] ?? headers["Retry-After"];
+    if (raw != null) {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n > 0) return n * 1000;
+    }
+  }
+  const body = cause?.body as Record<string, unknown> | undefined;
+  if (body && typeof body["retry_after"] === "number") return body["retry_after"] * 1000;
+  return null;
+}
+
+async function processChunkWithRetry(
+  agentId: AgentId,
+  chunk: DocumentChunk,
+  budget: TimeBudget,
+  totalChunks: number,
+  processedCount: number,
+  profile?: z.infer<typeof AgentUserProfileSchema>,
+  opts?: { userId?: string | null; documentId?: string | null },
+) {
+  const maxAttempts = 3;
+  const timeoutMs = budget.getChunkTimeoutMs(totalChunks, processedCount);
   let lastError: unknown;
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const facts = await analyzeChunkFacts(agentId, chunk.text, profile, opts);
+      const facts = await analyzeChunkFacts(agentId, chunk.text, profile, {
+        ...opts,
+        chunkTimeoutMs: timeoutMs,
+      });
       return { ok: true as const, chunk, facts };
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
       const classification = classifyAiError(message);
-      if (attempt < 2 && classification.retryable) continue;
-      return { ok: false as const, chunk, error: message };
+      const isRateLimit = classification.reason === "rate_limit";
+
+      if (!classification.retryable || attempt >= maxAttempts) {
+        return { ok: false as const, chunk, error: message };
+      }
+
+      if (!budget.canStartChunk(totalChunks, processedCount)) {
+        logger.warn({ step: "budget_exhausted", agentId, chunkId: chunk.chunkId, attempt }, "No time budget remaining for retry");
+        return { ok: false as const, chunk, error: `Orçamento de tempo esgotado. ${message}` };
+      }
+
+      let delayMs: number;
+      if (isRateLimit) {
+        const retryAfter = parseRetryAfterMs(error);
+        if (retryAfter) {
+          delayMs = retryAfter;
+        } else {
+          const baseDelay = Math.min(1000 * Math.pow(2, attempt - 1), MAX_BACKOFF_MS);
+          delayMs = baseDelay + Math.random() * 1000;
+        }
+      } else {
+        delayMs = 1000;
+      }
+
+      const waitUntil = Date.now() + delayMs;
+      if (waitUntil - budget.startMs + RESERVE_MS > budget.globalBudgetMs) {
+        logger.warn({ step: "backoff_would_exceed_budget", agentId, chunkId: chunk.chunkId, delayMs, attempt }, "Backoff would exceed global budget");
+        return { ok: false as const, chunk, error: `Orçamento de tempo insuficiente para retry. ${message}` };
+      }
+
+      logger.info({ step: "retry_wait", agentId, chunkId: chunk.chunkId, attempt, delayMs, isRateLimit }, `Waiting ${Math.round(delayMs)}ms before retry`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
+
   return { ok: false as const, chunk, error: lastError instanceof Error ? lastError.message : String(lastError) };
 }
 
@@ -355,29 +452,85 @@ async function processDocumentInChunks(agentId: AgentId, text: string, profile?:
   const chunks = chunkDocument(normalizedText);
   const concurrency = Math.max(1, getChunkingConfig().concurrency);
   const results: Array<{ ok: boolean; chunk: DocumentChunk; facts?: ChunkAnalysisFacts; error?: string }> = [];
+  const budget = createTimeBudget(Date.now());
+
+  logger.info({
+    step: "budget_created",
+    agentId,
+    totalChunks: chunks.length,
+    globalBudgetMs: budget.globalBudgetMs,
+    reserveMs: budget.reserveMs,
+  }, `Time budget: ${budget.globalBudgetMs / 1000}s total, ${budget.reserveMs / 1000}s reserved for consolidation`);
 
   for (let index = 0; index < chunks.length; index += concurrency) {
+    const processedCount = results.length;
+
+    if (!budget.canStartChunk(chunks.length, processedCount)) {
+      logger.error({
+        step: "budget_exhausted_skip",
+        agentId,
+        processedCount,
+        remainingChunks: chunks.length - processedCount,
+        elapsedMs: budget.getElapsedMs(),
+        remainingMs: budget.getRemainingMs(),
+      }, "Skipping remaining chunks — insufficient time budget");
+
+      for (let remaining = index; remaining < chunks.length; remaining += 1) {
+        results.push({ ok: false, chunk: chunks[remaining], error: "Orçamento de tempo insuficiente para processar chunk" });
+      }
+      break;
+    }
+
     const batch = chunks.slice(index, index + concurrency);
     const chunkIds = batch.map((c) => c.chunkId);
-    logger.info({ step: "chunk_started", agentId, chunkIds, batchStart: index }, `Processing batch of ${batch.length} chunk(s)`);
-    const batchResults = await Promise.all(batch.map((chunk) => processChunkWithRetry(agentId, chunk, profile, opts)));
+    const chunkTimeout = budget.getChunkTimeoutMs(chunks.length, processedCount);
+
+    logger.info({
+      step: "chunk_started",
+      agentId,
+      chunkIds,
+      batchStart: index,
+      chunkTimeoutMs: chunkTimeout,
+      elapsedMs: budget.getElapsedMs(),
+      remainingMs: budget.getRemainingMs(),
+    }, `Processing batch of ${batch.length} chunk(s) [timeout: ${Math.round(chunkTimeout / 1000)}s]`);
+
+    const batchResults = await Promise.all(
+      batch.map((chunk) => processChunkWithRetry(agentId, chunk, budget, chunks.length, processedCount, profile, opts)),
+    );
+
     for (const result of batchResults) {
       if (result.ok) {
-        logger.info({ step: "chunk_completed", agentId, chunkId: result.chunk.chunkId, estimatedTokens: result.chunk.estimatedTokens }, "Chunk processed successfully");
+        logger.info({ step: "chunk_completed", agentId, chunkId: result.chunk.chunkId, estimatedTokens: result.chunk.estimatedTokens, elapsedMs: budget.getElapsedMs() }, "Chunk processed successfully");
       } else {
-        logger.warn({ step: "chunk_failed", agentId, chunkId: result.chunk.chunkId, error: result.error }, "Chunk processing failed");
+        logger.warn({ step: "chunk_failed", agentId, chunkId: result.chunk.chunkId, error: result.error, elapsedMs: budget.getElapsedMs() }, "Chunk processing failed");
       }
     }
     results.push(...batchResults);
   }
 
+  const failedCount = results.filter((result) => !result.ok).length;
   const processing = {
     mode: "chunked" as const,
     totalChunks: chunks.length,
     processedChunks: results.filter((result) => result.ok).length,
-    failedChunks: results.filter((result) => !result.ok).length,
-    complete: results.filter((result) => !result.ok).length === 0,
+    failedChunks: failedCount,
+    complete: failedCount === 0,
   };
+
+  logger.info({
+    step: "chunking_completed",
+    agentId,
+    ...processing,
+    totalElapsedMs: budget.getElapsedMs(),
+    remainingBudgetMs: budget.getRemainingMs(),
+  }, `Chunking completed in ${Math.round(budget.getElapsedMs() / 1000)}s — ${budget.getRemainingMs() / 1000}s remaining for consolidation`);
+
+  if (!processing.complete) {
+    const failedChunkIds = results.filter((r) => !r.ok).map((r) => r.chunk.chunkId);
+    const firstError = results.find((r) => !r.ok)?.error ?? "unknown";
+    throw new Error(`AIService: ${failedCount} de ${chunks.length} chunks falharam (${failedChunkIds.join(", ")}). Último erro: ${firstError}`);
+  }
 
   return {
     chunks,

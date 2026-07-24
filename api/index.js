@@ -144710,7 +144710,13 @@ async function createWithFallback(payload) {
     }
     const fallbackProvider = getFallbackProvider();
     if (!fallbackProvider) {
-      throw primaryError;
+      const providerName = getProviderName();
+      const providerErrors = {
+        groq: "Provedor prim\xE1rio (Groq) falhou e nenhum fallback est\xE1 dispon\xEDvel. Verifique as chaves de API dos provedores alternativos.",
+        gemini: "Provedor prim\xE1rio (Gemini) falhou e nenhum fallback est\xE1 dispon\xEDvel. Verifique as chaves de API dos provedores alternativos.",
+        openai: "Provedor prim\xE1rio (OpenAI) falhou e nenhum fallback est\xE1 dispon\xEDvel. Verifique as chaves de API dos provedores alternativos."
+      };
+      throw new Error(providerErrors[providerName] ?? "Todos os provedores de IA est\xE3o indispon\xEDveis. Nenhum fallback configurado.");
     }
     try {
       const fallbackResult = await fallbackProvider.client.chat.completions.create(payload);
@@ -144734,15 +144740,17 @@ function getProviderName() {
 }
 function getFallbackProvider() {
   const current = getProviderName();
+  const skipGemini = process.env.AI_SKIP_GEMINI_FALLBACK === "true";
+  const skipOpenai = process.env.AI_SKIP_OPENAI_FALLBACK === "true";
   if (current === "groq") {
-    if (getGeminiApiKey()) {
+    if (!skipGemini && getGeminiApiKey()) {
       return {
         name: "gemini",
         model: "gemini-2.5-flash",
         client: { chat: { completions: { create: geminiCreate } } }
       };
     }
-    if (process.env.OPENAI_API_KEY) {
+    if (!skipOpenai && process.env.OPENAI_API_KEY) {
       return {
         name: "openai",
         model: "gpt-5.4-mini",
@@ -154316,6 +154324,15 @@ function classifyAiError(message2) {
       logMessage: "Unexpected JavaScript error in AI processing pipeline"
     };
   }
+  if (normalized.includes("todos os provedores") || normalized.includes("nenhum fallback") || normalized.includes("provedor prim\xE1rio") && normalized.includes("fallback") || normalized.includes("fallback est\xE1 dispon\xEDvel")) {
+    return {
+      status: 503,
+      retryable: false,
+      reason: "provider_unavailable",
+      userMessage: "O servi\xE7o de IA est\xE1 temporariamente indispon\xEDvel. Tente novamente em alguns instantes.",
+      logMessage: "All AI providers unavailable \u2014 no fallback configured"
+    };
+  }
   return {
     status: 500,
     retryable: false,
@@ -154327,9 +154344,44 @@ function classifyAiError(message2) {
 
 // src/lib/aiService.ts
 var DEFAULT_AI_MAX_INPUT_TOKENS = 12e3;
-var DEFAULT_AI_CHUNK_TARGET_TOKENS = 1800;
-var DEFAULT_AI_CHUNK_OVERLAP_TOKENS = 300;
+var DEFAULT_AI_CHUNK_TARGET_TOKENS = 1500;
+var DEFAULT_AI_CHUNK_OVERLAP_TOKENS = 250;
 var DEFAULT_AI_CHUNK_CONCURRENCY = 1;
+var GLOBAL_BUDGET_MS = 24e4;
+var RESERVE_MS = 3e4;
+var MIN_CHUNK_TIMEOUT_MS = 2e4;
+var MAX_BACKOFF_MS = 3e4;
+function createTimeBudget(startMs, globalBudgetMs = GLOBAL_BUDGET_MS, reserveMs = RESERVE_MS) {
+  return {
+    startMs,
+    globalBudgetMs,
+    reserveMs,
+    getElapsedMs() {
+      return Date.now() - this.startMs;
+    },
+    getRemainingMs() {
+      return Math.max(0, this.globalBudgetMs - this.getElapsedMs());
+    },
+    getChunksRemaining(totalChunks, processedCount) {
+      return totalChunks - processedCount;
+    },
+    getChunkTimeoutMs(totalChunks, processedCount) {
+      const remaining = this.getRemainingMs();
+      const chunksLeft = this.getChunksRemaining(totalChunks, processedCount);
+      if (chunksLeft <= 0 || remaining <= this.reserveMs) return MIN_CHUNK_TIMEOUT_MS;
+      const available = remaining - this.reserveMs;
+      const perChunk = Math.floor(available / chunksLeft);
+      return Math.max(MIN_CHUNK_TIMEOUT_MS, Math.min(perChunk, 6e4));
+    },
+    canStartChunk(totalChunks, processedCount) {
+      const remaining = this.getRemainingMs();
+      const chunksLeft = this.getChunksRemaining(totalChunks, processedCount);
+      if (chunksLeft <= 0) return false;
+      const perChunk = (remaining - this.reserveMs) / chunksLeft;
+      return perChunk >= MIN_CHUNK_TIMEOUT_MS;
+    }
+  };
+}
 function getChunkingConfig() {
   return {
     maxInputTokens: Number.parseInt(process.env.AI_MAX_INPUT_TOKENS ?? "", 10) || DEFAULT_AI_MAX_INPUT_TOKENS,
@@ -154474,26 +154526,6 @@ function consolidateChunkFacts(chunkResults) {
     alerts: mergeFacts(chunkResults.flatMap((entry) => entry.facts.alerts.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "message")
   };
 }
-function buildFallbackChunkFacts(chunkText) {
-  const lines = chunkText.split(/\n/).map((line2) => line2.trim()).filter(Boolean);
-  const dates = Array.from(chunkText.matchAll(/\b(\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+de\s+[\wáéíóúçãõ]+\s+de\s+\d{4})\b/gi)).map((match) => ({ value: match[0], text: match[0] }));
-  const requirements = lines.filter((line2) => /deve|obrigat|requisito|documento|inscri/i.test(line2)).slice(0, 5).map((line2) => ({ requirement: line2 }));
-  const obligations = lines.filter((line2) => /deve|obrigat|entreg|apresent|cumpr/i.test(line2)).slice(0, 5).map((line2) => ({ obligation: line2 }));
-  const documents = lines.filter((line2) => /rg|cpf|cnh|currículo|comprovante|declara/i.test(line2)).slice(0, 5).map((line2) => ({ document: line2 }));
-  const alerts = lines.filter((line2) => /atenção|importante|aviso|alerta/i.test(line2)).slice(0, 3).map((line2) => ({ message: line2 }));
-  return {
-    documentInfo: lines.slice(0, 2).filter((line2) => line2.length < 140).map((line2) => ({ title: line2 })),
-    dates,
-    requirements,
-    eligibility: lines.filter((line2) => /idade|residir|renda|escolaridade|perfil/i.test(line2)).slice(0, 3).map((line2) => ({ criterion: line2 })),
-    documents,
-    values: Array.from(chunkText.matchAll(/R\$\s*\d{1,3}(?:[\.,]\d{3})*(?:[\.,]\d{2})?/gi)).map((match) => ({ value: match[0] })),
-    contacts: [],
-    obligations,
-    restrictions: lines.filter((line2) => /não|proib|restri/i.test(line2)).slice(0, 3).map((line2) => ({ restriction: line2 })),
-    alerts
-  };
-}
 var ChunkFactsSchema = external_exports.object({
   documentInfo: external_exports.array(external_exports.object({ title: external_exports.string().optional(), organization: external_exports.string().optional(), page: external_exports.number().int().nullable().optional(), section: external_exports.string().optional(), text: external_exports.string().optional(), confidence: external_exports.enum(["alta", "m\xE9dia", "baixa"]).optional() })).default([]),
   dates: external_exports.array(external_exports.object({ event: external_exports.string().optional(), value: external_exports.string().optional(), page: external_exports.number().int().nullable().optional(), section: external_exports.string().optional(), text: external_exports.string().optional(), confidence: external_exports.enum(["alta", "m\xE9dia", "baixa"]).optional() })).default([]),
@@ -154530,54 +154562,93 @@ ${chunkText}`;
 async function analyzeChunkFacts(agentId, chunkText, profile, opts) {
   const { system, user } = buildChunkFactPrompt(agentId, chunkText, profile);
   const chunkStart = Date.now();
-  try {
-    const completionResult = await createJsonChatCompletion({
-      model: getOpenAIModel(),
-      max_tokens: 2048,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user }
-      ]
-    }, "AIService.analyzeChunkFacts");
-    const { parsed } = completionResult;
-    if (completionResult.fallbackAttempted) {
-      logger.warn({
-        module: "analyzeChunkFacts",
-        provider: completionResult.provider,
-        model: completionResult.model,
-        durationMs: Date.now() - chunkStart,
-        fallbackAttempted: true,
-        fallbackSucceeded: completionResult.fallbackSucceeded
-      }, "Chunk fallback triggered");
-    }
-    const validated = ChunkFactsSchema.safeParse(parsed);
-    if (!validated.success) {
-      return buildFallbackChunkFacts(chunkText);
-    }
-    return validated.data;
-  } catch (err) {
+  const timeoutMs = opts?.chunkTimeoutMs ?? 6e4;
+  const completionResult = await createJsonChatCompletion({
+    model: getOpenAIModel(),
+    max_tokens: 2048,
+    temperature: 0.1,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user }
+    ],
+    signal: AbortSignal.timeout(timeoutMs)
+  }, "AIService.analyzeChunkFacts");
+  const { parsed } = completionResult;
+  if (completionResult.fallbackAttempted) {
     logger.warn({
       module: "analyzeChunkFacts",
+      provider: completionResult.provider,
+      model: completionResult.model,
       durationMs: Date.now() - chunkStart,
-      errorMessage: err instanceof Error ? err.message : String(err)
-    }, "Chunk failed, using fallback facts");
-    return buildFallbackChunkFacts(chunkText);
+      fallbackAttempted: true,
+      fallbackSucceeded: completionResult.fallbackSucceeded
+    }, "Chunk fallback triggered");
   }
+  const validated = ChunkFactsSchema.safeParse(parsed);
+  if (!validated.success) {
+    throw new Error(`AIService: resposta da IA n\xE3o \xE9 um ChunkFacts v\xE1lido: ${validated.error.message}`);
+  }
+  return validated.data;
 }
-async function processChunkWithRetry(agentId, chunk, profile, opts) {
+function parseRetryAfterMs(err) {
+  if (!err || typeof err !== "object") return null;
+  const anyErr = err;
+  const cause = anyErr.cause;
+  const headers = cause?.headers ?? anyErr.headers;
+  if (headers) {
+    const raw = headers["retry-after"] ?? headers["Retry-After"];
+    if (raw != null) {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n > 0) return n * 1e3;
+    }
+  }
+  const body = cause?.body;
+  if (body && typeof body["retry_after"] === "number") return body["retry_after"] * 1e3;
+  return null;
+}
+async function processChunkWithRetry(agentId, chunk, budget, totalChunks, processedCount, profile, opts) {
+  const maxAttempts = 3;
+  const timeoutMs = budget.getChunkTimeoutMs(totalChunks, processedCount);
   let lastError;
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const facts = await analyzeChunkFacts(agentId, chunk.text, profile, opts);
+      const facts = await analyzeChunkFacts(agentId, chunk.text, profile, {
+        ...opts,
+        chunkTimeoutMs: timeoutMs
+      });
       return { ok: true, chunk, facts };
     } catch (error40) {
       lastError = error40;
       const message2 = error40 instanceof Error ? error40.message : String(error40);
       const classification = classifyAiError(message2);
-      if (attempt < 2 && classification.retryable) continue;
-      return { ok: false, chunk, error: message2 };
+      const isRateLimit = classification.reason === "rate_limit";
+      if (!classification.retryable || attempt >= maxAttempts) {
+        return { ok: false, chunk, error: message2 };
+      }
+      if (!budget.canStartChunk(totalChunks, processedCount)) {
+        logger.warn({ step: "budget_exhausted", agentId, chunkId: chunk.chunkId, attempt }, "No time budget remaining for retry");
+        return { ok: false, chunk, error: `Or\xE7amento de tempo esgotado. ${message2}` };
+      }
+      let delayMs;
+      if (isRateLimit) {
+        const retryAfter = parseRetryAfterMs(error40);
+        if (retryAfter) {
+          delayMs = retryAfter;
+        } else {
+          const baseDelay = Math.min(1e3 * Math.pow(2, attempt - 1), MAX_BACKOFF_MS);
+          delayMs = baseDelay + Math.random() * 1e3;
+        }
+      } else {
+        delayMs = 1e3;
+      }
+      const waitUntil = Date.now() + delayMs;
+      if (waitUntil - budget.startMs + RESERVE_MS > budget.globalBudgetMs) {
+        logger.warn({ step: "backoff_would_exceed_budget", agentId, chunkId: chunk.chunkId, delayMs, attempt }, "Backoff would exceed global budget");
+        return { ok: false, chunk, error: `Or\xE7amento de tempo insuficiente para retry. ${message2}` };
+      }
+      logger.info({ step: "retry_wait", agentId, chunkId: chunk.chunkId, attempt, delayMs, isRateLimit }, `Waiting ${Math.round(delayMs)}ms before retry`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
   return { ok: false, chunk, error: lastError instanceof Error ? lastError.message : String(lastError) };
@@ -154587,27 +154658,74 @@ async function processDocumentInChunks(agentId, text4, profile, opts) {
   const chunks = chunkDocument(normalizedText);
   const concurrency = Math.max(1, getChunkingConfig().concurrency);
   const results = [];
+  const budget = createTimeBudget(Date.now());
+  logger.info({
+    step: "budget_created",
+    agentId,
+    totalChunks: chunks.length,
+    globalBudgetMs: budget.globalBudgetMs,
+    reserveMs: budget.reserveMs
+  }, `Time budget: ${budget.globalBudgetMs / 1e3}s total, ${budget.reserveMs / 1e3}s reserved for consolidation`);
   for (let index2 = 0; index2 < chunks.length; index2 += concurrency) {
+    const processedCount = results.length;
+    if (!budget.canStartChunk(chunks.length, processedCount)) {
+      logger.error({
+        step: "budget_exhausted_skip",
+        agentId,
+        processedCount,
+        remainingChunks: chunks.length - processedCount,
+        elapsedMs: budget.getElapsedMs(),
+        remainingMs: budget.getRemainingMs()
+      }, "Skipping remaining chunks \u2014 insufficient time budget");
+      for (let remaining = index2; remaining < chunks.length; remaining += 1) {
+        results.push({ ok: false, chunk: chunks[remaining], error: "Or\xE7amento de tempo insuficiente para processar chunk" });
+      }
+      break;
+    }
     const batch = chunks.slice(index2, index2 + concurrency);
     const chunkIds = batch.map((c) => c.chunkId);
-    logger.info({ step: "chunk_started", agentId, chunkIds, batchStart: index2 }, `Processing batch of ${batch.length} chunk(s)`);
-    const batchResults = await Promise.all(batch.map((chunk) => processChunkWithRetry(agentId, chunk, profile, opts)));
+    const chunkTimeout = budget.getChunkTimeoutMs(chunks.length, processedCount);
+    logger.info({
+      step: "chunk_started",
+      agentId,
+      chunkIds,
+      batchStart: index2,
+      chunkTimeoutMs: chunkTimeout,
+      elapsedMs: budget.getElapsedMs(),
+      remainingMs: budget.getRemainingMs()
+    }, `Processing batch of ${batch.length} chunk(s) [timeout: ${Math.round(chunkTimeout / 1e3)}s]`);
+    const batchResults = await Promise.all(
+      batch.map((chunk) => processChunkWithRetry(agentId, chunk, budget, chunks.length, processedCount, profile, opts))
+    );
     for (const result of batchResults) {
       if (result.ok) {
-        logger.info({ step: "chunk_completed", agentId, chunkId: result.chunk.chunkId, estimatedTokens: result.chunk.estimatedTokens }, "Chunk processed successfully");
+        logger.info({ step: "chunk_completed", agentId, chunkId: result.chunk.chunkId, estimatedTokens: result.chunk.estimatedTokens, elapsedMs: budget.getElapsedMs() }, "Chunk processed successfully");
       } else {
-        logger.warn({ step: "chunk_failed", agentId, chunkId: result.chunk.chunkId, error: result.error }, "Chunk processing failed");
+        logger.warn({ step: "chunk_failed", agentId, chunkId: result.chunk.chunkId, error: result.error, elapsedMs: budget.getElapsedMs() }, "Chunk processing failed");
       }
     }
     results.push(...batchResults);
   }
+  const failedCount = results.filter((result) => !result.ok).length;
   const processing = {
     mode: "chunked",
     totalChunks: chunks.length,
     processedChunks: results.filter((result) => result.ok).length,
-    failedChunks: results.filter((result) => !result.ok).length,
-    complete: results.filter((result) => !result.ok).length === 0
+    failedChunks: failedCount,
+    complete: failedCount === 0
   };
+  logger.info({
+    step: "chunking_completed",
+    agentId,
+    ...processing,
+    totalElapsedMs: budget.getElapsedMs(),
+    remainingBudgetMs: budget.getRemainingMs()
+  }, `Chunking completed in ${Math.round(budget.getElapsedMs() / 1e3)}s \u2014 ${budget.getRemainingMs() / 1e3}s remaining for consolidation`);
+  if (!processing.complete) {
+    const failedChunkIds = results.filter((r) => !r.ok).map((r) => r.chunk.chunkId);
+    const firstError = results.find((r) => !r.ok)?.error ?? "unknown";
+    throw new Error(`AIService: ${failedCount} de ${chunks.length} chunks falharam (${failedChunkIds.join(", ")}). \xDAltimo erro: ${firstError}`);
+  }
   return {
     chunks,
     chunkResults: results.filter((result) => result.ok).map((result) => ({ chunkId: result.chunk.chunkId, facts: result.facts })),

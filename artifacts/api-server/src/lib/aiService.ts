@@ -100,7 +100,7 @@ interface ModelContextConfig {
 }
 
 const MODEL_CONFIGS: Record<string, ModelContextConfig> = {
-  groq: { contextWindow: 128_000, maxOutputTokens: 32_768, promptOverhead: 4_000 },
+  groq: { contextWindow: 128_000, maxOutputTokens: 8_192, promptOverhead: 4_000 },
   gemini: { contextWindow: 1_000_000, maxOutputTokens: 8_192, promptOverhead: 4_000 },
   openai: { contextWindow: 128_000, maxOutputTokens: 16_384, promptOverhead: 4_000 },
 };

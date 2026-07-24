@@ -154415,7 +154415,7 @@ function getProviderNameFromModel(model) {
   return "unknown";
 }
 var MODEL_CONFIGS = {
-  groq: { contextWindow: 128e3, maxOutputTokens: 32768, promptOverhead: 4e3 },
+  groq: { contextWindow: 128e3, maxOutputTokens: 8192, promptOverhead: 4e3 },
   gemini: { contextWindow: 1e6, maxOutputTokens: 8192, promptOverhead: 4e3 },
   openai: { contextWindow: 128e3, maxOutputTokens: 16384, promptOverhead: 4e3 }
 };

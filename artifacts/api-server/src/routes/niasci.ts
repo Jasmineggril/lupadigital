@@ -177,9 +177,14 @@ router.post("/niasci/planetario/generate", async (req, res): Promise<void> => {
 
 // ── Assistente IA ─────────────────────────────────────────────────────────────
 
+import { eq } from "drizzle-orm";
+import { db, agentResultsTable } from "@workspace/db";
+
 /**
  * Schema de validação para o chat do Assistente IA.
- * Aceita um histórico de mensagens e contexto opcional de outros módulos.
+ * Aceita um histórico de mensagens, contexto opcional e analysisId opcional.
+ * Quando analysisId é fornecido, o backend busca o result_json salvo no Supabase
+ * e constrói um contexto controlado a partir dos fatos consolidados.
  */
 const ChatSchema = z.object({
   messages: z.array(
@@ -189,13 +194,105 @@ const ChatSchema = z.object({
     }),
   ).min(1).max(30),
   context: z.string().max(4000).optional(),
+  historyId: z.coerce.number().int().positive().optional(),
 });
+
+/**
+ * Constrói contexto estruturado a partir do result_json salvo.
+ * Extrai apenas fatos consolidados: cronograma, elegibilidade, checklist,
+ * documentos exigidos, interpretação, premiação e tema.
+ */
+export function buildStructuredContext(resultJson: Record<string, unknown>): string {
+  const sections: string[] = [];
+
+  const interp = resultJson.interpretation as Record<string, unknown> | undefined;
+  if (interp) {
+    const parts: string[] = [];
+    if (interp.summary) parts.push(`Resumo: ${interp.summary}`);
+    if (interp.objective) parts.push(`Objetivo: ${interp.objective}`);
+    if (interp.targetAudience) parts.push(`Público-alvo: ${interp.targetAudience}`);
+    if (interp.deadlines) parts.push(`Prazos: ${interp.deadlines}`);
+    if (parts.length) sections.push(`## INTERPRETAÇÃO\n${parts.join("\n")}`);
+  }
+
+  const cronograma = resultJson.cronograma as Record<string, unknown> | undefined;
+  if (cronograma && Array.isArray(cronograma.items)) {
+    const items = cronograma.items as Array<Record<string, unknown>>;
+    const lines = items.map((item) => {
+      const parts = [
+        `- ${item.fase}: ${item.periodo}`,
+        item.descricao ? `  ${item.descricao}` : "",
+        item.vigente === false ? "  [ALTERADO]" : "",
+        item.vigente === true ? "  [VIGENTE]" : "",
+      ].filter(Boolean);
+      return parts.join("\n");
+    });
+    sections.push(`## CRONOGRAMA\n${lines.join("\n")}`);
+
+    const retificacoes = cronograma.retificacoes as Array<Record<string, unknown>> | undefined;
+    if (retificacoes?.length) {
+      const retLines = retificacoes.map((r) => `- ${r.campo}: "${r.valorOriginal}" → "${r.valorVigente}"`);
+      sections.push(`## RETIFICAÇÕES\n${retLines.join("\n")}`);
+    }
+  }
+
+  const elegibilidade = resultJson.elegibilidade as Record<string, unknown> | undefined;
+  if (elegibilidade && Array.isArray(elegibilidade.criteria)) {
+    const criteria = elegibilidade.criteria as Array<Record<string, unknown>>;
+    const lines = criteria.map((c) => {
+      const atendeVal = c.atende === true ? "atende" : c.atende === false ? "não atende" : `parcialmente: ${c.atende}`;
+      return `- ${c.criterio}: ${atendeVal}${c.observacao ? ` (${c.observacao})` : ""}`;
+    });
+    sections.push(`## ELEGIBILIDADE\n${lines.join("\n")}`);
+  }
+
+  const checklist = resultJson.checklist as Record<string, unknown> | undefined;
+  if (checklist && Array.isArray(checklist.items)) {
+    const items = checklist.items as Array<Record<string, unknown>>;
+    const lines = items.map((i) => `- ${i.doc}${i.obrigatorio ? " (obrigatório)" : ""}: ${i.checked ? "✓" : "✗"}${i.observacao ? ` — ${i.observacao}` : ""}`);
+    sections.push(`## CHECKLIST DE DOCUMENTOS\n${lines.join("\n")}`);
+  }
+
+  const docsExigidos = resultJson.documentosExigidos as Record<string, unknown> | undefined;
+  if (docsExigidos && Array.isArray(docsExigidos.items)) {
+    const items = docsExigidos.items as Array<Record<string, unknown>>;
+    const lines = items.map((i) => `- ${i.nome}${i.obrigatorio ? " (obrigatório)" : ""}`);
+    sections.push(`## DOCUMENTOS EXIGIDOS\n${lines.join("\n")}`);
+  }
+
+  const premiacao = resultJson.premiacao as Record<string, unknown> | undefined;
+  if (premiacao) {
+    const parts: string[] = [];
+    if (Array.isArray(premiacao.items)) {
+      for (const item of premiacao.items as Array<Record<string, unknown>>) {
+        parts.push(`- ${item.categoria}: ${item.valor}`);
+      }
+    }
+    if (parts.length) sections.push(`## PREMIAÇÃO\n${parts.join("\n")}`);
+  }
+
+  const tema = resultJson.tema as Record<string, unknown> | undefined;
+  if (tema?.titulo) sections.push(`## TEMA\n${tema.titulo}`);
+
+  const documento = resultJson.documento as Record<string, unknown> | undefined;
+  if (documento) {
+    const parts: string[] = [];
+    if (documento.titulo) parts.push(`Título: ${documento.titulo}`);
+    if (documento.orgao) parts.push(`Órgão: ${documento.orgao}`);
+    if (parts.length) sections.push(`## IDENTIFICAÇÃO DO DOCUMENTO\n${parts.join("\n")}`);
+  }
+
+  return sections.join("\n\n");
+}
 
 /**
  * POST /niasci/chat
  * Processa uma mensagem do chat científico do Assistente IA.
  *
- * Corpo: { messages: {role, content}[], context?: string }
+ * Quando analysisId é fornecido, busca o result_json salvo no Supabase
+ * e constrói contexto controlado a partir dos fatos consolidados.
+ *
+ * Corpo: { messages: {role, content}[], context?: string, analysisId?: string }
  * Resposta: { reply: string } — resposta do assistente
  */
 router.post("/niasci/chat", async (req, res): Promise<void> => {
@@ -205,10 +302,31 @@ router.post("/niasci/chat", async (req, res): Promise<void> => {
     return;
   }
 
+  let finalContext = parsed.data.context || "";
+
+  if (parsed.data.historyId) {
+    try {
+      const [row] = await db
+        .select()
+        .from(agentResultsTable)
+        .where(eq(agentResultsTable.id, parsed.data.historyId))
+        .limit(1);
+
+      if (row && typeof row.resultJson === "object" && row.resultJson !== null) {
+        const structuredCtx = buildStructuredContext(row.resultJson as Record<string, unknown>);
+        if (structuredCtx) {
+          finalContext = `ANÁLISE SALVA DO EDITAL (fonte única de verdade — use APENAS estes fatos):\n\n${structuredCtx}`;
+        }
+      }
+    } catch (err) {
+      req.log?.warn({ err, historyId: parsed.data.historyId }, "Falha ao buscar result_json para chat");
+    }
+  }
+
   try {
     const reply = await chatNiasci(
       parsed.data.messages,
-      parsed.data.context,
+      finalContext || parsed.data.context,
       { userId: getReqUserId(req) },
     );
     res.json({ reply });

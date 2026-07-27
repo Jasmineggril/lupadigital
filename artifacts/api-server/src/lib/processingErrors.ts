@@ -177,6 +177,24 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
+  // ── Budget excedido / orçamento de tempo (interno, não retryable) ────
+  if (
+    normalized.includes("orçamento de tempo") ||
+    normalized.includes("orcamento de tempo") ||
+    normalized.includes("budget") ||
+    normalized.includes("tempo esgotado") ||
+    normalized.includes("sem tempo restante") ||
+    normalized.includes("tempo insuficiente")
+  ) {
+    return {
+      status: 503,
+      retryable: false,
+      reason: "time_budget_exhausted",
+      userMessage: "O documento é muito longo para o tempo disponível. Tente com um trecho menor.",
+      logMessage: "Internal time budget exhausted — document too long for available window",
+    };
+  }
+
   // ── Timeout ──────────────────────────────────────────────────────────
   if (
     normalized.includes("timeout") ||

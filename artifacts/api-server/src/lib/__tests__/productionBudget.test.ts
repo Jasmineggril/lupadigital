@@ -106,16 +106,16 @@ describe("orçamento dinâmico de tempo", () => {
     const timeout0 = budget.getChunkTimeoutMs(6, 0);
     const timeout3 = budget.getChunkTimeoutMs(6, 3);
     const timeout5 = budget.getChunkTimeoutMs(6, 5);
-    expect(timeout0).toBeGreaterThanOrEqual(20_000);
+    expect(timeout0).toBeGreaterThanOrEqual(15_000);
     expect(timeout3).toBeGreaterThanOrEqual(timeout0);
     expect(timeout5).toBeGreaterThanOrEqual(timeout3);
   });
 
-  it("getChunkTimeoutMs nunca cai abaixo de MIN_CHUNK_TIMEOUT_MS (20s)", async () => {
+  it("getChunkTimeoutMs nunca cai abaixo de MIN_CHUNK_TIMEOUT_MS (15s)", async () => {
     const { createTimeBudget } = await import("../aiService");
     const budget = createTimeBudget(Date.now() - 235_000, 240_000, 30_000);
     const timeout = budget.getChunkTimeoutMs(6, 5);
-    expect(timeout).toBeGreaterThanOrEqual(20_000);
+    expect(timeout).toBeGreaterThanOrEqual(15_000);
   });
 
   it("getRemainingMs retorna tempo restante correto", async () => {

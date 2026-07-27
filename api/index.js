@@ -154288,6 +154288,15 @@ function classifyAiError(message2) {
       logMessage: "AI provider unavailable"
     };
   }
+  if (normalized.includes("or\xE7amento de tempo") || normalized.includes("orcamento de tempo") || normalized.includes("budget") || normalized.includes("tempo esgotado") || normalized.includes("sem tempo restante") || normalized.includes("tempo insuficiente")) {
+    return {
+      status: 503,
+      retryable: false,
+      reason: "time_budget_exhausted",
+      userMessage: "O documento \xE9 muito longo para o tempo dispon\xEDvel. Tente com um trecho menor.",
+      logMessage: "Internal time budget exhausted \u2014 document too long for available window"
+    };
+  }
   if (normalized.includes("timeout") || normalized.includes("etimedout") || normalized.includes("deadline exceeded") || normalized.includes("aborted") || normalized.includes("signal timed out")) {
     return {
       status: 503,
@@ -154367,7 +154376,7 @@ var DEFAULT_AI_CHUNK_OVERLAP_TOKENS = 250;
 var DEFAULT_AI_CHUNK_CONCURRENCY = 1;
 var GLOBAL_BUDGET_MS = 24e4;
 var RESERVE_MS = 3e4;
-var MIN_CHUNK_TIMEOUT_MS = 2e4;
+var MIN_CHUNK_TIMEOUT_MS = 15e3;
 var MAX_BACKOFF_MS = 3e4;
 function createTimeBudget(startMs, globalBudgetMs = GLOBAL_BUDGET_MS, reserveMs = RESERVE_MS) {
   return {
@@ -154533,6 +154542,83 @@ ${currentText}` : currentText;
 }
 function normalizeFactText(value) {
   return (value ?? "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+function detectRetifications(originalText) {
+  if (!originalText || !originalText.trim()) return [];
+  const retifications = [];
+  const normalized = originalText.toLowerCase();
+  const retificationPatterns = [
+    /passa\s+a\s+viger\s+com\s+a\s+seguinte\s+redação/gi,
+    /retifica[çc][ãa]o.*?(?:altera|modifica|muda)/gi,
+    /alteração.*?(?:encerramento|prazo|data)/gi,
+    /prazo.*?(?:alterado|prorrogado|extendido)/gi,
+    /até\s+(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})/gi
+  ];
+  for (const pattern of retificationPatterns) {
+    const matches = Array.from(originalText.matchAll(pattern));
+    for (const match of matches) {
+      const contextStart = Math.max(0, match.index - 200);
+      const contextEnd = Math.min(originalText.length, match.index + match[0].length + 500);
+      const context = originalText.slice(contextStart, contextEnd);
+      const datePattern = /(\d{1,2})\s+de\s+(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+de\s+(\d{4})/gi;
+      const dates = Array.from(context.matchAll(datePattern));
+      if (dates.length >= 2) {
+        retifications.push({
+          campo: "encerramento de inscri\xE7\xF5es",
+          valorOriginal: dates[0][0],
+          valorVigente: dates[1][0],
+          documentoRetificacao: match[0],
+          trechoRetificacao: context.slice(0, 200)
+        });
+      }
+    }
+  }
+  const untilPattern = /até\s+(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})/gi;
+  const untilMatches = Array.from(originalText.matchAll(untilPattern));
+  if (untilMatches.length >= 2) {
+    for (let i = 0; i < untilMatches.length - 1; i++) {
+      const first2 = untilMatches[i];
+      const second = untilMatches[i + 1];
+      if (first2.index !== void 0 && second.index !== void 0) {
+        const between2 = originalText.slice(first2.index + first2[0].length, second.index);
+        if (/passa|viger|redação|retifica|altera/i.test(between2)) {
+          const alreadyExists = retifications.some(
+            (r) => r.valorOriginal === first2[0] && r.valorVigente === second[0]
+          );
+          if (!alreadyExists) {
+            retifications.push({
+              campo: "encerramento de inscri\xE7\xF5es",
+              valorOriginal: first2[0],
+              valorVigente: second[0],
+              documentoRetificacao: between2.trim(),
+              trechoRetificacao: between2.slice(0, 200)
+            });
+          }
+        }
+      }
+    }
+  }
+  return retifications;
+}
+function applyRetificationsToTimeline(items, retifications, originalText) {
+  if (!retifications.length) return items;
+  return items.map((item) => {
+    const updated = { ...item };
+    for (const ret of retifications) {
+      const periodo = typeof updated.periodo === "string" ? updated.periodo : "";
+      const descricao = typeof updated.descricao === "string" ? updated.descricao : "";
+      if (periodo.includes(ret.valorOriginal) || descricao.includes(ret.valorOriginal)) {
+        updated.retificado = true;
+        updated.dataOriginal = ret.valorOriginal;
+        updated.valorVigente = ret.valorVigente;
+        updated.observacaoRetificacao = `Prazo original (${ret.valorOriginal}), posteriormente alterado pela retifica\xE7\xE3o para ${ret.valorVigente}.`;
+        if (periodo.includes(ret.valorOriginal)) {
+          updated.periodo = periodo.replace(ret.valorOriginal, ret.valorVigente);
+        }
+      }
+    }
+    return updated;
+  });
 }
 function mergeFacts(items, keyField) {
   const merged = /* @__PURE__ */ new Map();
@@ -155114,6 +155200,104 @@ function validateTemporalConsistency(items, originalText) {
   }
   return conflitos;
 }
+function validateDocumentAnalysis(canonicalAnalysis, originalText) {
+  const errors2 = [];
+  const normalizedText = originalText.toLowerCase();
+  const documento = canonicalAnalysis.documento;
+  if (documento) {
+    if (!documento.titulo && !documento.orgao) {
+      errors2.push("Identifica\xE7\xE3o incompleta: t\xEDtulo e \xF3rg\xE3o n\xE3o identificados");
+    }
+    if (documento.anoPublicacao && typeof documento.anoPublicacao === "number") {
+      const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
+      if (documento.anoPublicacao < currentYear - 2 || documento.anoPublicacao > currentYear + 1) {
+        errors2.push(`Ano de publica\xE7\xE3o suspeito: ${documento.anoPublicacao}`);
+      }
+    }
+  }
+  const cronograma = canonicalAnalysis.cronograma;
+  if (cronograma && Array.isArray(cronograma.items)) {
+    const items = cronograma.items;
+    const mesesMap = {
+      janeiro: "01",
+      fevereiro: "02",
+      mar\u00E7o: "03",
+      abril: "04",
+      maio: "05",
+      junho: "06",
+      julho: "07",
+      agosto: "08",
+      setembro: "09",
+      outubro: "10",
+      novembro: "11",
+      dezembro: "12"
+    };
+    const normalizeDateForComparison = (dateStr) => {
+      const isoMatch = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (isoMatch) {
+        const [, d, m, y] = isoMatch;
+        const mesNome = Object.entries(mesesMap).find(([, v]) => v === m)?.[0] || "";
+        return `${d} de ${mesNome} de ${y}`;
+      }
+      return dateStr.toLowerCase();
+    };
+    for (const item of items) {
+      const periodo = typeof item.periodo === "string" ? item.periodo : "";
+      const fase = typeof item.fase === "string" ? item.fase : "";
+      const datePatterns = [
+        /\d{1,2}\/\d{1,2}\/\d{4}/g,
+        /\d{1,2}\s+de\s+\w+\s+de\s+\d{4}/g
+      ];
+      for (const pattern of datePatterns) {
+        const dates = periodo.match(pattern) || [];
+        for (const date6 of dates) {
+          const normalizedDate = normalizeDateForComparison(date6);
+          const found = normalizedText.includes(date6.toLowerCase()) || normalizedText.includes(normalizedDate);
+          if (!found) {
+            const retificacao = cronograma.retificacoes?.find((r) => {
+              const vigente = typeof r.valorVigente === "string" ? r.valorVigente : "";
+              return vigente.includes(date6) || vigente.includes(normalizedDate);
+            });
+            if (!retificacao) {
+              errors2.push(`Data "${date6}" no cronograma n\xE3o encontrada no edital original`);
+            }
+          }
+        }
+      }
+    }
+  }
+  const elegibilidade = canonicalAnalysis.elegibilidade;
+  if (elegibilidade && Array.isArray(elegibilidade.criteria)) {
+    const criteria = elegibilidade.criteria;
+    for (const criterion of criteria) {
+      const criterio = typeof criterion.criterio === "string" ? criterion.criterio : "";
+      if (criterio && !normalizedText.includes(criterio.toLowerCase().slice(0, 30))) {
+        if (criterio.length > 50) {
+          errors2.push(`Crit\xE9rio de elegibilidade sem fonte expl\xEDcita no edital: "${criterio.slice(0, 50)}..."`);
+        }
+      }
+    }
+  }
+  const interpretation = canonicalAnalysis.interpretation;
+  if (interpretation) {
+    const summary = typeof interpretation.summary === "string" ? interpretation.summary : "";
+    const inventedTerms = [
+      /valor total de/i,
+      /orçamento de/i,
+      /financiamento de/i,
+      /investimento de/i
+    ];
+    for (const term of inventedTerms) {
+      if (term.test(summary) && !normalizedText.match(term)) {
+        errors2.push(`Resumo cont\xE9m termo n\xE3o encontrado no edital: "${summary.match(term)?.[0]}"`);
+      }
+    }
+  }
+  if (errors2.length > 0) {
+    return { valid: false, errors: errors2 };
+  }
+  return { valid: true };
+}
 function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
   const result = agentResult;
   const editalYear = typeof result.anoPublicacao === "number" ? result.anoPublicacao : void 0;
@@ -155180,7 +155364,14 @@ function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
     simpleLanguage: typeof result.observacao === "string" && result.observacao || typeof result.dica === "string" && result.dica || "Texto adaptado para leitura acess\xEDvel."
   };
   const cronograma = Array.isArray(result.timeline) ? (() => {
-    const items = result.timeline.map(
+    const retifications = detectRetifications(originalText);
+    const rawTimeline = result.timeline;
+    const timelineWithRetifications = applyRetificationsToTimeline(
+      rawTimeline,
+      retifications,
+      originalText
+    );
+    const items = timelineWithRetifications.map(
       (item) => ({
         fase: typeof item.fase === "string" ? item.fase : "",
         periodo: typeof item.periodo === "string" ? item.periodo : "",
@@ -155191,13 +155382,25 @@ function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
         pagina: typeof item.pagina === "number" ? item.pagina : void 0,
         secao: typeof item.secao === "string" ? item.secao : void 0,
         trechoFonte: typeof item.trechoFonte === "string" ? item.trechoFonte : void 0,
-        confianca: item.confianca ?? "m\xE9dia"
+        confianca: item.confianca ?? "m\xE9dia",
+        documentoOrigem: typeof item.retificado === "boolean" && item.retificado ? typeof item.observacaoRetificacao === "string" ? item.observacaoRetificacao : "Retifica\xE7\xE3o detectada no edital" : void 0,
+        vigente: typeof item.retificado === "boolean" ? !item.retificado : true
       })
     );
     const conflitos = validateTemporalConsistency(items, originalText);
+    if (retifications.length > 0) {
+      retifications.forEach((ret) => {
+        conflitos.push({
+          evento1: `Original: ${ret.valorOriginal}`,
+          evento2: `Vigente: ${ret.valorVigente}`,
+          problema: `Retifica\xE7\xE3o detectada: ${ret.campo} alterado de "${ret.valorOriginal}" para "${ret.valorVigente}". O prazo vigente \xE9 ${ret.valorVigente}.`
+        });
+      });
+    }
     return {
       items,
       summary: typeof result.observacao === "string" ? result.observacao : void 0,
+      retificacoes: retifications.length > 0 ? retifications : void 0,
       validacaoTemporal: conflitos.length > 0 ? {
         temConflitos: true,
         conflitos
@@ -155224,7 +155427,13 @@ function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
         return {
           criterio: typeof item.criterio === "string" ? item.criterio : "",
           atende,
-          observacao: typeof item.observacao === "string" ? item.observacao : ""
+          observacao: typeof item.observacao === "string" ? item.observacao : "",
+          pagina: typeof item.pagina === "number" ? item.pagina : void 0,
+          secao: typeof item.secao === "string" ? item.secao : void 0,
+          trechoFonte: typeof item.trechoFonte === "string" ? item.trechoFonte : void 0,
+          confianca: item.confianca ?? "m\xE9dia",
+          documentoOrigem: typeof item.documentoOrigem === "string" ? item.documentoOrigem : void 0,
+          vigente: typeof item.vigente === "boolean" ? item.vigente : true
         };
       }
     ),
@@ -155252,7 +155461,9 @@ function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
           pagina: item.pagina,
           secao: item.secao,
           trecho: item.trechoFonte,
-          confianca: item.confianca
+          confianca: item.confianca,
+          documentoOrigem: item.documentoOrigem,
+          vigente: item.vigente
         });
         if (!isExplicitlySupported) {
           allAlerts.push({
@@ -156277,14 +156488,27 @@ Retorne APENAS o JSON v\xE1lido.`;
 async function chatNiasci(messages2, context, opts) {
   const model = getOpenAIModel();
   const start = Date.now();
+  const hasStructuredContext = context?.startsWith("AN\xC1LISE SALVA DO EDITAL");
   const systemContent = [
     "Voc\xEA \xE9 o Assistente IA do NIASci, um assistente cient\xEDfico especializado em apoiar pesquisadores, estudantes e educadores brasileiros.",
     "Sua fun\xE7\xE3o \xE9 responder perguntas sobre ci\xEAncia, metodologia de pesquisa, curr\xEDculos Lattes, artigos cient\xEDficos, projetos de pesquisa e editais de fomento.",
-    "Seja sempre preciso, cite fontes quando poss\xEDvel, e use linguagem acess\xEDvel sem perder a precis\xE3o cient\xEDfica.",
+    "",
+    hasStructuredContext ? [
+      "REGRAS OBRIGAT\xD3RIAS \u2014 CONTEXTO DE AN\xC1LISE SALVA:",
+      "1. Responda APENAS com base nos fatos fornecidos no contexto da an\xE1lise salva.",
+      "2. N\xC3O invente, infera ou reinterprete informa\xE7\xF5es que n\xE3o estejam explicitamente no contexto.",
+      "3. N\xC3O consulte o texto original do edital \u2014 use exclusivamente os fatos consolidados fornecidos.",
+      "4. Se a informa\xE7\xE3o solicitada n\xE3o existe no contexto fornecido, responda EXATAMENTE:",
+      '   "Essa informa\xE7\xE3o n\xE3o foi localizada no edital analisado."',
+      "5. Cite o campo ou se\xE7\xE3o de onde retirou a informa\xE7\xE3o (ex: cronograma, elegibilidade, checklist).",
+      "6. Quando houver retifica\xE7\xE3o, sempre apresente o valor vigente e mencione que houve altera\xE7\xE3o.",
+      "7. N\xE3o contradiga o cronograma, checklist ou elegibilidade fornecidos."
+    ].join("\n") : "Seja sempre preciso, cite fontes quando poss\xEDvel, e use linguagem acess\xEDvel sem perder a precis\xE3o cient\xEDfica.",
+    "",
     context ? `
 
-CONTEXTO ADICIONAL DO USU\xC1RIO:
-${context.slice(0, 3e3)}` : "",
+CONTEXTO:
+${context.slice(0, 4e3)}` : "",
     "",
     PLAIN_LANGUAGE_PRINCIPLES,
     "",
@@ -156409,6 +156633,19 @@ router2.post("/edital/agent-history", async (req, res) => {
       try {
         const originalAgentResult = payload.resultJson;
         const canonical = buildCanonicalAnalysis(payload.agentId, originalAgentResult, payload.originalText || "", void 0);
+        const validation = validateDocumentAnalysis(canonical, payload.originalText || "");
+        if (!validation.valid) {
+          req.log?.warn({ errors: validation.errors }, "Valida\xE7\xE3o documental falhou");
+          const existingAlerts = Array.isArray(canonical.alertas) ? canonical.alertas : [];
+          canonical.alertas = [
+            ...existingAlerts,
+            ...validation.errors.map((error40) => ({
+              categoria: "validacao",
+              descricao: error40,
+              severidade: "m\xE9dia"
+            }))
+          ];
+        }
         payload.resultJson = { ...canonical, agentResult: originalAgentResult };
       } catch (err) {
         req.log?.warn({ err }, "Falha ao construir an\xE1lise can\xF4nica; salvando resultado do agente sem canonical.");
@@ -157022,18 +157259,116 @@ var ChatSchema = external_exports.object({
       content: external_exports.string().min(1).max(4e3)
     })
   ).min(1).max(30),
-  context: external_exports.string().max(4e3).optional()
+  context: external_exports.string().max(4e3).optional(),
+  historyId: external_exports.coerce.number().int().positive().optional()
 });
+function buildStructuredContext(resultJson) {
+  const sections = [];
+  const interp = resultJson.interpretation;
+  if (interp) {
+    const parts = [];
+    if (interp.summary) parts.push(`Resumo: ${interp.summary}`);
+    if (interp.objective) parts.push(`Objetivo: ${interp.objective}`);
+    if (interp.targetAudience) parts.push(`P\xFAblico-alvo: ${interp.targetAudience}`);
+    if (interp.deadlines) parts.push(`Prazos: ${interp.deadlines}`);
+    if (parts.length) sections.push(`## INTERPRETA\xC7\xC3O
+${parts.join("\n")}`);
+  }
+  const cronograma = resultJson.cronograma;
+  if (cronograma && Array.isArray(cronograma.items)) {
+    const items = cronograma.items;
+    const lines = items.map((item) => {
+      const parts = [
+        `- ${item.fase}: ${item.periodo}`,
+        item.descricao ? `  ${item.descricao}` : "",
+        item.vigente === false ? "  [ALTERADO]" : "",
+        item.vigente === true ? "  [VIGENTE]" : ""
+      ].filter(Boolean);
+      return parts.join("\n");
+    });
+    sections.push(`## CRONOGRAMA
+${lines.join("\n")}`);
+    const retificacoes = cronograma.retificacoes;
+    if (retificacoes?.length) {
+      const retLines = retificacoes.map((r) => `- ${r.campo}: "${r.valorOriginal}" \u2192 "${r.valorVigente}"`);
+      sections.push(`## RETIFICA\xC7\xD5ES
+${retLines.join("\n")}`);
+    }
+  }
+  const elegibilidade = resultJson.elegibilidade;
+  if (elegibilidade && Array.isArray(elegibilidade.criteria)) {
+    const criteria = elegibilidade.criteria;
+    const lines = criteria.map((c) => {
+      const atendeVal = c.atende === true ? "atende" : c.atende === false ? "n\xE3o atende" : `parcialmente: ${c.atende}`;
+      return `- ${c.criterio}: ${atendeVal}${c.observacao ? ` (${c.observacao})` : ""}`;
+    });
+    sections.push(`## ELEGIBILIDADE
+${lines.join("\n")}`);
+  }
+  const checklist = resultJson.checklist;
+  if (checklist && Array.isArray(checklist.items)) {
+    const items = checklist.items;
+    const lines = items.map((i) => `- ${i.doc}${i.obrigatorio ? " (obrigat\xF3rio)" : ""}: ${i.checked ? "\u2713" : "\u2717"}${i.observacao ? ` \u2014 ${i.observacao}` : ""}`);
+    sections.push(`## CHECKLIST DE DOCUMENTOS
+${lines.join("\n")}`);
+  }
+  const docsExigidos = resultJson.documentosExigidos;
+  if (docsExigidos && Array.isArray(docsExigidos.items)) {
+    const items = docsExigidos.items;
+    const lines = items.map((i) => `- ${i.nome}${i.obrigatorio ? " (obrigat\xF3rio)" : ""}`);
+    sections.push(`## DOCUMENTOS EXIGIDOS
+${lines.join("\n")}`);
+  }
+  const premiacao = resultJson.premiacao;
+  if (premiacao) {
+    const parts = [];
+    if (Array.isArray(premiacao.items)) {
+      for (const item of premiacao.items) {
+        parts.push(`- ${item.categoria}: ${item.valor}`);
+      }
+    }
+    if (parts.length) sections.push(`## PREMIA\xC7\xC3O
+${parts.join("\n")}`);
+  }
+  const tema = resultJson.tema;
+  if (tema?.titulo) sections.push(`## TEMA
+${tema.titulo}`);
+  const documento = resultJson.documento;
+  if (documento) {
+    const parts = [];
+    if (documento.titulo) parts.push(`T\xEDtulo: ${documento.titulo}`);
+    if (documento.orgao) parts.push(`\xD3rg\xE3o: ${documento.orgao}`);
+    if (parts.length) sections.push(`## IDENTIFICA\xC7\xC3O DO DOCUMENTO
+${parts.join("\n")}`);
+  }
+  return sections.join("\n\n");
+}
 router4.post("/niasci/chat", async (req, res) => {
   const parsed = ChatSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Dados da mensagem inv\xE1lidos." });
     return;
   }
+  let finalContext = parsed.data.context || "";
+  if (parsed.data.historyId) {
+    try {
+      const [row] = await db.select().from(agentResultsTable).where(eq(agentResultsTable.id, parsed.data.historyId)).limit(1);
+      if (row && typeof row.resultJson === "object" && row.resultJson !== null) {
+        const structuredCtx = buildStructuredContext(row.resultJson);
+        if (structuredCtx) {
+          finalContext = `AN\xC1LISE SALVA DO EDITAL (fonte \xFAnica de verdade \u2014 use APENAS estes fatos):
+
+${structuredCtx}`;
+        }
+      }
+    } catch (err) {
+      req.log?.warn({ err, historyId: parsed.data.historyId }, "Falha ao buscar result_json para chat");
+    }
+  }
   try {
     const reply = await chatNiasci(
       parsed.data.messages,
-      parsed.data.context,
+      finalContext || parsed.data.context,
       { userId: getReqUserId(req) }
     );
     res.json({ reply });

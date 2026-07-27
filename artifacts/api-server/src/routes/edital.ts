@@ -52,7 +52,7 @@ const upload = multer({
 
 const router: IRouter = Router();
 
-import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital, ocrPdf, buildCanonicalAnalysis } from "../lib/aiService";
+import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital, ocrPdf, buildCanonicalAnalysis, validateDocumentAnalysis } from "../lib/aiService";
 import { getReqUserId, requireAuth } from "../lib/supabase";
 import { classifyAiError } from "../lib/processingErrors";
 
@@ -151,6 +151,23 @@ router.post("/edital/agent-history", async (req, res): Promise<void> => {
       try {
         const originalAgentResult = payload.resultJson as Record<string, unknown>;
         const canonical = buildCanonicalAnalysis(payload.agentId, originalAgentResult, payload.originalText || "", undefined as any);
+        
+        // Validação documental antes de salvar
+        const validation = validateDocumentAnalysis(canonical as unknown as Record<string, unknown>, payload.originalText || "");
+        if (!validation.valid) {
+          req.log?.warn({ errors: validation.errors }, "Validação documental falhou");
+          // Adiciona alertas de validação ao resultado
+          const existingAlerts = Array.isArray((canonical as any).alertas) ? (canonical as any).alertas : [];
+          (canonical as any).alertas = [
+            ...existingAlerts,
+            ...validation.errors.map(error => ({
+              categoria: "validacao",
+              descricao: error,
+              severidade: "média",
+            })),
+          ];
+        }
+        
         // Para compatibilidade com o frontend, salvamos a análise CANÔNICA em `resultJson`.
         // Mantemos o resultado original do agente em `agentResult` para auditabilidade.
         payload.resultJson = { ...canonical, agentResult: originalAgentResult } as any;

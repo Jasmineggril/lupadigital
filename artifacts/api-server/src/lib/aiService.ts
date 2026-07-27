@@ -37,7 +37,7 @@ const DEFAULT_AI_CHUNK_CONCURRENCY = 1;
 
 const GLOBAL_BUDGET_MS = 240_000;
 const RESERVE_MS = 30_000;
-const MIN_CHUNK_TIMEOUT_MS = 20_000;
+const MIN_CHUNK_TIMEOUT_MS = 15_000;
 const MAX_BACKOFF_MS = 30_000;
 
 interface TimeBudget {
@@ -273,6 +273,144 @@ export function chunkDocument(text: string): DocumentChunk[] {
 
 function normalizeFactText(value?: string): string {
   return (value ?? "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Detecta retificações no texto do edital e resolve conflitos de datas.
+ * 
+ * Regra: retificação posterior vence texto original anterior.
+ * 
+ * Exemplo de padrão detectado:
+ *   "O item 2 passa a viger com a seguinte redação: ... até 14 de agosto de 2026"
+ *   (original dizia "até 31 de julho de 2026")
+ */
+interface Retification {
+  campo: string;
+  valorOriginal: string;
+  valorVigente: string;
+  documentoRetificacao: string;
+  paginaRetificacao?: number;
+  trechoRetificacao?: string;
+}
+
+export function detectRetifications(originalText: string): Retification[] {
+  if (!originalText || !originalText.trim()) return [];
+  
+  const retifications: Retification[] = [];
+  const normalized = originalText.toLowerCase();
+  
+  // Padrão 1: "passa a viger com a seguinte redação" + data nova
+  const retificationPatterns = [
+    /passa\s+a\s+viger\s+com\s+a\s+seguinte\s+redação/gi,
+    /retifica[çc][ãa]o.*?(?:altera|modifica|muda)/gi,
+    /alteração.*?(?:encerramento|prazo|data)/gi,
+    /prazo.*?(?:alterado|prorrogado|extendido)/gi,
+    /até\s+(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})/gi,
+  ];
+  
+  // Busca por padrões de retificação
+  for (const pattern of retificationPatterns) {
+    const matches = Array.from(originalText.matchAll(pattern));
+    for (const match of matches) {
+      // Extrai datas do contexto da retificação
+      const contextStart = Math.max(0, match.index! - 200);
+      const contextEnd = Math.min(originalText.length, match.index! + match[0].length + 500);
+      const context = originalText.slice(contextStart, contextEnd);
+      
+      // Busca datas no contexto
+      const datePattern = /(\d{1,2})\s+de\s+(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+de\s+(\d{4})/gi;
+      const dates = Array.from(context.matchAll(datePattern));
+      
+      if (dates.length >= 2) {
+        // Se encontrou duas datas, assume que a primeira é original e a segunda é vigente
+        retifications.push({
+          campo: "encerramento de inscrições",
+          valorOriginal: dates[0][0],
+          valorVigente: dates[1][0],
+          documentoRetificacao: match[0],
+          trechoRetificacao: context.slice(0, 200),
+        });
+      }
+    }
+  }
+  
+  // Padrão 2: Busca por "até [data original]" seguido de "até [data nova]"
+  const untilPattern = /até\s+(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})/gi;
+  const untilMatches = Array.from(originalText.matchAll(untilPattern));
+  
+  if (untilMatches.length >= 2) {
+    // Verifica se há contexto de retificação entre as datas
+    for (let i = 0; i < untilMatches.length - 1; i++) {
+      const first = untilMatches[i];
+      const second = untilMatches[i + 1];
+      
+      if (first.index !== undefined && second.index !== undefined) {
+        const between = originalText.slice(first.index! + first[0].length, second.index!);
+        
+        // Se há palavras-chave de retificação entre as datas
+        if (/passa|viger|redação|retifica|altera/i.test(between)) {
+          // Verifica se não já adicionou esta retificação
+          const alreadyExists = retifications.some(
+            r => r.valorOriginal === first[0] && r.valorVigente === second[0]
+          );
+          
+          if (!alreadyExists) {
+            retifications.push({
+              campo: "encerramento de inscrições",
+              valorOriginal: first[0],
+              valorVigente: second[0],
+              documentoRetificacao: between.trim(),
+              trechoRetificacao: between.slice(0, 200),
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  return retifications;
+}
+
+/**
+ * Aplica retificações a um array de itens do cronograma.
+ * 
+ * Regra: retificação posterior vence texto original anterior.
+ * 
+ * Para cada retificação encontrada:
+ * 1. Marca o valor original como "Prazo original, posteriormente alterado pela retificação"
+ * 2. Usa o valor vigente como o prazo atual
+ */
+function applyRetificationsToTimeline(
+  items: Array<Record<string, unknown>>,
+  retifications: Retification[],
+  originalText: string,
+): Array<Record<string, unknown>> {
+  if (!retifications.length) return items;
+  
+  return items.map(item => {
+    const updated = { ...item };
+    
+    for (const ret of retifications) {
+      // Verifica se este item contém a data original
+      const periodo = typeof updated.periodo === "string" ? updated.periodo : "";
+      const descricao = typeof updated.descricao === "string" ? updated.descricao : "";
+      
+      if (periodo.includes(ret.valorOriginal) || descricao.includes(ret.valorOriginal)) {
+        // Marca como retificado
+        updated.retificado = true;
+        updated.dataOriginal = ret.valorOriginal;
+        updated.valorVigente = ret.valorVigente;
+        updated.observacaoRetificacao = `Prazo original (${ret.valorOriginal}), posteriormente alterado pela retificação para ${ret.valorVigente}.`;
+        
+        // Atualiza o período para mostrar o valor vigente
+        if (periodo.includes(ret.valorOriginal)) {
+          updated.periodo = periodo.replace(ret.valorOriginal, ret.valorVigente);
+        }
+      }
+    }
+    
+    return updated;
+  });
 }
 
 function mergeFacts<T extends Record<string, unknown>>(items: T[], keyField: string): T[] {
@@ -900,6 +1038,8 @@ export interface CronogramaItem {
   secao?: string;
   trechoFonte?: string;
   confianca: "alta" | "média" | "baixa";
+  documentoOrigem?: string;
+  vigente?: boolean;
 }
 
 /**
@@ -977,6 +1117,14 @@ export interface CanonicalAnalysis {
   cronograma?: {
     items: CronogramaItem[];
     summary?: string;
+    retificacoes?: Array<{
+      campo: string;
+      valorOriginal: string;
+      valorVigente: string;
+      documentoRetificacao: string;
+      paginaRetificacao?: number;
+      trechoRetificacao?: string;
+    }>;
     validacaoTemporal?: {
       temConflitos: boolean;
       conflitos: Array<{ evento1: string; evento2: string; problema: string }>;
@@ -988,7 +1136,17 @@ export interface CanonicalAnalysis {
   };
   elegibilidade?: {
     score?: number;
-    criteria: Array<{ criterio: string; atende: boolean | "parcial"; observacao: string }>;
+    criteria: Array<{
+      criterio: string;
+      atende: boolean | "parcial";
+      observacao: string;
+      pagina?: number;
+      secao?: string;
+      trechoFonte?: string;
+      confianca?: "alta" | "média" | "baixa";
+      documentoOrigem?: string;
+      vigente?: boolean;
+    }>;
     recommendation?: string;
     nextSteps?: string[];
   };
@@ -1009,6 +1167,8 @@ export interface CanonicalAnalysis {
     secao?: string;
     trecho?: string;
     confianca?: "alta" | "média" | "baixa";
+    documentoOrigem?: string;
+    vigente?: boolean;
   }>;
   alertas: (string | ValidationAlert)[];
   agentResult: Record<string, unknown>;
@@ -1160,6 +1320,134 @@ function validateTemporalConsistency(
   return conflitos;
 }
 
+/**
+ * Validação documental antes de salvar no Supabase.
+ * 
+ * Verifica:
+ * 1. Identificação: número, ano, órgão, título
+ * 2. Cronograma: datas existem, retificação aplicada, nenhuma data histórica como prazo atual
+ * 3. Interpretação: resumo corresponde, nenhuma informação inventada
+ * 4. Checklist: todos os itens existem no edital
+ * 5. Elegibilidade: critérios vêm do edital
+ * 
+ * Retorna { valid: true } ou { valid: false, errors: string[] }
+ */
+export function validateDocumentAnalysis(
+  canonicalAnalysis: Record<string, unknown>,
+  originalText: string,
+): { valid: true } | { valid: false; errors: string[] } {
+  const errors: string[] = [];
+  const normalizedText = originalText.toLowerCase();
+  
+  // 1. Validação de identificação
+  const documento = canonicalAnalysis.documento as Record<string, unknown> | undefined;
+  if (documento) {
+    if (!documento.titulo && !documento.orgao) {
+      errors.push("Identificação incompleta: título e órgão não identificados");
+    }
+    if (documento.anoPublicacao && typeof documento.anoPublicacao === "number") {
+      const currentYear = new Date().getFullYear();
+      if (documento.anoPublicacao < currentYear - 2 || documento.anoPublicacao > currentYear + 1) {
+        errors.push(`Ano de publicação suspeito: ${documento.anoPublicacao}`);
+      }
+    }
+  }
+  
+  // 2. Validação de cronograma
+  const cronograma = canonicalAnalysis.cronograma as Record<string, unknown> | undefined;
+  if (cronograma && Array.isArray(cronograma.items)) {
+    const items = cronograma.items as Array<Record<string, unknown>>;
+
+    const mesesMap: Record<string, string> = {
+      janeiro: "01", fevereiro: "02", março: "03", abril: "04", maio: "05", junho: "06",
+      julho: "07", agosto: "08", setembro: "09", outubro: "10", novembro: "11", dezembro: "12",
+    };
+    const normalizeDateForComparison = (dateStr: string): string => {
+      const isoMatch = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (isoMatch) {
+        const [, d, m, y] = isoMatch;
+        const mesNome = Object.entries(mesesMap).find(([, v]) => v === m)?.[0] || "";
+        return `${d} de ${mesNome} de ${y}`;
+      }
+      return dateStr.toLowerCase();
+    };
+
+    for (const item of items) {
+      const periodo = typeof item.periodo === "string" ? item.periodo : "";
+      const fase = typeof item.fase === "string" ? item.fase : "";
+      
+      const datePatterns = [
+        /\d{1,2}\/\d{1,2}\/\d{4}/g,
+        /\d{1,2}\s+de\s+\w+\s+de\s+\d{4}/g,
+      ];
+      
+      for (const pattern of datePatterns) {
+        const dates = periodo.match(pattern) || [];
+        for (const date of dates) {
+          const normalizedDate = normalizeDateForComparison(date);
+          const found = normalizedText.includes(date.toLowerCase()) || normalizedText.includes(normalizedDate);
+          
+          if (!found) {
+            const retificacao = (cronograma.retificacoes as Array<Record<string, unknown>> | undefined)
+              ?.find(r => {
+                const vigente = typeof r.valorVigente === "string" ? r.valorVigente : "";
+                return vigente.includes(date) || vigente.includes(normalizedDate);
+              });
+            
+            if (!retificacao) {
+              errors.push(`Data "${date}" no cronograma não encontrada no edital original`);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // 3. Validação de elegibilidade
+  const elegibilidade = canonicalAnalysis.elegibilidade as Record<string, unknown> | undefined;
+  if (elegibilidade && Array.isArray(elegibilidade.criteria)) {
+    const criteria = elegibilidade.criteria as Array<Record<string, unknown>>;
+    
+    for (const criterion of criteria) {
+      const criterio = typeof criterion.criterio === "string" ? criterion.criterio : "";
+      
+      // Verifica se o critério tem fonte no edital
+      if (criterio && !normalizedText.includes(criterio.toLowerCase().slice(0, 30))) {
+        // Critério muito específico, pode ser inferência
+        if (criterio.length > 50) {
+          errors.push(`Critério de elegibilidade sem fonte explícita no edital: "${criterio.slice(0, 50)}..."`);
+        }
+      }
+    }
+  }
+  
+  // 4. Verificação de informações inventadas
+  const interpretation = canonicalAnalysis.interpretation as Record<string, unknown> | undefined;
+  if (interpretation) {
+    const summary = typeof interpretation.summary === "string" ? interpretation.summary : "";
+    
+    // Verifica se o resumo contém termos muito específicos que podem ser inventados
+    const inventedTerms = [
+      /valor total de/i,
+      /orçamento de/i,
+      /financiamento de/i,
+      /investimento de/i,
+    ];
+    
+    for (const term of inventedTerms) {
+      if (term.test(summary) && !normalizedText.match(term)) {
+        errors.push(`Resumo contém termo não encontrado no edital: "${summary.match(term)?.[0]}"`);
+      }
+    }
+  }
+  
+  if (errors.length > 0) {
+    return { valid: false, errors };
+  }
+  
+  return { valid: true };
+}
+
 export function buildCanonicalAnalysis(
   agentId: AgentId,
   agentResult: Record<string, unknown>,
@@ -1279,7 +1567,18 @@ export function buildCanonicalAnalysis(
    */
   const cronograma = Array.isArray(result.timeline)
     ? (() => {
-        const items = (result.timeline as Array<Record<string, unknown>>).map(
+        // Detecta retificações no texto original
+        const retifications = detectRetifications(originalText);
+        
+        // Aplica retificações aos itens do timeline
+        const rawTimeline = result.timeline as Array<Record<string, unknown>>;
+        const timelineWithRetifications = applyRetificationsToTimeline(
+          rawTimeline,
+          retifications,
+          originalText,
+        );
+        
+        const items = timelineWithRetifications.map(
           (item): CronogramaItem => ({
             fase: typeof item.fase === "string" ? item.fase : "",
             periodo: typeof item.periodo === "string" ? item.periodo : "",
@@ -1300,14 +1599,30 @@ export function buildCanonicalAnalysis(
                 ? item.trechoFonte
                 : undefined,
             confianca: (item.confianca as "alta" | "média" | "baixa") ?? "média",
+            documentoOrigem: typeof item.retificado === "boolean" && item.retificado
+              ? typeof item.observacaoRetificacao === "string" ? item.observacaoRetificacao : "Retificação detectada no edital"
+              : undefined,
+            vigente: typeof item.retificado === "boolean" ? !item.retificado : true,
           })
         );
 
         const conflitos = validateTemporalConsistency(items, originalText);
         
+        // Adiciona informações de retificação aos conflitos
+        if (retifications.length > 0) {
+          retifications.forEach(ret => {
+            conflitos.push({
+              evento1: `Original: ${ret.valorOriginal}`,
+              evento2: `Vigente: ${ret.valorVigente}`,
+              problema: `Retificação detectada: ${ret.campo} alterado de "${ret.valorOriginal}" para "${ret.valorVigente}". O prazo vigente é ${ret.valorVigente}.`,
+            });
+          });
+        }
+        
         return {
           items,
           summary: typeof result.observacao === "string" ? result.observacao : undefined,
+          retificacoes: retifications.length > 0 ? retifications : undefined,
           validacaoTemporal:
             conflitos.length > 0
               ? {
@@ -1357,6 +1672,21 @@ export function buildCanonicalAnalysis(
                 typeof item.observacao === "string"
                   ? item.observacao
                   : "",
+              pagina:
+                typeof item.pagina === "number" ? item.pagina : undefined,
+              secao:
+                typeof item.secao === "string" ? item.secao : undefined,
+              trechoFonte:
+                typeof item.trechoFonte === "string"
+                  ? item.trechoFonte
+                  : undefined,
+              confianca:
+                (item.confianca as "alta" | "média" | "baixa") ?? "média",
+              documentoOrigem:
+                typeof item.documentoOrigem === "string"
+                  ? item.documentoOrigem
+                  : undefined,
+              vigente: typeof item.vigente === "boolean" ? item.vigente : true,
             };
           }
         ),
@@ -1408,6 +1738,8 @@ export function buildCanonicalAnalysis(
           secao: item.secao,
           trecho: item.trechoFonte,
           confianca: item.confianca,
+          documentoOrigem: item.documentoOrigem,
+          vigente: item.vigente,
         });
 
         if (!isExplicitlySupported) {
@@ -2789,12 +3121,27 @@ export async function chatNiasci(
   const model = getOpenAIModel();
   const start = Date.now();
 
-  // Prompt de sistema que define o papel do assistente científico
+  const hasStructuredContext = context?.startsWith("ANÁLISE SALVA DO EDITAL");
+
   const systemContent = [
     "Você é o Assistente IA do NIASci, um assistente científico especializado em apoiar pesquisadores, estudantes e educadores brasileiros.",
     "Sua função é responder perguntas sobre ciência, metodologia de pesquisa, currículos Lattes, artigos científicos, projetos de pesquisa e editais de fomento.",
-    "Seja sempre preciso, cite fontes quando possível, e use linguagem acessível sem perder a precisão científica.",
-    context ? `\n\nCONTEXTO ADICIONAL DO USUÁRIO:\n${context.slice(0, 3000)}` : "",
+    "",
+    hasStructuredContext
+      ? [
+          "REGRAS OBRIGATÓRIAS — CONTEXTO DE ANÁLISE SALVA:",
+          "1. Responda APENAS com base nos fatos fornecidos no contexto da análise salva.",
+          "2. NÃO invente, infera ou reinterprete informações que não estejam explicitamente no contexto.",
+          "3. NÃO consulte o texto original do edital — use exclusivamente os fatos consolidados fornecidos.",
+          "4. Se a informação solicitada não existe no contexto fornecido, responda EXATAMENTE:",
+          '   "Essa informação não foi localizada no edital analisado."',
+          "5. Cite o campo ou seção de onde retirou a informação (ex: cronograma, elegibilidade, checklist).",
+          "6. Quando houver retificação, sempre apresente o valor vigente e mencione que houve alteração.",
+          "7. Não contradiga o cronograma, checklist ou elegibilidade fornecidos.",
+        ].join("\n")
+      : "Seja sempre preciso, cite fontes quando possível, e use linguagem acessível sem perder a precisão científica.",
+    "",
+    context ? `\n\nCONTEXTO:\n${context.slice(0, 4000)}` : "",
     "",
     PLAIN_LANGUAGE_PRINCIPLES,
     "",

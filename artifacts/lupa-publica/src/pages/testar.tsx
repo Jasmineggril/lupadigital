@@ -113,6 +113,7 @@ import {
 
 interface CanonicalAnalysisLike {
   analysisId?: string;
+  historyId?: number;
   schemaVersion?: string;
   source?: {
     agentId?: string;
@@ -2847,7 +2848,7 @@ export default function TestarIA() {
 
       if (user) {
         try {
-          await saveAgentResultMutation.mutateAsync({
+          const savedAgent = await saveAgentResultMutation.mutateAsync({
             data: {
               agentId: agentIdOverride,
               title: payload.titulo ?? `Interpretação ${AGENTS.find((a) => a.id === agentIdOverride)?.name ?? currentAgentMeta.name}`,
@@ -2857,6 +2858,9 @@ export default function TestarIA() {
                 : (result ? { ...result } : { type: selectedAgent })) as Record<string, unknown>,
             },
           });
+          if (savedAgent?.id && canonicalData) {
+            setCanonicalAnalysis((prev) => prev ? { ...prev, historyId: savedAgent.id } : prev);
+          }
           queryClient.invalidateQueries({
             queryKey: getListAgentHistoryQueryKey(),
           });
@@ -3097,7 +3101,8 @@ export default function TestarIA() {
     setSelectedAgent(item.agentId as AgentId);
     const parsedCanonical = item.resultJson as CanonicalAnalysisLike;
     const parsed = canonicalToAgentResult(parsedCanonical) ?? (item.resultJson as unknown as AgentResult);
-    setCanonicalAnalysis(parsedCanonical && typeof parsedCanonical === "object" ? parsedCanonical : null);
+    const withHistoryId = { ...parsedCanonical, historyId: item.id } as CanonicalAnalysisLike;
+    setCanonicalAnalysis(withHistoryId && typeof withHistoryId === "object" ? withHistoryId : null);
     applyResult(parsed);
     setSavedThisResult(true);
     setShowHistory(false);
@@ -3174,6 +3179,7 @@ export default function TestarIA() {
         body: JSON.stringify({
           messages: [{ role: "user", content: q }],
           context: ctx,
+          historyId: canonicalAnalysis?.historyId ?? undefined,
         }),
       });
 

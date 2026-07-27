@@ -1,0 +1,27 @@
+{
+  "short": {
+    "label": "Edital curto (~500 palavras)",
+    "sourceType": "edital",
+    "content": "EDITAL DE CONVOCAÇÃO Nº 001/2026\n\nA Universidade Federal convoca os interessados para inscrição no Programa de Bolsas de Iniciação Científica.\n\n1. OBJETIVO: Estimular a pesquisa científica entre estudantes de graduação.\n\n2. REQUISITOS:\n   - Ser aluno regular matriculado em curso de graduação\n   - Ter renda familiar per capita de até 2 salários mínimos\n   - Não ser bolsista de outro programa federal\n\n3. DOCUMENTAÇÃO NECESSÁRIA:\n   - Formulário de inscrição preenchido\n   - Comprovante de matrícula\n   - Declaração de renda familiar\n   - Projeto de pesquisa (máximo 10 páginas)\n\n4. PRAZO: Inscrições de 01/08/2026 a 31/08/2026\n\n5. CONTATO: pbic@ufsc.edu.br"
+  },
+  "long": {
+    "label": "Edital longo (~8000 palavras)",
+    "sourceType": "edital",
+    "content": "EDITAL DE CONVOCAÇÃO Nº 001/2026\n\nA Universidade Federal convoca os interessados para inscrição no Programa de Bolsas de Iniciação Científica.\n\n1. OBJETIVO: Estimular a pesquisa científica entre estudantes de graduação.\n\n2. REQUISITOS:\n   - Ser aluno regular matriculado em curso de graduação\n   - Ter renda familiar per capita de até 2 salários mínimos\n   - Não ser bolsista de outro programa federal\n   - Manter aproveitamento mínimo de 70%\n   - Não ter sido reprovado em mais de 2 disciplinas no último semestre\n\n3. DOCUMENTAÇÃO NECESSÁRIA:\n   - Formulário de inscrição preenchido\n   - Comprovante de matrícula atualizado\n   - Declaração de renda familiar autenticada\n   - Projeto de pesquisa (máximo 10 páginas)\n   - Carta de aceite do orientador\n   - Histórico escolar parcial\n\n4. PRAZO: Inscrições de 01/08/2026 a 31/08/2026\n\n5. CONTATO: pbic@ufsc.edu.br\n\n6. CRITÉRIOS DE AVALIAÇÃO:\n   a) Qualidade do projeto de pesquisa (40%)\n   b) Desempenho acadêmico (30%)\n   c) Situação socioeconômica (20%)\n   d) Carta de recomendação do orientador (10%)\n\n7. REGULAMENTO:\n   7.1 O programa terá duração de 12 meses, podendo ser renovado por igual período.\n   7.2 O valor da bolsa será de R$ 700,00 mensais.\n   7.3 O bolsista deverá dedicar no mínimo 20 horas semanais à pesquisa.\n   7.4 É vedada a acumulação com outras bolsas federais.\n   7.5 O descumprimento das obrigações resultará na suspensão da bolsa.\n\n8. PROCESSO SELETIVO:\n   8.1 As inscrições serão realizadas exclusivamente pelo sistema eletrônico.\n   8.2 A análise documental será realizada pela Comissão de Seleção.\n   8.3 Os candidatos aprovados serão convocados para entrevista.\n   8.4 O resultado final será publicado no site da Pró-Reitoria de Pesquisa.\n\n9. DISPOSIÇÕES GERAIS:\n   9.1 Este edital entra em vigor na data de sua publicação.\n   9.2 Os casos omissos serão resolvidos pela Comissão de Seleção.\n   9.3 As informações poderão ser obtidas no telefone (48) 3331-XXXX.\n   9.4 Endereço: Campus Universitário, Reitoria, sala 201.\n\n10. PUBLICAÇÃO: Diário Oficial da União e site da universidade."
+  },
+  "lattes": {
+    "label": "Currículo Lattes sintético",
+    "sourceType": "lattes",
+    "content": "CURRÍCULO VITAE\n\nNOME: João da Silva\nDATA DE NASCIMENTO: 15/03/1990\nCIDADE NASCIMAL: Florianópolis/SC\n\nFORMAÇÃO ACADÊMICA:\n- Doutorado em Ciência da Computação, UFSC, 2018-2022\n- Mestrado em Informática, UFSC, 2016-2018\n- Graduação em Ciência da Computação, UFSC, 2012-2016\n\nEXPERIÊNCIA PROFISSIONAL:\n- Professor Adjunto, Universidade Federal de Santa Catarina, 2022-atual\n- Pesquisador, LabComp/UFSC, 2018-2022\n- Estagiário de Pesquisa, CNPq, 2015-2016\n\nPRODUÇÃO CIENTÍFICA:\n- Artigos publicados: 12\n- Capítulos de livro: 3\n- Trabalhos em anais: 18\n- Orientações concluídas: 8\n\nPROJETOS:\n- \"Inteligência Artificial Aplicada à Educação\" (2023-2025) - CAPES\n- \"Análise de Dados Educacionais\" (2022-2024) - CNPq\n\nÁREAS DE ATUAÇÃO:\n- Ciência da Computação\n- Inteligência Artificial\n- Educação em Tecnologia"
+  },
+  "artigo": {
+    "label": "Artigo científico sintético",
+    "sourceType": "artigo",
+    "content": "ARTIGO CIENTÍFICO\n\nTÍTULO: Aplicação de Técnicas de Aprendizado de Máquina na Análise de Editais Públicos\n\nAUTORES: João da Silva, Maria Santos, Pedro Oliveira\n\nRESUMO: Este artigo apresenta uma abordagem baseada em aprendizado de máquina para automatizar a análise de editais públicos. Utilizamos processamento de linguagem natural e modelos transformer para extrair informações relevantes de documentos governamentais.\n\nPALAVRAS-CHAVE: aprendizado de máquina, processamento de linguagem natural, editais públicos.\n\n1. INTRODUÇÃO\nA análise de editais públicos é um processo manual e demorado.\n\n2. METODOLOGIA\nUtilizamos o modelo BERT fine-tuned para classificação de entidades.\n\n3. RESULTADOS\nA precisão média foi de 87.3%.\n\n4. CONCLUSÕES\nA abordagem proposta mostra-se viável."
+  },
+  "projeto": {
+    "label": "Descrição de projeto sintético",
+    "sourceType": "projeto",
+    "content": "Projeto de pesquisa sobre uso de inteligência artificial para análise automática de editais públicos brasileiros. O projeto visa desenvolver um sistema que extraia informações relevantes de editais e as apresente de forma acessível ao cidadão comum, utilizando técnicas de processamento de linguagem natural e modelos de linguagem."
+  }
+}

@@ -28,7 +28,7 @@ import {
   generatePlanetario,
   chatNiasci,
 } from "../lib/aiService";
-import { getReqUserId } from "../lib/supabase";
+import { getReqUserId, requireAuth } from "../lib/supabase";
 import { classifyAiError } from "../lib/processingErrors";
 
 const router: IRouter = Router();
@@ -177,14 +177,15 @@ router.post("/niasci/planetario/generate", async (req, res): Promise<void> => {
 
 // ── Assistente IA ─────────────────────────────────────────────────────────────
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, agentResultsTable } from "@workspace/db";
 
 /**
  * Schema de validação para o chat do Assistente IA.
- * Aceita um histórico de mensagens, contexto opcional e analysisId opcional.
- * Quando analysisId é fornecido, o backend busca o result_json salvo no Supabase
- * e constrói um contexto controlado a partir dos fatos consolidados.
+ * Aceita um histórico de mensagens, contexto opcional e historyId opcional.
+ * Quando historyId é fornecido (e o usuário autenticado é o dono), o backend
+ * busca o result_json salvo no Supabase e constrói um contexto controlado
+ * a partir dos fatos consolidados.
  */
 const ChatSchema = z.object({
   messages: z.array(
@@ -288,38 +289,51 @@ export function buildStructuredContext(resultJson: Record<string, unknown>): str
 /**
  * POST /niasci/chat
  * Processa uma mensagem do chat científico do Assistente IA.
+ * Requer autenticação (requireAuth).
  *
- * Quando analysisId é fornecido, busca o result_json salvo no Supabase
- * e constrói contexto controlado a partir dos fatos consolidados.
+ * Quando historyId é fornecido, busca o result_json salvo no Supabase
+ * filtrando por id + user_id (owner check). Se o registro não pertencer
+ * ao usuário, retorna 404 sem revelar existência.
  *
- * Corpo: { messages: {role, content}[], context?: string, analysisId?: string }
+ * Corpo: { messages: {role, content}[], context?: string, historyId?: number }
  * Resposta: { reply: string } — resposta do assistente
  */
-router.post("/niasci/chat", async (req, res): Promise<void> => {
+router.post("/niasci/chat", requireAuth(), async (req, res): Promise<void> => {
   const parsed = ChatSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Dados da mensagem inválidos." });
     return;
   }
 
+  const userId = getReqUserId(req);
   let finalContext = parsed.data.context || "";
 
-  if (parsed.data.historyId) {
+  if (parsed.data.historyId && userId) {
     try {
       const [row] = await db
         .select()
         .from(agentResultsTable)
-        .where(eq(agentResultsTable.id, parsed.data.historyId))
+        .where(and(
+          eq(agentResultsTable.id, parsed.data.historyId),
+          eq(agentResultsTable.userId, userId),
+        ))
         .limit(1);
 
-      if (row && typeof row.resultJson === "object" && row.resultJson !== null) {
+      if (!row) {
+        // 404 genérico — não revela se o registro existe
+        res.status(404).json({ error: "Análise não encontrada." });
+        return;
+      }
+
+      if (typeof row.resultJson === "object" && row.resultJson !== null) {
         const structuredCtx = buildStructuredContext(row.resultJson as Record<string, unknown>);
         if (structuredCtx) {
           finalContext = `ANÁLISE SALVA DO EDITAL (fonte única de verdade — use APENAS estes fatos):\n\n${structuredCtx}`;
         }
       }
     } catch (err) {
-      req.log?.warn({ err, historyId: parsed.data.historyId }, "Falha ao buscar result_json para chat");
+      // Sanitizado: registra apenas requestId e erro genérico
+      req.log?.warn({ requestId: (req as any).requestId, historyId: parsed.data.historyId }, "Falha ao carregar contexto do histórico");
     }
   }
 
@@ -327,13 +341,13 @@ router.post("/niasci/chat", async (req, res): Promise<void> => {
     const reply = await chatNiasci(
       parsed.data.messages,
       finalContext || parsed.data.context,
-      { userId: getReqUserId(req) },
+      { userId },
     );
     res.json({ reply });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const classification = classifyAiError(message);
-    req.log?.error({ error: message, reason: classification.reason }, classification.logMessage ?? "NIASci chat failed");
+    req.log?.error({ error: classification.reason, requestId: (req as any).requestId }, classification.logMessage ?? "NIASci chat failed");
     if (classification.status === 429) {
       res.status(429).json({ error: classification.userMessage });
       return;

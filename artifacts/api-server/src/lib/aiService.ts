@@ -29,53 +29,15 @@ import { openai, getOpenAIModel, createWithFallback, type FallbackResult } from 
 import { SimplifyEditalResponse } from "@workspace/api-zod";
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
+import { GLOBAL_BUDGET_MS, RESERVE_MS, MIN_CHUNK_TIMEOUT_MS, createTimeBudget, type TimeBudget } from "./timeBudget";
+export { createTimeBudget };
+
+const MAX_BACKOFF_MS = 30_000;
 
 const DEFAULT_AI_MAX_INPUT_TOKENS = 12000;
 const DEFAULT_AI_CHUNK_TARGET_TOKENS = 1500;
 const DEFAULT_AI_CHUNK_OVERLAP_TOKENS = 250;
 const DEFAULT_AI_CHUNK_CONCURRENCY = 1;
-
-const GLOBAL_BUDGET_MS = 240_000;
-const RESERVE_MS = 30_000;
-const MIN_CHUNK_TIMEOUT_MS = 15_000;
-const MAX_BACKOFF_MS = 30_000;
-
-interface TimeBudget {
-  startMs: number;
-  globalBudgetMs: number;
-  reserveMs: number;
-  getElapsedMs(): number;
-  getRemainingMs(): number;
-  getChunksRemaining(totalChunks: number, processedCount: number): number;
-  getChunkTimeoutMs(totalChunks: number, processedCount: number): number;
-  canStartChunk(totalChunks: number, processedCount: number): boolean;
-}
-
-export function createTimeBudget(startMs: number, globalBudgetMs = GLOBAL_BUDGET_MS, reserveMs = RESERVE_MS): TimeBudget {
-  return {
-    startMs,
-    globalBudgetMs,
-    reserveMs,
-    getElapsedMs() { return Date.now() - this.startMs; },
-    getRemainingMs() { return Math.max(0, this.globalBudgetMs - this.getElapsedMs()); },
-    getChunksRemaining(totalChunks: number, processedCount: number) { return totalChunks - processedCount; },
-    getChunkTimeoutMs(totalChunks: number, processedCount: number) {
-      const remaining = this.getRemainingMs();
-      const chunksLeft = this.getChunksRemaining(totalChunks, processedCount);
-      if (chunksLeft <= 0 || remaining <= this.reserveMs) return MIN_CHUNK_TIMEOUT_MS;
-      const available = remaining - this.reserveMs;
-      const perChunk = Math.floor(available / chunksLeft);
-      return Math.max(MIN_CHUNK_TIMEOUT_MS, Math.min(perChunk, 60_000));
-    },
-    canStartChunk(totalChunks: number, processedCount: number) {
-      const remaining = this.getRemainingMs();
-      const chunksLeft = this.getChunksRemaining(totalChunks, processedCount);
-      if (chunksLeft <= 0) return false;
-      const perChunk = (remaining - this.reserveMs) / chunksLeft;
-      return perChunk >= MIN_CHUNK_TIMEOUT_MS;
-    },
-  };
-}
 
 function getChunkingConfig() {
   return {

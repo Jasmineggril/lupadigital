@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { createTimeBudget } from "../timeBudget";
 
 const VALID_SIMPLES_RESPONSE = {
   type: "simples",
@@ -87,21 +88,18 @@ function generateSyntheticEdital(wordCount: number): string {
 }
 
 describe("orçamento dinâmico de tempo", () => {
-  it("canStartChunk retorna true quando há tempo suficiente", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("canStartChunk retorna true quando há tempo suficiente", () => {
     const budget = createTimeBudget(Date.now(), 240_000, 30_000);
     expect(budget.canStartChunk(6, 0)).toBe(true);
     expect(budget.canStartChunk(6, 5)).toBe(true);
   });
 
-  it("canStartChunk retorna false quando não há tempo suficiente", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("canStartChunk retorna false quando não há tempo suficiente", () => {
     const budget = createTimeBudget(Date.now() - 230_000, 240_000, 30_000);
     expect(budget.canStartChunk(6, 0)).toBe(false);
   });
 
-  it("getChunkTimeoutMs diminui conforme chunks são processados", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("getChunkTimeoutMs diminui conforme chunks são processados", () => {
     const budget = createTimeBudget(Date.now(), 240_000, 30_000);
     const timeout0 = budget.getChunkTimeoutMs(6, 0);
     const timeout3 = budget.getChunkTimeoutMs(6, 3);
@@ -111,15 +109,13 @@ describe("orçamento dinâmico de tempo", () => {
     expect(timeout5).toBeGreaterThanOrEqual(timeout3);
   });
 
-  it("getChunkTimeoutMs nunca cai abaixo de MIN_CHUNK_TIMEOUT_MS (15s)", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("getChunkTimeoutMs nunca cai abaixo de MIN_CHUNK_TIMEOUT_MS (15s)", () => {
     const budget = createTimeBudget(Date.now() - 235_000, 240_000, 30_000);
     const timeout = budget.getChunkTimeoutMs(6, 5);
     expect(timeout).toBeGreaterThanOrEqual(15_000);
   });
 
-  it("getRemainingMs retorna tempo restante correto", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("getRemainingMs retorna tempo restante correto", () => {
     const start = Date.now() - 10_000;
     const budget = createTimeBudget(start, 240_000, 30_000);
     const remaining = budget.getRemainingMs();
@@ -127,8 +123,7 @@ describe("orçamento dinâmico de tempo", () => {
     expect(remaining).toBeLessThanOrEqual(231_000);
   });
 
-  it("orçamento global insuficiente → canStartChunk retorna false", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("orçamento global insuficiente → canStartChunk retorna false", () => {
     const budget = createTimeBudget(Date.now() - 235_000, 240_000, 30_000);
     expect(budget.canStartChunk(6, 0)).toBe(false);
     expect(budget.getRemainingMs()).toBeLessThan(30_000);

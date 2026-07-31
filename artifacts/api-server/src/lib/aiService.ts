@@ -25,7 +25,7 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 
-import { openai, getOpenAIModel, createWithFallback, type FallbackResult } from "@workspace/integrations-openai-ai-server";
+import { openai, getOpenAIModel, getVisionClient, hasVisionSupport, createWithFallback, type FallbackResult } from "@workspace/integrations-openai-ai-server";
 import { SimplifyEditalResponse } from "@workspace/api-zod";
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
@@ -35,17 +35,107 @@ export { createTimeBudget };
 const MAX_BACKOFF_MS = 30_000;
 
 const DEFAULT_AI_MAX_INPUT_TOKENS = 12000;
-const DEFAULT_AI_CHUNK_TARGET_TOKENS = 1500;
-const DEFAULT_AI_CHUNK_OVERLAP_TOKENS = 250;
+const DEFAULT_AI_CHUNK_TARGET_TOKENS = 4000;
+const DEFAULT_AI_CHUNK_OVERLAP_TOKENS = 400;
 const DEFAULT_AI_CHUNK_CONCURRENCY = 1;
 
 function getChunkingConfig() {
+  const configuredTarget = Number.parseInt(process.env.AI_CHUNK_TARGET_TOKENS ?? "", 10) || DEFAULT_AI_CHUNK_TARGET_TOKENS;
+  // O alvo de chunk é reduzido quando o TPM do provedor é baixo, para que um
+  // chunk (tokens reais ≈ 1,25× da estimativa) + prompt de extração + saída
+  // caibam no limite por minuto sem estourar (evita 413 de TPM).
+  const tpm = getTpmLimit();
+  const tpmAwareTarget = tpm > 0 ? Math.floor((tpm * 0.85 - 1124) / 1.25) : configuredTarget;
   return {
     maxInputTokens: Number.parseInt(process.env.AI_MAX_INPUT_TOKENS ?? "", 10) || DEFAULT_AI_MAX_INPUT_TOKENS,
-    targetTokens: Number.parseInt(process.env.AI_CHUNK_TARGET_TOKENS ?? "", 10) || DEFAULT_AI_CHUNK_TARGET_TOKENS,
+    targetTokens: Math.max(800, Math.min(configuredTarget, tpmAwareTarget)),
     overlapTokens: Number.parseInt(process.env.AI_CHUNK_OVERLAP_TOKENS ?? "", 10) || DEFAULT_AI_CHUNK_OVERLAP_TOKENS,
     concurrency: Number.parseInt(process.env.AI_CHUNK_CONCURRENCY ?? "", 10) || DEFAULT_AI_CHUNK_CONCURRENCY,
   };
+}
+
+const DEFAULT_AI_TPM_LIMIT = 12000;
+const PROMPT_BUDGET_SAFETY = 1.4;
+const CHUNK_FACT_MAX_OUTPUT = 2048;
+const TPM_WINDOW_MS = 60_000;
+
+// Orçamento de tokens por minuto do provedor (limite do tier grátis medido).
+// Groq/llama-3.3-70b-versatile: 12.000 TPM (medido via 413 da API).
+function getTpmLimit(model?: string): number {
+  const fromEnv = Number.parseInt(process.env.AI_TPM_LIMIT ?? "", 10);
+  if (fromEnv > 0) return fromEnv;
+  const m = (model ?? getOpenAIModel()).toLowerCase();
+  if (m.includes("llama") || m.includes("groq")) return 12_000;
+  if (m.includes("gemini")) return 100_000;
+  if (m.includes("gpt")) return 60_000;
+  return DEFAULT_AI_TPM_LIMIT;
+}
+
+// Reserva de saída que cabe no TPM: prompt estimado (com margem de segurança)
+// + max_tokens + reserva não pode exceder o limite de tokens por minuto.
+function calcRequestMaxTokens(estimatedPromptTokens: number, model?: string): number {
+  const tpm = getTpmLimit(model);
+  const availableForOutput = tpm - Math.ceil(estimatedPromptTokens * PROMPT_BUDGET_SAFETY) - OUTPUT_RESERVE;
+  const modelMax = calcMaxOutputTokens(model);
+  return Math.max(512, Math.min(modelMax, availableForOutput));
+}
+
+// ── Controle deslizante de TPM (janela de 60s) ──────────────────────────
+// Registra o consumo REAL (prompt + completion) de cada chamada bem-sucedida
+// e, antes de uma nova chamada, calcula o atraso necessário para que
+// (consumo na janela + reserva da próxima chamada) não exceda o TPM do provedor.
+const tpmWindow: Array<{ at: number; tokens: number }> = [];
+
+function pruneTpmWindow(now: number) {
+  while (tpmWindow.length && now - tpmWindow[0].at > TPM_WINDOW_MS) tpmWindow.shift();
+}
+
+function tpmUsedInWindow(now: number): number {
+  pruneTpmWindow(now);
+  return tpmWindow.reduce((sum, entry) => sum + entry.tokens, 0);
+}
+
+function recordTpmUsage(tokens: number) {
+  if (tokens <= 0) return;
+  pruneTpmWindow(Date.now());
+  tpmWindow.push({ at: Date.now(), tokens });
+}
+
+// Em testes, as chaves são placeholders ("test-key"/"test-gemini-key") e as
+// chamadas à IA são mockadas; pular o pacing evita sleeps artificiais de até
+// 60s entre chunks supostamente instantâneos.
+function isMockAiEnvironment(): boolean {
+  const key = process.env.GROQ_API_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+  return !key || /^test[-_]/i.test(key) || key.length < 10;
+}
+
+async function waitForTpmBudget(reservationTokens: number): Promise<void> {
+  if (isMockAiEnvironment()) return;
+  const tpm = getTpmLimit();
+  if (tpm <= 0) return;
+  const now = Date.now();
+  const used = tpmUsedInWindow(now);
+  const projected = used + reservationTokens;
+  if (projected <= tpm) return;
+
+  const overflow = projected - tpm;
+  // Avança o relógio até que tokens suficientes da janela expirem.
+  let accrued = 0;
+  let waitMs = 0;
+  for (const entry of tpmWindow) {
+    accrued += entry.tokens;
+    if (accrued >= overflow) {
+      waitMs = Math.max(0, entry.at + TPM_WINDOW_MS - now);
+      break;
+    }
+  }
+  // Se a janela inteira não cobrir o excesso, espera proporcionalmente.
+  if (waitMs <= 0 && tpmWindow.length) {
+    waitMs = Math.max(1_000, Math.ceil((overflow / tpm) * TPM_WINDOW_MS));
+  }
+  if (waitMs <= 0) return;
+  logger.info({ step: "tpm_pacing_wait", waitMs, usedTokens: used, reservationTokens }, `TPM pacing: waiting ${Math.round(waitMs / 1000)}s`);
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
 }
 
 function getProviderNameFromModel(model: string): string {
@@ -147,6 +237,29 @@ export interface DocumentChunk {
   estimatedTokens: number;
 }
 
+// Teto do orçamento de processamento em chunks (15 min). Acima disso o edital
+// é grande demais para a janela diária/por-minuto do provedor e o fluxo
+// degrada para "processamento parcial", devolvendo os chunks concluídos.
+const MAX_CHUNKING_BUDGET_MS = 900_000;
+
+// O orçamento global fixo (240s) cabe em TPM alto, mas a 6.000 TPM cada chunk
+// leva ~60s só de pacing (janela deslizante de 60s) — um edital grande com 6+
+// chunks estoura o orçamento e os últimos chunks são descartados. Aqui o
+// orçamento é dimensionado pelo TPM do provedor:
+//   (tokens de entrada × safety + saída total) / tpm × 60s + overhead por chunk + reserva.
+function computeChunkingBudgetMs(chunks: DocumentChunk[]): number {
+  if (isMockAiEnvironment() || chunks.length <= 1) return GLOBAL_BUDGET_MS;
+  const tpm = getTpmLimit();
+  if (tpm <= 0) return GLOBAL_BUDGET_MS;
+  const totalInputTokens = chunks.reduce((sum, chunk) => sum + (chunk.estimatedTokens || 0), 0);
+  const totalPromptTokens = Math.ceil(totalInputTokens * PROMPT_BUDGET_SAFETY);
+  const totalOutputTokens = chunks.length * CHUNK_FACT_MAX_OUTPUT;
+  const throughputMs = ((totalPromptTokens + totalOutputTokens) / tpm) * TPM_WINDOW_MS;
+  const perChunkOverheadMs = chunks.length * 15_000;
+  const estimatedMs = throughputMs + perChunkOverheadMs + RESERVE_MS;
+  return Math.max(GLOBAL_BUDGET_MS, Math.min(estimatedMs, MAX_CHUNKING_BUDGET_MS));
+}
+
 export interface ChunkAnalysisFacts {
   documentInfo: Array<{ title?: string; organization?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
   dates: Array<{ event?: string; value?: string; page?: number; section?: string; text?: string; confidence?: "alta" | "média" | "baixa" }>;
@@ -206,9 +319,7 @@ export function chunkDocument(text: string): DocumentChunk[] {
     return chunkText;
   };
 
-  paragraphs.forEach((paragraph) => {
-    const titles = getSectionTitles(paragraph);
-    const paragraphTokens = estimateTokens(paragraph);
+  const addParagraph = (paragraph: string, titles: string[]) => {
     const nextText = currentText ? `${currentText}\n\n${paragraph}` : paragraph;
     const nextTokens = estimateTokens(nextText);
     if (!currentText || nextTokens <= targetTokens) {
@@ -222,6 +333,37 @@ export function chunkDocument(text: string): DocumentChunk[] {
     flushChunk(chunkText, currentTitles, currentText);
     currentText = overlapText ? `${overlapText}\n\n${paragraph}` : paragraph;
     currentTitles = titles;
+  };
+
+  const splitParagraphIntoPieces = (paragraph: string, target: number): string[] => {
+    const pieces: string[] = [];
+    let current = "";
+    const sentences = paragraph.match(/[^.!?]+[.!?]*\s*/g) ?? [paragraph];
+    for (const sentence of sentences) {
+      const trimmed = sentence.trim();
+      if (!trimmed) continue;
+      const candidate = current ? `${current} ${trimmed}` : trimmed;
+      if (!current || estimateTokens(candidate) <= target) {
+        current = candidate;
+      } else {
+        if (current) pieces.push(current);
+        current = trimmed;
+      }
+    }
+    if (current) pieces.push(current);
+    return pieces;
+  };
+
+  paragraphs.forEach((paragraph) => {
+    const titles = getSectionTitles(paragraph);
+    const paragraphTokens = estimateTokens(paragraph);
+    if (paragraphTokens > targetTokens) {
+      for (const piece of splitParagraphIntoPieces(paragraph, targetTokens)) {
+        addParagraph(piece, titles);
+      }
+      return;
+    }
+    addParagraph(paragraph, titles);
   });
 
   if (currentText.trim()) {
@@ -438,6 +580,24 @@ function buildFallbackChunkFacts(chunkText: string): ChunkAnalysisFacts {
   };
 }
 
+const CHUNK_FACT_KEYS = ["documentInfo", "dates", "requirements", "eligibility", "documents", "values", "contacts", "obligations", "restrictions", "alerts"] as const;
+
+// A Groq frequentemente devolve um objeto único no lugar de uma lista
+// (ex.: {"documentInfo": {...}} em vez de {"documentInfo": [...]}).
+// Normaliza valores objeto em listas de um elemento antes da validação.
+function normalizeChunkFactsPayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  const source = payload as Record<string, unknown>;
+  const normalized: Record<string, unknown> = { ...source };
+  for (const key of CHUNK_FACT_KEYS) {
+    const value = source[key];
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      normalized[key] = [value];
+    }
+  }
+  return normalized;
+}
+
 const ChunkFactsSchema = z.object({
   documentInfo: z.array(z.object({ title: z.string().optional(), organization: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
   dates: z.array(z.object({ event: z.string().optional(), value: z.string().optional(), page: z.number().int().nullable().optional(), section: z.string().optional(), text: z.string().optional(), confidence: z.enum(["alta", "média", "baixa"]).optional() })).default([]),
@@ -464,7 +624,7 @@ function buildChunkFactPrompt(agentId: AgentId, chunkText: string, profile?: z.i
     "Responda apenas em JSON válido.",
   ].join("\n");
 
-  const user = `Extraia fatos estruturados do trecho abaixo e devolva um JSON com as chaves documentInfo, dates, requirements, eligibility, documents, values, contacts, obligations, restrictions e alerts.${profileInfo}\n\nTRECHO:\n${chunkText}`;
+  const user = `Extraia fatos estruturados do trecho abaixo e devolva um JSON com as chaves documentInfo, dates, requirements, eligibility, documents, values, contacts, obligations, restrictions e alerts. CADA chave deve ser uma LISTA (array) de objetos; se houver um único fato, devolva uma lista com um único elemento. Nunca use objetos avulsos no lugar de listas.${profileInfo}\n\nTRECHO:\n${chunkText}`;
 
   return { system, user };
 }
@@ -477,7 +637,7 @@ async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: 
   const provider = getProviderNameFromModel(model);
   const estimatedInputTokens = estimateTokens(chunkText);
   const estimatedPromptTokens = estimateTokens(system) + estimateTokens(user);
-  const requestedMaxOutputTokens = calcMaxOutputTokens(model);
+  const requestedMaxOutputTokens = Math.min(calcRequestMaxTokens(estimatedPromptTokens, model), CHUNK_FACT_MAX_OUTPUT);
   const estimatedTotalTokens = estimatedInputTokens + estimatedPromptTokens + requestedMaxOutputTokens;
 
   logger.info({
@@ -496,6 +656,7 @@ async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: 
 
   let completionResult;
   try {
+    await waitForTpmBudget(Math.ceil(estimatedPromptTokens * PROMPT_BUDGET_SAFETY) + requestedMaxOutputTokens);
     completionResult = await createJsonChatCompletion({
       model,
       max_tokens: requestedMaxOutputTokens,
@@ -506,6 +667,11 @@ async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: 
         { role: "user", content: user },
       ],
     }, "AIService.analyzeChunkFacts", 2, { signal: AbortSignal.timeout(timeoutMs) });
+
+    const usageTokens = completionResult.usage
+      ? (completionResult.usage.prompt_tokens ?? 0) + (completionResult.usage.completion_tokens ?? 0)
+      : 0;
+    recordTpmUsage(usageTokens || estimatedPromptTokens + requestedMaxOutputTokens);
   } catch (error) {
     const errMessage = error instanceof Error ? error.message : String(error);
     const httpMatch = errMessage.match(/status[_\s]*(\d{3})/i) ?? errMessage.match(/\b(4\d{2}|5\d{2})\b/);
@@ -546,7 +712,7 @@ async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: 
     }, "Chunk fallback triggered");
   }
 
-  const validated = ChunkFactsSchema.safeParse(parsed);
+  const validated = ChunkFactsSchema.safeParse(normalizeChunkFactsPayload(parsed));
   if (!validated.success) {
     throw new Error(`AIService: resposta da IA não é um ChunkFacts válido: ${validated.error.message}`);
   }
@@ -668,6 +834,10 @@ async function processChunkWithRetry(
         const retryAfter = parseRetryAfterMs(error);
         if (retryAfter) {
           delayMs = retryAfter;
+        } else if (classification.tpm) {
+          // Limite de tokens por minuto: espera suficiente para a janela de 60s
+          // liberar orçamento, em vez de backoff exponencial curto ineficaz.
+          delayMs = Math.min(45_000, MAX_BACKOFF_MS);
         } else {
           const baseDelay = Math.min(1000 * Math.pow(2, attempt - 1), MAX_BACKOFF_MS);
           delayMs = baseDelay + Math.random() * 1000;
@@ -695,7 +865,7 @@ async function processDocumentInChunks(agentId: AgentId, text: string, profile?:
   const chunks = chunkDocument(normalizedText);
   const concurrency = Math.max(1, getChunkingConfig().concurrency);
   const results: Array<{ ok: boolean; chunk: DocumentChunk; facts?: ChunkAnalysisFacts; error?: string }> = [];
-  const budget = createTimeBudget(Date.now());
+  const budget = createTimeBudget(Date.now(), computeChunkingBudgetMs(chunks));
 
   logger.info({
     step: "budget_created",
@@ -772,19 +942,47 @@ async function processDocumentInChunks(agentId: AgentId, text: string, profile?:
   if (!processing.complete) {
     const failedChunkIds = results.filter((r) => !r.ok).map((r) => r.chunk.chunkId);
     const firstError = results.find((r) => !r.ok)?.error ?? "unknown";
-    throw new Error(`AIService: ${failedCount} de ${chunks.length} chunks falharam (${failedChunkIds.join(", ")}). Último erro: ${firstError}`);
+    logger.warn({
+      step: "chunking_partial_failure",
+      agentId,
+      failedChunks: failedCount,
+      totalChunks: chunks.length,
+      failedChunkIds,
+      firstError,
+    }, `AIService: ${failedCount} de ${chunks.length} chunks falharam. Continuando com chunks bem-sucedidos.`);
   }
+
+  const successfulResults = results.filter((result): result is { ok: true; chunk: DocumentChunk; facts: ChunkAnalysisFacts } => result.ok).map((result) => ({ chunkId: result.chunk.chunkId, facts: result.facts! }));
 
   return {
     chunks,
-    chunkResults: results.filter((result): result is { ok: true; chunk: DocumentChunk; facts: ChunkAnalysisFacts } => result.ok).map((result) => ({ chunkId: result.chunk.chunkId, facts: result.facts! })),
+    chunkResults: successfulResults,
     processing,
   };
 }
 
-function buildConsolidatedAgentResult(agentId: AgentId, chunkResults: Array<{ chunkId: string; facts: ChunkAnalysisFacts }>, originalText: string) {
+function detectCategoria(text: string): string {
+  const t = (text ?? "").toLowerCase();
+  if (/(concurso|processo seletivo)/.test(t)) return "Concurso";
+  if (/(pregão|pregao)/.test(t)) return "Pregão";
+  if (/(licitação|licitacao)/.test(t)) return "Licitação";
+  if (/credenciamento/.test(t)) return "Credenciamento";
+  if (/chamamento/.test(t)) return "Chamamento Público";
+  if (/(bolsa|bolsas)/.test(t)) return "Bolsas";
+  if (/(subvenção|subvencao|fomento)/.test(t)) return "Subvenção";
+  if (/(financiamento|empréstimo|emprestimo)/.test(t)) return "Financiamento";
+  return "Edital";
+}
+
+function heuristicOportunidadeScore(facts: ChunkAnalysisFacts): number {
+  const density = facts.dates.length * 4 + facts.requirements.length * 3 + facts.documents.length * 2 + facts.values.length * 2 + facts.eligibility.length * 2;
+  return Math.max(15, Math.min(100, 45 + density));
+}
+
+function buildConsolidatedAgentResult(agentId: AgentId, chunkResults: Array<{ chunkId: string; facts: ChunkAnalysisFacts }>, originalText: string, profile?: z.infer<typeof AgentUserProfileSchema>) {
   const consolidatedFacts = consolidateChunkFacts(chunkResults);
   const firstDocument = consolidatedFacts.documentInfo[0];
+  const hasEnoughEligibilityData = consolidatedFacts.eligibility.length > 0 && !!profile;
   const timeline = consolidatedFacts.dates.map((date) => ({
     fase: date.event || "Evento",
     periodo: date.value || "Verificar no edital",
@@ -795,6 +993,40 @@ function buildConsolidatedAgentResult(agentId: AgentId, chunkResults: Array<{ ch
     trechoFonte: date.text,
     confianca: (date.confidence ?? "média") as "alta" | "média" | "baixa",
   }));
+
+  // Campos específicos de cada agente que a consolidação por chunks não
+  // consegue derivar da IA (score, categoria, recomendações, etc.), sintetizados
+  // heuristicamente a partir dos fatos consolidados para que o resultado
+  // atenda ao schema do agente e renderize corretamente no frontend.
+  const agentFields: Record<string, unknown> = {};
+  if (agentId === "simples") {
+    const fonteTexto = firstDocument?.text || firstDocument?.title || "";
+    agentFields.scoreOportunidade = heuristicOportunidadeScore(consolidatedFacts);
+    agentFields.categoria = detectCategoria(fonteTexto);
+    agentFields.resumo = (fonteTexto || "Análise consolidada a partir de todas as partes do documento.").slice(0, 500);
+    agentFields.objetivo = firstDocument?.title || "Analisar o edital para identificar oportunidades.";
+    agentFields.ondeInscrever = consolidatedFacts.contacts[0]?.contact || "Verificar no edital original.";
+  }
+  if (agentId === "estrategica") {
+    agentFields.score = heuristicOportunidadeScore(consolidatedFacts);
+    agentFields.oportunidade = firstDocument?.title || "Oportunidade identificada no edital.";
+    agentFields.vantagens = consolidatedFacts.documentInfo.slice(1, 5).map((f) => f.text || f.title).filter(Boolean);
+    agentFields.pontosAtencao = consolidatedFacts.restrictions.map((f) => f.restriction).filter(Boolean);
+    agentFields.riscos = consolidatedFacts.alerts.map((f) => f.message || f.text).filter(Boolean);
+    agentFields.recomendacao = consolidatedFacts.alerts.length > 0
+      ? "Revise os pontos de atenção antes de tomar qualquer providência."
+      : "Avalie a oportunidade com base nos requisitos e prazos identificados.";
+  }
+  if (agentId === "documentacao") {
+    agentFields.dica = "Organize os documentos com antecedência para evitar imprevistos no dia da inscrição.";
+  }
+  if (agentId === "elegibilidade") {
+    agentFields.score = heuristicOportunidadeScore(consolidatedFacts);
+    agentFields.recomendacao = hasEnoughEligibilityData
+      ? "O perfil informado é compatível com os critérios identificados no edital."
+      : "Consulte os critérios de elegibilidade no edital original.";
+    agentFields.proximosPassos = [];
+  }
 
   return {
     type: agentId,
@@ -814,7 +1046,7 @@ function buildConsolidatedAgentResult(agentId: AgentId, chunkResults: Array<{ ch
     })),
     criterios: consolidatedFacts.eligibility.map((item) => ({
       criterio: item.criterion || "Critério identificado",
-      atende: true,
+      atende: hasEnoughEligibilityData ? true : null,
       observacao: item.text || "Critério identificado no documento.",
     })),
     observacao: consolidatedFacts.alerts.length > 0
@@ -826,6 +1058,7 @@ function buildConsolidatedAgentResult(agentId: AgentId, chunkResults: Array<{ ch
     anoPublicacao: undefined,
     fonte: undefined,
     totalPaginas: undefined,
+    ...agentFields,
     processing: {
       mode: "chunked" as const,
       totalChunks: chunkResults.length,
@@ -1076,7 +1309,7 @@ export interface CanonicalAnalysis {
     requirements: string[];
     simpleLanguage: string;
   };
-  cronograma?: {
+  cronograma: {
     items: CronogramaItem[];
     summary?: string;
     retificacoes?: Array<{
@@ -1092,15 +1325,15 @@ export interface CanonicalAnalysis {
       conflitos: Array<{ evento1: string; evento2: string; problema: string }>;
     };
   };
-  checklist?: {
+  checklist: {
     items: Array<{ doc: string; obrigatorio: boolean; observacao: string; checked: boolean }>;
     summary?: string;
   };
-  elegibilidade?: {
+  elegibilidade: {
     score?: number;
     criteria: Array<{
       criterio: string;
-      atende: boolean | "parcial";
+      atende: boolean | "parcial" | null;
       observacao: string;
       pagina?: number;
       secao?: string;
@@ -1527,31 +1760,123 @@ export function buildCanonicalAnalysis(
    * Constrói cronograma com validação temporal.
    * Se houver conflitos de datas, adiciona alertas estruturados.
    */
-  const cronograma = Array.isArray(result.timeline)
-    ? (() => {
-        // Detecta retificações no texto original
-        const retifications = detectRetifications(originalText);
-        
-        // Aplica retificações aos itens do timeline
-        const rawTimeline = result.timeline as Array<Record<string, unknown>>;
-        const timelineWithRetifications = applyRetificationsToTimeline(
-          rawTimeline,
-          retifications,
-          originalText,
-        );
-        
-        const items = timelineWithRetifications.map(
-          (item): CronogramaItem => ({
-            fase: typeof item.fase === "string" ? item.fase : "",
-            periodo: typeof item.periodo === "string" ? item.periodo : "",
-            dataInicio:
-              typeof item.dataInicio === "string"
-                ? item.dataInicio
-                : undefined,
-            dataFim:
-              typeof item.dataFim === "string" ? item.dataFim : undefined,
-            descricao: typeof item.descricao === "string" ? item.descricao : "",
-            status: (item.status as "passado" | "ativo" | "futuro") ?? "ativo",
+  const buildCronograma = () => {
+    if (!Array.isArray(result.timeline)) {
+      return { items: [] };
+    }
+
+    const retifications = detectRetifications(originalText);
+    const rawTimeline = result.timeline as Array<Record<string, unknown>>;
+    const timelineWithRetifications = applyRetificationsToTimeline(
+      rawTimeline,
+      retifications,
+      originalText,
+    );
+    
+    const items = timelineWithRetifications.map(
+      (item): CronogramaItem => ({
+        fase: typeof item.fase === "string" ? item.fase : "",
+        periodo: typeof item.periodo === "string" ? item.periodo : "",
+        dataInicio:
+          typeof item.dataInicio === "string"
+            ? item.dataInicio
+            : undefined,
+        dataFim:
+          typeof item.dataFim === "string" ? item.dataFim : undefined,
+        descricao: typeof item.descricao === "string" ? item.descricao : "",
+        status: (item.status as "passado" | "ativo" | "futuro") ?? "ativo",
+        pagina:
+          typeof item.pagina === "number" ? item.pagina : undefined,
+        secao:
+          typeof item.secao === "string" ? item.secao : undefined,
+        trechoFonte:
+          typeof item.trechoFonte === "string"
+            ? item.trechoFonte
+            : undefined,
+        confianca: (item.confianca as "alta" | "média" | "baixa") ?? "média",
+        documentoOrigem: typeof item.retificado === "boolean" && item.retificado
+          ? typeof item.observacaoRetificacao === "string" ? item.observacaoRetificacao : "Retificação detectada no edital"
+          : undefined,
+        vigente: typeof item.retificado === "boolean" ? !item.retificado : true,
+      })
+    );
+
+    const conflitos = validateTemporalConsistency(items, originalText);
+    
+    if (retifications.length > 0) {
+      retifications.forEach(ret => {
+        conflitos.push({
+          evento1: `Original: ${ret.valorOriginal}`,
+          evento2: `Vigente: ${ret.valorVigente}`,
+          problema: `Retificação detectada: ${ret.campo} alterado de "${ret.valorOriginal}" para "${ret.valorVigente}". O prazo vigente é ${ret.valorVigente}.`,
+        });
+      });
+    }
+    
+    return {
+      items,
+      summary: typeof result.observacao === "string" ? result.observacao : undefined,
+      retificacoes: retifications.length > 0 ? retifications : undefined,
+      validacaoTemporal:
+        conflitos.length > 0
+          ? {
+              temConflitos: true,
+              conflitos,
+            }
+          : undefined,
+    };
+  };
+
+  const cronograma = buildCronograma();
+
+  const buildChecklist = () => {
+    if (!Array.isArray(result.checklist)) {
+      return { items: [] };
+    }
+    return {
+      items: (result.checklist as Array<Record<string, unknown>>).map(
+        (item) => ({
+          doc: typeof item.doc === "string" ? item.doc : "",
+          obrigatorio: Boolean(item.obrigatorio),
+          observacao:
+            typeof item.observacao === "string" ? item.observacao : "",
+          checked: Boolean(item.checked),
+        })
+      ),
+      summary:
+        typeof result.dica === "string" ? result.dica : undefined,
+    };
+  };
+
+  const checklist = buildChecklist();
+
+  const buildElegibilidade = () => {
+    if (!Array.isArray(result.criterios)) {
+      return { criteria: [] };
+    }
+    return {
+      score:
+        typeof result.score === "number" ? result.score : undefined,
+      criteria: (result.criterios as Array<Record<string, unknown>>).map(
+        (item) => {
+          const atendeValue = item.atende;
+          const atende: boolean | "parcial" | null =
+            atendeValue === "parcial"
+              ? "parcial"
+              : atendeValue === true
+              ? true
+              : atendeValue === null
+              ? null
+              : false;
+
+          return {
+            criterio:
+              typeof item.criterio === "string" ? item.criterio : "",
+            atende,
+            observacao:
+              typeof item.observacao === "string"
+                ? item.observacao
+                : "",
             pagina:
               typeof item.pagina === "number" ? item.pagina : undefined,
             secao:
@@ -1560,107 +1885,27 @@ export function buildCanonicalAnalysis(
               typeof item.trechoFonte === "string"
                 ? item.trechoFonte
                 : undefined,
-            confianca: (item.confianca as "alta" | "média" | "baixa") ?? "média",
-            documentoOrigem: typeof item.retificado === "boolean" && item.retificado
-              ? typeof item.observacaoRetificacao === "string" ? item.observacaoRetificacao : "Retificação detectada no edital"
-              : undefined,
-            vigente: typeof item.retificado === "boolean" ? !item.retificado : true,
-          })
-        );
-
-        const conflitos = validateTemporalConsistency(items, originalText);
-        
-        // Adiciona informações de retificação aos conflitos
-        if (retifications.length > 0) {
-          retifications.forEach(ret => {
-            conflitos.push({
-              evento1: `Original: ${ret.valorOriginal}`,
-              evento2: `Vigente: ${ret.valorVigente}`,
-              problema: `Retificação detectada: ${ret.campo} alterado de "${ret.valorOriginal}" para "${ret.valorVigente}". O prazo vigente é ${ret.valorVigente}.`,
-            });
-          });
+            confianca:
+              (item.confianca as "alta" | "média" | "baixa") ?? "média",
+            documentoOrigem:
+              typeof item.documentoOrigem === "string"
+                ? item.documentoOrigem
+                : undefined,
+            vigente: typeof item.vigente === "boolean" ? item.vigente : true,
+          };
         }
-        
-        return {
-          items,
-          summary: typeof result.observacao === "string" ? result.observacao : undefined,
-          retificacoes: retifications.length > 0 ? retifications : undefined,
-          validacaoTemporal:
-            conflitos.length > 0
-              ? {
-                  temConflitos: true,
-                  conflitos,
-                }
-              : undefined,
-        };
-      })()
-    : undefined;
-
-  const checklist = Array.isArray(result.checklist)
-    ? {
-        items: (result.checklist as Array<Record<string, unknown>>).map(
-          (item) => ({
-            doc: typeof item.doc === "string" ? item.doc : "",
-            obrigatorio: Boolean(item.obrigatorio),
-            observacao:
-              typeof item.observacao === "string" ? item.observacao : "",
-            checked: Boolean(item.checked),
-          })
-        ),
-        summary:
-          typeof result.dica === "string" ? result.dica : undefined,
-      }
-    : undefined;
-
-  const elegibilidade = Array.isArray(result.criterios)
-    ? {
-        score:
-          typeof result.score === "number" ? result.score : undefined,
-        criteria: (result.criterios as Array<Record<string, unknown>>).map(
-          (item) => {
-            const atendeValue = item.atende;
-            const atende: boolean | "parcial" =
-              atendeValue === "parcial"
-                ? "parcial"
-                : atendeValue === true
-                ? true
-                : false;
-
-            return {
-              criterio:
-                typeof item.criterio === "string" ? item.criterio : "",
-              atende,
-              observacao:
-                typeof item.observacao === "string"
-                  ? item.observacao
-                  : "",
-              pagina:
-                typeof item.pagina === "number" ? item.pagina : undefined,
-              secao:
-                typeof item.secao === "string" ? item.secao : undefined,
-              trechoFonte:
-                typeof item.trechoFonte === "string"
-                  ? item.trechoFonte
-                  : undefined,
-              confianca:
-                (item.confianca as "alta" | "média" | "baixa") ?? "média",
-              documentoOrigem:
-                typeof item.documentoOrigem === "string"
-                  ? item.documentoOrigem
-                  : undefined,
-              vigente: typeof item.vigente === "boolean" ? item.vigente : true,
-            };
-          }
-        ),
-        recommendation:
-          typeof result.recomendacao === "string"
-            ? result.recomendacao
-            : undefined,
-        nextSteps: Array.isArray(result.proximosPassos)
-          ? (result.proximosPassos as string[]).filter(Boolean)
+      ),
+      recommendation:
+        typeof result.recomendacao === "string"
+          ? result.recomendacao
           : undefined,
-      }
-    : undefined;
+      nextSteps: Array.isArray(result.proximosPassos)
+        ? (result.proximosPassos as string[]).filter(Boolean)
+        : undefined,
+    };
+  };
+
+  const elegibilidade = buildElegibilidade();
 
   const documentosExigidos = {
     items:
@@ -1687,7 +1932,7 @@ export function buildCanonicalAnalysis(
   const allAlerts = normalizeAlerts();
   const evidencias: CanonicalAnalysis["evidencias"] = [];
 
-  if (cronograma?.items?.length) {
+  if (cronograma.items.length > 0) {
     cronograma.items.forEach((item) => {
       if (item.fase || item.periodo) {
         const isExplicitlySupported = hasExplicitTemporalSupport(item, originalText, editalYear);
@@ -1717,7 +1962,7 @@ export function buildCanonicalAnalysis(
 
   // Adiciona alerta para conflitos temporais
   if (
-    cronograma?.validacaoTemporal?.temConflitos &&
+    cronograma.validacaoTemporal?.temConflitos &&
     cronograma.validacaoTemporal.conflitos.length > 0
   ) {
     cronograma.validacaoTemporal.conflitos.forEach((conf) => {
@@ -1794,6 +2039,16 @@ export function buildCanonicalAnalysis(
 }
 
 // ── Response validators ────────────────────────────────────────────────────
+/**
+ * Preprocessa valores de campos numéricos opcionais que a IA pode preencher
+ * com strings como "Não informado" quando o dado não está disponível.
+ */
+function optionalInt(v: unknown) {
+  if (v === "Não informado" || v === "Não especificado" || v === null || v === undefined) return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.floor(n) : undefined;
+}
+
 export const SimplesResponseSchema = z.object({
   type: z.literal("simples"),
   scoreOportunidade: z.number().int().min(0).max(100),
@@ -1805,12 +2060,10 @@ export const SimplesResponseSchema = z.object({
   requisitos: z.array(z.string()),
   ondeInscrever: z.string(),
   observacao: z.string(),
-  /** Metadados do documento para rastreabilidade */
   numero: z.string().optional(),
-  anoPublicacao: z.number().int().optional(),
+  anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
   fonte: z.string().optional(),
-  totalPaginas: z.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
 
@@ -1823,12 +2076,10 @@ export const AnalistaResponseSchema = z.object({
   requisitos: z.array(z.string()),
   documentos: z.array(z.string()),
   valor: z.string(),
-  /** Metadados do documento para rastreabilidade */
   numero: z.string().optional(),
-  anoPublicacao: z.number().int().optional(),
+  anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
   fonte: z.string().optional(),
-  totalPaginas: z.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
 
@@ -1840,12 +2091,10 @@ export const EstrategicaResponseSchema = z.object({
   pontosAtencao: z.array(z.string()),
   riscos: z.array(z.string()),
   recomendacao: z.string(),
-  /** Metadados do documento para rastreabilidade */
   numero: z.string().optional(),
-  anoPublicacao: z.number().int().optional(),
+  anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
   fonte: z.string().optional(),
-  totalPaginas: z.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
 
@@ -1860,12 +2109,10 @@ export const AcompanhamentoResponseSchema = z.object({
   type: z.literal("acompanhamento"),
   timeline: z.array(TimelineItemSchema),
   observacao: z.string(),
-  /** Metadados do documento para rastreabilidade */
   numero: z.string().optional(),
-  anoPublicacao: z.number().int().optional(),
+  anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
   fonte: z.string().optional(),
-  totalPaginas: z.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
 
@@ -1880,18 +2127,16 @@ export const DocumentacaoResponseSchema = z.object({
   type: z.literal("documentacao"),
   checklist: z.array(ChecklistItemSchema),
   dica: z.string(),
-  /** Metadados do documento para rastreabilidade */
   numero: z.string().optional(),
-  anoPublicacao: z.number().int().optional(),
+  anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
   fonte: z.string().optional(),
-  totalPaginas: z.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
 
 const ElegibilidadeCriterioSchema = z.object({
   criterio: z.string(),
-  atende: z.union([z.boolean(), z.literal("parcial")]),
+  atende: z.union([z.boolean(), z.literal("parcial"), z.null()]),
   observacao: z.string(),
 });
 
@@ -1901,12 +2146,10 @@ export const ElegibilidadeResponseSchema = z.object({
   criterios: z.array(ElegibilidadeCriterioSchema),
   recomendacao: z.string(),
   proximosPassos: z.array(z.string()),
-  /** Metadados do documento para rastreabilidade */
   numero: z.string().optional(),
-  anoPublicacao: z.number().int().optional(),
+  anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
   fonte: z.string().optional(),
-  totalPaginas: z.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
 
@@ -2270,7 +2513,13 @@ export async function ocrPdf(
 ): Promise<string> {
   if (!pages.length) return "";
 
-  const model = getOpenAIModel();
+  if (!hasVisionSupport()) {
+    throw new Error(
+      "OCR_INDISPONIVEL: Este PDF parece ser escaneado (apenas imagens). O provedor de IA configurado (Groq/llama-3.3-70b-versatile) não oferece OCR. Configure GEMINI_API_KEY ou OPENAI_API_KEY para analisar PDFs escaneados, ou cole o texto manualmente na aba 'Colar Texto'.",
+    );
+  }
+
+  const { client: visionClient, provider, model } = getVisionClient();
   const start = Date.now();
   // Processa as páginas em lotes de 8 imagens por chamada à API.
   // Por quê BATCH=8? GPT-4o Vision suporta até 10 imagens por mensagem,
@@ -2287,7 +2536,7 @@ export async function ocrPdf(
         image_url: { url: `data:image/jpeg;base64,${b64}`, detail: "auto" as const },
       }));
 
-      const response = await openai.chat.completions.create({
+      const response = await visionClient.chat.completions.create({
         model,
         messages: [
           {
@@ -2302,7 +2551,7 @@ export async function ocrPdf(
           },
         ],
         max_tokens: 8192,
-      });
+      }, { signal: AbortSignal.timeout(GLOBAL_BUDGET_MS) });
 
       parts.push(response.choices[0]?.message?.content ?? "");
     }
@@ -2403,6 +2652,8 @@ Responda SOMENTE com o JSON, sem markdown, sem código, sem texto adicional.`;
         ],
       } as any,
       "AIService.simplifyEdital",
+      2,
+      { signal: AbortSignal.timeout(GLOBAL_BUDGET_MS) },
     );
 
     const validated = SimplifyEditalResponse.safeParse(parsed);
@@ -2483,7 +2734,15 @@ export async function analyzeAgent(
     const { text: normalizedDocumentText } = normalizeDocumentText(text);
     const estimatedTokens = estimateTokens(normalizedDocumentText);
     const chunkThreshold = getChunkingConfig().maxInputTokens * 0.6;
-    const shouldChunk = estimatedTokens > chunkThreshold;
+
+    // O single-pass precisa caber no TPM do provedor (prompt + max_tokens).
+    // Se o orçamento de saída for mínimo (< 1024 tokens), força chunking para
+    // que o documento seja processado em partes que cabem no limite por minuto.
+    const singlePassPrompt = buildAgentPrompt(agentId, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
+    const estimatedPromptTokens = estimateTokens(singlePassPrompt.system) + estimateTokens(singlePassPrompt.user);
+    const singlePassMaxOutput = calcRequestMaxTokens(estimatedPromptTokens, model);
+    const tpmFitsSinglePass = singlePassMaxOutput >= 1024;
+    const shouldChunk = estimatedTokens > chunkThreshold || !tpmFitsSinglePass;
 
     logger.info({
       requestId,
@@ -2496,19 +2755,23 @@ export async function analyzeAgent(
       estimatedTokens,
       chunkThreshold,
       shouldChunk,
+      estimatedPromptTokens,
+      singlePassMaxOutput,
+      tpmFitsSinglePass,
       userId: opts?.userId ?? null,
     }, "AI analysis started");
 
     if (!shouldChunk) {
       currentStep = "single_pass_prompt_build";
-      const { system, user } = buildAgentPrompt(agentId, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
+      const { system, user } = singlePassPrompt;
 
       currentStep = "single_pass_api_call";
-      logger.info({ requestId, step: "single_pass_started", agentId, estimatedTokens }, "Single-pass analysis started");
+      logger.info({ requestId, step: "single_pass_started", agentId, estimatedTokens, singlePassMaxOutput }, "Single-pass analysis started");
+      await waitForTpmBudget(Math.ceil(estimatedPromptTokens * PROMPT_BUDGET_SAFETY) + singlePassMaxOutput);
       const completionResult = await createJsonChatCompletion(
         {
           model,
-          max_tokens: calcMaxOutputTokens(model),
+          max_tokens: singlePassMaxOutput,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: system },
@@ -2516,9 +2779,14 @@ export async function analyzeAgent(
           ],
         } as any,
         "AIService.analyzeAgent",
+        2,
+        { signal: AbortSignal.timeout(GLOBAL_BUDGET_MS) },
       );
 
       const { raw, parsed: parsedRaw, usage } = completionResult;
+
+      const usageTokens = usage ? (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0) : 0;
+      recordTpmUsage(usageTokens || estimatedPromptTokens + singlePassMaxOutput);
 
       logger.info({
         requestId,
@@ -2630,7 +2898,20 @@ export async function analyzeAgent(
       processedChunks: chunkProcessing.processing.processedChunks,
       failedChunks: chunkProcessing.processing.failedChunks,
     }, "Consolidating chunk results");
-    const consolidatedAgentResult = buildConsolidatedAgentResult(agentId, chunkProcessing.chunkResults, normalizedDocumentText);
+    const consolidatedAgentResult = buildConsolidatedAgentResult(agentId, chunkProcessing.chunkResults, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
+
+    const consolidatedWithType = { type: agentId, ...consolidatedAgentResult } as Record<string, unknown>;
+    const validator = VALIDATORS[agentId];
+    const validatedConsolidation = validator.safeParse(consolidatedWithType);
+    if (!validatedConsolidation.success) {
+      const schemaPreview = JSON.stringify(validatedConsolidation.error.format()).slice(0, 300);
+      logger.warn({
+        requestId,
+        step: "consolidation_validation_failed",
+        agentId,
+        schemaPreview,
+      }, "Consolidated result did not match expected schema — continuing with raw result");
+    }
 
     currentStep = "consolidation_canonical";
     const canonical = buildCanonicalAnalysis(agentId, { ...consolidatedAgentResult, processing: chunkProcessing.processing } as Record<string, unknown>, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
@@ -3103,7 +3384,7 @@ export async function chatNiasci(
         ].join("\n")
       : "Seja sempre preciso, cite fontes quando possível, e use linguagem acessível sem perder a precisão científica.",
     "",
-    context ? `\n\nCONTEXTO:\n${context.slice(0, 4000)}` : "",
+    context ? `\n\nCONTEXTO:\n${context.slice(0, 8000)}` : "",
     "",
     PLAIN_LANGUAGE_PRINCIPLES,
     "",
@@ -3127,7 +3408,7 @@ export async function chatNiasci(
     const completion = await openai.chat.completions.create({
       model,
       messages: chatMessages,
-    });
+    }, { signal: AbortSignal.timeout(60_000) });
 
     const response = completion.choices[0]?.message?.content ?? "Não consegui gerar uma resposta. Tente novamente.";
     const latency = Date.now() - start;

@@ -138,7 +138,7 @@ interface CanonicalAnalysisLike {
   };
   elegibilidade?: {
     score?: number;
-    criteria?: Array<{ criterio: string; atende: boolean | "parcial"; observacao: string }>;
+    criteria?: Array<{ criterio: string; atende: boolean | "parcial" | null; observacao: string }>;
     recommendation?: string;
     nextSteps?: string[];
   };
@@ -153,6 +153,13 @@ interface CanonicalAnalysisLike {
   };
   alertas?: string[];
   agentResult?: Record<string, unknown>;
+  processing?: {
+    mode?: string;
+    totalChunks?: number;
+    processedChunks?: number;
+    failedChunks?: number;
+    complete?: boolean;
+  };
 }
 
 type TimelineStep = {
@@ -2030,7 +2037,9 @@ function HistoryPanel({
   onSelectSupabase: (item: AnaliseSalva) => void;
   onClose: () => void;
 }) {
-  const { data: agentHistory, isLoading: agentLoading } = useListAgentHistory();
+  const { data: agentHistory, isLoading: agentLoading } = useListAgentHistory({
+    request: { signal: AbortSignal.timeout(30_000) },
+  });
   const { data: legacyHistory, isLoading: legacyLoading } =
     useListEditalHistory();
   const deleteAgentResult = useDeleteAgentResult();
@@ -2833,6 +2842,9 @@ export default function TestarIA() {
     canonicalData: CanonicalAnalysisLike | null,
     agentIdOverride: AgentId = selectedAgent,
   ) => {
+    if (canonicalData?.source?.agentId && canonicalData?.processing?.complete === false) {
+      return null;
+    }
     try {
       const payload = buildAnalysisPayload(result, canonicalData, isFavorite, agentIdOverride);
       let saved;
@@ -3857,7 +3869,7 @@ export default function TestarIA() {
                       <CardTitle className="text-sm font-semibold flex items-center gap-2"><CalendarDays className="w-4 h-4 text-primary" /> Cronograma</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                      {timelineSteps.map((step, index) => (
+                      {timelineSteps.length > 0 ? timelineSteps.map((step, index) => (
                         <div key={step.title} className="flex gap-3 rounded-xl bg-background p-2.5">
                           <div className="flex flex-col items-center">
                             <div className={`mt-0.5 h-2.5 w-2.5 rounded-full ${index === 0 ? "bg-primary" : "bg-muted-foreground/40"}`} />
@@ -3869,7 +3881,9 @@ export default function TestarIA() {
                             <p className="text-xs text-muted-foreground/80 mt-0.5">{step.description}</p>
                           </div>
                         </div>
-                      ))}
+                      )) : (
+                        <p className="text-sm text-muted-foreground">Não foi possível localizar informações de cronograma no documento.</p>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -3878,7 +3892,7 @@ export default function TestarIA() {
                   <Card className="rounded-2xl border-border/70 shadow-sm">
                     <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Checklist</CardTitle></CardHeader>
                     <CardContent className="space-y-2">
-                      {checklistItems.map((item) => (
+                      {checklistItems.length > 0 ? checklistItems.map((item) => (
                         <div key={item.label} className={`flex items-start gap-2 rounded-xl border p-2.5 ${item.done ? "border-emerald-200 bg-emerald-50/70" : "border-border bg-background"}`}>
                           <div className={`mt-0.5 h-4 w-4 rounded-full ${item.done ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                           <div className="min-w-0">
@@ -3886,7 +3900,9 @@ export default function TestarIA() {
                             <p className="text-xs text-muted-foreground">{item.hint}</p>
                           </div>
                         </div>
-                      ))}
+                      )) : (
+                        <p className="text-sm text-muted-foreground">Não foi possível localizar informações de checklist no documento.</p>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -3898,11 +3914,11 @@ export default function TestarIA() {
                       <CardContent>
                         <div className="space-y-3">
                           {agentResult.criterios.map((c) => (
-                            <div key={c.criterio} className={`rounded-xl border p-3 ${c.atende === true ? "bg-teal-50 border-teal-200" : c.atende === "parcial" ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}`}>
+                            <div key={c.criterio} className={`rounded-xl border p-3 ${c.atende === true ? "bg-teal-50 border-teal-200" : c.atende === "parcial" ? "bg-amber-50 border-amber-200" : c.atende === null ? "bg-gray-50 border-gray-200" : "bg-red-50 border-red-200"}`}>
                               <p className="text-sm font-semibold">{c.criterio}</p>
                               <p className="text-xs text-muted-foreground mt-1">{c.observacao}</p>
-                              <p className={`text-xs font-semibold mt-2 ${c.atende === true ? "text-teal-700" : c.atende === "parcial" ? "text-amber-700" : "text-red-600"}`}>
-                                {c.atende === true ? "🟢 Atende" : c.atende === "parcial" ? "🟡 Atende parcialmente" : "🔴 Não atende"}
+                              <p className={`text-xs font-semibold mt-2 ${c.atende === true ? "text-teal-700" : c.atende === "parcial" ? "text-amber-700" : c.atende === null ? "text-gray-500" : "text-red-600"}`}>
+                                {c.atende === true ? "🟢 Atende" : c.atende === "parcial" ? "🟡 Atende parcialmente" : c.atende === null ? "⚪ Não foi possível verificar" : "🔴 Não atende"}
                               </p>
                             </div>
                           ))}

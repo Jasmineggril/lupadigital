@@ -14,7 +14,7 @@ describe("chunkDocument", () => {
   });
 
   it("splits long text into multiple chunks", () => {
-    const paragraph = Array.from({ length: 70 }, (_, i) =>
+    const paragraph = Array.from({ length: 250 }, (_, i) =>
       `Parágrafo ${i + 1}: Esta é uma frase de teste com palavras suficientes para ocupar espaço e simular um documento real com conteúdo relevante para a análise. `
     ).join("\n\n");
     const chunks = chunkDocument(paragraph);

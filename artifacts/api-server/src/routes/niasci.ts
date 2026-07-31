@@ -194,7 +194,7 @@ const ChatSchema = z.object({
       content: z.string().min(1).max(4000),
     }),
   ).min(1).max(30),
-  context: z.string().max(4000).optional(),
+  context: z.string().max(8000).optional(),
   historyId: z.coerce.number().int().positive().optional(),
 });
 

@@ -144600,10 +144600,39 @@ function isUndiciDispatcherVersionMismatchError(error40) {
 // ../../lib/integrations/openai-ai-server/src/client.ts
 var _client = null;
 function getOpenAIModel() {
+  if (process.env.AI_MODEL) return process.env.AI_MODEL;
   if (process.env.GROQ_API_KEY) return "llama-3.3-70b-versatile";
   if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
   if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
   return "gpt-5.4-mini";
+}
+function getVisionModel() {
+  if (process.env.OPENAI_API_KEY) return "gpt-4o";
+  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
+  if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
+  return "";
+}
+function hasVisionSupport() {
+  return getVisionModel() !== "";
+}
+function getVisionClient() {
+  if (process.env.OPENAI_API_KEY) {
+    return {
+      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 12e4 }),
+      provider: "openai",
+      model: getVisionModel()
+    };
+  }
+  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) {
+    return {
+      client: { chat: { completions: { create: geminiCreate } } },
+      provider: "gemini",
+      model: getVisionModel()
+    };
+  }
+  throw new Error(
+    "OCR_INDISPONIVEL: O provedor de IA configurado (Groq/llama-3.3-70b-versatile) n\xE3o oferece suporte a OCR de imagens. Configure GEMINI_API_KEY ou OPENAI_API_KEY para habilitar OCR de PDFs escaneados."
+  );
 }
 function getGeminiApiKey() {
   return process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
@@ -144615,10 +144644,29 @@ async function geminiCreate(params) {
   const messages2 = params.messages ?? [];
   const systemMsg = messages2.find((m) => m.role === "system");
   const turns = messages2.filter((m) => m.role !== "system");
+  const toGeminiParts = (content) => {
+    if (typeof content === "string") return [{ text: content }];
+    if (Array.isArray(content)) {
+      return content.map((part) => {
+        if (typeof part === "string") return { text: part };
+        if (part && typeof part === "object") {
+          const p = part;
+          if (p.type === "image_url" && typeof p.image_url?.url === "string") {
+            const match = p.image_url.url.match(/^data:image\/(\w+);base64,(.+)$/);
+            if (match) return { inline_data: { mime_type: `image/${match[1]}`, data: match[2] } };
+            return { text: "" };
+          }
+          if (p.type === "text" && typeof p.text === "string") return { text: p.text };
+        }
+        return { text: JSON.stringify(part) };
+      });
+    }
+    return [{ text: JSON.stringify(content) }];
+  };
   const body = {
     contents: turns.map((m) => ({
       role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }]
+      parts: toGeminiParts(m.content)
     })),
     generationConfig: {
       maxOutputTokens: params.max_tokens ?? 4096
@@ -154287,6 +154335,16 @@ function classifyAiError(message2) {
       logMessage: "AI context length exceeded \u2014 chunk must be subdivided"
     };
   }
+  if (normalized.includes("tokens per minute") || normalized.includes("tpm") || normalized.includes("token") && normalized.includes("minute") && normalized.includes("limit")) {
+    return {
+      status: 429,
+      retryable: true,
+      reason: "rate_limit",
+      tpm: true,
+      userMessage: "O limite de tokens por minuto do provedor de IA foi atingido. Aguarde um instante e tente novamente.",
+      logMessage: "AI provider tokens-per-minute (TPM) limit exceeded"
+    };
+  }
   if (normalized.includes("413") || normalized.includes("content too large") || normalized.includes("request too large") || normalized.includes("payload too large") || normalized.includes("input limit") || normalized.includes("exceeds the input") || normalized.includes("too large") || normalized.includes("context window") || normalized.includes("input is too long") || normalized.includes("prompt too long") || normalized.includes("prompt + completion")) {
     return {
       status: 413,
@@ -154386,6 +154444,15 @@ function classifyAiError(message2) {
       logMessage: "AI response validation failed"
     };
   }
+  if (normalized.includes("ocr_indisponivel") || normalized.includes("ocr indispon\xEDvel") || normalized.includes("ocr indisponivel") || normalized.includes("sem suporte a ocr") || normalized.includes("suporte a vis\xE3o") || normalized.includes("suporte a visao")) {
+    return {
+      status: 422,
+      retryable: false,
+      reason: "ocr_unavailable",
+      userMessage: "Este PDF parece ser escaneado (apenas imagens). O provedor de IA atual n\xE3o oferece OCR. Configure GEMINI_API_KEY ou OPENAI_API_KEY para analisar PDFs escaneados, ou cole o texto manualmente.",
+      logMessage: "OCR unavailable \u2014 current AI provider has no vision model"
+    };
+  }
   if (normalized.includes("safety") || normalized.includes("blocked") || normalized.includes("recitation") || normalized.includes("harmful") || normalized.includes("finishreason") || normalized.includes("finish_reason") || normalized.includes("safetyrating") || normalized.includes("safety_block") || normalized.includes("gemini_empty") || normalized.includes("resposta vazia")) {
     return {
       status: 422,
@@ -154425,16 +154492,80 @@ function classifyAiError(message2) {
 // src/lib/aiService.ts
 var MAX_BACKOFF_MS = 3e4;
 var DEFAULT_AI_MAX_INPUT_TOKENS = 12e3;
-var DEFAULT_AI_CHUNK_TARGET_TOKENS = 1500;
-var DEFAULT_AI_CHUNK_OVERLAP_TOKENS = 250;
+var DEFAULT_AI_CHUNK_TARGET_TOKENS = 4e3;
+var DEFAULT_AI_CHUNK_OVERLAP_TOKENS = 400;
 var DEFAULT_AI_CHUNK_CONCURRENCY = 1;
 function getChunkingConfig() {
+  const configuredTarget = Number.parseInt(process.env.AI_CHUNK_TARGET_TOKENS ?? "", 10) || DEFAULT_AI_CHUNK_TARGET_TOKENS;
+  const tpm = getTpmLimit();
+  const tpmAwareTarget = tpm > 0 ? Math.floor((tpm * 0.85 - 1124) / 1.25) : configuredTarget;
   return {
     maxInputTokens: Number.parseInt(process.env.AI_MAX_INPUT_TOKENS ?? "", 10) || DEFAULT_AI_MAX_INPUT_TOKENS,
-    targetTokens: Number.parseInt(process.env.AI_CHUNK_TARGET_TOKENS ?? "", 10) || DEFAULT_AI_CHUNK_TARGET_TOKENS,
+    targetTokens: Math.max(800, Math.min(configuredTarget, tpmAwareTarget)),
     overlapTokens: Number.parseInt(process.env.AI_CHUNK_OVERLAP_TOKENS ?? "", 10) || DEFAULT_AI_CHUNK_OVERLAP_TOKENS,
     concurrency: Number.parseInt(process.env.AI_CHUNK_CONCURRENCY ?? "", 10) || DEFAULT_AI_CHUNK_CONCURRENCY
   };
+}
+var DEFAULT_AI_TPM_LIMIT = 12e3;
+var PROMPT_BUDGET_SAFETY = 1.4;
+var CHUNK_FACT_MAX_OUTPUT = 2048;
+var TPM_WINDOW_MS = 6e4;
+function getTpmLimit(model) {
+  const fromEnv = Number.parseInt(process.env.AI_TPM_LIMIT ?? "", 10);
+  if (fromEnv > 0) return fromEnv;
+  const m = (model ?? getOpenAIModel()).toLowerCase();
+  if (m.includes("llama") || m.includes("groq")) return 12e3;
+  if (m.includes("gemini")) return 1e5;
+  if (m.includes("gpt")) return 6e4;
+  return DEFAULT_AI_TPM_LIMIT;
+}
+function calcRequestMaxTokens(estimatedPromptTokens, model) {
+  const tpm = getTpmLimit(model);
+  const availableForOutput = tpm - Math.ceil(estimatedPromptTokens * PROMPT_BUDGET_SAFETY) - OUTPUT_RESERVE;
+  const modelMax = calcMaxOutputTokens(model);
+  return Math.max(512, Math.min(modelMax, availableForOutput));
+}
+var tpmWindow = [];
+function pruneTpmWindow(now) {
+  while (tpmWindow.length && now - tpmWindow[0].at > TPM_WINDOW_MS) tpmWindow.shift();
+}
+function tpmUsedInWindow(now) {
+  pruneTpmWindow(now);
+  return tpmWindow.reduce((sum, entry) => sum + entry.tokens, 0);
+}
+function recordTpmUsage(tokens) {
+  if (tokens <= 0) return;
+  pruneTpmWindow(Date.now());
+  tpmWindow.push({ at: Date.now(), tokens });
+}
+function isMockAiEnvironment() {
+  const key = process.env.GROQ_API_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+  return !key || /^test[-_]/i.test(key) || key.length < 10;
+}
+async function waitForTpmBudget(reservationTokens) {
+  if (isMockAiEnvironment()) return;
+  const tpm = getTpmLimit();
+  if (tpm <= 0) return;
+  const now = Date.now();
+  const used = tpmUsedInWindow(now);
+  const projected = used + reservationTokens;
+  if (projected <= tpm) return;
+  const overflow = projected - tpm;
+  let accrued = 0;
+  let waitMs = 0;
+  for (const entry of tpmWindow) {
+    accrued += entry.tokens;
+    if (accrued >= overflow) {
+      waitMs = Math.max(0, entry.at + TPM_WINDOW_MS - now);
+      break;
+    }
+  }
+  if (waitMs <= 0 && tpmWindow.length) {
+    waitMs = Math.max(1e3, Math.ceil(overflow / tpm * TPM_WINDOW_MS));
+  }
+  if (waitMs <= 0) return;
+  logger.info({ step: "tpm_pacing_wait", waitMs, usedTokens: used, reservationTokens }, `TPM pacing: waiting ${Math.round(waitMs / 1e3)}s`);
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
 }
 function getProviderNameFromModel(model) {
   if (model.includes("llama")) return "groq";
@@ -154496,6 +154627,19 @@ function normalizeDocumentText(raw) {
   }
   return { text: collapsed, pages };
 }
+var MAX_CHUNKING_BUDGET_MS = 9e5;
+function computeChunkingBudgetMs(chunks) {
+  if (isMockAiEnvironment() || chunks.length <= 1) return GLOBAL_BUDGET_MS;
+  const tpm = getTpmLimit();
+  if (tpm <= 0) return GLOBAL_BUDGET_MS;
+  const totalInputTokens = chunks.reduce((sum, chunk) => sum + (chunk.estimatedTokens || 0), 0);
+  const totalPromptTokens = Math.ceil(totalInputTokens * PROMPT_BUDGET_SAFETY);
+  const totalOutputTokens = chunks.length * CHUNK_FACT_MAX_OUTPUT;
+  const throughputMs = (totalPromptTokens + totalOutputTokens) / tpm * TPM_WINDOW_MS;
+  const perChunkOverheadMs = chunks.length * 15e3;
+  const estimatedMs = throughputMs + perChunkOverheadMs + RESERVE_MS;
+  return Math.max(GLOBAL_BUDGET_MS, Math.min(estimatedMs, MAX_CHUNKING_BUDGET_MS));
+}
 function getSectionTitles(text4) {
   const lines = text4.split(/\n/).map((line2) => line2.trim()).filter(Boolean);
   return lines.filter((line2) => line2.length <= 120 && /[A-ZÁÉÍÓÚÂÊÔÃÕ]/.test(line2) && !/^(http|www)/i.test(line2)).slice(0, 3);
@@ -154528,9 +154672,7 @@ function chunkDocument(text4) {
     });
     return chunkText;
   };
-  paragraphs.forEach((paragraph) => {
-    const titles = getSectionTitles(paragraph);
-    const paragraphTokens = estimateTokens(paragraph);
+  const addParagraph = (paragraph, titles) => {
     const nextText = currentText ? `${currentText}
 
 ${paragraph}` : paragraph;
@@ -154549,6 +154691,35 @@ ${currentText}` : currentText;
 
 ${paragraph}` : paragraph;
     currentTitles = titles;
+  };
+  const splitParagraphIntoPieces = (paragraph, target) => {
+    const pieces = [];
+    let current = "";
+    const sentences = paragraph.match(/[^.!?]+[.!?]*\s*/g) ?? [paragraph];
+    for (const sentence of sentences) {
+      const trimmed = sentence.trim();
+      if (!trimmed) continue;
+      const candidate = current ? `${current} ${trimmed}` : trimmed;
+      if (!current || estimateTokens(candidate) <= target) {
+        current = candidate;
+      } else {
+        if (current) pieces.push(current);
+        current = trimmed;
+      }
+    }
+    if (current) pieces.push(current);
+    return pieces;
+  };
+  paragraphs.forEach((paragraph) => {
+    const titles = getSectionTitles(paragraph);
+    const paragraphTokens = estimateTokens(paragraph);
+    if (paragraphTokens > targetTokens) {
+      for (const piece of splitParagraphIntoPieces(paragraph, targetTokens)) {
+        addParagraph(piece, titles);
+      }
+      return;
+    }
+    addParagraph(paragraph, titles);
   });
   if (currentText.trim()) {
     const overlapText = overlapTokens > 0 ? getChunkOverlapText(currentText, overlapTokens) : "";
@@ -154672,6 +154843,19 @@ function consolidateChunkFacts(chunkResults) {
     alerts: mergeFacts(chunkResults.flatMap((entry) => entry.facts.alerts.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "message")
   };
 }
+var CHUNK_FACT_KEYS = ["documentInfo", "dates", "requirements", "eligibility", "documents", "values", "contacts", "obligations", "restrictions", "alerts"];
+function normalizeChunkFactsPayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  const source = payload;
+  const normalized = { ...source };
+  for (const key of CHUNK_FACT_KEYS) {
+    const value = source[key];
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      normalized[key] = [value];
+    }
+  }
+  return normalized;
+}
 var ChunkFactsSchema = external_exports2.object({
   documentInfo: external_exports2.array(external_exports2.object({ title: external_exports2.string().optional(), organization: external_exports2.string().optional(), page: external_exports2.number().int().nullable().optional(), section: external_exports2.string().optional(), text: external_exports2.string().optional(), confidence: external_exports2.enum(["alta", "m\xE9dia", "baixa"]).optional() })).default([]),
   dates: external_exports2.array(external_exports2.object({ event: external_exports2.string().optional(), value: external_exports2.string().optional(), page: external_exports2.number().int().nullable().optional(), section: external_exports2.string().optional(), text: external_exports2.string().optional(), confidence: external_exports2.enum(["alta", "m\xE9dia", "baixa"]).optional() })).default([]),
@@ -154699,7 +154883,7 @@ PERFIL DO USU\xC1RIO:
     "Preserve p\xE1ginas, se\xE7\xF5es e trechos de origem quando poss\xEDvel.",
     "Responda apenas em JSON v\xE1lido."
   ].join("\n");
-  const user = `Extraia fatos estruturados do trecho abaixo e devolva um JSON com as chaves documentInfo, dates, requirements, eligibility, documents, values, contacts, obligations, restrictions e alerts.${profileInfo}
+  const user = `Extraia fatos estruturados do trecho abaixo e devolva um JSON com as chaves documentInfo, dates, requirements, eligibility, documents, values, contacts, obligations, restrictions e alerts. CADA chave deve ser uma LISTA (array) de objetos; se houver um \xFAnico fato, devolva uma lista com um \xFAnico elemento. Nunca use objetos avulsos no lugar de listas.${profileInfo}
 
 TRECHO:
 ${chunkText}`;
@@ -154713,7 +154897,7 @@ async function analyzeChunkFacts(agentId, chunkText, profile, opts) {
   const provider = getProviderNameFromModel(model);
   const estimatedInputTokens = estimateTokens(chunkText);
   const estimatedPromptTokens = estimateTokens(system) + estimateTokens(user);
-  const requestedMaxOutputTokens = calcMaxOutputTokens(model);
+  const requestedMaxOutputTokens = Math.min(calcRequestMaxTokens(estimatedPromptTokens, model), CHUNK_FACT_MAX_OUTPUT);
   const estimatedTotalTokens = estimatedInputTokens + estimatedPromptTokens + requestedMaxOutputTokens;
   logger.info({
     step: "chunk_ai_request",
@@ -154730,6 +154914,7 @@ async function analyzeChunkFacts(agentId, chunkText, profile, opts) {
   }, `AI request: ${provider}/${model} \u2014 ~${estimatedTotalTokens} tokens (input: ~${estimatedInputTokens}, prompt: ~${estimatedPromptTokens}, max_output: ${requestedMaxOutputTokens})`);
   let completionResult;
   try {
+    await waitForTpmBudget(Math.ceil(estimatedPromptTokens * PROMPT_BUDGET_SAFETY) + requestedMaxOutputTokens);
     completionResult = await createJsonChatCompletion({
       model,
       max_tokens: requestedMaxOutputTokens,
@@ -154740,6 +154925,8 @@ async function analyzeChunkFacts(agentId, chunkText, profile, opts) {
         { role: "user", content: user }
       ]
     }, "AIService.analyzeChunkFacts", 2, { signal: AbortSignal.timeout(timeoutMs) });
+    const usageTokens = completionResult.usage ? (completionResult.usage.prompt_tokens ?? 0) + (completionResult.usage.completion_tokens ?? 0) : 0;
+    recordTpmUsage(usageTokens || estimatedPromptTokens + requestedMaxOutputTokens);
   } catch (error40) {
     const errMessage = error40 instanceof Error ? error40.message : String(error40);
     const httpMatch = errMessage.match(/status[_\s]*(\d{3})/i) ?? errMessage.match(/\b(4\d{2}|5\d{2})\b/);
@@ -154771,7 +154958,7 @@ async function analyzeChunkFacts(agentId, chunkText, profile, opts) {
       fallbackSucceeded: completionResult.fallbackSucceeded
     }, "Chunk fallback triggered");
   }
-  const validated = ChunkFactsSchema.safeParse(parsed);
+  const validated = ChunkFactsSchema.safeParse(normalizeChunkFactsPayload(parsed));
   if (!validated.success) {
     throw new Error(`AIService: resposta da IA n\xE3o \xE9 um ChunkFacts v\xE1lido: ${validated.error.message}`);
   }
@@ -154869,6 +155056,8 @@ async function processChunkWithRetry(agentId, chunk, budget, totalChunks, proces
         const retryAfter = parseRetryAfterMs(error40);
         if (retryAfter) {
           delayMs = retryAfter;
+        } else if (classification.tpm) {
+          delayMs = Math.min(45e3, MAX_BACKOFF_MS);
         } else {
           const baseDelay = Math.min(1e3 * Math.pow(2, attempt - 1), MAX_BACKOFF_MS);
           delayMs = baseDelay + Math.random() * 1e3;
@@ -154892,7 +155081,7 @@ async function processDocumentInChunks(agentId, text4, profile, opts) {
   const chunks = chunkDocument(normalizedText);
   const concurrency = Math.max(1, getChunkingConfig().concurrency);
   const results = [];
-  const budget = createTimeBudget(Date.now());
+  const budget = createTimeBudget(Date.now(), computeChunkingBudgetMs(chunks));
   logger.info({
     step: "budget_created",
     agentId,
@@ -154958,17 +155147,42 @@ async function processDocumentInChunks(agentId, text4, profile, opts) {
   if (!processing.complete) {
     const failedChunkIds = results.filter((r) => !r.ok).map((r) => r.chunk.chunkId);
     const firstError = results.find((r) => !r.ok)?.error ?? "unknown";
-    throw new Error(`AIService: ${failedCount} de ${chunks.length} chunks falharam (${failedChunkIds.join(", ")}). \xDAltimo erro: ${firstError}`);
+    logger.warn({
+      step: "chunking_partial_failure",
+      agentId,
+      failedChunks: failedCount,
+      totalChunks: chunks.length,
+      failedChunkIds,
+      firstError
+    }, `AIService: ${failedCount} de ${chunks.length} chunks falharam. Continuando com chunks bem-sucedidos.`);
   }
+  const successfulResults = results.filter((result) => result.ok).map((result) => ({ chunkId: result.chunk.chunkId, facts: result.facts }));
   return {
     chunks,
-    chunkResults: results.filter((result) => result.ok).map((result) => ({ chunkId: result.chunk.chunkId, facts: result.facts })),
+    chunkResults: successfulResults,
     processing
   };
 }
-function buildConsolidatedAgentResult(agentId, chunkResults, originalText) {
+function detectCategoria(text4) {
+  const t = (text4 ?? "").toLowerCase();
+  if (/(concurso|processo seletivo)/.test(t)) return "Concurso";
+  if (/(pregão|pregao)/.test(t)) return "Preg\xE3o";
+  if (/(licitação|licitacao)/.test(t)) return "Licita\xE7\xE3o";
+  if (/credenciamento/.test(t)) return "Credenciamento";
+  if (/chamamento/.test(t)) return "Chamamento P\xFAblico";
+  if (/(bolsa|bolsas)/.test(t)) return "Bolsas";
+  if (/(subvenção|subvencao|fomento)/.test(t)) return "Subven\xE7\xE3o";
+  if (/(financiamento|empréstimo|emprestimo)/.test(t)) return "Financiamento";
+  return "Edital";
+}
+function heuristicOportunidadeScore(facts) {
+  const density = facts.dates.length * 4 + facts.requirements.length * 3 + facts.documents.length * 2 + facts.values.length * 2 + facts.eligibility.length * 2;
+  return Math.max(15, Math.min(100, 45 + density));
+}
+function buildConsolidatedAgentResult(agentId, chunkResults, originalText, profile) {
   const consolidatedFacts = consolidateChunkFacts(chunkResults);
   const firstDocument = consolidatedFacts.documentInfo[0];
+  const hasEnoughEligibilityData = consolidatedFacts.eligibility.length > 0 && !!profile;
   const timeline = consolidatedFacts.dates.map((date6) => ({
     fase: date6.event || "Evento",
     periodo: date6.value || "Verificar no edital",
@@ -154979,6 +155193,31 @@ function buildConsolidatedAgentResult(agentId, chunkResults, originalText) {
     trechoFonte: date6.text,
     confianca: date6.confidence ?? "m\xE9dia"
   }));
+  const agentFields = {};
+  if (agentId === "simples") {
+    const fonteTexto = firstDocument?.text || firstDocument?.title || "";
+    agentFields.scoreOportunidade = heuristicOportunidadeScore(consolidatedFacts);
+    agentFields.categoria = detectCategoria(fonteTexto);
+    agentFields.resumo = (fonteTexto || "An\xE1lise consolidada a partir de todas as partes do documento.").slice(0, 500);
+    agentFields.objetivo = firstDocument?.title || "Analisar o edital para identificar oportunidades.";
+    agentFields.ondeInscrever = consolidatedFacts.contacts[0]?.contact || "Verificar no edital original.";
+  }
+  if (agentId === "estrategica") {
+    agentFields.score = heuristicOportunidadeScore(consolidatedFacts);
+    agentFields.oportunidade = firstDocument?.title || "Oportunidade identificada no edital.";
+    agentFields.vantagens = consolidatedFacts.documentInfo.slice(1, 5).map((f) => f.text || f.title).filter(Boolean);
+    agentFields.pontosAtencao = consolidatedFacts.restrictions.map((f) => f.restriction).filter(Boolean);
+    agentFields.riscos = consolidatedFacts.alerts.map((f) => f.message || f.text).filter(Boolean);
+    agentFields.recomendacao = consolidatedFacts.alerts.length > 0 ? "Revise os pontos de aten\xE7\xE3o antes de tomar qualquer provid\xEAncia." : "Avalie a oportunidade com base nos requisitos e prazos identificados.";
+  }
+  if (agentId === "documentacao") {
+    agentFields.dica = "Organize os documentos com anteced\xEAncia para evitar imprevistos no dia da inscri\xE7\xE3o.";
+  }
+  if (agentId === "elegibilidade") {
+    agentFields.score = heuristicOportunidadeScore(consolidatedFacts);
+    agentFields.recomendacao = hasEnoughEligibilityData ? "O perfil informado \xE9 compat\xEDvel com os crit\xE9rios identificados no edital." : "Consulte os crit\xE9rios de elegibilidade no edital original.";
+    agentFields.proximosPassos = [];
+  }
   return {
     type: agentId,
     tipoEdital: firstDocument?.title || "Edital p\xFAblico",
@@ -154997,7 +155236,7 @@ function buildConsolidatedAgentResult(agentId, chunkResults, originalText) {
     })),
     criterios: consolidatedFacts.eligibility.map((item) => ({
       criterio: item.criterion || "Crit\xE9rio identificado",
-      atende: true,
+      atende: hasEnoughEligibilityData ? true : null,
       observacao: item.text || "Crit\xE9rio identificado no documento."
     })),
     observacao: consolidatedFacts.alerts.length > 0 ? "An\xE1lise consolidada a partir de m\xFAltiplas partes do documento." : "An\xE1lise consolidada a partir de todas as partes do documento.",
@@ -155006,6 +155245,7 @@ function buildConsolidatedAgentResult(agentId, chunkResults, originalText) {
     anoPublicacao: void 0,
     fonte: void 0,
     totalPaginas: void 0,
+    ...agentFields,
     processing: {
       mode: "chunked",
       totalChunks: chunkResults.length,
@@ -155382,7 +155622,10 @@ function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
     requirements: Array.isArray(result.requisitos) ? result.requisitos.filter(Boolean) : Array.isArray(result.documentos) ? result.documentos.filter(Boolean) : [],
     simpleLanguage: typeof result.observacao === "string" && result.observacao || typeof result.dica === "string" && result.dica || "Texto adaptado para leitura acess\xEDvel."
   };
-  const cronograma = Array.isArray(result.timeline) ? (() => {
+  const buildCronograma = () => {
+    if (!Array.isArray(result.timeline)) {
+      return { items: [] };
+    }
     const retifications = detectRetifications(originalText);
     const rawTimeline = result.timeline;
     const timelineWithRetifications = applyRetificationsToTimeline(
@@ -155425,40 +155668,53 @@ function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
         conflitos
       } : void 0
     };
-  })() : void 0;
-  const checklist = Array.isArray(result.checklist) ? {
-    items: result.checklist.map(
-      (item) => ({
-        doc: typeof item.doc === "string" ? item.doc : "",
-        obrigatorio: Boolean(item.obrigatorio),
-        observacao: typeof item.observacao === "string" ? item.observacao : "",
-        checked: Boolean(item.checked)
-      })
-    ),
-    summary: typeof result.dica === "string" ? result.dica : void 0
-  } : void 0;
-  const elegibilidade = Array.isArray(result.criterios) ? {
-    score: typeof result.score === "number" ? result.score : void 0,
-    criteria: result.criterios.map(
-      (item) => {
-        const atendeValue = item.atende;
-        const atende = atendeValue === "parcial" ? "parcial" : atendeValue === true ? true : false;
-        return {
-          criterio: typeof item.criterio === "string" ? item.criterio : "",
-          atende,
+  };
+  const cronograma = buildCronograma();
+  const buildChecklist = () => {
+    if (!Array.isArray(result.checklist)) {
+      return { items: [] };
+    }
+    return {
+      items: result.checklist.map(
+        (item) => ({
+          doc: typeof item.doc === "string" ? item.doc : "",
+          obrigatorio: Boolean(item.obrigatorio),
           observacao: typeof item.observacao === "string" ? item.observacao : "",
-          pagina: typeof item.pagina === "number" ? item.pagina : void 0,
-          secao: typeof item.secao === "string" ? item.secao : void 0,
-          trechoFonte: typeof item.trechoFonte === "string" ? item.trechoFonte : void 0,
-          confianca: item.confianca ?? "m\xE9dia",
-          documentoOrigem: typeof item.documentoOrigem === "string" ? item.documentoOrigem : void 0,
-          vigente: typeof item.vigente === "boolean" ? item.vigente : true
-        };
-      }
-    ),
-    recommendation: typeof result.recomendacao === "string" ? result.recomendacao : void 0,
-    nextSteps: Array.isArray(result.proximosPassos) ? result.proximosPassos.filter(Boolean) : void 0
-  } : void 0;
+          checked: Boolean(item.checked)
+        })
+      ),
+      summary: typeof result.dica === "string" ? result.dica : void 0
+    };
+  };
+  const checklist = buildChecklist();
+  const buildElegibilidade = () => {
+    if (!Array.isArray(result.criterios)) {
+      return { criteria: [] };
+    }
+    return {
+      score: typeof result.score === "number" ? result.score : void 0,
+      criteria: result.criterios.map(
+        (item) => {
+          const atendeValue = item.atende;
+          const atende = atendeValue === "parcial" ? "parcial" : atendeValue === true ? true : atendeValue === null ? null : false;
+          return {
+            criterio: typeof item.criterio === "string" ? item.criterio : "",
+            atende,
+            observacao: typeof item.observacao === "string" ? item.observacao : "",
+            pagina: typeof item.pagina === "number" ? item.pagina : void 0,
+            secao: typeof item.secao === "string" ? item.secao : void 0,
+            trechoFonte: typeof item.trechoFonte === "string" ? item.trechoFonte : void 0,
+            confianca: item.confianca ?? "m\xE9dia",
+            documentoOrigem: typeof item.documentoOrigem === "string" ? item.documentoOrigem : void 0,
+            vigente: typeof item.vigente === "boolean" ? item.vigente : true
+          };
+        }
+      ),
+      recommendation: typeof result.recomendacao === "string" ? result.recomendacao : void 0,
+      nextSteps: Array.isArray(result.proximosPassos) ? result.proximosPassos.filter(Boolean) : void 0
+    };
+  };
+  const elegibilidade = buildElegibilidade();
   const documentosExigidos = {
     items: Array.isArray(result.documentos) ? result.documentos.filter(Boolean) : Array.isArray(result.checklist) ? result.checklist.map(
       (item) => typeof item.doc === "string" ? item.doc : ""
@@ -155469,7 +155725,7 @@ function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
   };
   const allAlerts = normalizeAlerts();
   const evidencias = [];
-  if (cronograma?.items?.length) {
+  if (cronograma.items.length > 0) {
     cronograma.items.forEach((item) => {
       if (item.fase || item.periodo) {
         const isExplicitlySupported = hasExplicitTemporalSupport(item, originalText, editalYear);
@@ -155494,7 +155750,7 @@ function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
       }
     });
   }
-  if (cronograma?.validacaoTemporal?.temConflitos && cronograma.validacaoTemporal.conflitos.length > 0) {
+  if (cronograma.validacaoTemporal?.temConflitos && cronograma.validacaoTemporal.conflitos.length > 0) {
     cronograma.validacaoTemporal.conflitos.forEach((conf) => {
       allAlerts.push({
         categoria: "temporal",
@@ -155538,6 +155794,11 @@ function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
     agentResult
   };
 }
+function optionalInt(v) {
+  if (v === "N\xE3o informado" || v === "N\xE3o especificado" || v === null || v === void 0) return void 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.floor(n) : void 0;
+}
 var SimplesResponseSchema = external_exports2.object({
   type: external_exports2.literal("simples"),
   scoreOportunidade: external_exports2.number().int().min(0).max(100),
@@ -155549,12 +155810,10 @@ var SimplesResponseSchema = external_exports2.object({
   requisitos: external_exports2.array(external_exports2.string()),
   ondeInscrever: external_exports2.string(),
   observacao: external_exports2.string(),
-  /** Metadados do documento para rastreabilidade */
   numero: external_exports2.string().optional(),
-  anoPublicacao: external_exports2.number().int().optional(),
+  anoPublicacao: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   fonte: external_exports2.string().optional(),
-  totalPaginas: external_exports2.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   alertas: external_exports2.array(external_exports2.string()).optional().default([])
 });
 var AnalistaResponseSchema = external_exports2.object({
@@ -155566,12 +155825,10 @@ var AnalistaResponseSchema = external_exports2.object({
   requisitos: external_exports2.array(external_exports2.string()),
   documentos: external_exports2.array(external_exports2.string()),
   valor: external_exports2.string(),
-  /** Metadados do documento para rastreabilidade */
   numero: external_exports2.string().optional(),
-  anoPublicacao: external_exports2.number().int().optional(),
+  anoPublicacao: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   fonte: external_exports2.string().optional(),
-  totalPaginas: external_exports2.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   alertas: external_exports2.array(external_exports2.string()).optional().default([])
 });
 var EstrategicaResponseSchema = external_exports2.object({
@@ -155582,12 +155839,10 @@ var EstrategicaResponseSchema = external_exports2.object({
   pontosAtencao: external_exports2.array(external_exports2.string()),
   riscos: external_exports2.array(external_exports2.string()),
   recomendacao: external_exports2.string(),
-  /** Metadados do documento para rastreabilidade */
   numero: external_exports2.string().optional(),
-  anoPublicacao: external_exports2.number().int().optional(),
+  anoPublicacao: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   fonte: external_exports2.string().optional(),
-  totalPaginas: external_exports2.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   alertas: external_exports2.array(external_exports2.string()).optional().default([])
 });
 var TimelineItemSchema = external_exports2.object({
@@ -155600,12 +155855,10 @@ var AcompanhamentoResponseSchema = external_exports2.object({
   type: external_exports2.literal("acompanhamento"),
   timeline: external_exports2.array(TimelineItemSchema),
   observacao: external_exports2.string(),
-  /** Metadados do documento para rastreabilidade */
   numero: external_exports2.string().optional(),
-  anoPublicacao: external_exports2.number().int().optional(),
+  anoPublicacao: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   fonte: external_exports2.string().optional(),
-  totalPaginas: external_exports2.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   alertas: external_exports2.array(external_exports2.string()).optional().default([])
 });
 var ChecklistItemSchema = external_exports2.object({
@@ -155618,17 +155871,15 @@ var DocumentacaoResponseSchema = external_exports2.object({
   type: external_exports2.literal("documentacao"),
   checklist: external_exports2.array(ChecklistItemSchema),
   dica: external_exports2.string(),
-  /** Metadados do documento para rastreabilidade */
   numero: external_exports2.string().optional(),
-  anoPublicacao: external_exports2.number().int().optional(),
+  anoPublicacao: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   fonte: external_exports2.string().optional(),
-  totalPaginas: external_exports2.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   alertas: external_exports2.array(external_exports2.string()).optional().default([])
 });
 var ElegibilidadeCriterioSchema = external_exports2.object({
   criterio: external_exports2.string(),
-  atende: external_exports2.union([external_exports2.boolean(), external_exports2.literal("parcial")]),
+  atende: external_exports2.union([external_exports2.boolean(), external_exports2.literal("parcial"), external_exports2.null()]),
   observacao: external_exports2.string()
 });
 var ElegibilidadeResponseSchema = external_exports2.object({
@@ -155637,12 +155888,10 @@ var ElegibilidadeResponseSchema = external_exports2.object({
   criterios: external_exports2.array(ElegibilidadeCriterioSchema),
   recomendacao: external_exports2.string(),
   proximosPassos: external_exports2.array(external_exports2.string()),
-  /** Metadados do documento para rastreabilidade */
   numero: external_exports2.string().optional(),
-  anoPublicacao: external_exports2.number().int().optional(),
+  anoPublicacao: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   fonte: external_exports2.string().optional(),
-  totalPaginas: external_exports2.number().int().optional(),
-  /** Alertas de ambiguidade: sinais de trechos imprecisos, inferidos ou contraditórios */
+  totalPaginas: external_exports2.preprocess(optionalInt, external_exports2.number().int().optional()),
   alertas: external_exports2.array(external_exports2.string()).optional().default([])
 });
 var SEMANTIC_PRESERVATION_MANDATE = `
@@ -155913,7 +156162,12 @@ var VALIDATORS = {
 };
 async function ocrPdf(pages, opts) {
   if (!pages.length) return "";
-  const model = getOpenAIModel();
+  if (!hasVisionSupport()) {
+    throw new Error(
+      "OCR_INDISPONIVEL: Este PDF parece ser escaneado (apenas imagens). O provedor de IA configurado (Groq/llama-3.3-70b-versatile) n\xE3o oferece OCR. Configure GEMINI_API_KEY ou OPENAI_API_KEY para analisar PDFs escaneados, ou cole o texto manualmente na aba 'Colar Texto'."
+    );
+  }
+  const { client: visionClient, provider, model } = getVisionClient();
   const start = Date.now();
   const BATCH = 8;
   const parts = [];
@@ -155924,7 +156178,7 @@ async function ocrPdf(pages, opts) {
         type: "image_url",
         image_url: { url: `data:image/jpeg;base64,${b64}`, detail: "auto" }
       }));
-      const response = await openai.chat.completions.create({
+      const response = await visionClient.chat.completions.create({
         model,
         messages: [
           {
@@ -155939,7 +156193,7 @@ async function ocrPdf(pages, opts) {
           }
         ],
         max_tokens: 8192
-      });
+      }, { signal: AbortSignal.timeout(GLOBAL_BUDGET_MS) });
       parts.push(response.choices[0]?.message?.content ?? "");
     }
     const latency = Date.now() - start;
@@ -156015,7 +156269,9 @@ Responda SOMENTE com o JSON, sem markdown, sem c\xF3digo, sem texto adicional.`;
           { role: "user", content: userPrompt }
         ]
       },
-      "AIService.simplifyEdital"
+      "AIService.simplifyEdital",
+      2,
+      { signal: AbortSignal.timeout(GLOBAL_BUDGET_MS) }
     );
     const validated = SimplifyEditalResponse.safeParse(parsed);
     const latency = Date.now() - start;
@@ -156074,7 +156330,11 @@ async function analyzeAgent(agentId, text4, profile, opts) {
     const { text: normalizedDocumentText } = normalizeDocumentText(text4);
     const estimatedTokens = estimateTokens(normalizedDocumentText);
     const chunkThreshold = getChunkingConfig().maxInputTokens * 0.6;
-    const shouldChunk = estimatedTokens > chunkThreshold;
+    const singlePassPrompt = buildAgentPrompt(agentId, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : void 0);
+    const estimatedPromptTokens = estimateTokens(singlePassPrompt.system) + estimateTokens(singlePassPrompt.user);
+    const singlePassMaxOutput = calcRequestMaxTokens(estimatedPromptTokens, model);
+    const tpmFitsSinglePass = singlePassMaxOutput >= 1024;
+    const shouldChunk = estimatedTokens > chunkThreshold || !tpmFitsSinglePass;
     logger.info({
       requestId,
       step: "analysis_started",
@@ -156086,26 +156346,34 @@ async function analyzeAgent(agentId, text4, profile, opts) {
       estimatedTokens,
       chunkThreshold,
       shouldChunk,
+      estimatedPromptTokens,
+      singlePassMaxOutput,
+      tpmFitsSinglePass,
       userId: opts?.userId ?? null
     }, "AI analysis started");
     if (!shouldChunk) {
       currentStep = "single_pass_prompt_build";
-      const { system, user } = buildAgentPrompt(agentId, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : void 0);
+      const { system, user } = singlePassPrompt;
       currentStep = "single_pass_api_call";
-      logger.info({ requestId, step: "single_pass_started", agentId, estimatedTokens }, "Single-pass analysis started");
+      logger.info({ requestId, step: "single_pass_started", agentId, estimatedTokens, singlePassMaxOutput }, "Single-pass analysis started");
+      await waitForTpmBudget(Math.ceil(estimatedPromptTokens * PROMPT_BUDGET_SAFETY) + singlePassMaxOutput);
       const completionResult = await createJsonChatCompletion(
         {
           model,
-          max_tokens: calcMaxOutputTokens(model),
+          max_tokens: singlePassMaxOutput,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: system },
             { role: "user", content: user }
           ]
         },
-        "AIService.analyzeAgent"
+        "AIService.analyzeAgent",
+        2,
+        { signal: AbortSignal.timeout(GLOBAL_BUDGET_MS) }
       );
       const { raw, parsed: parsedRaw, usage } = completionResult;
+      const usageTokens = usage ? (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0) : 0;
+      recordTpmUsage(usageTokens || estimatedPromptTokens + singlePassMaxOutput);
       logger.info({
         requestId,
         step: "single_pass_completed",
@@ -156122,8 +156390,8 @@ async function analyzeAgent(agentId, text4, profile, opts) {
       }, "AI single-pass completed");
       currentStep = "single_pass_validation";
       const parsed = parsedRaw !== null && typeof parsedRaw === "object" && !Array.isArray(parsedRaw) && !parsedRaw.type ? { type: agentId, ...parsedRaw } : parsedRaw;
-      const validator = VALIDATORS[agentId];
-      const validated = validator.safeParse(parsed);
+      const validator2 = VALIDATORS[agentId];
+      const validated = validator2.safeParse(parsed);
       const latency2 = Date.now() - start;
       const inputTokens = typeof usage?.prompt_tokens === "number" ? usage.prompt_tokens : null;
       const outputTokens = typeof usage?.completion_tokens === "number" ? usage.completion_tokens : null;
@@ -156205,7 +156473,19 @@ async function analyzeAgent(agentId, text4, profile, opts) {
       processedChunks: chunkProcessing.processing.processedChunks,
       failedChunks: chunkProcessing.processing.failedChunks
     }, "Consolidating chunk results");
-    const consolidatedAgentResult = buildConsolidatedAgentResult(agentId, chunkProcessing.chunkResults, normalizedDocumentText);
+    const consolidatedAgentResult = buildConsolidatedAgentResult(agentId, chunkProcessing.chunkResults, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : void 0);
+    const consolidatedWithType = { type: agentId, ...consolidatedAgentResult };
+    const validator = VALIDATORS[agentId];
+    const validatedConsolidation = validator.safeParse(consolidatedWithType);
+    if (!validatedConsolidation.success) {
+      const schemaPreview = JSON.stringify(validatedConsolidation.error.format()).slice(0, 300);
+      logger.warn({
+        requestId,
+        step: "consolidation_validation_failed",
+        agentId,
+        schemaPreview
+      }, "Consolidated result did not match expected schema \u2014 continuing with raw result");
+    }
     currentStep = "consolidation_canonical";
     const canonical = buildCanonicalAnalysis(agentId, { ...consolidatedAgentResult, processing: chunkProcessing.processing }, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : void 0);
     currentStep = "response_sent";
@@ -156527,7 +156807,7 @@ async function chatNiasci(messages2, context, opts) {
     context ? `
 
 CONTEXTO:
-${context.slice(0, 4e3)}` : "",
+${context.slice(0, 8e3)}` : "",
     "",
     PLAIN_LANGUAGE_PRINCIPLES,
     "",
@@ -156549,7 +156829,7 @@ ${context.slice(0, 4e3)}` : "",
     const completion = await openai.chat.completions.create({
       model,
       messages: chatMessages
-    });
+    }, { signal: AbortSignal.timeout(6e4) });
     const response = completion.choices[0]?.message?.content ?? "N\xE3o consegui gerar uma resposta. Tente novamente.";
     const latency = Date.now() - start;
     const usage = completion?.usage;
@@ -157278,7 +157558,7 @@ var ChatSchema = external_exports2.object({
       content: external_exports2.string().min(1).max(4e3)
     })
   ).min(1).max(30),
-  context: external_exports2.string().max(4e3).optional(),
+  context: external_exports2.string().max(8e3).optional(),
   historyId: external_exports2.coerce.number().int().positive().optional()
 });
 function buildStructuredContext(resultJson) {

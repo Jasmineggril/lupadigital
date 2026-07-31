@@ -5,10 +5,45 @@ export { OpenAI };
 let _client: OpenAI | null = null;
 
 export function getOpenAIModel(): string {
+  if (process.env.AI_MODEL) return process.env.AI_MODEL;
   if (process.env.GROQ_API_KEY) return "llama-3.3-70b-versatile";
   if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
   if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
   return "gpt-5.4-mini";
+}
+
+/** Modelo com suporte a visão (imagens) para OCR. Groq com llama-3.3-70b-versatile NÃO suporta imagens. */
+export function getVisionModel(): string {
+  if (process.env.OPENAI_API_KEY) return "gpt-4o";
+  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
+  if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
+  return "";
+}
+
+export function hasVisionSupport(): boolean {
+  return getVisionModel() !== "";
+}
+
+/** Cliente e modelo com suporte a visão para OCR. Lança erro claro quando indisponível. */
+export function getVisionClient(): { client: OpenAI; provider: string; model: string } {
+  if (process.env.OPENAI_API_KEY) {
+    return {
+      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 120_000 }),
+      provider: "openai",
+      model: getVisionModel(),
+    };
+  }
+  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) {
+    return {
+      client: { chat: { completions: { create: geminiCreate } } } as unknown as OpenAI,
+      provider: "gemini",
+      model: getVisionModel(),
+    };
+  }
+  throw new Error(
+    "OCR_INDISPONIVEL: O provedor de IA configurado (Groq/llama-3.3-70b-versatile) não oferece suporte a OCR de imagens. " +
+      "Configure GEMINI_API_KEY ou OPENAI_API_KEY para habilitar OCR de PDFs escaneados.",
+  );
 }
 
 function getGeminiApiKey(): string | undefined {
@@ -29,10 +64,30 @@ export async function geminiCreate(params: Record<string, unknown>): Promise<unk
   const systemMsg = messages.find((m) => m.role === "system");
   const turns     = messages.filter((m) => m.role !== "system");
 
+  const toGeminiParts = (content: unknown): Array<Record<string, unknown>> => {
+    if (typeof content === "string") return [{ text: content }];
+    if (Array.isArray(content)) {
+      return content.map((part) => {
+        if (typeof part === "string") return { text: part };
+        if (part && typeof part === "object") {
+          const p = part as { type?: string; text?: string; image_url?: { url?: string } };
+          if (p.type === "image_url" && typeof p.image_url?.url === "string") {
+            const match = p.image_url.url.match(/^data:image\/(\w+);base64,(.+)$/);
+            if (match) return { inline_data: { mime_type: `image/${match[1]}`, data: match[2] } };
+            return { text: "" };
+          }
+          if (p.type === "text" && typeof p.text === "string") return { text: p.text };
+        }
+        return { text: JSON.stringify(part) };
+      });
+    }
+    return [{ text: JSON.stringify(content) }];
+  };
+
   const body: Record<string, unknown> = {
     contents: turns.map((m) => ({
       role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }],
+      parts: toGeminiParts(m.content),
     })),
     generationConfig: {
       maxOutputTokens: (params.max_tokens as number | undefined) ?? 4096,

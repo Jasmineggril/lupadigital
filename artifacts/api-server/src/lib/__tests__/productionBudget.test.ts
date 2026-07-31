@@ -242,7 +242,7 @@ describe("tratamento de 429 do Groq", () => {
     expect(duration).toBeGreaterThanOrEqual(800);
   }, 60_000);
 
-  it("429 continuamente → erro claro antes do timeout global", async () => {
+  it("429 continuamente → resultado parcial com complete=false", async () => {
     const { analyzeAgent } = await import("../aiService");
     const longText = generateSyntheticEdital(7000);
 
@@ -250,19 +250,14 @@ describe("tratamento de 429 do Groq", () => {
     vi.spyOn(openai.chat.completions, "create" as any).mockRejectedValue(buildRateLimitError());
 
     const start = Date.now();
-    let caughtError: Error | null = null;
-    try {
-      await analyzeAgent("simples", longText, undefined, { userId: "test-user", documentId: null });
-    } catch (err) {
-      caughtError = err instanceof Error ? err : new Error(String(err));
-    }
+    const result = await analyzeAgent("simples", longText, undefined, { userId: "test-user", documentId: null }) as Record<string, unknown>;
     const duration = Date.now() - start;
 
     console.log(`\n  429 contínuo: duração = ${duration}ms (deve ser < 240s)`);
 
-    expect(caughtError).not.toBeNull();
-    const msg = caughtError!.message.toLowerCase();
-    expect(msg.includes("429") || msg.includes("rate limit") || msg.includes("orçamento") || msg.includes("chunks falharam")).toBe(true);
+    expect(result).toBeDefined();
+    expect((result.processing as any)?.complete).toBe(false);
+    expect((result.processing as any)?.failedChunks).toBeGreaterThan(0);
     expect(duration).toBeLessThan(240_000);
   }, 60_000);
 });
@@ -299,7 +294,7 @@ describe("testes de falha", () => {
     expect(result.schemaVersion).toBe("1.0.1");
   }, 30_000);
 
-  it("um chunk falha 500 → propaga erro, não retorna análise falsa", async () => {
+  it("um chunk falha 500 → retorna resultado parcial com complete=false", async () => {
     const { analyzeAgent, chunkDocument } = await import("../aiService");
     const longText = generateSyntheticEdital(7000);
     const chunks = chunkDocument(longText);
@@ -311,16 +306,12 @@ describe("testes de falha", () => {
     spy.mockResolvedValueOnce(mockCompletion as any);
     spy.mockRejectedValue(new Error("500 Internal Server Error"));
 
-    let caughtError: Error | null = null;
-    try {
-      await analyzeAgent("simples", longText, undefined, { userId: "test-user", documentId: null });
-    } catch (err) {
-      caughtError = err instanceof Error ? err : new Error(String(err));
-    }
+    const result = await analyzeAgent("simples", longText, undefined, { userId: "test-user", documentId: null }) as Record<string, unknown>;
 
-    expect(caughtError).not.toBeNull();
-    const msg = caughtError!.message;
-    expect(msg.includes("chunks falharam") || msg.includes("Orçamento")).toBe(true);
+    expect(result).toBeDefined();
+    expect(result.type).toBe("simples");
+    expect((result.processing as any)?.complete).toBe(false);
+    expect((result.processing as any)?.failedChunks).toBeGreaterThan(0);
   }, 60_000);
 });
 

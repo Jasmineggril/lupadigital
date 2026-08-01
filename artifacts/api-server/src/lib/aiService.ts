@@ -329,7 +329,19 @@ function buildFallbackChunkFacts(chunkText: string): ChunkAnalysisFacts {
   const dates = Array.from(chunkText.matchAll(/\b(\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+de\s+[\wáéíóúçãõ]+\s+de\s+\d{4})\b/gi)).map((match) => ({ value: match[0], text: match[0] }));
   const requirements = lines.filter((line) => /deve|obrigat|requisito|documento|inscri/i.test(line)).slice(0, 5).map((line) => ({ requirement: line }));
   const obligations = lines.filter((line) => /deve|obrigat|entreg|apresent|cumpr/i.test(line)).slice(0, 5).map((line) => ({ obligation: line }));
-  const documents = lines.filter((line) => /rg|cpf|cnh|currículo|comprovante|declara/i.test(line)).slice(0, 5).map((line) => ({ document: line }));
+  const documents = Array.from(new Set(
+    lines.flatMap((line) => {
+      const matches = Array.from(line.matchAll(/\b(CPF|RG|CNH|currículo|curriculo|comprovante(?:\s+de\s+residência|\s+de\s+residencia)?|declaração|declaração de residência|declaração de renda|certidão|certificado)\b/gi));
+      return matches.map((match) => {
+        const raw = match[1];
+        if (/currículo|curriculo/i.test(raw)) return "currículo";
+        if (/comprovante/i.test(raw)) return "comprovante de residência";
+        if (/declaração/i.test(raw)) return "declaração";
+        if (/certidão/i.test(raw)) return "certidão";
+        return raw.toUpperCase();
+      });
+    })
+  )).map((document) => ({ document }));
   const alerts = lines.filter((line) => /atenção|importante|aviso|alerta/i.test(line)).slice(0, 3).map((line) => ({ message: line }));
 
   return {
@@ -344,6 +356,102 @@ function buildFallbackChunkFacts(chunkText: string): ChunkAnalysisFacts {
     restrictions: lines.filter((line) => /não|proib|restri/i.test(line)).slice(0, 3).map((line) => ({ restriction: line })),
     alerts,
   };
+}
+
+function buildHeuristicAgentResult(agentId: AgentId, text: string, profile?: z.infer<typeof AgentUserProfileSchema>, reason?: string) {
+  const { text: normalizedText } = normalizeDocumentText(text);
+  const lines = normalizedText.split(/\n/).map((line) => line.trim()).filter(Boolean);
+  const fallbackFacts = buildFallbackChunkFacts(normalizedText);
+  const title = lines[0] && lines[0].length < 140 ? lines[0] : fallbackFacts.documentInfo[0]?.title || "Edital público";
+  const organization = lines.find((line) => /prefeitura|secretaria|município|universidade|empresa|fundação|estado|instituto|governo/i.test(line)) || fallbackFacts.documentInfo[0]?.organization || "Não informado";
+  const requirements = fallbackFacts.requirements.map((item) => item.requirement).filter(Boolean);
+  const documents = fallbackFacts.documents.map((item) => item.document).filter(Boolean);
+  const values = fallbackFacts.values.map((item) => item.value).filter(Boolean);
+  const eligibility = fallbackFacts.eligibility.map((item) => item.criterion).filter(Boolean);
+  const dates = fallbackFacts.dates.map((item) => item.value).filter(Boolean);
+  const fallbackAlert = {
+    categoria: "fallback" as const,
+    descricao: reason
+      ? `Análise heurística gerada porque a IA não concluiu o processamento: ${reason}`
+      : "Análise heurística gerada porque a IA não concluiu o processamento.",
+    severidade: "média" as const,
+  };
+
+  return {
+    type: agentId,
+    tipoEdital: title,
+    instituicao: organization,
+    prazo: dates.join(" | ") || "Prazo não informado.",
+    publicoAlvo: profile?.municipio ? `Público-alvo relacionado ao perfil de ${profile.municipio}.` : "Público-alvo conforme o edital.",
+    requisitos: requirements.length > 0 ? requirements.slice(0, 8) : ["Requisitos não identificados com confiança no texto disponível."],
+    documentos: documents.length > 0 ? documents.slice(0, 8) : ["Documentos não identificados com confiança no texto disponível."],
+    valor: values.join(" | ") || "Não informado",
+    timeline: fallbackFacts.dates.map((item) => ({
+      fase: item.event || "Evento",
+      periodo: item.value || "Verificar no edital",
+      descricao: item.text || item.event || "Data identificada no texto",
+      status: "ativo" as const,
+      confianca: "baixa" as const,
+    })),
+    checklist: documents.length > 0
+      ? documents.slice(0, 8).map((document) => ({
+          doc: document,
+          obrigatorio: true,
+          observacao: "Documento identificado no texto disponível.",
+          checked: false,
+        }))
+      : [{
+          doc: "Documentos não identificados com confiança no texto disponível.",
+          obrigatorio: true,
+          observacao: "Não foi possível identificar documentos com confiança no texto fornecido.",
+          checked: false,
+        }],
+    criterios: eligibility.length > 0
+      ? eligibility.slice(0, 6).map((criterion) => ({
+          criterio: criterion,
+          atende: true,
+          observacao: "Critério identificado no texto disponível.",
+        }))
+      : [{
+          criterio: "Critérios de elegibilidade não identificados com confiança.",
+          atende: false,
+          observacao: "A análise heurística não encontrou critérios explícitos no texto.",
+        }],
+    observacao: "Análise heurística construída a partir do texto disponível porque a IA não concluiu o processamento.",
+    alertas: [
+      fallbackAlert,
+      ...fallbackFacts.alerts.map((item) => item.message || item.text || "Alerta identificado no texto.").filter(Boolean),
+    ],
+    processing: {
+      mode: "fallback" as const,
+      totalChunks: 1,
+      processedChunks: 1,
+      failedChunks: 0,
+      complete: true,
+    },
+    originalText: normalizedText,
+  };
+}
+
+function buildHeuristicCanonicalAnalysis(agentId: AgentId, text: string, profile?: z.infer<typeof AgentUserProfileSchema>, reason?: string) {
+  const agentResult = buildHeuristicAgentResult(agentId, text, profile, reason);
+  const canonical = buildCanonicalAnalysis(agentId, agentResult as Record<string, unknown>, text, profile);
+  return {
+    ...canonical,
+    ...agentResult,
+    type: agentId,
+    agentResult,
+    analysisId: canonical.analysisId,
+    schemaVersion: canonical.schemaVersion,
+    interpretation: canonical.interpretation,
+    cronograma: canonical.cronograma,
+    checklist: canonical.checklist,
+    elegibilidade: canonical.elegibilidade,
+    valores: canonical.valores,
+    documentosExigidos: canonical.documentosExigidos,
+    alertas: canonical.alertas,
+    processing: canonical.processing,
+  } as Record<string, unknown>;
 }
 
 const ChunkFactsSchema = z.object({
@@ -885,7 +993,7 @@ export const AgentAnalyzeBodySchema = z.object({
  * Permite rastreamento fino de problemas e navegação para fontes.
  */
 export interface ValidationAlert {
-  categoria: "ambiguidade" | "contradição" | "ausência" | "inferência" | "temporal";
+  categoria: "ambiguidade" | "contradição" | "ausência" | "inferência" | "temporal" | "fallback";
   descricao: string;
   pagina?: number;
   secao?: string;
@@ -2431,9 +2539,38 @@ export async function analyzeAgent(
       message: `AIService error (${model})`,
     });
 
-    const wrapped = new Error(message);
-    (wrapped as any).requestId = requestId;
-    throw wrapped;
+    const fallbackAnalysis = buildHeuristicCanonicalAnalysis(agentId, normalizedText, parsedProfile.success ? parsedProfile.data : undefined, message);
+    logger.warn({
+      requestId,
+      step: currentStep,
+      module: "analyzeAgent",
+      provider: getProviderNameFromModel(model),
+      model,
+      agentId,
+      durationMs: latency,
+      inputCharacters: normalizedText.length,
+      estimatedTokens: estimateTokens(normalizedText),
+      errorName,
+      errorMessage: message,
+    }, "AI analysis failed; returning heuristic fallback");
+
+    await persistUsageLog({
+      module: "AIService.analyzeAgent",
+      model,
+      userId: opts?.userId ?? null,
+      documentId: opts?.documentId ?? null,
+      latencyMs: latency,
+      success: true,
+      errorMessage: "heuristic_fallback",
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      agentId,
+      level: "warn",
+      message: "AIService fallback completed",
+    });
+
+    return fallbackAnalysis;
   }
 }
 

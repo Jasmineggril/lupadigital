@@ -25,7 +25,15 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 
-import { openai, getOpenAIModel, createWithFallback, type FallbackResult } from "@workspace/integrations-openai-ai-server";
+import {
+  openai,
+  getOpenAIClient,
+  getOpenAIVisionClient,
+  getOpenAIVisionModel,
+  getOpenAIModel,
+  createWithFallback,
+  type FallbackResult,
+} from "@workspace/integrations-openai-ai-server";
 import { SimplifyEditalResponse } from "@workspace/api-zod";
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
@@ -1976,7 +1984,8 @@ export async function ocrPdf(
 ): Promise<string> {
   if (!pages.length) return "";
 
-  const model = getOpenAIModel();
+  const visionClient = getOpenAIVisionClient();
+  const model = getOpenAIVisionModel();
   const start = Date.now();
   // Processa as páginas em lotes de 8 imagens por chamada à API.
   // Por quê BATCH=8? GPT-4o Vision suporta até 10 imagens por mensagem,
@@ -1993,7 +2002,7 @@ export async function ocrPdf(
         image_url: { url: `data:image/jpeg;base64,${b64}`, detail: "auto" as const },
       }));
 
-      const response = await openai.chat.completions.create({
+      const response = await visionClient.chat.completions.create({
         model,
         messages: [
           {

@@ -24,6 +24,7 @@
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import pdfWorker from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
+import { createWorker } from "tesseract.js";
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -185,6 +186,32 @@ async function renderPdfPagesToBase64(
   return images;
 }
 
+async function ocrPdfViaTesseract(pages: string[]): Promise<string> {
+  const langs = ["por", "eng"];
+  let lastError: Error | null = null;
+
+  for (const lang of langs) {
+    const worker = await createWorker(`${lang}`, undefined, { logger: () => undefined });
+    try {
+      const parts: string[] = [];
+      for (const page of pages) {
+        const { data } = await worker.recognize(`data:image/jpeg;base64,${page}`);
+        parts.push(data.text || "");
+      }
+
+      return parts.join("\n\n");
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    } finally {
+      await worker.terminate();
+    }
+  }
+
+  throw new Error(
+    `OCR local falhou: ${lastError?.message ?? "não foi possível inicializar Tesseract."}`,
+  );
+}
+
 async function ocrPdfViaServer(pages: string[]): Promise<string> {
   const BATCH = 8; // pages per API call — keeps payload < ~6 MB per request
   const parts: string[] = [];
@@ -199,7 +226,7 @@ async function ocrPdfViaServer(pages: string[]): Promise<string> {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`OCR falhou (${res.status}): ${body}`);
+      throw new Error(`OCR via servidor falhou (${res.status}): ${body}`);
     }
 
     const data = (await res.json()) as { text: string };
@@ -207,6 +234,30 @@ async function ocrPdfViaServer(pages: string[]): Promise<string> {
   }
 
   return parts.join("\n\n");
+}
+
+async function ocrPdfWithFallback(
+  pages: string[],
+  onStatus?: (msg: string) => void,
+): Promise<string> {
+  if (!pages.length) return "";
+
+  onStatus?.("Tentando OCR local gratuito (Tesseract)…");
+  try {
+    const localText = normalizeText(await ocrPdfViaTesseract(pages));
+    if (localText.trim()) return localText;
+  } catch (error) {
+    onStatus?.("OCR local falhou ou produziu pouco texto. Tentando OCR via servidor…");
+  }
+
+  try {
+    return await ocrPdfViaServer(pages);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `OCR não pôde ser concluído. Verifique a configuração de OPENAI_API_KEY no backend ou use a aba 'Colar Texto'. Detalhes: ${message}`,
+    );
+  }
 }
 
 // ── Main export ─────────────────────────────────────────────────────
@@ -254,7 +305,7 @@ export async function extractTextFromPdf(
   }
 
   onStatus?.(`Enviando ${pageImages.length} página(s) para OCR…`);
-  const ocrRaw = await ocrPdfViaServer(pageImages);
+  const ocrRaw = await ocrPdfWithFallback(pageImages, onStatus);
   const ocrText = normalizeText(ocrRaw);
 
   if (!ocrText.trim()) {

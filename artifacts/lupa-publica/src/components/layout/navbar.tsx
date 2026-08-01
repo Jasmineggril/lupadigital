@@ -113,6 +113,7 @@ export function Navbar() {
                   : "text-[#475569]"
               }`}
               aria-expanded={isAcessoOpen}
+              aria-controls="acesso-rapido-menu"
               onClick={() => setIsAcessoOpen((prev) => !prev)}
               data-testid="nav-link-acesso-rapido"
             >
@@ -121,7 +122,7 @@ export function Navbar() {
             </button>
 
             {isAcessoOpen && (
-              <div className="absolute left-1/2 top-full z-50 -translate-x-1/2 w-fit min-w-[12rem] rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-lg shadow-slate-900/5">
+              <div id="acesso-rapido-menu" role="menu" className="absolute left-1/2 top-full z-50 -translate-x-1/2 w-fit min-w-[12rem] rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-lg shadow-slate-900/5">
                 <div className="space-y-1">
                   {acessoRapidoLinks.map((item) => (
                     <Link
@@ -228,6 +229,8 @@ export function Navbar() {
         <button
           className="md:hidden p-2"
           onClick={() => setIsOpen(!isOpen)}
+          aria-expanded={isOpen}
+          aria-controls="mobile-navigation"
           data-testid="mobile-menu-toggle"
         >
           {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -236,7 +239,7 @@ export function Navbar() {
 
       {/* Mobile Nav */}
       {isOpen && (
-        <div className="md:hidden border-b border-[#E2E8F0] bg-white">
+        <div id="mobile-navigation" className="md:hidden border-b border-[#E2E8F0] bg-white">
           <nav className="container mx-auto px-4 flex flex-col py-4 gap-3">
             <Link
               href="/sobre"
@@ -253,29 +256,32 @@ export function Navbar() {
                 className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-medium text-[#475569] transition-colors hover:text-[#2563EB]"
                 onClick={() => setIsAcessoMobileOpen((prev) => !prev)}
                 aria-expanded={isAcessoMobileOpen}
+                aria-controls="mobile-acesso-rapido"
               >
                 Acesso Rápido
                 <ChevronDown className={`h-4 w-4 transition-transform ${isAcessoMobileOpen ? "rotate-180" : ""}`} />
               </button>
               {isAcessoMobileOpen && (
-              <div ref={acessoMobileRef} className="mt-2 space-y-1 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-sm">
-                {acessoRapidoLinks.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
-                      location === item.href ? "text-[#2563EB] font-semibold" : "text-[#475569]"
-                    } hover:bg-[#EFF6FF]`}
-                    onClick={() => {
-                      setIsOpen(false);
-                      setIsAcessoMobileOpen(false);
-                    }}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            )}
+                <div id="mobile-acesso-rapido" role="menu" className="space-y-2">
+                  <div ref={acessoMobileRef} className="mt-2 space-y-1 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-sm">
+                    {acessoRapidoLinks.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
+                          location === item.href ? "text-[#2563EB] font-semibold" : "text-[#475569]"
+                        } hover:bg-[#EFF6FF]`}
+                        onClick={() => {
+                          setIsOpen(false);
+                          setIsAcessoMobileOpen(false);
+                        }}
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
           </div>
           {links.map((link) => (
             <Link

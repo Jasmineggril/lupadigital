@@ -85,9 +85,14 @@ const API_BASE = `${((import.meta.env.BASE_URL as string) || "/").replace(/\/$/,
  */
 async function getAuthHeaders() {
   if (!isSupabaseConfigured || !supabase) return null;
-  const token = await getSupabaseSessionToken();
-  if (!token) return null;
-  return { Authorization: `Bearer ${token}` };
+
+  try {
+    const token = await getSupabaseSessionToken();
+    if (!token) return null;
+    return { Authorization: `Bearer ${token}` };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -139,8 +144,13 @@ async function apiRequest<T>(path: string, opts: RequestInit = {}) {
  */
 async function useBackend(): Promise<boolean> {
   if (!isSupabaseConfigured || !supabase) return false;
-  const authHeaders = await getAuthHeaders();
-  return Boolean(authHeaders);
+
+  try {
+    const authHeaders = await getAuthHeaders();
+    return Boolean(authHeaders);
+  } catch {
+    return false;
+  }
 }
 
 /**

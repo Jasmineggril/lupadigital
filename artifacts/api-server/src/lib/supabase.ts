@@ -52,10 +52,25 @@ export function getSupabaseAdmin() {
 }
 
 let _jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+function deriveSupabaseJwksUrl(supabaseUrl: string | undefined): string | null {
+  if (!supabaseUrl) return null;
+  try {
+    const url = new URL(supabaseUrl);
+    url.pathname = `${url.pathname.replace(/\/+$|\/$/, "")}/auth/v1/.well-known/jwks.json`;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function getSupabaseJwks() {
   if (_jwks) return _jwks;
-  const jwksUrl = process.env.SUPABASE_JWKS_URL;
-  if (!jwksUrl) throw new Error("SUPABASE_JWKS_URL is not configured");
+  const jwksUrl = process.env.SUPABASE_JWKS_URL || deriveSupabaseJwksUrl(process.env.SUPABASE_URL);
+  if (!jwksUrl) {
+    throw new Error(
+      "SUPABASE_JWKS_URL não está configurado e não foi possível derivar a URL a partir de SUPABASE_URL.",
+    );
+  }
   _jwks = createRemoteJWKSet(new URL(jwksUrl));
   return _jwks;
 }

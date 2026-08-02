@@ -1,18 +1,13 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { resolvePort } from "./lib/port";
+import { ensureRequiredEnv } from "./lib/secretConfig";
 
-const rawPort = process.env["PORT"];
+const port = resolvePort(process.env.PORT);
 
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
+// Em produção (ou quando STRICT_ENV_CHECK=1) garantimos variáveis essenciais.
+if (process.env.NODE_ENV === "production" || process.env.STRICT_ENV_CHECK === "1") {
+  ensureRequiredEnv(["DATABASE_URL", "SUPABASE_URL", "SUPABASE_SECRET_KEY"]);
 }
 
 app.listen(port, (err) => {

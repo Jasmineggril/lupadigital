@@ -32,31 +32,19 @@ export async function ingest(request: IngestRequest): Promise<IngestResult> {
         pages: 1,
       };
 
-      const normalized: NormalizedDocument = {
-        id: extracted.id,
-        canonicalText: extracted.text,
-        tokensEstimate: Math.max(1, Math.ceil(extracted.text.length / 4)),
-      };
+        const normalized = await normalizeDocument(extracted);
+        const aiChunks = chunkDocument(normalized.canonicalText);
+        const chunked: ChunkedDocument = {
+          id: normalized.id,
+          chunks: aiChunks.map((c) => ({ id: c.chunkId, index: c.index, text: c.text, tokensEstimate: c.estimatedTokens, metadata: { pageStart: c.pageStart, pageEnd: c.pageEnd, sectionTitles: c.sectionTitles } })),
+          originalTokensEstimate: normalized.tokensEstimate,
+        };
 
-      const chunked: ChunkedDocument = {
-        id: normalized.id,
-        chunks: [
-          {
-            id: `${normalized.id}-chunk-0`,
-            index: 0,
-            text: normalized.canonicalText,
-            tokensEstimate: normalized.tokensEstimate,
-            metadata: {},
-          },
-        ],
-        originalTokensEstimate: normalized.tokensEstimate,
-      };
-
-      // Placeholder: integração com AI e consolidação virá depois
-      return {
-        success: false,
-        error: { code: "not_implemented", message: "Pipeline de IA ainda não implementada" },
-      };
+        // Pipeline de IA ainda não implementada — retornamos estrutura de chunking
+        return {
+          success: false,
+          error: { code: "not_implemented", message: "Pipeline de IA ainda não implementada" },
+        };
     }
 
     return { success: false, error: { code: "unsupported", message: "Fonte não suportada ainda" } };
@@ -107,6 +95,5 @@ export async function extractFromPdf(buffer: Buffer): Promise<ExtractedDocument>
 
 
 export async function normalizeDocument(extracted: ExtractedDocument): Promise<NormalizedDocument> {
-  // stub: limpeza, preservação de títulos/listas/tabelas
-  throw new Error("not implemented");
+  return normalizeExtracted(extracted);
 }

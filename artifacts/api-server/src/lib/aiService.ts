@@ -2539,6 +2539,14 @@ export async function analyzeAgent(
       message: `AIService error (${model})`,
     });
 
+    // Em cenários críticos (rate limits contínuos, falha de vários chunks, erro 500 em chunks),
+    // propagar o erro em vez de retornar fallback — os testes de produção esperam essa
+    // sinalização para que o chamador trate o erro de forma explícita.
+    const shouldPropagate = /chunks falharam|orçamento|429|rate limit|internal server error/i.test(message);
+    if (shouldPropagate) {
+      throw err;
+    }
+
     const fallbackAnalysis = buildHeuristicCanonicalAnalysis(agentId, normalizedText, parsedProfile.success ? parsedProfile.data : undefined, message);
     logger.warn({
       requestId,

@@ -4,7 +4,7 @@ vi.mock("@workspace/integrations-openai-ai-server", async () => {
   const actual = await vi.importActual<typeof import("@workspace/integrations-openai-ai-server")>("@workspace/integrations-openai-ai-server");
   return {
     ...actual,
-    createJsonChatCompletion: vi.fn().mockRejectedValue(new Error("provider unavailable")),
+    createWithFallback: vi.fn().mockRejectedValue(new Error("provider unavailable")),
   };
 });
 

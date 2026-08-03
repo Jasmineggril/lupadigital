@@ -2539,6 +2539,11 @@ export async function analyzeAgent(
       message: `AIService error (${model})`,
     });
 
+    const shouldPropagate = /chunks falharam|orçamento|429|rate limit|internal server error/i.test(message);
+    if (shouldPropagate) {
+      throw err;
+    }
+
     const fallbackAnalysis = buildHeuristicCanonicalAnalysis(agentId, normalizedText, parsedProfile.success ? parsedProfile.data : undefined, message);
     logger.warn({
       requestId,

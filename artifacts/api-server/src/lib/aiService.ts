@@ -1760,7 +1760,7 @@ export function buildCanonicalAnalysis(
    * Constrói cronograma com validação temporal.
    * Se houver conflitos de datas, adiciona alertas estruturados.
    */
-  const buildCronograma = () => {
+  const buildCronograma = (): CanonicalAnalysis["cronograma"] => {
     if (!Array.isArray(result.timeline)) {
       return { items: [] };
     }
@@ -2900,7 +2900,7 @@ export async function analyzeAgent(
     }, "Consolidating chunk results");
     const consolidatedAgentResult = buildConsolidatedAgentResult(agentId, chunkProcessing.chunkResults, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : undefined);
 
-    const consolidatedWithType = { type: agentId, ...consolidatedAgentResult } as Record<string, unknown>;
+    const consolidatedWithType = { ...consolidatedAgentResult, type: agentId } as Record<string, unknown>;
     const validator = VALIDATORS[agentId];
     const validatedConsolidation = validator.safeParse(consolidatedWithType);
     if (!validatedConsolidation.success) {

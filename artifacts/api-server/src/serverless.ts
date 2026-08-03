@@ -1,3 +1,5 @@
+import "./load-env";
+
 /**
  * @file serverless.ts
  * @description Entry point para Vercel Serverless Functions.

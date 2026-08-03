@@ -154205,7 +154205,9 @@ function getSupabaseJwks() {
 async function verifySupabaseJwt(token) {
   const jwks = getSupabaseJwks();
   const options = {
-    algorithms: ["RS256"],
+    // Supabase usa RS256 (chaves RSA) e ES256 (chaves EC/P-256) dependendo do projeto.
+    // Rejeitar ES256 fazia TODO JWT válido do projeto falhar com ERR_JOSE_ALG_NOT_ALLOWED.
+    algorithms: ["RS256", "ES256"],
     clockTolerance: "5m"
   };
   if (process.env.SUPABASE_JWT_ISSUER) {
@@ -156421,7 +156423,7 @@ async function analyzeAgent(agentId, text4, profile, opts) {
       failedChunks: chunkProcessing.processing.failedChunks
     }, "Consolidating chunk results");
     const consolidatedAgentResult = buildConsolidatedAgentResult(agentId, chunkProcessing.chunkResults, normalizedDocumentText, parsedProfile.success ? parsedProfile.data : void 0);
-    const consolidatedWithType = { type: agentId, ...consolidatedAgentResult };
+    const consolidatedWithType = { ...consolidatedAgentResult, type: agentId };
     const validator = VALIDATORS[agentId];
     const validatedConsolidation = validator.safeParse(consolidatedWithType);
     if (!validatedConsolidation.success) {

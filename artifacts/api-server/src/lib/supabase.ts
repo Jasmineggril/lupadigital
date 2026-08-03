@@ -10,7 +10,8 @@
  *    Variáveis necessárias: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SECRET_KEY)
  *
  * 2. VERIFICAÇÃO JWT (verifySupabaseJwt / getSupabaseJwks)
- *    Valida tokens JWT emitidos pelo Supabase Auth usando RS256 com JWKS remoto.
+ *    Valida tokens JWT emitidos pelo Supabase Auth usando RS256 (chaves RSA) ou ES256 (chaves EC/P-256)
+ *    com JWKS remoto.
  *    JWKS (JSON Web Key Set) contém a chave pública do Supabase para verificar assinaturas.
  *    Variáveis necessárias: SUPABASE_JWKS_URL
  *    Opcionais: SUPABASE_JWT_ISSUER, SUPABASE_JWT_AUDIENCE
@@ -63,7 +64,9 @@ export function getSupabaseJwks() {
 export async function verifySupabaseJwt(token: string) {
   const jwks = getSupabaseJwks();
   const options: any = {
-    algorithms: ["RS256"],
+    // Supabase usa RS256 (chaves RSA) e ES256 (chaves EC/P-256) dependendo do projeto.
+    // Rejeitar ES256 fazia TODO JWT válido do projeto falhar com ERR_JOSE_ALG_NOT_ALLOWED.
+    algorithms: ["RS256", "ES256"],
     clockTolerance: "5m",
   };
 

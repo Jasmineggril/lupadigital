@@ -14,8 +14,8 @@
  *   GET   /edital/history            — histórico legado (savedEditalsTable)
  *   POST  /edital/save               — salva edital simplificado (legado)
  *   DELETE /edital/:id               — remove edital salvo legado
- *   POST  /edital/share/:id          — gera token público de compartilhamento
- *   GET   /edital/shared/:token      — recupera resultado compartilhado (público)
+ *   POST  /edital/share              — gera token público de compartilhamento
+ *   GET   /edital/share/:token       — recupera resultado compartilhado (público)
  *
  * Segurança:
  *   - assertPublicHost(): proteção contra SSRF em URLs externas
@@ -534,7 +534,13 @@ router.post("/edital/share", async (req, res) => {
   }
   const { agentId, title, resultJson } = parsed.data;
   const token = randomUUID();
-  await db.insert(sharedResultsTable).values({ token, agentId, title, resultJson });
+  try {
+    await db.insert(sharedResultsTable).values({ token, agentId, title, resultJson });
+  } catch (error) {
+    req.log?.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to create share link");
+    res.status(503).json({ error: "Falha ao criar o link de compartilhamento. Tente novamente." });
+    return;
+  }
   res.status(201).json({ token });
 });
 
@@ -566,12 +572,20 @@ router.post("/edital/ocr-pdf", async (req, res): Promise<void> => {
 // ── GET /edital/share/:token — retrieve shared result ─────────────
 router.get("/edital/share/:token", async (req, res) => {
   const { token } = req.params;
-  const rows = await db
-    .select()
-    .from(sharedResultsTable)
-    .where(eq(sharedResultsTable.token, token))
-    .limit(1);
+  let rows: Array<{ token: string }>;
+  try {
+    rows = await db
+      .select()
+      .from(sharedResultsTable)
+      .where(eq(sharedResultsTable.token, token))
+      .limit(1);
+  } catch (error) {
+    req.log?.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to fetch shared result");
+    res.status(503).json({ error: "Falha ao buscar o link compartilhado. Tente novamente." });
+    return;
+  }
   if (rows.length === 0) {
+    // Token inexistente, inválido ou expirado — mesma resposta para não vazar existência.
     res.status(404).json({ error: "Link não encontrado ou expirado." });
     return;
   }

@@ -25,7 +25,7 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 
-import { openai, getOpenAIModel, getVisionClient, hasVisionSupport, createWithFallback, type FallbackResult } from "@workspace/integrations-openai-ai-server";
+import { openai, getOpenAIModel, getVisionClients, createWithFallback, type FallbackResult } from "@workspace/integrations-openai-ai-server";
 import { SimplifyEditalResponse } from "@workspace/api-zod";
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
@@ -2499,10 +2499,17 @@ const VALIDATORS: Record<AgentId, z.ZodTypeAny> = {
 // ── ocrPdf ─────────────────────────────────────────────────────────────────
 /**
  * Extrai texto de páginas de PDF renderizadas como imagens JPEG (base64),
- * usando GPT-4o Vision como motor de OCR.
+ * usando um modelo de visão como motor de OCR.
+ *
+ * Limitação atual (documentada): o OCR depende de um modelo de visão de um
+ * provedor configurado (OpenAI GPT-4o ou Gemini gemini-2.5-flash). O Groq
+ * (llama-3.3-70b-versatile) NÃO tem suporte a imagens. Se a chave preferida
+ * (GPT-4o) estiver sem cota (429), o serviço tenta o próximo provedor com
+ * visão configurado; se nenhum provedor conseguir processar, retorna um
+ * erro específico de "OCR indisponível" em vez de um fallback genérico.
  *
  * Centralizado no AIService para garantir logging, rastreabilidade e
- * controle centralizado de todas as chamadas à API OpenAI.
+ * controle centralizado de todas as chamadas à API de visão.
  *
  * @param pages - Array de strings base64 (JPEG) representando páginas do PDF
  * @returns Texto extraído concatenado de todas as páginas
@@ -2513,78 +2520,101 @@ export async function ocrPdf(
 ): Promise<string> {
   if (!pages.length) return "";
 
-  if (!hasVisionSupport()) {
+  const visionClients = getVisionClients();
+  if (visionClients.length === 0) {
     throw new Error(
       "OCR_INDISPONIVEL: Este PDF parece ser escaneado (apenas imagens). O provedor de IA configurado (Groq/llama-3.3-70b-versatile) não oferece OCR. Configure GEMINI_API_KEY ou OPENAI_API_KEY para analisar PDFs escaneados, ou cole o texto manualmente na aba 'Colar Texto'.",
     );
   }
 
-  const { client: visionClient, provider, model } = getVisionClient();
   const start = Date.now();
   // Processa as páginas em lotes de 8 imagens por chamada à API.
-  // Por quê BATCH=8? GPT-4o Vision suporta até 10 imagens por mensagem,
-  // mas 8 é o sweet-spot entre contexto (tokens de imagem ~85–1700 tokens cada)
+  // Por quê BATCH=8? Modelos de visão suportam múltiplas imagens por mensagem,
+  // e 8 é o sweet-spot entre contexto (tokens de imagem ~85–1700 tokens cada)
   // e janela de 128k tokens. Lotes maiores aumentam risco de truncamento silencioso.
   const BATCH = 8;
-  const parts: string[] = [];
+  const OCR_PROMPT =
+    "Você é um assistente de OCR especializado em documentos oficiais brasileiros. Extraia TODO o texto das páginas do documento abaixo, em português, preservando parágrafos, seções e estrutura. Saída: apenas o texto extraído, sem comentários ou marcações extras.";
 
-  try {
-    for (let i = 0; i < pages.length; i += BATCH) {
-      const batch = pages.slice(i, i + BATCH);
-      const imageBlocks = batch.map((b64) => ({
-        type: "image_url" as const,
-        image_url: { url: `data:image/jpeg;base64,${b64}`, detail: "auto" as const },
-      }));
+  let lastError: { provider: string; message: string; providerLevel: boolean } | null = null;
 
-      const response = await visionClient.chat.completions.create({
+  for (const { client: visionClient, provider, model } of visionClients) {
+    try {
+      const parts: string[] = [];
+      for (let i = 0; i < pages.length; i += BATCH) {
+        const batch = pages.slice(i, i + BATCH);
+        const imageBlocks = batch.map((b64) => ({
+          type: "image_url" as const,
+          image_url: { url: `data:image/jpeg;base64,${b64}`, detail: "auto" as const },
+        }));
+
+        const response = await visionClient.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: "user",
+              content: [{ type: "text", text: OCR_PROMPT }, ...imageBlocks],
+            },
+          ],
+          max_tokens: 8192,
+        }, { signal: AbortSignal.timeout(GLOBAL_BUDGET_MS) });
+
+        parts.push(response.choices[0]?.message?.content ?? "");
+      }
+
+      const latency = Date.now() - start;
+      await persistUsageLog({
+        module: "AIService.ocrPdf",
         model,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Você é um assistente de OCR especializado em documentos oficiais brasileiros. Extraia TODO o texto das páginas do documento abaixo, em português, preservando parágrafos, seções e estrutura. Saída: apenas o texto extraído, sem comentários ou marcações extras.",
-              },
-              ...imageBlocks,
-            ],
-          },
-        ],
-        max_tokens: 8192,
-      }, { signal: AbortSignal.timeout(GLOBAL_BUDGET_MS) });
+        userId: opts?.userId ?? null,
+        documentId: null,
+        latencyMs: latency,
+        success: true,
+        level: "info",
+        message: `OCR completed: ${pages.length} pages`,
+      });
 
-      parts.push(response.choices[0]?.message?.content ?? "");
+      return parts.join("\n\n");
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      const classification = classifyAiError(msg);
+      // Erro atribuível ao provedor (cota, auth, indisponibilidade, request
+      // inválida): vale a pena tentar o próximo provedor com visão.
+      const providerLevel =
+        classification.status === 429 ||
+        classification.status === 401 ||
+        classification.status === 403 ||
+        classification.status === 503 ||
+        classification.status === 400;
+      lastError = { provider, message: msg, providerLevel };
+
+      logger.warn(
+        { provider, model, error: msg, reason: classification.reason, providerLevel },
+        "OCR vision provider failed; checking next provider",
+      );
+      if (!providerLevel) break;
     }
-
-    const latency = Date.now() - start;
-    await persistUsageLog({
-      module: "AIService.ocrPdf",
-      model,
-      userId: opts?.userId ?? null,
-      documentId: null,
-      latencyMs: latency,
-      success: true,
-      level: "info",
-      message: `OCR completed: ${pages.length} pages`,
-    });
-
-    return parts.join("\n\n");
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    const latency = Date.now() - start;
-    await persistUsageLog({
-      module: "AIService.ocrPdf",
-      model,
-      userId: opts?.userId ?? null,
-      documentId: null,
-      latencyMs: latency,
-      success: false,
-      errorMessage: msg,
-      level: "error",
-      message: "OCR failed",
-    });
-    throw new Error(`OCR error: ${msg}`);
   }
+
+  const latency = Date.now() - start;
+  await persistUsageLog({
+    module: "AIService.ocrPdf",
+    model: lastError?.provider ?? "none",
+    userId: opts?.userId ?? null,
+    documentId: null,
+    latencyMs: latency,
+    success: false,
+    errorMessage: lastError?.message ?? "No vision provider configured",
+    level: "error",
+    message: "OCR failed",
+  });
+
+  // Propaga o erro para o mapeamento correto no route (429 quota, 503 auth,
+  // 422 conteúdo, etc.) — nunca um fallback genérico.
+  if (lastError) {
+    throw new Error(`OCR error: ${lastError.message}`);
+  }
+  throw new Error("OCR error: nenhum provedor de visão está configurado.");
 }
 
 // ── simplifyEdital ─────────────────────────────────────────────────────────

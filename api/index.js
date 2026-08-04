@@ -144553,33 +144553,23 @@ function getOpenAIModel() {
   if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
   return "gpt-5.4-mini";
 }
-function getVisionModel() {
-  if (process.env.OPENAI_API_KEY) return "gpt-4o";
-  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
-  if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
-  return "";
-}
-function hasVisionSupport() {
-  return getVisionModel() !== "";
-}
-function getVisionClient() {
+function getVisionClients() {
+  const clients = [];
   if (process.env.OPENAI_API_KEY) {
-    return {
+    clients.push({
       client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 12e4 }),
       provider: "openai",
-      model: getVisionModel()
-    };
+      model: "gpt-4o"
+    });
   }
   if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) {
-    return {
+    clients.push({
       client: { chat: { completions: { create: geminiCreate } } },
       provider: "gemini",
-      model: getVisionModel()
-    };
+      model: "gemini-2.5-flash"
+    });
   }
-  throw new Error(
-    "OCR_INDISPONIVEL: O provedor de IA configurado (Groq/llama-3.3-70b-versatile) n\xE3o oferece suporte a OCR de imagens. Configure GEMINI_API_KEY ou OPENAI_API_KEY para habilitar OCR de PDFs escaneados."
-  );
+  return clients;
 }
 function getGeminiApiKey() {
   return process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
@@ -156111,68 +156101,77 @@ var VALIDATORS = {
 };
 async function ocrPdf(pages, opts) {
   if (!pages.length) return "";
-  if (!hasVisionSupport()) {
+  const visionClients = getVisionClients();
+  if (visionClients.length === 0) {
     throw new Error(
       "OCR_INDISPONIVEL: Este PDF parece ser escaneado (apenas imagens). O provedor de IA configurado (Groq/llama-3.3-70b-versatile) n\xE3o oferece OCR. Configure GEMINI_API_KEY ou OPENAI_API_KEY para analisar PDFs escaneados, ou cole o texto manualmente na aba 'Colar Texto'."
     );
   }
-  const { client: visionClient, provider, model } = getVisionClient();
   const start = Date.now();
   const BATCH = 8;
-  const parts = [];
-  try {
-    for (let i = 0; i < pages.length; i += BATCH) {
-      const batch = pages.slice(i, i + BATCH);
-      const imageBlocks = batch.map((b64) => ({
-        type: "image_url",
-        image_url: { url: `data:image/jpeg;base64,${b64}`, detail: "auto" }
-      }));
-      const response = await visionClient.chat.completions.create({
+  const OCR_PROMPT = "Voc\xEA \xE9 um assistente de OCR especializado em documentos oficiais brasileiros. Extraia TODO o texto das p\xE1ginas do documento abaixo, em portugu\xEAs, preservando par\xE1grafos, se\xE7\xF5es e estrutura. Sa\xEDda: apenas o texto extra\xEDdo, sem coment\xE1rios ou marca\xE7\xF5es extras.";
+  let lastError = null;
+  for (const { client: visionClient, provider, model } of visionClients) {
+    try {
+      const parts = [];
+      for (let i = 0; i < pages.length; i += BATCH) {
+        const batch = pages.slice(i, i + BATCH);
+        const imageBlocks = batch.map((b64) => ({
+          type: "image_url",
+          image_url: { url: `data:image/jpeg;base64,${b64}`, detail: "auto" }
+        }));
+        const response = await visionClient.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: "user",
+              content: [{ type: "text", text: OCR_PROMPT }, ...imageBlocks]
+            }
+          ],
+          max_tokens: 8192
+        }, { signal: AbortSignal.timeout(GLOBAL_BUDGET_MS) });
+        parts.push(response.choices[0]?.message?.content ?? "");
+      }
+      const latency2 = Date.now() - start;
+      await persistUsageLog({
+        module: "AIService.ocrPdf",
         model,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Voc\xEA \xE9 um assistente de OCR especializado em documentos oficiais brasileiros. Extraia TODO o texto das p\xE1ginas do documento abaixo, em portugu\xEAs, preservando par\xE1grafos, se\xE7\xF5es e estrutura. Sa\xEDda: apenas o texto extra\xEDdo, sem coment\xE1rios ou marca\xE7\xF5es extras."
-              },
-              ...imageBlocks
-            ]
-          }
-        ],
-        max_tokens: 8192
-      }, { signal: AbortSignal.timeout(GLOBAL_BUDGET_MS) });
-      parts.push(response.choices[0]?.message?.content ?? "");
+        userId: opts?.userId ?? null,
+        documentId: null,
+        latencyMs: latency2,
+        success: true,
+        level: "info",
+        message: `OCR completed: ${pages.length} pages`
+      });
+      return parts.join("\n\n");
+    } catch (error40) {
+      const msg = error40 instanceof Error ? error40.message : String(error40);
+      const classification = classifyAiError(msg);
+      const providerLevel = classification.status === 429 || classification.status === 401 || classification.status === 403 || classification.status === 503 || classification.status === 400;
+      lastError = { provider, message: msg, providerLevel };
+      logger.warn(
+        { provider, model, error: msg, reason: classification.reason, providerLevel },
+        "OCR vision provider failed; checking next provider"
+      );
+      if (!providerLevel) break;
     }
-    const latency = Date.now() - start;
-    await persistUsageLog({
-      module: "AIService.ocrPdf",
-      model,
-      userId: opts?.userId ?? null,
-      documentId: null,
-      latencyMs: latency,
-      success: true,
-      level: "info",
-      message: `OCR completed: ${pages.length} pages`
-    });
-    return parts.join("\n\n");
-  } catch (error40) {
-    const msg = error40 instanceof Error ? error40.message : String(error40);
-    const latency = Date.now() - start;
-    await persistUsageLog({
-      module: "AIService.ocrPdf",
-      model,
-      userId: opts?.userId ?? null,
-      documentId: null,
-      latencyMs: latency,
-      success: false,
-      errorMessage: msg,
-      level: "error",
-      message: "OCR failed"
-    });
-    throw new Error(`OCR error: ${msg}`);
   }
+  const latency = Date.now() - start;
+  await persistUsageLog({
+    module: "AIService.ocrPdf",
+    model: lastError?.provider ?? "none",
+    userId: opts?.userId ?? null,
+    documentId: null,
+    latencyMs: latency,
+    success: false,
+    errorMessage: lastError?.message ?? "No vision provider configured",
+    level: "error",
+    message: "OCR failed"
+  });
+  if (lastError) {
+    throw new Error(`OCR error: ${lastError.message}`);
+  }
+  throw new Error("OCR error: nenhum provedor de vis\xE3o est\xE1 configurado.");
 }
 async function simplifyEdital(text4, opts) {
   const cleaned = text4.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
@@ -157142,7 +157141,13 @@ router2.post("/edital/share", async (req, res) => {
   }
   const { agentId, title, resultJson } = parsed.data;
   const token = randomUUID2();
-  await db.insert(sharedResultsTable).values({ token, agentId, title, resultJson });
+  try {
+    await db.insert(sharedResultsTable).values({ token, agentId, title, resultJson });
+  } catch (error40) {
+    req.log?.error({ error: error40 instanceof Error ? error40.message : String(error40) }, "Failed to create share link");
+    res.status(503).json({ error: "Falha ao criar o link de compartilhamento. Tente novamente." });
+    return;
+  }
   res.status(201).json({ token });
 });
 router2.post("/edital/ocr-pdf", async (req, res) => {
@@ -157167,7 +157172,14 @@ router2.post("/edital/ocr-pdf", async (req, res) => {
 });
 router2.get("/edital/share/:token", async (req, res) => {
   const { token } = req.params;
-  const rows = await db.select().from(sharedResultsTable).where(eq(sharedResultsTable.token, token)).limit(1);
+  let rows;
+  try {
+    rows = await db.select().from(sharedResultsTable).where(eq(sharedResultsTable.token, token)).limit(1);
+  } catch (error40) {
+    req.log?.error({ error: error40 instanceof Error ? error40.message : String(error40) }, "Failed to fetch shared result");
+    res.status(503).json({ error: "Falha ao buscar o link compartilhado. Tente novamente." });
+    return;
+  }
   if (rows.length === 0) {
     res.status(404).json({ error: "Link n\xE3o encontrado ou expirado." });
     return;
@@ -157848,10 +157860,31 @@ app.use("/api/diag", diagLimiter);
 app.use("/api", routes_default);
 app.use((err, _req, res, _next) => {
   logger.error({ err }, "Unhandled error");
-  const status = err.status ?? err.statusCode ?? 500;
-  res.status(status).json({
-    error: err.message ?? "Internal server error"
-  });
+  const anyErr = err;
+  if (anyErr.userSafe === true) {
+    const status = Number(anyErr.status) || Number(anyErr.statusCode) || 500;
+    res.status(status).json({ error: err.message });
+    return;
+  }
+  if (anyErr.code === "LIMIT_FILE_SIZE") {
+    res.status(413).json({ error: "Arquivo muito grande. O limite \xE9 de 20MB." });
+    return;
+  }
+  if (anyErr.code && anyErr.code.startsWith("LIMIT_")) {
+    res.status(400).json({ error: "Arquivo inv\xE1lido." });
+    return;
+  }
+  if (typeof err.message === "string" && err.message.startsWith("CORS:")) {
+    res.status(403).json({ error: "Origem n\xE3o permitida." });
+    return;
+  }
+  const message2 = (err.message ?? "").toLowerCase();
+  const looksLikeDbError = typeof err.message === "string" && (message2.includes("failed query") || message2.includes("select ") || message2.includes("insert into") || message2.includes("connection") || message2.includes("pool") || message2.includes("econnrefused") || message2.includes("econnreset") || message2.includes("timeout") || message2.includes("database") || message2.includes("postgres") || anyErr.code?.match(/^[0-5][0-9A-Z]{4}$/));
+  if (looksLikeDbError) {
+    res.status(503).json({ error: "Falha ao acessar o banco de dados. Tente novamente." });
+    return;
+  }
+  res.status(500).json({ error: "Erro interno do servidor. Tente novamente." });
 });
 var app_default = app;
 export {

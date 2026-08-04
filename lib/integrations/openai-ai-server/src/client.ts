@@ -21,29 +21,50 @@ export function getVisionModel(): string {
 }
 
 export function hasVisionSupport(): boolean {
-  return getVisionModel() !== "";
+  return getVisionClients().length > 0;
+}
+
+export interface VisionClient {
+  client: OpenAI;
+  provider: string;
+  model: string;
+}
+
+/**
+ * Todos os provedores configurados que possuem modelo com visão (para OCR).
+ * Ordem de preferência: OpenAI (GPT-4o) → Gemini (gemini-2.5-flash).
+ * Permite que o OCR faça fallback quando o provedor preferido falhar
+ * (ex.: cota esgotada — 429), em vez de retornar erro direto.
+ */
+export function getVisionClients(): VisionClient[] {
+  const clients: VisionClient[] = [];
+  if (process.env.OPENAI_API_KEY) {
+    clients.push({
+      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 120_000 }),
+      provider: "openai",
+      model: "gpt-4o",
+    });
+  }
+  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) {
+    clients.push({
+      client: { chat: { completions: { create: geminiCreate } } } as unknown as OpenAI,
+      provider: "gemini",
+      model: "gemini-2.5-flash",
+    });
+  }
+  return clients;
 }
 
 /** Cliente e modelo com suporte a visão para OCR. Lança erro claro quando indisponível. */
-export function getVisionClient(): { client: OpenAI; provider: string; model: string } {
-  if (process.env.OPENAI_API_KEY) {
-    return {
-      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 120_000 }),
-      provider: "openai",
-      model: getVisionModel(),
-    };
+export function getVisionClient(): VisionClient {
+  const clients = getVisionClients();
+  if (clients.length === 0) {
+    throw new Error(
+      "OCR_INDISPONIVEL: O provedor de IA configurado (Groq/llama-3.3-70b-versatile) não oferece suporte a OCR de imagens. " +
+        "Configure GEMINI_API_KEY ou OPENAI_API_KEY para habilitar OCR de PDFs escaneados.",
+    );
   }
-  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) {
-    return {
-      client: { chat: { completions: { create: geminiCreate } } } as unknown as OpenAI,
-      provider: "gemini",
-      model: getVisionModel(),
-    };
-  }
-  throw new Error(
-    "OCR_INDISPONIVEL: O provedor de IA configurado (Groq/llama-3.3-70b-versatile) não oferece suporte a OCR de imagens. " +
-      "Configure GEMINI_API_KEY ou OPENAI_API_KEY para habilitar OCR de PDFs escaneados.",
-  );
+  return clients[0];
 }
 
 function getGeminiApiKey(): string | undefined {

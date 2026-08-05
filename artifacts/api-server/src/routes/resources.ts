@@ -57,6 +57,18 @@ function tableNameIsAllowed(name: string) {
   return ALLOWED_TABLES.has(name);
 }
 
+/**
+ * Extrai mensagem legível de qualquer erro (Error ou objeto Supabase/PostgREST).
+ * Evita logar "[object Object]" para erros que não são instâncias de Error.
+ */
+function errMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "object" && err !== null && "message" in err) {
+    return String((err as { message: unknown }).message);
+  }
+  return String(err);
+}
+
 // ── Schemas Zod para validação de payload por tabela ─────────────────────────
 // Cada schema define os campos aceitos para aquela tabela.
 // Campos extras no corpo da requisição são ignorados pelo Zod (strip by default).
@@ -181,7 +193,7 @@ router.get("/resources/:table", async (req: Request, res: Response): Promise<voi
     if (error) throw error;
     res.json(data);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errMessage(err);
     req.log?.error({ error: message, table, userId }, "resource:list:error");
     res.status(500).json({ error: "Falha ao listar recursos." });
   }
@@ -237,7 +249,7 @@ router.post("/resources/:table", async (req: Request, res: Response): Promise<vo
     if (error) throw error;
     res.status(201).json(data);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errMessage(err);
     req.log?.error({ error: message, table, userId }, "resource:create:error");
     res.status(500).json({ error: "Falha ao criar recurso." });
   }
@@ -287,7 +299,7 @@ router.get("/resources/:table/:id", async (req: Request, res: Response): Promise
     }
     res.json(data);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errMessage(err);
     req.log?.error({ error: message, table, id, userId }, "resource:get:error");
     res.status(500).json({ error: "Falha ao recuperar recurso." });
   }
@@ -347,7 +359,7 @@ router.put("/resources/:table/:id", async (req: Request, res: Response): Promise
     }
     res.json(data);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errMessage(err);
     req.log?.error({ error: message, table, id, userId }, "resource:update:error");
     res.status(500).json({ error: "Falha ao atualizar recurso." });
   }
@@ -387,7 +399,7 @@ router.delete("/resources/:table/:id", async (req: Request, res: Response): Prom
     if (error) throw error;
     res.sendStatus(204); // 204 No Content: deleção bem-sucedida, sem corpo
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errMessage(err);
     req.log?.error({ error: message, table, id, userId }, "resource:delete:error");
     res.status(500).json({ error: "Falha ao deletar recurso." });
   }

@@ -144272,16 +144272,16 @@ var OpenAI = class {
       loggerFor(this).info(`${responseInfo} - ${retryMessage}`);
       const errText = await response.text().catch((err2) => castToError(err2).message);
       const errJSON = safeJSON(errText);
-      const errMessage = errJSON ? void 0 : errText;
+      const errMessage2 = errJSON ? void 0 : errText;
       loggerFor(this).debug(`[${requestLogID}] response error (${retryMessage})`, formatRequestDetails({
         retryOfRequestLogID,
         url: response.url,
         status: response.status,
         headers: response.headers,
-        message: errMessage,
+        message: errMessage2,
         durationMs: Date.now() - startTime
       }));
-      const err = this.makeStatusError(response.status, errJSON, errMessage, response.headers);
+      const err = this.makeStatusError(response.status, errJSON, errMessage2, response.headers);
       throw err;
     }
     loggerFor(this).info(responseInfo);
@@ -154867,10 +154867,10 @@ async function analyzeChunkFacts(agentId, chunkText, profile, opts) {
     const usageTokens = completionResult.usage ? (completionResult.usage.prompt_tokens ?? 0) + (completionResult.usage.completion_tokens ?? 0) : 0;
     recordTpmUsage(usageTokens || estimatedPromptTokens + requestedMaxOutputTokens);
   } catch (error40) {
-    const errMessage = error40 instanceof Error ? error40.message : String(error40);
-    const httpMatch = errMessage.match(/status[_\s]*(\d{3})/i) ?? errMessage.match(/\b(4\d{2}|5\d{2})\b/);
+    const errMessage2 = error40 instanceof Error ? error40.message : String(error40);
+    const httpMatch = errMessage2.match(/status[_\s]*(\d{3})/i) ?? errMessage2.match(/\b(4\d{2}|5\d{2})\b/);
     const httpStatus = httpMatch ? Number(httpMatch[1]) : null;
-    const sanitizedError = errMessage.replace(/sk-[a-zA-Z0-9]{20,}/g, "[REDACTED]").replace(/gsk_[a-zA-Z0-9]{20,}/g, "[REDACTED]").replace(/key[_\s]*[:=][_\s]*["']?[a-zA-Z0-9]{20,}["']?/gi, "key=[REDACTED]").slice(0, 500);
+    const sanitizedError = errMessage2.replace(/sk-[a-zA-Z0-9]{20,}/g, "[REDACTED]").replace(/gsk_[a-zA-Z0-9]{20,}/g, "[REDACTED]").replace(/key[_\s]*[:=][_\s]*["']?[a-zA-Z0-9]{20,}["']?/gi, "key=[REDACTED]").slice(0, 500);
     logger.error({
       step: "chunk_ai_error",
       provider,
@@ -157204,6 +157204,13 @@ var ALLOWED_TABLES = /* @__PURE__ */ new Set([
 function tableNameIsAllowed(name) {
   return ALLOWED_TABLES.has(name);
 }
+function errMessage(err) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "object" && err !== null && "message" in err) {
+    return String(err.message);
+  }
+  return String(err);
+}
 var EdtalAnalysisSchema = external_exports2.object({
   titulo: external_exports2.string().nullable().optional(),
   conteudo_original: external_exports2.string().nullable().optional(),
@@ -157286,7 +157293,7 @@ router3.get("/resources/:table", async (req, res) => {
     if (error40) throw error40;
     res.json(data2);
   } catch (err) {
-    const message2 = err instanceof Error ? err.message : String(err);
+    const message2 = errMessage(err);
     req.log?.error({ error: message2, table, userId }, "resource:list:error");
     res.status(500).json({ error: "Falha ao listar recursos." });
   }
@@ -157323,7 +157330,7 @@ router3.post("/resources/:table", async (req, res) => {
     if (error40) throw error40;
     res.status(201).json(data2);
   } catch (err) {
-    const message2 = err instanceof Error ? err.message : String(err);
+    const message2 = errMessage(err);
     req.log?.error({ error: message2, table, userId }, "resource:create:error");
     res.status(500).json({ error: "Falha ao criar recurso." });
   }
@@ -157354,7 +157361,7 @@ router3.get("/resources/:table/:id", async (req, res) => {
     }
     res.json(data2);
   } catch (err) {
-    const message2 = err instanceof Error ? err.message : String(err);
+    const message2 = errMessage(err);
     req.log?.error({ error: message2, table, id, userId }, "resource:get:error");
     res.status(500).json({ error: "Falha ao recuperar recurso." });
   }
@@ -157396,7 +157403,7 @@ router3.put("/resources/:table/:id", async (req, res) => {
     }
     res.json(data2);
   } catch (err) {
-    const message2 = err instanceof Error ? err.message : String(err);
+    const message2 = errMessage(err);
     req.log?.error({ error: message2, table, id, userId }, "resource:update:error");
     res.status(500).json({ error: "Falha ao atualizar recurso." });
   }
@@ -157421,7 +157428,7 @@ router3.delete("/resources/:table/:id", async (req, res) => {
     if (error40) throw error40;
     res.sendStatus(204);
   } catch (err) {
-    const message2 = err instanceof Error ? err.message : String(err);
+    const message2 = errMessage(err);
     req.log?.error({ error: message2, table, id, userId }, "resource:delete:error");
     res.status(500).json({ error: "Falha ao deletar recurso." });
   }

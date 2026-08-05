@@ -260,6 +260,124 @@ function canonicalToAgentResult(canonical: CanonicalAnalysisLike | null | undefi
   }
 }
 
+const missingInfoText = "Não foi possível localizar essa informação.";
+
+function normalizeCanonicalText(value: string | undefined | null) {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+  return missingInfoText;
+}
+
+function normalizeCanonicalList(items: string[] | undefined | null) {
+  if (Array.isArray(items) && items.length > 0) {
+    return items;
+  }
+  return [missingInfoText];
+}
+
+function buildCanonicalFAQ(canonical: CanonicalAnalysisLike | null) {
+  if (!canonical) return [];
+
+  const interpretation = canonical.interpretation ?? {};
+  const cronogramaItems = canonical.cronograma?.items ?? [];
+  const checklistItems = canonical.checklist?.items ?? [];
+  const objetivos = normalizeCanonicalText(interpretation.objective);
+  const publico = normalizeCanonicalText(interpretation.targetAudience);
+  const resumo = normalizeCanonicalText(interpretation.summary);
+
+  return [
+    {
+      question: "Quem pode participar deste edital?",
+      answer: publico,
+    },
+    {
+      question: "Quais são os prazos mais importantes?",
+      answer: cronogramaItems.length > 0
+        ? cronogramaItems.map((item) => `${item.fase}: ${item.periodo}`).join(" • ")
+        : normalizeCanonicalText(interpretation.deadlines),
+    },
+    {
+      question: "Quais documentos preciso separar?",
+      answer: canonical.documentosExigidos?.items?.length
+        ? canonical.documentosExigidos.items.join("; ")
+        : normalizeCanonicalText(interpretation.requirements?.join("; ")),
+    },
+    {
+      question: "Como faço a inscrição?",
+      answer: normalizeCanonicalText(interpretation.registrationLocation),
+    },
+    {
+      question: "Meu perfil atende a este edital?",
+      answer: canonical.elegibilidade?.recommendation
+        ? normalizeCanonicalText(canonical.elegibilidade.recommendation)
+        : missingInfoText,
+    },
+  ];
+}
+
+function getCanonicalAnswer(question: string, text: string, canonical: CanonicalAnalysisLike | null, profile: UserProfile) {
+  const normalized = question.toLowerCase();
+  if (!canonical) {
+    return "Ainda não há uma interpretação canônica disponível. Faça a análise primeiro.";
+  }
+
+  const interpretation = canonical.interpretation ?? {};
+  const deadline = normalizeCanonicalText(interpretation.deadlines);
+  const docs = canonical.documentosExigidos?.items?.length
+    ? canonical.documentosExigidos.items.join("; ")
+    : normalizeCanonicalText(interpretation.requirements?.join("; "));
+  const summary = normalizeCanonicalText(interpretation.summary);
+  const audience = normalizeCanonicalText(interpretation.targetAudience);
+  const recommendation = canonical.elegibilidade?.recommendation
+    ? normalizeCanonicalText(canonical.elegibilidade.recommendation)
+    : missingInfoText;
+
+  if (/resumo|simples|linguagem simples|explicar/i.test(normalized)) {
+    return summary;
+  }
+
+  if (/prazo|data|inscri/i.test(normalized)) {
+    return deadline !== missingInfoText
+      ? `O prazo principal identificado é: ${deadline}.` 
+      : "Não foi possível localizar informações de prazo no documento.";
+  }
+
+  if (/document|anexo|arquivo|comprov/i.test(normalized)) {
+    return docs !== missingInfoText
+      ? `Documentos identificados: ${docs}`
+      : "Não foi possível localizar os documentos exigidos no documento.";
+  }
+
+  if (/cronograma|timeline|fase|etapa/i.test(normalized)) {
+    const cronogramaItems = canonical.cronograma?.items ?? [];
+    return cronogramaItems.length > 0
+      ? cronogramaItems.map((item) => `${item.fase}: ${item.periodo}`).join("\n")
+      : "Não foi possível localizar um cronograma no documento.";
+  }
+
+  if (/elegibil|perfil|aderênc|atendo/i.test(normalized)) {
+    if (canonical.elegibilidade?.criteria?.length) {
+      return `A aderência estimada é ${canonical.elegibilidade.score ?? 0}%. ${recommendation}`;
+    }
+    return "Não foi possível verificar elegibilidade com os dados disponíveis.";
+  }
+
+  if (/valor|benef[ií]cio|bolsa|recurso|financi/i.test(normalized)) {
+    return canonical.valores?.valor
+      ? `Valor identificado: ${canonical.valores.valor}. ${normalizeCanonicalText(canonical.valores.observacao)}`
+      : "Não foi possível localizar valor ou benefício no documento.";
+  }
+
+  if (/risco|aten[iç]ão|ponto|vantagem/i.test(normalized)) {
+    return canonical.alertas && canonical.alertas.length > 0
+      ? `Riscos e alertas: ${canonical.alertas.map((a) => (typeof a === "string" ? a : a.descricao || JSON.stringify(a))).join("; ")}`
+      : "Não foram identificados riscos claros no documento.";
+  }
+
+  return `Pergunta recebida. Baseado na análise canônica atual: ${summary}`;
+}
+
 function getFriendlyErrorMessage(error: unknown) {
   const normalize = (value: string) => value.toLowerCase();
 
@@ -513,230 +631,7 @@ function getSimplifiedText(result: AgentResult) {
   }
 }
 
-function buildEditalFAQ(result: AgentResult | null) {
-  if (!result) return [];
-
-  const getDocuments = () => {
-    if (result.type === "documentacao")
-      return result.checklist.map((item) => item.doc).join("; ");
-    if (result.type === "analista") return result.documentos.join("; ");
-    return "Verifique os documentos listados no edital e no resumo de interpretação.";
-  };
-
-  const getPrazos = () => {
-    if (result.type === "acompanhamento")
-      return result.timeline
-        .map((item) => `${item.fase}: ${item.periodo}`)
-        .join(" • ");
-    return (
-      (result as { prazo?: string }).prazo ??
-      "Não foi possível identificar o prazo com precisão."
-    );
-  };
-
-  const getInscricao = () => {
-    if (result.type === "simples") return result.ondeInscrever;
-    if (result.type === "analista")
-      return "Consulte o portal oficial do órgão responsável pelo edital e siga as instruções de inscrição.";
-    return "Confira a seção de inscrição do edital e os canais oficiais indicados.";
-  };
-
-  const getElegibilidade = () => {
-    if (result.type === "elegibilidade") return result.recomendacao;
-    return "Use o agente Lupa Elegibilidade para comparar seu perfil ao edital e verificar se atende aos critérios.";
-  };
-
-  return [
-    {
-      question: "Quem pode participar deste edital?",
-      answer:
-        (result as { publicoAlvo?: string }).publicoAlvo ??
-        "O edital define o público-alvo no texto original; leia a seção de elegibilidade para confirmar.",
-    },
-    {
-      question: "Quais são os prazos mais importantes?",
-      answer: getPrazos(),
-    },
-    {
-      question: "Quais documentos preciso separar?",
-      answer: getDocuments(),
-    },
-    {
-      question: "Como faço a inscrição?",
-      answer: getInscricao(),
-    },
-    {
-      question: "Meu perfil atende a este edital?",
-      answer: getElegibilidade(),
-    },
-  ];
-}
-
-function normalizePublicUrl(value: string) {
-  const trimmed = value.trim().replace(/^["'<>\s]+|["'<>\s]+$/g, "");
-  if (!trimmed) return null;
-
-  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  try {
-    return new URL(candidate).toString();
-  } catch {
-    return null;
-  }
-}
-
-function getPrimaryDeadline(text: string, result: AgentResult | null) {
-  if (result?.type === "simples") return result.prazo;
-  if (result?.type === "analista") return result.prazo;
-
-  const match = text.match(/\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b|\b\d{1,2}\s+de\s+[a-záéíóúâêîôûãõ]+\s+de\s+\d{4}\b/gi);
-  return match?.[0] ?? "Não identificado no texto";
-}
-
-function getDocumentSummary(result: AgentResult | null, checklistItems: ChecklistItemSummary[], pdfStructuredData: PdfStructuredData | null) {
-  if (result?.type === "documentacao") {
-    return result.checklist.length > 0
-      ? `${result.checklist.length} documentos detectados. Principais: ${result.checklist.slice(0, 4).map((item) => item.doc).join(", ")}.`
-      : "Nenhum documento foi identificado automaticamente.";
-  }
-
-  if (pdfStructuredData?.requisitos.length) {
-    return `${pdfStructuredData.requisitos.length} requisitos identificados no PDF. Principais: ${pdfStructuredData.requisitos.slice(0, 3).join(", ")}.`;
-  }
-
-  return checklistItems.some((item) => item.done)
-    ? `${checklistItems.filter((item) => item.done).length} sinais de documentação e prazo foram detectados automaticamente.`
-    : "Use o texto completo do edital para extrair documentos e requisitos.";
-}
-
-function buildEditalFaqs(text: string, result: AgentResult | null, timelineSteps: TimelineStep[], checklistItems: ChecklistItemSummary[], pdfStructuredData: PdfStructuredData | null) {
-  const deadline = getPrimaryDeadline(text, result);
-  const docs = getDocumentSummary(result, checklistItems, pdfStructuredData);
-  const simplified = result ? getSimplifiedText(result) : "";
-  const simplifiedText = simplified || pdfStructuredData?.resumo || "Ainda não há uma síntese automática disponível.";
-  const eligibility = result?.type === "elegibilidade"
-    ? `A aderência estimada é de ${result.score}%. ${result.recomendacao}`
-    : "Abra a aba de elegibilidade para simular aderência com base no seu perfil.";
-
-  return [
-    {
-      question: "Qual é o prazo principal deste edital?",
-      answer: deadline,
-    },
-    {
-      question: "Quais documentos devo separar?",
-      answer: docs,
-    },
-    {
-      question: "Como este edital fica em linguagem simples?",
-      answer: simplifiedText,
-    },
-    {
-      question: "Meu perfil parece elegível?",
-      answer: eligibility,
-    },
-    {
-      question: "Qual é o cronograma identificado?",
-      answer: timelineSteps.map((step) => `${step.title}: ${step.date}`).join(" | "),
-    },
-  ];
-}
-
-function answerContextualQuestion(question: string, result: AgentResult) {
-  const text = question.trim().toLowerCase();
-
-  const match = (terms: string[]) => terms.some((term) => text.includes(term));
-
-  if (match(["prazo", "data", "inscrição", "encerramento"])) {
-    if (result.type === "acompanhamento") {
-      return `Cronograma: ${result.timeline.map((item) => `${item.fase} - ${item.periodo}`).join("; ")}`;
-    }
-    return `Prazo identificado: ${(result as { prazo?: string }).prazo ?? "não informado"}`;
-  }
-
-  if (match(["documento", "comprovante", "checklist", "papel"])) {
-    if (result.type === "documentacao") {
-      return `Documentos identificados: ${result.checklist.map((item) => item.doc).join("; ")}`;
-    }
-    if (result.type === "analista") {
-      return `Documentos destacados: ${result.documentos.join("; ")}`;
-    }
-    return "Os documentos necessários aparecem no resumo de interpretação e no checklist extraído do edital.";
-  }
-
-  if (match(["público", "participar", "quem", "perfil", "elegibilidade"])) {
-    if ((result as { publicoAlvo?: string }).publicoAlvo) {
-      return `Público-alvo: ${(result as { publicoAlvo?: string }).publicoAlvo}`;
-    }
-    if (result.type === "elegibilidade") {
-      return result.recomendacao;
-    }
-    return "Consulte a seção de público-alvo no resultado da interpretação ou use Lupa Elegibilidade para um diagnóstico mais preciso.";
-  }
-
-  if (match(["inscrever", "onde", "portal", "site", "link"])) {
-    if (result.type === "simples") {
-      return `Inscrição: ${result.ondeInscrever}`;
-    }
-    return "Verifique o local de inscrição indicado no edital ou na seção de interpretação principal.";
-  }
-
-  if (match(["resumo", "simplifica", "linguagem simples"])) {
-    return (
-      getSimplifiedText(result) ||
-      "Resumo simplificado não disponível no momento."
-    );
-  }
-
-  return `Com base na interpretação atual: ${getSimplifiedText(result) || "não há informação suficiente para responder com precisão."}`;
-}
-
-function getContextualAnswer(question: string, text: string, result: AgentResult | null, timelineSteps: TimelineStep[], checklistItems: ChecklistItemSummary[], pdfStructuredData: PdfStructuredData | null, profile: UserProfile) {
-  const normalized = question.toLowerCase();
-  const deadline = getPrimaryDeadline(text, result);
-  const docs = getDocumentSummary(result, checklistItems, pdfStructuredData);
-
-  if (/resumo|simples|linguagem simples|explicar/i.test(normalized)) {
-    return (result ? getSimplifiedText(result) : "") || pdfStructuredData?.resumo || "Ainda não tenho uma síntese automática deste edital.";
-  }
-
-  if (/prazo|data|inscri/i.test(normalized)) {
-    return `O prazo principal identificado é: ${deadline}. ${result?.type === "acompanhamento" ? result.observacao : "Confirme sempre a data no edital oficial antes de se inscrever."}`;
-  }
-
-  if (/document|anexo|arquivo|comprov/i.test(normalized)) {
-    return `${docs} Leia a seção de documentos do edital original para validar a lista final.`;
-  }
-
-  if (/cronograma|timeline|fase|etapa/i.test(normalized)) {
-    return timelineSteps.map((step) => `${step.title}: ${step.date}`).join("\n");
-  }
-
-  if (/elegibil|perfil|aderênc|atendo/i.test(normalized)) {
-    if (result?.type === "elegibilidade") {
-      return `Seu score de aderência é ${result.score}%. ${result.recomendacao} Próximos passos: ${result.proximosPassos.join(" ")}`;
-    }
-
-    return `Para avaliar elegibilidade, use o agente Lupa Elegibilidade e informe escolaridade, atuação, município e renda familiar. Perfil atual registrado: escolaridade ${profile.escolaridade}, atuação ${profile.atuacao || "não informada"}, município ${profile.municipio || "não informado"}.`;
-  }
-
-  if (/valor|benef[ií]cio|bolsa|recurso|financi/i.test(normalized)) {
-    if (result?.type === "analista") {
-      return `O valor ou benefício identificado é: ${result.valor}.`;
-    }
-
-    return pdfStructuredData?.indicadores && "data" in pdfStructuredData.indicadores
-      ? `Os indicadores extraídos sugerem atenção ao benefício/prazo. ${pdfStructuredData.prazo}`
-      : "Não identifiquei um valor explícito no texto enviado.";
-  }
-
-  if (/risco|aten[iç]ão|ponto|vantagem/i.test(normalized) && result?.type === "estrategica") {
-    return `${result.oportunidade} Pontos de atenção: ${result.pontosAtencao.join("; ")}. Riscos: ${result.riscos.join("; ")}.`;
-  }
-
-  return `Posso ajudar com prazo, documentos, elegibilidade, cronograma e resumo simples. Se quiser, pergunte algo mais específico sobre o edital que você enviou.`;
-}
-
-function buildChatSuggestions(text: string, result: AgentResult | null, timelineSteps: TimelineStep[], checklistItems: ChecklistItemSummary[], pdfStructuredData: PdfStructuredData | null) {
+function buildChatSuggestions(canonical: CanonicalAnalysisLike | null, timelineSteps: TimelineStep[], checklistItems: ChecklistItemSummary[]) {
   const suggestions = [
     "Qual é o prazo principal?",
     "Quais documentos preciso enviar?",
@@ -745,12 +640,8 @@ function buildChatSuggestions(text: string, result: AgentResult | null, timeline
     "Qual é o cronograma completo?",
   ];
 
-  if (result?.type === "analista") {
-    suggestions.unshift("Qual é a instituição responsável?");
-  }
-
-  if (pdfStructuredData?.requisitos.length) {
-    suggestions.splice(2, 0, "Quais requisitos o PDF destaca?");
+  if (canonical?.documento?.orgao) {
+    suggestions.unshift("Qual órgão publicou este edital?");
   }
 
   if (timelineSteps.some((step) => step.date !== "A confirmar")) {
@@ -2705,7 +2596,11 @@ export default function TestarIA() {
     return [];
   }, [canonicalAnalysis]);
   
-  const faqItems = useMemo(() => buildEditalFAQ(agentResult), [agentResult]);
+  const faqItems = useMemo(() => buildCanonicalFAQ(canonicalAnalysis), [canonicalAnalysis]);
+  const chatSuggestions = useMemo(
+    () => buildChatSuggestions(canonicalAnalysis, timelineSteps, checklistItems),
+    [canonicalAnalysis, timelineSteps, checklistItems],
+  );
 
   const applyResult = (result: AgentResult) => {
     setAgentResult(result);
@@ -3169,7 +3064,16 @@ export default function TestarIA() {
   };
 
   const handleAskQuestion = async () => {
-    if (!agentResult || !question.trim()) return;
+    if (!canonicalAnalysis) {
+      toast({
+        title: "Interpretação canônica necessária",
+        description: "Interprete o documento primeiro para usar o chat contextual.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!question.trim()) return;
     const q = question.trim();
     setIsAnswering(true);
     setQuestion("");
@@ -3177,12 +3081,9 @@ export default function TestarIA() {
     const API = ((import.meta.env.BASE_URL as string) || "/").replace(/\/$/, "") + "/api";
 
     try {
-      // Monta contexto com o texto do edital + resultado atual da análise
       const ctx = [
         text ? `TEXTO DO EDITAL (trecho):\n${text.slice(0, 4000)}` : "",
-        canonicalAnalysis
-          ? `INTERPRETAÇÃO CANÔNICA:\n${JSON.stringify(canonicalAnalysis, null, 2).slice(0, 3000)}`
-          : `INTERPRETAÇÃO ATUAL (${agentResult.type}):\n${JSON.stringify(agentResult, null, 2).slice(0, 2000)}`,
+        `INTERPRETAÇÃO CANÔNICA:\n${JSON.stringify(canonicalAnalysis, null, 2).slice(0, 3000)}`,
       ].filter(Boolean).join("\n\n");
 
       const res = await fetch(`${API}/niasci/chat`, {
@@ -3191,13 +3092,12 @@ export default function TestarIA() {
         body: JSON.stringify({
           messages: [{ role: "user", content: q }],
           context: ctx,
-          historyId: canonicalAnalysis?.historyId ?? undefined,
+          historyId: canonicalAnalysis.historyId ?? undefined,
         }),
       });
 
       const data = await res.json().catch(() => ({}));
 
-      // Se o limite diário foi atingido, mostra mensagem amigável
       if (res.status === 429) {
         setAnswerHistory((prev) =>
           [{ question: q, answer: data.error ?? "Limite de uso atingido. Tente novamente mais tarde." }, ...prev].slice(0, 5),
@@ -3283,12 +3183,13 @@ export default function TestarIA() {
   };
 
   const handleExportPDF = async () => {
-    if (!agentResult) return;
+    const resultToExport = agentResult ?? canonicalToAgentResult(canonicalAnalysis);
+    if (!resultToExport) return;
     setIsExporting(true);
     try {
       await exportToPDF(
-        agentResult,
-        `lupa-${agentResult.type}-${currentAgentMeta.name}`,
+        resultToExport,
+        `lupa-${resultToExport.type}-${currentAgentMeta.name}`,
         canonicalAnalysis,
       );
     } catch {
@@ -3673,7 +3574,7 @@ export default function TestarIA() {
                     variant="outline"
                     className="rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in"
                     onClick={handleExportPDF}
-                    disabled={isExporting}
+                    disabled={isExporting || (!agentResult && !canonicalAnalysis)}
                   >
                     {isExporting ? (
                       <>
@@ -3937,7 +3838,7 @@ export default function TestarIA() {
                       <p className="text-sm text-muted-foreground">Faça uma pergunta sobre este edital e obtenha uma resposta baseada na interpretação atual do documento.</p>
                       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                         <Input placeholder="Ex: Qual é o prazo final?" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={isAnswering} />
-                        <Button size="sm" className="rounded-xl" onClick={handleAskQuestion} disabled={!question.trim() || isAnswering}>{isAnswering ? "Respondendo..." : "Perguntar sobre o edital"}</Button>
+                        <Button size="sm" className="rounded-xl" onClick={handleAskQuestion} disabled={!question.trim() || isAnswering || !canonicalAnalysis}>{isAnswering ? "Respondendo..." : "Perguntar sobre o edital"}</Button>
                       </div>
                       {answerHistory.length > 0 && <div className="space-y-3">{answerHistory.map((item, index) => (<div key={`${index}-${item.question}`} className="rounded-2xl border border-border bg-background p-3"><p className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground">Pergunta</p><p className="text-sm font-medium mt-1">{item.question}</p><p className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground mt-3">Resposta</p><p className="text-sm mt-1">{item.answer}</p></div>))}</div>}
                       {faqItems.length > 0 && <div className="grid gap-3 md:grid-cols-2">{faqItems.map((faq) => (<div key={faq.question} className="rounded-2xl border border-border bg-muted/30 p-4"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{faq.question}</p><p className="text-sm mt-2 text-foreground">{faq.answer}</p></div>))}</div>}
@@ -3957,7 +3858,7 @@ export default function TestarIA() {
 
                 <TabsContent value="exportacao">
                   <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm space-y-3">
-                    <Button onClick={handleExportPDF} disabled={isExporting || !agentResult} className="rounded-xl">
+                    <Button onClick={handleExportPDF} disabled={isExporting || (!agentResult && !canonicalAnalysis)} className="rounded-xl">
                       {isExporting ? "Gerando PDF..." : "Exportar para PDF"}
                     </Button>
                     <p className="text-sm text-muted-foreground">Exporte a interpretação atual em PDF para compartilhar ou arquivar.</p>

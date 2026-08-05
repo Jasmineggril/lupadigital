@@ -144546,23 +144546,60 @@ function isUndiciDispatcherVersionMismatchError(error40) {
 
 // ../../lib/integrations/openai-ai-server/src/client.ts
 var _client = null;
+var DUMMY_KEY_SENTINELS = /* @__PURE__ */ new Set([
+  "DUMMY_API_KEY",
+  "_DUMMY_API_KEY_",
+  "API_KEY",
+  "XXXX"
+]);
+function isUsableKey(value) {
+  if (!value) return false;
+  const v = value.trim();
+  if (!v) return false;
+  if (DUMMY_KEY_SENTINELS.has(v)) return false;
+  if (/^x+$/i.test(v)) return false;
+  return true;
+}
+function getGeminiApiKey() {
+  const integration = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  if (isUsableKey(integration)) return integration;
+  const direct = process.env.GEMINI_API_KEY;
+  if (isUsableKey(direct)) return direct;
+  return void 0;
+}
+function getOpenAIKey() {
+  const integration = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  if (isUsableKey(integration)) return integration;
+  const direct = process.env.OPENAI_API_KEY;
+  if (isUsableKey(direct)) return direct;
+  return void 0;
+}
+function getOpenAIBaseURL() {
+  const v = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL?.trim();
+  return v || void 0;
+}
 function getOpenAIModel() {
   if (process.env.AI_MODEL) return process.env.AI_MODEL;
   if (process.env.GROQ_API_KEY) return "llama-3.3-70b-versatile";
   if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
-  if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
+  if (getGeminiApiKey()) return "gemini-2.5-flash";
   return "gpt-5.4-mini";
 }
 function getVisionClients() {
   const clients = [];
-  if (process.env.OPENAI_API_KEY) {
+  const openaiKey = getOpenAIKey();
+  if (openaiKey) {
     clients.push({
-      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 12e4 }),
+      client: new OpenAI({
+        apiKey: openaiKey,
+        timeout: 12e4,
+        ...getOpenAIBaseURL() ? { baseURL: getOpenAIBaseURL() } : {}
+      }),
       provider: "openai",
       model: "gpt-4o"
     });
   }
-  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) {
+  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || getGeminiApiKey()) {
     clients.push({
       client: { chat: { completions: { create: geminiCreate } } },
       provider: "gemini",
@@ -144570,9 +144607,6 @@ function getVisionClients() {
     });
   }
   return clients;
-}
-function getGeminiApiKey() {
-  return process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 }
 async function geminiCreate(params) {
   const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
@@ -144674,9 +144708,13 @@ function getOpenAIClient() {
     _client = { chat: { completions: { create: geminiCreate } } };
     return _client;
   }
-  const openaiKey = process.env.OPENAI_API_KEY;
+  const openaiKey = getOpenAIKey();
   if (openaiKey) {
-    _client = new OpenAI({ apiKey: openaiKey, timeout: 12e4 });
+    _client = new OpenAI({
+      apiKey: openaiKey,
+      timeout: 12e4,
+      ...getOpenAIBaseURL() ? { baseURL: getOpenAIBaseURL() } : {}
+    });
     return _client;
   }
   throw new Error("Nenhuma chave de IA configurada. Adicione GROQ_API_KEY nas vari\xE1veis de ambiente (gr\xE1tis em console.groq.com).");
@@ -144736,8 +144774,8 @@ async function createWithFallback(payload, requestOptions) {
 }
 function getProviderName() {
   if (process.env.GROQ_API_KEY) return "groq";
-  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini";
-  if (process.env.OPENAI_API_KEY) return "openai";
+  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || getGeminiApiKey()) return "gemini";
+  if (getOpenAIKey()) return "openai";
   return "unknown";
 }
 function getFallbackProvider() {
@@ -144752,11 +144790,15 @@ function getFallbackProvider() {
         client: { chat: { completions: { create: geminiCreate } } }
       };
     }
-    if (!skipOpenai && process.env.OPENAI_API_KEY) {
+    if (!skipOpenai && getOpenAIKey()) {
       return {
         name: "openai",
         model: "gpt-5.4-mini",
-        client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 12e4 })
+        client: new OpenAI({
+          apiKey: getOpenAIKey(),
+          timeout: 12e4,
+          ...getOpenAIBaseURL() ? { baseURL: getOpenAIBaseURL() } : {}
+        })
       };
     }
   }
@@ -157688,7 +157730,7 @@ async function testGroq() {
 }
 async function testGemini() {
   const model = "gemini-2.5-flash";
-  const key = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const key = getGeminiApiKey();
   if (!key) return { provider: "gemini", model, keyConfigured: false, httpStatus: null, durationMs: null, success: false, errorType: "not_configured" };
   const start = Date.now();
   try {
@@ -157702,11 +157744,15 @@ async function testGemini() {
 }
 async function testOpenAI() {
   const model = "gpt-5.4-mini";
-  const key = process.env.OPENAI_API_KEY;
+  const key = getOpenAIKey();
   if (!key) return { provider: "openai", model, keyConfigured: false, httpStatus: null, durationMs: null, success: false, errorType: "not_configured" };
   const start = Date.now();
   try {
-    const client = new OpenAI({ apiKey: key, timeout: 3e4 });
+    const client = new OpenAI({
+      apiKey: key,
+      timeout: 3e4,
+      ...getOpenAIBaseURL() ? { baseURL: getOpenAIBaseURL() } : {}
+    });
     await client.chat.completions.create({ model, max_tokens: 50, messages: DIAG_MESSAGES });
     return { provider: "openai", model, keyConfigured: true, httpStatus: 200, durationMs: Date.now() - start, success: true, errorType: null };
   } catch (err) {

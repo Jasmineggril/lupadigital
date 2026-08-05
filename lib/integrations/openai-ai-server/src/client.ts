@@ -4,19 +4,56 @@ export { OpenAI };
 
 let _client: OpenAI | null = null;
 
+const DUMMY_KEY_SENTINELS = new Set([
+  "DUMMY_API_KEY",
+  "_DUMMY_API_KEY_",
+  "API_KEY",
+  "XXXX",
+]);
+
+function isUsableKey(value: string | undefined): value is string {
+  if (!value) return false;
+  const v = value.trim();
+  if (!v) return false;
+  if (DUMMY_KEY_SENTINELS.has(v)) return false;
+  if (/^x+$/i.test(v)) return false;
+  return true;
+}
+
+export function getGeminiApiKey(): string | undefined {
+  const integration = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  if (isUsableKey(integration)) return integration;
+  const direct = process.env.GEMINI_API_KEY;
+  if (isUsableKey(direct)) return direct;
+  return undefined;
+}
+
+export function getOpenAIKey(): string | undefined {
+  const integration = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  if (isUsableKey(integration)) return integration;
+  const direct = process.env.OPENAI_API_KEY;
+  if (isUsableKey(direct)) return direct;
+  return undefined;
+}
+
+export function getOpenAIBaseURL(): string | undefined {
+  const v = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL?.trim();
+  return v || undefined;
+}
+
 export function getOpenAIModel(): string {
   if (process.env.AI_MODEL) return process.env.AI_MODEL;
   if (process.env.GROQ_API_KEY) return "llama-3.3-70b-versatile";
   if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
-  if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
+  if (getGeminiApiKey()) return "gemini-2.5-flash";
   return "gpt-5.4-mini";
 }
 
 /** Modelo com suporte a visão (imagens) para OCR. Groq com llama-3.3-70b-versatile NÃO suporta imagens. */
 export function getVisionModel(): string {
-  if (process.env.OPENAI_API_KEY) return "gpt-4o";
+  if (getOpenAIKey()) return "gpt-4o";
   if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
-  if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini-2.5-flash";
+  if (getGeminiApiKey()) return "gemini-2.5-flash";
   return "";
 }
 
@@ -38,14 +75,19 @@ export interface VisionClient {
  */
 export function getVisionClients(): VisionClient[] {
   const clients: VisionClient[] = [];
-  if (process.env.OPENAI_API_KEY) {
+  const openaiKey = getOpenAIKey();
+  if (openaiKey) {
     clients.push({
-      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 120_000 }),
+      client: new OpenAI({
+        apiKey: openaiKey,
+        timeout: 120_000,
+        ...(getOpenAIBaseURL() ? { baseURL: getOpenAIBaseURL() } : {}),
+      }),
       provider: "openai",
       model: "gpt-4o",
     });
   }
-  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) {
+  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || getGeminiApiKey()) {
     clients.push({
       client: { chat: { completions: { create: geminiCreate } } } as unknown as OpenAI,
       provider: "gemini",
@@ -65,10 +107,6 @@ export function getVisionClient(): VisionClient {
     );
   }
   return clients[0];
-}
-
-function getGeminiApiKey(): string | undefined {
-  return process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 }
 
 /** Converte mensagens OpenAI → payload nativo Gemini e devolve resposta no formato OpenAI. */
@@ -196,9 +234,13 @@ export function getOpenAIClient(): OpenAI {
     return _client;
   }
 
-  const openaiKey = process.env.OPENAI_API_KEY;
+  const openaiKey = getOpenAIKey();
   if (openaiKey) {
-    _client = new OpenAI({ apiKey: openaiKey, timeout: 120_000 });
+    _client = new OpenAI({
+      apiKey: openaiKey,
+      timeout: 120_000,
+      ...(getOpenAIBaseURL() ? { baseURL: getOpenAIBaseURL() } : {}),
+    });
     return _client;
   }
 
@@ -295,8 +337,8 @@ export async function createWithFallback(
 
 function getProviderName(): string {
   if (process.env.GROQ_API_KEY) return "groq";
-  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY) return "gemini";
-  if (process.env.OPENAI_API_KEY) return "openai";
+  if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL || getGeminiApiKey()) return "gemini";
+  if (getOpenAIKey()) return "openai";
   return "unknown";
 }
 
@@ -319,11 +361,15 @@ function getFallbackProvider(): FallbackProvider | null {
         client: { chat: { completions: { create: geminiCreate } } } as unknown as OpenAI,
       };
     }
-    if (!skipOpenai && process.env.OPENAI_API_KEY) {
+    if (!skipOpenai && getOpenAIKey()) {
       return {
         name: "openai",
         model: "gpt-5.4-mini",
-        client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 120_000 }),
+        client: new OpenAI({
+          apiKey: getOpenAIKey() as string,
+          timeout: 120_000,
+          ...(getOpenAIBaseURL() ? { baseURL: getOpenAIBaseURL() } : {}),
+        }),
       };
     }
   }

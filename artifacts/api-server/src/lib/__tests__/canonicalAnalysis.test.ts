@@ -1,5 +1,14 @@
-import { describe, expect, it } from "vitest";
-import { buildCanonicalAnalysis, chunkDocument, consolidateChunkFacts } from "../aiService";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@workspace/integrations-openai-ai-server", async () => {
+  const actual = await vi.importActual<typeof import("@workspace/integrations-openai-ai-server")>("@workspace/integrations-openai-ai-server");
+  return {
+    ...actual,
+    createWithFallback: vi.fn().mockRejectedValue(new Error("provider unavailable")),
+  };
+});
+
+import { analyzeAgent, buildCanonicalAnalysis, chunkDocument, consolidateChunkFacts } from "../aiService";
 import { classifyAiError } from "../processingErrors";
 
 describe("buildCanonicalAnalysis", () => {
@@ -96,6 +105,21 @@ describe("buildCanonicalAnalysis", () => {
 
     expect(canonical.evidencias?.some((item) => item.campo === "cronograma" && item.descricao.includes("sem evidência explícita"))).toBe(true);
     expect(canonical.alertas).toEqual(expect.arrayContaining([expect.objectContaining({ categoria: "temporal" })]));
+  });
+
+  it("retorna uma análise heurística quando a IA falha por indisponibilidade do provider", async () => {
+    const result = await analyzeAgent("analista", "Edital da Prefeitura de São Paulo. Inscrição até 20/10/2025. Requisitos: CPF, RG e comprovante de residência. Valor: R$ 5.000,00.", undefined);
+
+    expect(result).toEqual(expect.objectContaining({
+      type: "analista",
+      interpretation: expect.objectContaining({
+        summary: expect.stringContaining("Prefeitura"),
+      }),
+      documentosExigidos: expect.objectContaining({
+        items: expect.arrayContaining(["CPF", "RG", "comprovante de residência"]),
+      }),
+      alertas: expect.arrayContaining([expect.objectContaining({ categoria: "fallback" })]),
+    }));
   });
 
   it("divide documentos longos em chunks sem truncar o conteúdo", () => {

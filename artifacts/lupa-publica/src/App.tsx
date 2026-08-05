@@ -20,11 +20,11 @@
  * Rotas públicas: /, /testar, /historico, /como-funciona, /sobre, /faq, etc.
  */
 
+import React, { Suspense, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect } from "react";
 
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -50,32 +50,32 @@ function ScrollToTop() {
   return null;
 }
 
-// Importações lazy-free das páginas — Vite faz tree-shaking automático por rota
-import NotFound from "@/pages/not-found";
-import Home from "@/pages/home";
-import NiasciHub from "@/pages/niasci";
-import ELattes from "@/pages/elattes";
-import Artigos from "@/pages/artigos";
-import Projetos from "@/pages/projetos";
-import Planetario from "@/pages/planetario";
-import Assistente from "@/pages/assistente";
-import TestarIA from "@/pages/testar";
-import Editais from "@/pages/editais";
-import ComoFunciona from "@/pages/como-funciona";
-import Sobre from "@/pages/sobre";
-import Tecnologias from "@/pages/tecnologias";
-import ImpactoSocial from "@/pages/impacto-social";
-import FAQ from "@/pages/faq";
-import Contato from "@/pages/contato";
-import Privacidade from "@/pages/privacidade";
-import Compartilhado from "@/pages/compartilhado";
-import Login from "@/pages/login";
-import Cadastro from "@/pages/cadastro";
-import Planos from "@/pages/planos";
-import Verificacao from "@/pages/verificacao";
-import Dashboard from "@/pages/dashboard";
-import Timeline from "@/pages/timeline";
-import EsqueciSenha from "@/pages/esqueci-senha";
+// Importações por rota para reduzir o bundle inicial.
+const NotFound = React.lazy(() => import("@/pages/not-found"));
+const Home = React.lazy(() => import("@/pages/home"));
+const NiasciHub = React.lazy(() => import("@/pages/niasci"));
+const ELattes = React.lazy(() => import("@/pages/elattes"));
+const Artigos = React.lazy(() => import("@/pages/artigos"));
+const Projetos = React.lazy(() => import("@/pages/projetos"));
+const Planetario = React.lazy(() => import("@/pages/planetario"));
+const Assistente = React.lazy(() => import("@/pages/assistente"));
+const TestarIA = React.lazy(() => import("@/pages/testar"));
+const Editais = React.lazy(() => import("@/pages/editais"));
+const ComoFunciona = React.lazy(() => import("@/pages/como-funciona"));
+const Sobre = React.lazy(() => import("@/pages/sobre"));
+const Tecnologias = React.lazy(() => import("@/pages/tecnologias"));
+const ImpactoSocial = React.lazy(() => import("@/pages/impacto-social"));
+const FAQ = React.lazy(() => import("@/pages/faq"));
+const Contato = React.lazy(() => import("@/pages/contato"));
+const Privacidade = React.lazy(() => import("@/pages/privacidade"));
+const Compartilhado = React.lazy(() => import("@/pages/compartilhado"));
+const Login = React.lazy(() => import("@/pages/login"));
+const Cadastro = React.lazy(() => import("@/pages/cadastro"));
+const Planos = React.lazy(() => import("@/pages/planos"));
+const Verificacao = React.lazy(() => import("@/pages/verificacao"));
+const Dashboard = React.lazy(() => import("@/pages/dashboard"));
+const Timeline = React.lazy(() => import("@/pages/timeline"));
+const EsqueciSenha = React.lazy(() => import("@/pages/esqueci-senha"));
 
 /**
  * Instância singleton do cliente React Query.
@@ -98,63 +98,65 @@ function Router() {
       <ScrollToTop />
       <Navbar />
       <main className="flex-1 flex flex-col">
-        <Switch>
-          {/* ── Páginas públicas ──────────────────────────────────────── */}
-          <Route path="/" component={Home} />
-          <Route path="/testar" component={TestarIA} />
-          <Route path="/historico" component={TestarIA} />
+        <Suspense fallback={<div className="flex-1 grid place-items-center p-8 text-sm text-muted-foreground">Carregando...</div>}>
+          <Switch>
+            {/* ── Páginas públicas ──────────────────────────────────────── */}
+            <Route path="/" component={Home} />
+            <Route path="/testar" component={TestarIA} />
+            <Route path="/historico" component={TestarIA} />
 
-          {/* ── Hub NIASci (público) + módulos (protegidos) ───────────── */}
-          <Route path="/niasci" component={NiasciHub} />
-          <Route path="/niasci/editais">
-            <ProtectedRoute><Editais /></ProtectedRoute>
-          </Route>
-          <Route path="/niasci/elattes">
-            <ProtectedRoute><ELattes /></ProtectedRoute>
-          </Route>
-          <Route path="/niasci/artigos">
-            <ProtectedRoute><Artigos /></ProtectedRoute>
-          </Route>
-          <Route path="/niasci/projetos">
-            <ProtectedRoute><Projetos /></ProtectedRoute>
-          </Route>
-          <Route path="/niasci/planetario">
-            <ProtectedRoute><Planetario /></ProtectedRoute>
-          </Route>
-          <Route path="/niasci/assistente">
-            <ProtectedRoute><Assistente /></ProtectedRoute>
-          </Route>
+            {/* ── Hub NIASci (público) + módulos (protegidos) ───────────── */}
+            <Route path="/niasci" component={NiasciHub} />
+            <Route path="/niasci/editais">
+              <ProtectedRoute><Editais /></ProtectedRoute>
+            </Route>
+            <Route path="/niasci/elattes">
+              <ProtectedRoute><ELattes /></ProtectedRoute>
+            </Route>
+            <Route path="/niasci/artigos">
+              <ProtectedRoute><Artigos /></ProtectedRoute>
+            </Route>
+            <Route path="/niasci/projetos">
+              <ProtectedRoute><Projetos /></ProtectedRoute>
+            </Route>
+            <Route path="/niasci/planetario">
+              <ProtectedRoute><Planetario /></ProtectedRoute>
+            </Route>
+            <Route path="/niasci/assistente">
+              <ProtectedRoute><Assistente /></ProtectedRoute>
+            </Route>
 
-          {/* ── Páginas institucionais ────────────────────────────────── */}
-          <Route path="/como-funciona" component={ComoFunciona} />
-          <Route path="/sobre" component={Sobre} />
-          <Route path="/tecnologias" component={Tecnologias} />
-          <Route path="/impacto-social" component={ImpactoSocial} />
-          <Route path="/faq" component={FAQ} />
-          <Route path="/contato" component={Contato} />
-          <Route path="/privacidade" component={Privacidade} />
+            {/* ── Páginas institucionais ────────────────────────────────── */}
+            <Route path="/como-funciona" component={ComoFunciona} />
+            <Route path="/sobre" component={Sobre} />
+            <Route path="/tecnologias" component={Tecnologias} />
+            <Route path="/impacto-social" component={ImpactoSocial} />
+            <Route path="/faq" component={FAQ} />
+            <Route path="/contato" component={Contato} />
+            <Route path="/privacidade" component={Privacidade} />
 
-          {/* ── Compartilhamento público de resultados ────────────────── */}
-          <Route path="/compartilhado/:token" component={Compartilhado} />
+            {/* ── Compartilhamento público de resultados ────────────────── */}
+            <Route path="/compartilhado/:token" component={Compartilhado} />
 
-          {/* ── Autenticação ──────────────────────────────────────────── */}
-          <Route path="/login" component={Login} />
-          <Route path="/cadastro" component={Cadastro} />
-          <Route path="/planos" component={Planos} />
-          <Route path="/verificacao" component={Verificacao} />
-          <Route path="/esqueci-senha" component={EsqueciSenha} />
+            {/* ── Autenticação ──────────────────────────────────────────── */}
+            <Route path="/login" component={Login} />
+            <Route path="/cadastro" component={Cadastro} />
+            <Route path="/planos" component={Planos} />
+            <Route path="/verificacao" component={Verificacao} />
+            <Route path="/esqueci-senha" component={EsqueciSenha} />
 
-          {/* ── Área do usuário (protegidas) ──────────────────────────── */}
-          <Route path="/dashboard">
-            <ProtectedRoute><Dashboard /></ProtectedRoute>
-          </Route>
-          <Route path="/timeline">
-            <ProtectedRoute><Timeline /></ProtectedRoute>
-          </Route>
+            {/* ── Área do usuário (protegidas) ──────────────────────────── */}
+            <Route path="/dashboard">
+              <ProtectedRoute><Dashboard /></ProtectedRoute>
+            </Route>
+            <Route path="/timeline">
+              <ProtectedRoute><Timeline /></ProtectedRoute>
+            </Route>
 
-          {/* ── Fallback 404 ──────────────────────────────────────────── */}
-          <Route component={NotFound} />
-        </Switch>
+            {/* ── Fallback 404 ──────────────────────────────────────────── */}
+            <Route component={NotFound} />
+          </Switch>
+        </Suspense>
       </main>
       <Footer />
     </div>

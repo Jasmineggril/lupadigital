@@ -244,7 +244,24 @@ export function getOpenAIClient(): OpenAI {
     return _client;
   }
 
-  throw new Error("Nenhuma chave de IA configurada. Adicione GROQ_API_KEY nas variáveis de ambiente (grátis em console.groq.com).");
+  throw new Error("Nenhuma chave de IA configurada. Adicione GROQ_API_KEY nas variáveis de ambiente (grátis em console.groq.com)." );
+}
+
+export function getOpenAIVisionClient(): OpenAI {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!openaiKey) {
+    throw new Error("OPENAI_API_KEY não está configurada. O OCR de PDF requer uma chave OpenAI Vision válida.");
+  }
+
+  return new OpenAI({
+    apiKey: openaiKey,
+    timeout: 120_000,
+    ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
+  });
+}
+
+export function getOpenAIVisionModel(): string {
+  return process.env.OPENAI_VISION_MODEL?.trim() || "gpt-4o-mini";
 }
 
 export const openai = new Proxy({} as OpenAI, {

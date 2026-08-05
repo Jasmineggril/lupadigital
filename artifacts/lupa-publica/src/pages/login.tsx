@@ -51,8 +51,9 @@ export default function Login() {
             )}
 
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-[#0F172A]">E-mail</label>
+              <label htmlFor="email" className="text-sm font-semibold text-[#0F172A]">E-mail</label>
               <Input
+                id="email"
                 type="email"
                 placeholder="seu@email.com"
                 value={email}
@@ -63,9 +64,10 @@ export default function Login() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-[#0F172A]">Senha</label>
+              <label htmlFor="password" className="text-sm font-semibold text-[#0F172A]">Senha</label>
               <div className="relative">
                 <Input
+                  id="password"
                   type={showPass ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
@@ -76,6 +78,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setShowPass(v => !v)}
+                  aria-label={showPass ? "Ocultar senha" : "Mostrar senha"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#475569] hover:text-[#0F172A]"
                 >
                   {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

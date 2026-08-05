@@ -154227,10 +154227,24 @@ function getSupabaseAdmin() {
   return _supabase;
 }
 var _jwks = null;
+function deriveSupabaseJwksUrl(supabaseUrl) {
+  if (!supabaseUrl) return null;
+  try {
+    const url2 = new URL(supabaseUrl);
+    url2.pathname = `${url2.pathname.replace(/\/+$|\/$/, "")}/auth/v1/.well-known/jwks.json`;
+    return url2.toString();
+  } catch {
+    return null;
+  }
+}
 function getSupabaseJwks() {
   if (_jwks) return _jwks;
-  const jwksUrl = process.env.SUPABASE_JWKS_URL;
-  if (!jwksUrl) throw new Error("SUPABASE_JWKS_URL is not configured");
+  const jwksUrl = process.env.SUPABASE_JWKS_URL || deriveSupabaseJwksUrl(process.env.SUPABASE_URL);
+  if (!jwksUrl) {
+    throw new Error(
+      "SUPABASE_JWKS_URL n\xE3o est\xE1 configurado e n\xE3o foi poss\xEDvel derivar a URL a partir de SUPABASE_URL."
+    );
+  }
   _jwks = createRemoteJWKSet(new URL(jwksUrl));
   return _jwks;
 }
@@ -154824,6 +154838,38 @@ function consolidateChunkFacts(chunkResults) {
     alerts: mergeFacts(chunkResults.flatMap((entry) => entry.facts.alerts.map((fact) => ({ ...fact, chunkId: entry.chunkId }))), "message")
   };
 }
+function buildFallbackChunkFacts(chunkText) {
+  const lines = chunkText.split(/\n/).map((line2) => line2.trim()).filter(Boolean);
+  const dates = Array.from(chunkText.matchAll(/\b(\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+de\s+[\wáéíóúçãõ]+\s+de\s+\d{4})\b/gi)).map((match) => ({ value: match[0], text: match[0] }));
+  const requirements = lines.filter((line2) => /deve|obrigat|requisito|documento|inscri/i.test(line2)).slice(0, 5).map((line2) => ({ requirement: line2 }));
+  const obligations = lines.filter((line2) => /deve|obrigat|entreg|apresent|cumpr/i.test(line2)).slice(0, 5).map((line2) => ({ obligation: line2 }));
+  const documents = Array.from(new Set(
+    lines.flatMap((line2) => {
+      const matches = Array.from(line2.matchAll(/\b(CPF|RG|CNH|currículo|curriculo|comprovante(?:\s+de\s+residência|\s+de\s+residencia)?|declaração|declaração de residência|declaração de renda|certidão|certificado)\b/gi));
+      return matches.map((match) => {
+        const raw = match[1];
+        if (/currículo|curriculo/i.test(raw)) return "curr\xEDculo";
+        if (/comprovante/i.test(raw)) return "comprovante de resid\xEAncia";
+        if (/declaração/i.test(raw)) return "declara\xE7\xE3o";
+        if (/certidão/i.test(raw)) return "certid\xE3o";
+        return raw.toUpperCase();
+      });
+    })
+  )).map((document2) => ({ document: document2 }));
+  const alerts = lines.filter((line2) => /atenção|importante|aviso|alerta/i.test(line2)).slice(0, 3).map((line2) => ({ message: line2 }));
+  return {
+    documentInfo: lines.slice(0, 2).filter((line2) => line2.length < 140).map((line2) => ({ title: line2 })),
+    dates,
+    requirements,
+    eligibility: lines.filter((line2) => /idade|residir|renda|escolaridade|perfil/i.test(line2)).slice(0, 3).map((line2) => ({ criterion: line2 })),
+    documents,
+    values: Array.from(chunkText.matchAll(/R\$\s*\d{1,3}(?:[\.,]\d{3})*(?:[\.,]\d{2})?/gi)).map((match) => ({ value: match[0] })),
+    contacts: [],
+    obligations,
+    restrictions: lines.filter((line2) => /não|proib|restri/i.test(line2)).slice(0, 3).map((line2) => ({ restriction: line2 })),
+    alerts
+  };
+}
 var CHUNK_FACT_KEYS = ["documentInfo", "dates", "requirements", "eligibility", "documents", "values", "contacts", "obligations", "restrictions", "alerts"];
 function normalizeChunkFactsPayload(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
@@ -154836,6 +154882,93 @@ function normalizeChunkFactsPayload(payload) {
     }
   }
   return normalized;
+}
+function buildHeuristicAgentResult(agentId, text4, profile, reason) {
+  const { text: normalizedText } = normalizeDocumentText(text4);
+  const lines = normalizedText.split(/\n/).map((line2) => line2.trim()).filter(Boolean);
+  const fallbackFacts = buildFallbackChunkFacts(normalizedText);
+  const title = lines[0] && lines[0].length < 140 ? lines[0] : fallbackFacts.documentInfo[0]?.title || "Edital p\xFAblico";
+  const organization = lines.find((line2) => /prefeitura|secretaria|município|universidade|empresa|fundação|estado|instituto|governo/i.test(line2)) || fallbackFacts.documentInfo[0]?.organization || "N\xE3o informado";
+  const requirements = fallbackFacts.requirements.map((item) => item.requirement).filter(Boolean);
+  const documents = fallbackFacts.documents.map((item) => item.document).filter(Boolean);
+  const values = fallbackFacts.values.map((item) => item.value).filter(Boolean);
+  const eligibility = fallbackFacts.eligibility.map((item) => item.criterion).filter(Boolean);
+  const dates = fallbackFacts.dates.map((item) => item.value).filter(Boolean);
+  const fallbackAlert = {
+    categoria: "fallback",
+    descricao: reason ? `An\xE1lise heur\xEDstica gerada porque a IA n\xE3o concluiu o processamento: ${reason}` : "An\xE1lise heur\xEDstica gerada porque a IA n\xE3o concluiu o processamento.",
+    severidade: "m\xE9dia"
+  };
+  return {
+    type: agentId,
+    tipoEdital: title,
+    instituicao: organization,
+    prazo: dates.join(" | ") || "Prazo n\xE3o informado.",
+    publicoAlvo: profile?.municipio ? `P\xFAblico-alvo relacionado ao perfil de ${profile.municipio}.` : "P\xFAblico-alvo conforme o edital.",
+    requisitos: requirements.length > 0 ? requirements.slice(0, 8) : ["Requisitos n\xE3o identificados com confian\xE7a no texto dispon\xEDvel."],
+    documentos: documents.length > 0 ? documents.slice(0, 8) : ["Documentos n\xE3o identificados com confian\xE7a no texto dispon\xEDvel."],
+    valor: values.join(" | ") || "N\xE3o informado",
+    timeline: fallbackFacts.dates.map((item) => ({
+      fase: item.event || "Evento",
+      periodo: item.value || "Verificar no edital",
+      descricao: item.text || item.event || "Data identificada no texto",
+      status: "ativo",
+      confianca: "baixa"
+    })),
+    checklist: documents.length > 0 ? documents.slice(0, 8).map((document2) => ({
+      doc: document2,
+      obrigatorio: true,
+      observacao: "Documento identificado no texto dispon\xEDvel.",
+      checked: false
+    })) : [{
+      doc: "Documentos n\xE3o identificados com confian\xE7a no texto dispon\xEDvel.",
+      obrigatorio: true,
+      observacao: "N\xE3o foi poss\xEDvel identificar documentos com confian\xE7a no texto fornecido.",
+      checked: false
+    }],
+    criterios: eligibility.length > 0 ? eligibility.slice(0, 6).map((criterion) => ({
+      criterio: criterion,
+      atende: true,
+      observacao: "Crit\xE9rio identificado no texto dispon\xEDvel."
+    })) : [{
+      criterio: "Crit\xE9rios de elegibilidade n\xE3o identificados com confian\xE7a.",
+      atende: false,
+      observacao: "A an\xE1lise heur\xEDstica n\xE3o encontrou crit\xE9rios expl\xEDcitos no texto."
+    }],
+    observacao: "An\xE1lise heur\xEDstica constru\xEDda a partir do texto dispon\xEDvel porque a IA n\xE3o concluiu o processamento.",
+    alertas: [
+      fallbackAlert,
+      ...fallbackFacts.alerts.map((item) => item.message || item.text || "Alerta identificado no texto.").filter(Boolean)
+    ],
+    processing: {
+      mode: "fallback",
+      totalChunks: 1,
+      processedChunks: 1,
+      failedChunks: 0,
+      complete: true
+    },
+    originalText: normalizedText
+  };
+}
+function buildHeuristicCanonicalAnalysis(agentId, text4, profile, reason) {
+  const agentResult = buildHeuristicAgentResult(agentId, text4, profile, reason);
+  const canonical = buildCanonicalAnalysis(agentId, agentResult, text4, profile);
+  return {
+    ...canonical,
+    ...agentResult,
+    type: agentId,
+    agentResult,
+    analysisId: canonical.analysisId,
+    schemaVersion: canonical.schemaVersion,
+    interpretation: canonical.interpretation,
+    cronograma: canonical.cronograma,
+    checklist: canonical.checklist,
+    elegibilidade: canonical.elegibilidade,
+    valores: canonical.valores,
+    documentosExigidos: canonical.documentosExigidos,
+    alertas: canonical.alertas,
+    processing: canonical.processing
+  };
 }
 var ChunkFactsSchema = external_exports2.object({
   documentInfo: external_exports2.array(external_exports2.object({ title: external_exports2.string().optional(), organization: external_exports2.string().optional(), page: external_exports2.number().int().nullable().optional(), section: external_exports2.string().optional(), text: external_exports2.string().optional(), confidence: external_exports2.enum(["alta", "m\xE9dia", "baixa"]).optional() })).default([]),
@@ -156554,9 +156687,40 @@ async function analyzeAgent(agentId, text4, profile, opts) {
       level: "error",
       message: `AIService error (${model})`
     });
-    const wrapped = new Error(message2);
-    wrapped.requestId = requestId;
-    throw wrapped;
+    const shouldPropagate = /chunks falharam|orçamento|429|rate limit|internal server error/i.test(message2);
+    if (shouldPropagate) {
+      throw err;
+    }
+    const fallbackAnalysis = buildHeuristicCanonicalAnalysis(agentId, normalizedText, parsedProfile.success ? parsedProfile.data : void 0, message2);
+    logger.warn({
+      requestId,
+      step: currentStep,
+      module: "analyzeAgent",
+      provider: getProviderNameFromModel(model),
+      model,
+      agentId,
+      durationMs: latency,
+      inputCharacters: normalizedText.length,
+      estimatedTokens: estimateTokens(normalizedText),
+      errorName,
+      errorMessage: message2
+    }, "AI analysis failed; returning heuristic fallback");
+    await persistUsageLog({
+      module: "AIService.analyzeAgent",
+      model,
+      userId: opts?.userId ?? null,
+      documentId: opts?.documentId ?? null,
+      latencyMs: latency,
+      success: true,
+      errorMessage: "heuristic_fallback",
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      agentId,
+      level: "warn",
+      message: "AIService fallback completed"
+    });
+    return fallbackAnalysis;
   }
 }
 async function callNiasciAI(system, user, module, opts) {

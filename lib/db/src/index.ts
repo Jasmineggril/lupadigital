@@ -1,4 +1,3 @@
-import dns from "dns";
 import { drizzle } from "drizzle-orm/node-postgres";
 import net from "net";
 import pg from "pg";
@@ -121,91 +120,6 @@ function validatePoolerUrl(urlStr: string): void {
   }
 }
 
-function parseDsnConnectionString(dsn: string) {
-  const params = new Map<string, string>();
-  const regex = /([a-zA-Z0-9_]+)=('(?:[^']|\\')*'|"(?:[^"]|\\")*"|[^'"\s]+)/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(dsn)) !== null) {
-    let value = match[2];
-    if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
-      value = value.slice(1, -1).replace(/\\'/g, "'").replace(/\\\"/g, '"');
-    }
-    params.set(match[1], value);
-  }
-  return params;
-}
-
-function buildDsnConnectionString(params: Map<string, string>) {
-  return Array.from(params.entries())
-    .map(([key, value]) => {
-      const needsQuotes = /\s/.test(value);
-      return `${key}=${needsQuotes ? `'${value.replace(/'/g, "\\'")}'` : value}`;
-    })
-    .join(" ");
-}
-
-/**
- * Prepara a connection string: resolve DNS para IPv4 e garante compatibilidade.
- */
-async function prepareConnectionString(urlStr: string) {
-  async function resolveHost(host: string) {
-    if (!net.isIP(host)) {
-      try {
-        const lookup = await dns.promises.lookup(host, { family: 4 });
-        if (lookup && lookup.address) {
-          return lookup.address;
-        }
-      } catch {
-        // ignore lookup errors and fall back to original host
-      }
-    }
-    return host;
-  }
-
-  try {
-    const url = new URL(urlStr);
-    const host = url.hostname;
-
-    if (isIpv6Address(host)) {
-      throw new Error(
-        `Host IPv6 detectado (${host}). ` +
-        `Use a Connection Pooler URL do Supabase com hostname "pooler.supabase.com": ` +
-        `Settings → Database → Connection string → Transaction mode (port 6543)`
-      );
-    }
-
-    const resolvedHost = await resolveHost(host);
-    if (resolvedHost !== host) {
-      url.hostname = resolvedHost;
-      return url.toString();
-    }
-    return urlStr;
-  } catch {
-    // not a URL, continue to DSN parsing
-  }
-
-  if (/\bhost=[^\s]+/i.test(urlStr)) {
-    const params = parseDsnConnectionString(urlStr);
-    const host = params.get("host");
-    if (host) {
-      if (isIpv6Address(host)) {
-        throw new Error(
-          `Host IPv6 detectado (${host}) no formato DSN. ` +
-          `Use a Connection Pooler URL do Supabase com hostname "pooler.supabase.com": ` +
-          `Settings → Database → Connection string → Transaction mode (port 6543)`
-        );
-      }
-      const resolvedHost = await resolveHost(host);
-      if (resolvedHost !== host) {
-        params.set("host", resolvedHost);
-        return buildDsnConnectionString(params);
-      }
-    }
-  }
-
-  return urlStr;
-}
-
 // ── Resolução da connection string (executada no import, sem await) ──────────
 
 function resolveDatabaseUrl(): string | undefined {
@@ -227,83 +141,58 @@ function resolveDatabaseUrl(): string | undefined {
   return url;
 }
 
-// ── Lazy singleton ───────────────────────────────────────────────────────────
-// O pool e o cliente Drizzle são criados APENAS na primeira query ao banco.
-// Isso evita conexões desnecessárias durante importação do módulo ou build.
+// ── Conexão inicial (executada no import, sem await) ─────────────────────────
+// O Pool do node-postgres é preguiçoso: `new Pool()` NÃO abre conexões — elas
+// são abertas só na primeira query. Por isso é seguro criar o pool (e o cliente
+// Drizzle) no import: o encadeamento do Drizzle (db.select().from(...).where(...))
+// funciona de forma síncrona e correta, sem Proxy lazy que quebraria os builders.
+//
+// Se nenhuma URL for definida, `db` vira um proxy que lança erro claro apenas
+// quando usado — rotas que não dependem de banco continuam funcionando.
 
 type DrizzleDB = ReturnType<typeof drizzle<typeof schema>>;
 
-let _pool: pg.Pool | null = null;
-let _db: DrizzleDB | null = null;
-let _initPromise: Promise<DrizzleDB> | null = null;
-
-/**
- * Inicializa a conexão com o banco de forma lazy (só na primeira query).
- * Thread-safe: múltiplas chamadas concorrentes aguardam a mesma inicialização.
- */
-async function ensureDb(): Promise<DrizzleDB> {
-  if (_db) return _db;
-  if (_initPromise) return _initPromise;
-
-  _initPromise = (async () => {
-    const databaseUrl = resolveDatabaseUrl();
-    if (!databaseUrl) {
+function assertIpv4Reachable(urlStr: string): void {
+  try {
+    const u = new URL(urlStr);
+    if (isIpv6Address(u.hostname)) {
       throw new Error(
-        "DIRECT_URL_IPV4, DIRECT_URL ou DATABASE_URL deve estar definido. " +
-        "Use a Connection Pooler URL do Supabase (porta 6543, modo Transaction): " +
-        "Settings → Database → Connection string → Transaction mode (port 6543)",
+        `Host IPv6 detectado (${u.hostname}). Use a Connection Pooler URL do Supabase: ` +
+        `Settings → Database → Connection string → Transaction mode (porta 6543)`,
       );
     }
-
-    const connString = await prepareConnectionString(databaseUrl);
-    _pool = new Pool({
-      connectionString: connString,
-      ...getPoolConfig(),
-    });
-
-    _db = drizzle(_pool, { schema });
-    return _db;
-  })();
-
-  return _initPromise;
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("Host IPv6 detectado")) throw e;
+  }
 }
 
+let _pool: pg.Pool | null = null;
+let _db: DrizzleDB | null = null;
+
+(function initializeDb() {
+  const databaseUrl = resolveDatabaseUrl();
+  if (!databaseUrl) return;
+  assertIpv4Reachable(databaseUrl);
+  _pool = new Pool({ connectionString: databaseUrl, ...getPoolConfig() });
+  _db = drizzle(_pool, { schema });
+})();
+
 /**
- * Proxy de `db` que inicializa a conexão de forma lazy (só na primeira query).
- *
- * O proxy intercepta TODAS as chamadas de método e propriedade:
- * - Para métodos que retornam builders (select, insert, update, delete):
- *   aguarda a inicialização e delega ao Drizzle real
- * - Para propriedades conhecidas ($schema): retorna síncrono
- * - Para tudo mais: aguarda init e delega
- *
- * Isso permite `import { db } from "@workspace/db"` sem top-level await.
+ * Cliente Drizzle. Se o banco não estiver configurado, qualquer acesso lança um
+ * erro claro apontando qual variável definir.
  */
-export const db = new Proxy({} as DrizzleDB, {
-  get(_target, prop, _receiver) {
-    // Propriedades síncronas que não precisam de conexão
-    if (prop === "$schema") return schema;
-    if (prop === Symbol.toStringTag) return "LazyDrizzleDB";
+export const db: DrizzleDB =
+  _db ??
+  (new Proxy({} as DrizzleDB, {
+    get() {
+      throw new Error(
+        "Banco de dados não configurado: defina DIRECT_URL_IPV4, DIRECT_URL ou DATABASE_URL " +
+        "(Connection Pooler URL do Supabase — Settings → Database → Connection string → " +
+        "Transaction mode, porta 6543).",
+      );
+    },
+  }) as DrizzleDB);
 
-    // Para métodos: retorna uma função que aguarda inicialização
-    return (...args: unknown[]) => {
-      // Fast path: já inicializado
-      if (_db) {
-        const method = (_db as any)[prop];
-        return typeof method === "function" ? method.apply(_db, args) : method;
-      }
-
-      // Slow path: aguarda inicialização
-      return ensureDb().then((realDb) => {
-        const method = (realDb as any)[prop];
-        return typeof method === "function" ? method.apply(realDb, args) : method;
-      });
-    };
-  },
-});
-
-// Expõe ensureDb para uso avançado (health checks, scripts, etc.)
-export { ensureDb as getDb };
-export { ensureDb as getPool };
+export const pool: pg.Pool | null = _pool;
 
 export * from "./schema";

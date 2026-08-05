@@ -19,7 +19,7 @@
 
 import { Router, type IRouter } from "express";
 import { randomUUID, timingSafeEqual } from "crypto";
-import { OpenAI, geminiCreate } from "@workspace/integrations-openai-ai-server";
+import { OpenAI, geminiCreate, getGeminiApiKey, getOpenAIKey, getOpenAIBaseURL } from "@workspace/integrations-openai-ai-server";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -85,7 +85,7 @@ async function testGroq(): Promise<ProviderResult> {
 
 async function testGemini(): Promise<ProviderResult> {
   const model = "gemini-2.5-flash";
-  const key = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const key = getGeminiApiKey();
   if (!key) return { provider: "gemini", model, keyConfigured: false, httpStatus: null, durationMs: null, success: false, errorType: "not_configured" };
 
   const start = Date.now();
@@ -101,12 +101,16 @@ async function testGemini(): Promise<ProviderResult> {
 
 async function testOpenAI(): Promise<ProviderResult> {
   const model = "gpt-5.4-mini";
-  const key = process.env.OPENAI_API_KEY;
+  const key = getOpenAIKey();
   if (!key) return { provider: "openai", model, keyConfigured: false, httpStatus: null, durationMs: null, success: false, errorType: "not_configured" };
 
   const start = Date.now();
   try {
-    const client = new OpenAI({ apiKey: key, timeout: 30_000 });
+    const client = new OpenAI({
+      apiKey: key,
+      timeout: 30_000,
+      ...(getOpenAIBaseURL() ? { baseURL: getOpenAIBaseURL() } : {}),
+    });
     await client.chat.completions.create({ model, max_tokens: 50, messages: DIAG_MESSAGES });
     return { provider: "openai", model, keyConfigured: true, httpStatus: 200, durationMs: Date.now() - start, success: true, errorType: null };
   } catch (err) {

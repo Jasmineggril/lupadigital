@@ -4,6 +4,7 @@ export type ProcessErrorClassification = {
   userMessage: string;
   reason: string;
   logMessage?: string;
+  tpm?: boolean;
 };
 
 function normalize(message: string): string {
@@ -60,6 +61,24 @@ export function classifyAiError(message: string): ProcessErrorClassification {
       reason: "context_length_exceeded",
       userMessage: "Um dos blocos do documento ainda excedeu o limite de processamento.",
       logMessage: "AI context length exceeded — chunk must be subdivided",
+    };
+  }
+
+  // ── Limite de tokens por minuto (TPM) do provedor ────────────────────
+  // O Groq retorna HTTP 413 com "tokens per minute (TPM)" para este caso,
+  // mas o tratamento correto é rate-limit retryable (janela de 60s).
+  if (
+    normalized.includes("tokens per minute") ||
+    normalized.includes("tpm") ||
+    (normalized.includes("token") && normalized.includes("minute") && normalized.includes("limit"))
+  ) {
+    return {
+      status: 429,
+      retryable: true,
+      reason: "rate_limit",
+      tpm: true,
+      userMessage: "O limite de tokens por minuto do provedor de IA foi atingido. Aguarde um instante e tente novamente.",
+      logMessage: "AI provider tokens-per-minute (TPM) limit exceeded",
     };
   }
 
@@ -177,6 +196,24 @@ export function classifyAiError(message: string): ProcessErrorClassification {
     };
   }
 
+  // ── Budget excedido / orçamento de tempo (interno, não retryable) ────
+  if (
+    normalized.includes("orçamento de tempo") ||
+    normalized.includes("orcamento de tempo") ||
+    normalized.includes("budget") ||
+    normalized.includes("tempo esgotado") ||
+    normalized.includes("sem tempo restante") ||
+    normalized.includes("tempo insuficiente")
+  ) {
+    return {
+      status: 503,
+      retryable: false,
+      reason: "time_budget_exhausted",
+      userMessage: "O documento é muito longo para o tempo disponível. Tente com um trecho menor.",
+      logMessage: "Internal time budget exhausted — document too long for available window",
+    };
+  }
+
   // ── Timeout ──────────────────────────────────────────────────────────
   if (
     normalized.includes("timeout") ||
@@ -248,6 +285,24 @@ export function classifyAiError(message: string): ProcessErrorClassification {
       reason: "invalid_response",
       userMessage: "A IA retornou uma resposta incompleta. A análise não foi salva.",
       logMessage: "AI response validation failed",
+    };
+  }
+
+  // ── OCR indisponível (provedor sem modelo de visão) ──────────────────
+  if (
+    normalized.includes("ocr_indisponivel") ||
+    normalized.includes("ocr indisponível") ||
+    normalized.includes("ocr indisponivel") ||
+    normalized.includes("sem suporte a ocr") ||
+    normalized.includes("suporte a visão") ||
+    normalized.includes("suporte a visao")
+  ) {
+    return {
+      status: 422,
+      retryable: false,
+      reason: "ocr_unavailable",
+      userMessage: "Este PDF parece ser escaneado (apenas imagens). O provedor de IA atual não oferece OCR. Configure GEMINI_API_KEY ou OPENAI_API_KEY para analisar PDFs escaneados, ou cole o texto manualmente.",
+      logMessage: "OCR unavailable — current AI provider has no vision model",
     };
   }
 

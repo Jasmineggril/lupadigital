@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { createTimeBudget } from "../timeBudget";
 
 const VALID_SIMPLES_RESPONSE = {
   type: "simples",
@@ -87,39 +88,34 @@ function generateSyntheticEdital(wordCount: number): string {
 }
 
 describe("orçamento dinâmico de tempo", () => {
-  it("canStartChunk retorna true quando há tempo suficiente", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("canStartChunk retorna true quando há tempo suficiente", () => {
     const budget = createTimeBudget(Date.now(), 240_000, 30_000);
     expect(budget.canStartChunk(6, 0)).toBe(true);
     expect(budget.canStartChunk(6, 5)).toBe(true);
   });
 
-  it("canStartChunk retorna false quando não há tempo suficiente", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("canStartChunk retorna false quando não há tempo suficiente", () => {
     const budget = createTimeBudget(Date.now() - 230_000, 240_000, 30_000);
     expect(budget.canStartChunk(6, 0)).toBe(false);
   });
 
-  it("getChunkTimeoutMs diminui conforme chunks são processados", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("getChunkTimeoutMs diminui conforme chunks são processados", () => {
     const budget = createTimeBudget(Date.now(), 240_000, 30_000);
     const timeout0 = budget.getChunkTimeoutMs(6, 0);
     const timeout3 = budget.getChunkTimeoutMs(6, 3);
     const timeout5 = budget.getChunkTimeoutMs(6, 5);
-    expect(timeout0).toBeGreaterThanOrEqual(20_000);
+    expect(timeout0).toBeGreaterThanOrEqual(15_000);
     expect(timeout3).toBeGreaterThanOrEqual(timeout0);
     expect(timeout5).toBeGreaterThanOrEqual(timeout3);
   });
 
-  it("getChunkTimeoutMs nunca cai abaixo de MIN_CHUNK_TIMEOUT_MS (20s)", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("getChunkTimeoutMs nunca cai abaixo de MIN_CHUNK_TIMEOUT_MS (15s)", () => {
     const budget = createTimeBudget(Date.now() - 235_000, 240_000, 30_000);
     const timeout = budget.getChunkTimeoutMs(6, 5);
-    expect(timeout).toBeGreaterThanOrEqual(20_000);
+    expect(timeout).toBeGreaterThanOrEqual(15_000);
   });
 
-  it("getRemainingMs retorna tempo restante correto", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("getRemainingMs retorna tempo restante correto", () => {
     const start = Date.now() - 10_000;
     const budget = createTimeBudget(start, 240_000, 30_000);
     const remaining = budget.getRemainingMs();
@@ -127,8 +123,7 @@ describe("orçamento dinâmico de tempo", () => {
     expect(remaining).toBeLessThanOrEqual(231_000);
   });
 
-  it("orçamento global insuficiente → canStartChunk retorna false", async () => {
-    const { createTimeBudget } = await import("../aiService");
+  it("orçamento global insuficiente → canStartChunk retorna false", () => {
     const budget = createTimeBudget(Date.now() - 235_000, 240_000, 30_000);
     expect(budget.canStartChunk(6, 0)).toBe(false);
     expect(budget.getRemainingMs()).toBeLessThan(30_000);
@@ -247,7 +242,7 @@ describe("tratamento de 429 do Groq", () => {
     expect(duration).toBeGreaterThanOrEqual(800);
   }, 60_000);
 
-  it("429 continuamente → erro claro antes do timeout global", async () => {
+  it("429 continuamente → resultado parcial com complete=false", async () => {
     const { analyzeAgent } = await import("../aiService");
     const longText = generateSyntheticEdital(7000);
 
@@ -255,19 +250,14 @@ describe("tratamento de 429 do Groq", () => {
     vi.spyOn(openai.chat.completions, "create" as any).mockRejectedValue(buildRateLimitError());
 
     const start = Date.now();
-    let caughtError: Error | null = null;
-    try {
-      await analyzeAgent("simples", longText, undefined, { userId: "test-user", documentId: null });
-    } catch (err) {
-      caughtError = err instanceof Error ? err : new Error(String(err));
-    }
+    const result = await analyzeAgent("simples", longText, undefined, { userId: "test-user", documentId: null }) as Record<string, unknown>;
     const duration = Date.now() - start;
 
     console.log(`\n  429 contínuo: duração = ${duration}ms (deve ser < 240s)`);
 
-    expect(caughtError).not.toBeNull();
-    const msg = caughtError!.message.toLowerCase();
-    expect(msg.includes("429") || msg.includes("rate limit") || msg.includes("orçamento") || msg.includes("chunks falharam")).toBe(true);
+    expect(result).toBeDefined();
+    expect((result.processing as any)?.complete).toBe(false);
+    expect((result.processing as any)?.failedChunks).toBeGreaterThan(0);
     expect(duration).toBeLessThan(240_000);
   }, 60_000);
 });
@@ -304,7 +294,7 @@ describe("testes de falha", () => {
     expect(result.schemaVersion).toBe("1.0.1");
   }, 30_000);
 
-  it("um chunk falha 500 → propaga erro, não retorna análise falsa", async () => {
+  it("um chunk falha 500 → retorna resultado parcial com complete=false", async () => {
     const { analyzeAgent, chunkDocument } = await import("../aiService");
     const longText = generateSyntheticEdital(7000);
     const chunks = chunkDocument(longText);
@@ -316,16 +306,12 @@ describe("testes de falha", () => {
     spy.mockResolvedValueOnce(mockCompletion as any);
     spy.mockRejectedValue(new Error("500 Internal Server Error"));
 
-    let caughtError: Error | null = null;
-    try {
-      await analyzeAgent("simples", longText, undefined, { userId: "test-user", documentId: null });
-    } catch (err) {
-      caughtError = err instanceof Error ? err : new Error(String(err));
-    }
+    const result = await analyzeAgent("simples", longText, undefined, { userId: "test-user", documentId: null }) as Record<string, unknown>;
 
-    expect(caughtError).not.toBeNull();
-    const msg = caughtError!.message;
-    expect(msg.includes("chunks falharam") || msg.includes("Orçamento")).toBe(true);
+    expect(result).toBeDefined();
+    expect(result.type).toBe("simples");
+    expect((result.processing as any)?.complete).toBe(false);
+    expect((result.processing as any)?.failedChunks).toBeGreaterThan(0);
   }, 60_000);
 });
 

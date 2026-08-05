@@ -1,35 +1,57 @@
-import { Router, type IRouter } from "express";
-import { HealthCheckResponse } from "@workspace/api-zod";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 
+const HEALTHZ_TIMEOUT_MS = 5_000;
+
 const router: IRouter = Router();
 
-router.get("/healthz", async (_req, res) => {
-  const data = HealthCheckResponse.parse({ status: "ok" });
+function getRequestId(req: Request): string {
+  return (req as any).id ?? "unknown";
+}
+
+router.get("/healthz", (_req: Request, res: Response) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+router.get("/readyz", async (req: Request, res: Response) => {
+  const requestId = getRequestId(req);
+  const start = performance.now();
 
   try {
-    const result = await db.execute(sql`SELECT current_database() as db, now()::text as ts`);
+    const result = await Promise.race([
+      db.execute(sql`SELECT 1 as ok`),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), HEALTHZ_TIMEOUT_MS)
+      ),
+    ]);
     const rows = (result as any).rows ?? result;
-    const row = Array.isArray(rows) ? rows[0] : rows;
+    const ok = Array.isArray(rows) ? rows[0]?.ok === 1 : true;
+    const duration = Math.round(performance.now() - start);
+
+    req.log?.info({ requestId, code: "DB_OK", duration, database: { ok } }, "Readiness check passed");
 
     res.json({
-      ...data,
-      database: {
-        ok: true,
-        database: row?.db ?? null,
-        latencyMs: null,
-      },
+      status: ok ? "ok" : "degraded",
+      database: { ok },
+      requestId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const isTimeout = message.includes("timeout");
+    const code = isTimeout ? "ERR_DB_TIMEOUT" : "ERR_DB_AUTH";
+    const detail = isTimeout ? "Tempo limite ou host inacessível" : "Credenciais inválidas";
+    const duration = Math.round(performance.now() - start);
+
+    req.log?.warn({ requestId, code, duration, database: { ok: false } }, "Readiness check failed");
+
     res.status(503).json({
-      ...data,
-      database: {
-        ok: false,
-        error: "Banco indisponível",
-        detail: message.includes("password") || message.includes("auth") ? "Credenciais inválidas" : "Tempo limite ou host inacessível",
-      },
+      status: "error",
+      database: { ok: false, detail },
+      requestId,
     });
   }
 });

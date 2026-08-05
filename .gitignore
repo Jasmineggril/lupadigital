@@ -57,3 +57,14 @@ Thumbs.db
 .github/
 .vercel
 .env*
+.tokens.json
+
+# Test artifacts — resultados e payloads gerados manualmente
+result-*.json
+test-*.json
+test-response-*.json
+test-payload-*.json
+test-generate-*
+edital-teste.txt
+load-test/scripts/
+package-lock.json

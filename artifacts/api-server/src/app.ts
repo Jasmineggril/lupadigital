@@ -166,13 +166,62 @@ app.use("/api", router);
 // ── Global JSON Error Handler ─────────────────────────────────────────────────
 // Captura qualquer erro não tratado nas rotas e devolve JSON em vez de HTML.
 // Deve ser o ÚLTIMO middleware registrado no Express.
+//
+// Segurança: erros internos (banco de dados, provedores, stack traces) NUNCA
+// são expostos ao cliente. O detalhe completo é registrado no log do servidor
+// e a resposta devolve apenas uma mensagem segura e específica o suficiente
+// para o usuário agir (sem mascarar a natureza do problema nem vazar SQL).
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   logger.error({ err }, "Unhandled error");
-  const status = (err as any).status ?? (err as any).statusCode ?? 500;
-  res.status(status).json({
-    error: err.message ?? "Internal server error",
-  });
+
+  const anyErr = err as { status?: unknown; statusCode?: unknown; code?: string; userSafe?: boolean };
+
+  // Erros marcados como seguros para exibição ao usuário.
+  if (anyErr.userSafe === true) {
+    const status = Number(anyErr.status) || Number(anyErr.statusCode) || 500;
+    res.status(status).json({ error: err.message });
+    return;
+  }
+
+  // Erros do multer (upload de arquivos), se um dia forem utilizados.
+  if (anyErr.code === "LIMIT_FILE_SIZE") {
+    res.status(413).json({ error: "Arquivo muito grande. O limite é de 20MB." });
+    return;
+  }
+  if (anyErr.code && anyErr.code.startsWith("LIMIT_")) {
+    res.status(400).json({ error: "Arquivo inválido." });
+    return;
+  }
+
+  // Erros de CORS (origem não permitida).
+  if (typeof err.message === "string" && err.message.startsWith("CORS:")) {
+    res.status(403).json({ error: "Origem não permitida." });
+    return;
+  }
+
+  // Erros de banco de dados: mensagem genérica mas específica, sem vazar SQL.
+  const message = (err.message ?? "").toLowerCase();
+  const looksLikeDbError =
+    typeof err.message === "string" &&
+    (message.includes("failed query") ||
+      message.includes("select ") ||
+      message.includes("insert into") ||
+      message.includes("connection") ||
+      message.includes("pool") ||
+      message.includes("econnrefused") ||
+      message.includes("econnreset") ||
+      message.includes("timeout") ||
+      message.includes("database") ||
+      message.includes("postgres") ||
+      anyErr.code?.match(/^[0-5][0-9A-Z]{4}$/));
+
+  if (looksLikeDbError) {
+    res.status(503).json({ error: "Falha ao acessar o banco de dados. Tente novamente." });
+    return;
+  }
+
+  res.status(500).json({ error: "Erro interno do servidor. Tente novamente." });
 });
 
 export default app;

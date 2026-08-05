@@ -185,7 +185,7 @@ export interface DocumentacaoResult {
 
 export interface ElegibilidadeCriterio {
   criterio: string;
-  atende: boolean | "parcial";
+  atende: boolean | "parcial" | null;
   observacao: string;
 }
 

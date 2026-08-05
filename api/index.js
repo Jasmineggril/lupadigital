@@ -157192,8 +157192,6 @@ var edital_default = router2;
 var import_express3 = __toESM(require_express2(), 1);
 var router3 = (0, import_express3.Router)();
 var ALLOWED_TABLES = /* @__PURE__ */ new Set([
-  "documents",
-  "ai_analyses",
   "edital_analyses",
   "lattes_profiles",
   "article_analyses",
@@ -157222,22 +157220,10 @@ var EdtalAnalysisSchema = external_exports2.object({
   recomendacoes: external_exports2.record(external_exports2.string(), external_exports2.unknown()).nullable().optional(),
   favorito: external_exports2.boolean().optional()
 });
-var AiAnalysisSchema = external_exports2.object({
-  model: external_exports2.string().optional(),
-  input: external_exports2.string().optional(),
-  output: external_exports2.union([external_exports2.record(external_exports2.string(), external_exports2.unknown()), external_exports2.string()]).nullable().optional(),
-  metadata: external_exports2.record(external_exports2.string(), external_exports2.unknown()).nullable().optional()
-});
 var LattesProfileSchema = external_exports2.object({
   name: external_exports2.string().optional(),
   lattes_xml: external_exports2.string().nullable().optional(),
   summary: external_exports2.string().nullable().optional(),
-  metadata: external_exports2.record(external_exports2.string(), external_exports2.unknown()).nullable().optional()
-});
-var DocumentSchema = external_exports2.object({
-  filename: external_exports2.string(),
-  mime_type: external_exports2.string(),
-  size: external_exports2.number().int(),
   metadata: external_exports2.record(external_exports2.string(), external_exports2.unknown()).nullable().optional()
 });
 var ChatMessageSchema = external_exports2.object({
@@ -157266,9 +157252,7 @@ var PlanetariumContentSchema = external_exports2.object({
 });
 var SCHEMAS = {
   edital_analyses: EdtalAnalysisSchema,
-  ai_analyses: AiAnalysisSchema,
   lattes_profiles: LattesProfileSchema,
-  documents: DocumentSchema,
   article_analyses: ArticleAnalysisSchema,
   research_projects: ResearchProjectSchema,
   planetarium_contents: PlanetariumContentSchema,

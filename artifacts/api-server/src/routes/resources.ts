@@ -17,8 +17,8 @@
  *   DELETE /api/resources/:table/:id      — remove um registro (owner check)
  *
  * Tabelas permitidas (ALLOWED_TABLES):
- *   documents, ai_analyses, edital_analyses, lattes_profiles,
- *   article_analyses, research_projects, planetarium_contents, chat_messages
+ *   edital_analyses, lattes_profiles, article_analyses, research_projects,
+ *   planetarium_contents, chat_messages
  *
  * Segurança:
  *   - Tabelas fora da allowlist retornam 404 (não revela a existência da tabela)
@@ -38,8 +38,6 @@ const router = Router();
 // Apenas estas tabelas podem ser acessadas pela API de recursos.
 // Qualquer nome fora desta lista retorna 404 para não revelar o schema do banco.
 const ALLOWED_TABLES = new Set([
-  "documents",
-  "ai_analyses",
   "edital_analyses",
   "lattes_profiles",
   "article_analyses",
@@ -87,26 +85,11 @@ const EdtalAnalysisSchema = z.object({
 });
 
 /** Schema de validação para a tabela ai_analyses */
-const AiAnalysisSchema = z.object({
-  model: z.string().optional(),
-  input: z.string().optional(),
-  output: z.union([z.record(z.string(), z.unknown()), z.string()]).nullable().optional(),
-  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
-});
-
 /** Schema de validação para a tabela lattes_profiles */
 const LattesProfileSchema = z.object({
   name: z.string().optional(),
   lattes_xml: z.string().nullable().optional(),
   summary: z.string().nullable().optional(),
-  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
-});
-
-/** Schema de validação para a tabela documents */
-const DocumentSchema = z.object({
-  filename: z.string(),
-  mime_type: z.string(),
-  size: z.number().int(),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
@@ -148,9 +131,7 @@ const PlanetariumContentSchema = z.object({
  */
 const SCHEMAS: Record<string, z.ZodTypeAny> = {
   edital_analyses: EdtalAnalysisSchema,
-  ai_analyses: AiAnalysisSchema,
   lattes_profiles: LattesProfileSchema,
-  documents: DocumentSchema,
   article_analyses: ArticleAnalysisSchema,
   research_projects: ResearchProjectSchema,
   planetarium_contents: PlanetariumContentSchema,

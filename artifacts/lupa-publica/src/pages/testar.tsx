@@ -3267,7 +3267,7 @@ export default function TestarIA() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div className="grid grid-cols-1 gap-6 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_320px] xl:gap-8">
           {/* ── Left Column ── */}
           <section className="flex flex-col gap-5">
             <div className="rounded-3xl border border-border/70 bg-card/70 p-4 shadow-sm">
@@ -3694,7 +3694,7 @@ export default function TestarIA() {
             )}
           </section>
 
-          {/* ── Right Column: Results ── */}
+          {/* ── Center Column: Results ── */}
           <section className="relative min-h-[500px]">
             {!agentResult && !isAnalyzing && !analysisError && (
               <div className="h-full flex flex-col items-center justify-center text-center p-12 border border-dashed border-border rounded-3xl bg-muted/20">
@@ -3867,6 +3867,95 @@ export default function TestarIA() {
               </Tabs>
             )}
           </section>
+
+          {/* ── Right Sidebar ── */}
+          <aside className="space-y-4 lg:sticky lg:top-6">
+            <Card className="rounded-3xl border-border/70 bg-card/80 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <Clock className="w-4 h-4 text-primary" />
+                  Visão rápida
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="rounded-2xl border border-border/60 bg-muted/30 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Agente em foco</p>
+                  <p className="mt-1 font-semibold text-foreground">{currentAgentMeta?.name ?? "Assistente"}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{currentAgentMeta?.description}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl border border-border/60 bg-background p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Entrada</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{activeTab === "texto" ? "Texto" : activeTab === "url" ? "URL" : "PDF"}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-background p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Status</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{isAnalyzing ? "Analisando" : agentResult ? "Concluído" : "Pronto"}</p>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-background p-3 space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Atalhos</p>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start rounded-xl"
+                    onClick={() => setShowHistory(true)}
+                  >
+                    <History className="mr-2 h-4 w-4" />
+                    Abrir histórico
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start rounded-xl"
+                    onClick={() => {
+                      setText("");
+                      setAgentResult(null);
+                      setAnalysisError(null);
+                      setShareToken(null);
+                      setShowShareLink(false);
+                      setShareOptionsOpen(false);
+                    }}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Limpar entrada
+                  </Button>
+                </div>
+                <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-3">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Use a coluna da esquerda para colar texto, carregar URL ou enviar PDF. O resultado aparece no centro e permanece rastreável no histórico.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-3xl border-border/70 bg-card/80 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  Linha do tempo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {ANALYSIS_STAGES.map((stage) => {
+                  const active = analysisStage === stage;
+                  const passed = ANALYSIS_STAGES.indexOf(analysisStage) > ANALYSIS_STAGES.indexOf(stage);
+                  return (
+                    <div
+                      key={stage}
+                      className={`rounded-2xl border px-3 py-2 transition-colors ${active ? "border-primary/30 bg-primary/5" : passed ? "border-emerald-200 bg-emerald-50/70" : "border-border bg-background"}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-foreground">{getAnalysisStageMeta(stage).title}</span>
+                        <span className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${active ? "text-primary" : passed ? "text-emerald-700" : "text-muted-foreground"}`}>
+                          {active ? "Atual" : passed ? "Feito" : "Aguardando"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{getAnalysisStageMeta(stage).description}</p>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </aside>
         </div>
       </main>
     </div>

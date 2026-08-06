@@ -131,6 +131,15 @@ interface CanonicalAnalysisLike {
     textLength?: number;
     profile?: Record<string, unknown>;
   };
+  documento?: {
+    titulo?: string;
+    numero?: string;
+    orgao?: string;
+    anoPublicacao?: number;
+    tipo?: string;
+    fonte?: string;
+    totalPaginas?: number;
+  };
   interpretation?: {
     summary?: string;
     objective?: string;
@@ -341,7 +350,7 @@ function getCanonicalAnswer(question: string, text: string, canonical: Canonical
 
   if (/risco|aten[iç]ão|ponto|vantagem/i.test(normalized)) {
     return canonical.alertas && canonical.alertas.length > 0
-      ? `Riscos e alertas: ${canonical.alertas.map((a) => (typeof a === "string" ? a : a.descricao || JSON.stringify(a))).join("; ")}`
+      ? `Riscos e alertas: ${canonical.alertas.join("; ")}`
       : "Não foram identificados riscos claros no documento.";
   }
 

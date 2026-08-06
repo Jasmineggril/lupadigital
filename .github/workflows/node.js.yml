@@ -20,6 +20,10 @@ jobs:
         node-version: 22.x
         cache: pnpm
         cache-dependency-path: pnpm-lock.yaml
+    - name: Check database URL (prevent IPv6 direct Supabase)
+      run: |
+        echo "Running database URL sanity check..."
+        node ./artifacts/api-server/scripts/check-database-url.js
     - run: pnpm install --frozen-lockfile --prod=false
     - run: pnpm typecheck
     - run: pnpm --filter @workspace/api-server run build

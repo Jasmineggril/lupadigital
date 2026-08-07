@@ -106,7 +106,6 @@ function Router() {
             <Route path="/historico" component={TestarIA} />
 
             {/* ── Hub NIASci (público) + módulos (protegidos) ───────────── */}
-            <Route path="/niasci" component={NiasciHub} />
             <Route path="/niasci/editais">
               <ProtectedRoute><Editais /></ProtectedRoute>
             </Route>
@@ -125,6 +124,7 @@ function Router() {
             <Route path="/niasci/assistente">
               <ProtectedRoute><Assistente /></ProtectedRoute>
             </Route>
+            <Route path="/niasci" component={NiasciHub} />
 
             {/* ── Páginas institucionais ────────────────────────────────── */}
             <Route path="/como-funciona" component={ComoFunciona} />

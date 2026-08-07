@@ -1,6 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { sql } from "drizzle-orm";
-import { db } from "@workspace/db";
+import getSupabaseAdmin from "../lib/supabase";
 
 const HEALTHZ_TIMEOUT_MS = 5_000;
 
@@ -22,21 +21,22 @@ router.get("/readyz", async (req: Request, res: Response) => {
   const start = performance.now();
 
   try {
+    const supabase = getSupabaseAdmin();
     const result = await Promise.race([
-      db.execute(sql`SELECT 1 as ok`),
+      supabase.from("edital_analyses").select("id", { head: true, count: "exact" }).limit(1),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("timeout")), HEALTHZ_TIMEOUT_MS)
       ),
     ]);
-    const rows = (result as any).rows ?? result;
-    const ok = Array.isArray(rows) ? rows[0]?.ok === 1 : true;
+
+    const ok = !result.error;
     const duration = Math.round(performance.now() - start);
 
-    req.log?.info({ requestId, code: "DB_OK", duration, database: { ok } }, "Readiness check passed");
+    req.log?.info({ requestId, code: ok ? "DB_OK" : "DB_ERROR", duration, database: { ok } }, "Readiness check passed");
 
     res.json({
       status: ok ? "ok" : "degraded",
-      database: { ok },
+      database: { ok, detail: result.error?.message ?? null },
       requestId,
     });
   } catch (error) {

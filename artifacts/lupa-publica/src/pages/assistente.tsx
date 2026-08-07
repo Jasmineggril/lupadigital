@@ -74,11 +74,49 @@ const SUGGESTIONS = [
 export default function Assistente() {
   const { toast } = useToast();
 
-  // ID único da conversa atual (usado para agrupar mensagens no histórico)
-  const [conversationId] = useState(() => crypto.randomUUID());
+  // ID único da conversa atual, persistido na sessão do navegador para restaurar histórico
+  const [conversationId] = useState(() => {
+    if (typeof window !== "undefined") {
+      const existing = window.sessionStorage.getItem("niasci-assistente-conversation-id");
+      if (existing) return existing;
+      const newId = crypto.randomUUID();
+      window.sessionStorage.setItem("niasci-assistente-conversation-id", newId);
+      return newId;
+    }
+    return crypto.randomUUID();
+  });
 
   // Mensagens da conversa atual
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadChatHistory = async () => {
+      try {
+        const savedMessages = await listChatMessages(conversationId);
+        if (cancelled) return;
+        setMessages(
+          savedMessages.map((item) => ({
+            role: item.role === "assistant" ? "assistant" : "user",
+            content: item.content ?? "",
+            id: item.id ?? crypto.randomUUID(),
+          })),
+        );
+      } catch {
+        if (!cancelled) setMessages([]);
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    };
+
+    void loadChatHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId]);
 
   // Campo de texto de entrada
   const [input, setInput] = useState("");

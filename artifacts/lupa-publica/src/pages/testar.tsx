@@ -43,6 +43,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -86,6 +87,7 @@ import {
   ChevronDown,
   Share2,
   Copy,
+  MessageSquare,
 } from "lucide-react";
 import {
   AGENTS,
@@ -2429,6 +2431,8 @@ export default function TestarIA() {
   const [location] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
+  const [showQuickView, setShowQuickView] = useState(false);
+  const [showTimelinePopup, setShowTimelinePopup] = useState(false);
   const extractUrlMutation = useExtractEditalFromUrl();
   const analyzeEditalMutation = useAnalyzeEdital();
   const saveAgentResultMutation = useSaveAgentResult();
@@ -3708,121 +3712,210 @@ export default function TestarIA() {
 
             {agentResult && !isAnalyzing && (
               <Tabs defaultValue="resumo" className="w-full">
-                <TabsList className="mb-4 grid grid-cols-2 gap-2 rounded-2xl bg-muted/40 p-1 sm:grid-cols-4 lg:grid-cols-7">
-                  <TabsTrigger value="resumo" className="rounded-xl">Interpretação</TabsTrigger>
-                  <TabsTrigger value="cronograma" className="rounded-xl">Cronograma</TabsTrigger>
-                  <TabsTrigger value="checklist" className="rounded-xl">Checklist</TabsTrigger>
-                  <TabsTrigger value="elegibilidade" className="rounded-xl">Elegibilidade</TabsTrigger>
-                  <TabsTrigger value="chat" className="rounded-xl">Chat</TabsTrigger>
-                  <TabsTrigger value="historico" className="rounded-xl">Histórico</TabsTrigger>
-                  <TabsTrigger value="exportacao" className="rounded-xl">Exportação</TabsTrigger>
+                <TabsList className="mb-4 grid grid-cols-2 gap-2 rounded-[32px] border border-slate-200 bg-slate-100 p-2 shadow-sm shadow-slate-200/20 sm:grid-cols-4 lg:grid-cols-7">
+                  <TabsTrigger value="resumo" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                    <BarChart2 className="w-4 h-4" />
+                    Interpretação
+                  </TabsTrigger>
+                  <TabsTrigger value="cronograma" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                    <CalendarDays className="w-4 h-4" />
+                    Cronograma
+                  </TabsTrigger>
+                  <TabsTrigger value="checklist" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                    <ClipboardList className="w-4 h-4" />
+                    Checklist
+                  </TabsTrigger>
+                  <TabsTrigger value="elegibilidade" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                    <UserCheck className="w-4 h-4" />
+                    Elegibilidade
+                  </TabsTrigger>
+                  <TabsTrigger value="chat" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                    <MessageSquare className="w-4 h-4" />
+                    Chat
+                  </TabsTrigger>
+                  <TabsTrigger value="historico" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                    <History className="w-4 h-4" />
+                    Histórico
+                  </TabsTrigger>
+                  <TabsTrigger value="exportacao" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                    <Download className="w-4 h-4" />
+                    Exportação
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="resumo">
-                  <div className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
-                    <AgentResultPanel result={agentResult} onCheckToggle={handleCheckToggle} printRef={printRef} />
-                  </div>
+                  <Card className="rounded-3xl border border-border/70 bg-white shadow-sm">
+                    <CardHeader className="border-b border-border/70 pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2"><BarChart2 className="w-4 h-4 text-primary" /> Interpretação</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      <AgentResultPanel result={agentResult} onCheckToggle={handleCheckToggle} printRef={printRef} />
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 <TabsContent value="cronograma">
-                  <Card className="rounded-2xl border-border/70 shadow-sm">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2"><CalendarDays className="w-4 h-4 text-primary" /> Cronograma</CardTitle>
+                  <Card className="rounded-3xl border border-border/70 bg-white shadow-sm">
+                    <CardHeader className="border-b border-border/70 pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2"><CalendarDays className="w-4 h-4 text-primary" /> Cronograma</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-4 p-4">
                       {timelineSteps.length > 0 ? timelineSteps.map((step, index) => (
-                        <div key={step.title} className="flex gap-3 rounded-xl bg-background p-2.5">
+                        <div key={step.title} className="flex gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
                           <div className="flex flex-col items-center">
-                            <div className={`mt-0.5 h-2.5 w-2.5 rounded-full ${index === 0 ? "bg-primary" : "bg-muted-foreground/40"}`} />
-                            {index < timelineSteps.length - 1 && (<div className="mt-1 h-full w-px bg-border" />)}
+                            <div className={`h-3.5 w-3.5 rounded-full ${index === 0 ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                            {index < timelineSteps.length - 1 && <div className="mt-2 h-full w-px bg-border" />}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold">{step.title}</p>
-                            <p className="text-xs text-muted-foreground">{step.date}</p>
-                            <p className="text-xs text-muted-foreground/80 mt-0.5">{step.description}</p>
+                            <p className="text-sm font-semibold text-slate-900">{step.title}</p>
+                            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-1">{step.date}</p>
+                            <p className="text-sm text-slate-700 mt-3">{step.description}</p>
                           </div>
                         </div>
                       )) : (
-                        <p className="text-sm text-muted-foreground">Não foi possível localizar informações de cronograma no documento.</p>
+                        <div className="rounded-3xl border border-border/70 bg-slate-50 p-4">
+                          <p className="text-sm text-muted-foreground">Não foi possível localizar informações de cronograma no documento.</p>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
                 </TabsContent>
 
                 <TabsContent value="checklist">
-                  <Card className="rounded-2xl border-border/70 shadow-sm">
-                    <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Checklist</CardTitle></CardHeader>
-                    <CardContent className="space-y-2">
+                  <Card className="rounded-3xl border border-border/70 bg-white shadow-sm">
+                    <CardHeader className="border-b border-border/70 pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Checklist</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 p-4">
                       {checklistItems.length > 0 ? checklistItems.map((item) => (
-                        <div key={item.label} className={`flex items-start gap-2 rounded-xl border p-2.5 ${item.done ? "border-emerald-200 bg-emerald-50/70" : "border-border bg-background"}`}>
-                          <div className={`mt-0.5 h-4 w-4 rounded-full ${item.done ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                        <div key={item.label} className={`flex items-start gap-4 rounded-3xl border p-4 ${item.done ? "border-emerald-200 bg-emerald-50/80" : "border-border bg-slate-50"}`}>
+                          <div className={`mt-1 h-4 w-4 rounded-full ${item.done ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                           <div className="min-w-0">
-                            <p className={`text-sm font-medium ${item.done ? "text-emerald-700" : "text-foreground"}`}>{item.label}</p>
-                            <p className="text-xs text-muted-foreground">{item.hint}</p>
+                            <p className={`text-sm font-semibold ${item.done ? "text-emerald-800" : "text-slate-900"}`}>{item.label}</p>
+                            <p className="text-sm text-muted-foreground mt-2">{item.hint}</p>
                           </div>
                         </div>
                       )) : (
-                        <p className="text-sm text-muted-foreground">Não foi possível localizar informações de checklist no documento.</p>
+                        <div className="rounded-3xl border border-border/70 bg-slate-50 p-4">
+                          <p className="text-sm text-muted-foreground">Não foi possível localizar informações de checklist no documento.</p>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
                 </TabsContent>
 
                 <TabsContent value="elegibilidade">
-                  {agentResult.type === "elegibilidade" ? (
-                    <Card className="rounded-2xl border-border/70 shadow-sm">
-                      <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Elegibilidade</CardTitle></CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
+                  <Card className="rounded-3xl border border-border/70 bg-white shadow-sm">
+                    <CardHeader className="border-b border-border/70 pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2"><UserCheck className="w-4 h-4 text-primary" /> Elegibilidade</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 p-4">
+                      {agentResult.type === "elegibilidade" ? (
+                        <div className="space-y-4">
                           {agentResult.criterios.map((c) => (
-                            <div key={c.criterio} className={`rounded-xl border p-3 ${c.atende === true ? "bg-teal-50 border-teal-200" : c.atende === "parcial" ? "bg-amber-50 border-amber-200" : c.atende === null ? "bg-gray-50 border-gray-200" : "bg-red-50 border-red-200"}`}>
-                              <p className="text-sm font-semibold">{c.criterio}</p>
-                              <p className="text-xs text-muted-foreground mt-1">{c.observacao}</p>
-                              <p className={`text-xs font-semibold mt-2 ${c.atende === true ? "text-teal-700" : c.atende === "parcial" ? "text-amber-700" : c.atende === null ? "text-gray-500" : "text-red-600"}`}>
-                                {c.atende === true ? "🟢 Atende" : c.atende === "parcial" ? "🟡 Atende parcialmente" : c.atende === null ? "⚪ Não foi possível verificar" : "🔴 Não atende"}
-                              </p>
+                            <div key={c.criterio} className={`rounded-3xl border p-4 ${c.atende === true ? "border-teal-200 bg-teal-50/80" : c.atende === "parcial" ? "border-amber-200 bg-amber-50/80" : c.atende === null ? "border-slate-200 bg-slate-50" : "border-rose-200 bg-rose-50/80"}`}>
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-900">{c.criterio}</p>
+                                  <p className="text-sm text-muted-foreground mt-2">{c.observacao}</p>
+                                </div>
+                                <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${c.atende === true ? "bg-teal-600 text-white" : c.atende === "parcial" ? "bg-amber-600 text-white" : c.atende === null ? "bg-slate-400 text-slate-950" : "bg-rose-600 text-white"}`}>
+                                  {c.atende === true ? "Atende" : c.atende === "parcial" ? "Parcial" : c.atende === null ? "Não verificado" : "Não atende"}
+                                </span>
+                              </div>
                             </div>
                           ))}
                         </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">Elegibilidade disponível quando o foco da interpretação for correspondente.</div>
-                  )}
+                      ) : (
+                        <div className="rounded-3xl border border-border/70 bg-slate-50 p-4">
+                          <p className="text-sm text-muted-foreground">Elegibilidade disponível quando o foco da interpretação for correspondente.</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 <TabsContent value="chat">
-                  <Card className="rounded-2xl border-border/70 shadow-sm">
-                    <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold flex items-center gap-2"><Search className="w-4 h-4 text-primary" /> Chat contextual</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-sm text-muted-foreground">Faça uma pergunta sobre este edital e obtenha uma resposta baseada na interpretação atual do documento.</p>
+                  <Card className="rounded-3xl border border-border/70 bg-white shadow-sm">
+                    <CardHeader className="border-b border-border/70 pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2"><MessageSquare className="w-4 h-4 text-primary" /> Chat contextual</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 p-4">
+                      <p className="text-sm text-muted-foreground">Pergunte sobre o edital interpretado e receba respostas claras baseadas na análise.</p>
                       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                         <Input placeholder="Ex: Qual é o prazo final?" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={isAnswering} />
-                        <Button size="sm" className="rounded-xl" onClick={handleAskQuestion} disabled={!question.trim() || isAnswering || !canonicalAnalysis}>{isAnswering ? "Respondendo..." : "Perguntar sobre o edital"}</Button>
+                        <Button size="sm" className="rounded-xl" onClick={handleAskQuestion} disabled={!question.trim() || isAnswering || !canonicalAnalysis}>{isAnswering ? "Respondendo..." : "Perguntar"}</Button>
                       </div>
-                      {answerHistory.length > 0 && <div className="space-y-3">{answerHistory.map((item, index) => (<div key={`${index}-${item.question}`} className="rounded-2xl border border-border bg-background p-3"><p className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground">Pergunta</p><p className="text-sm font-medium mt-1">{item.question}</p><p className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground mt-3">Resposta</p><p className="text-sm mt-1">{item.answer}</p></div>))}</div>}
-                      {faqItems.length > 0 && <div className="grid gap-3 md:grid-cols-2">{faqItems.map((faq) => (<div key={faq.question} className="rounded-2xl border border-border bg-muted/30 p-4"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{faq.question}</p><p className="text-sm mt-2 text-foreground">{faq.answer}</p></div>))}</div>}
+                      {answerHistory.length > 0 && (
+                        <div className="space-y-3">
+                          {answerHistory.map((item, index) => (
+                            <div key={`${index}-${item.question}`} className="rounded-3xl border border-border bg-slate-50 p-4">
+                              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Pergunta</p>
+                              <p className="mt-2 text-sm font-semibold text-slate-900">{item.question}</p>
+                              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-3">Resposta</p>
+                              <p className="mt-2 text-sm text-slate-700">{item.answer}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {faqItems.length > 0 && (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {faqItems.map((faq) => (
+                            <div key={faq.question} className="rounded-3xl border border-border bg-slate-50 p-4">
+                              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{faq.question}</p>
+                              <p className="mt-2 text-sm text-slate-900">{faq.answer}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
 
                 <TabsContent value="historico">
-                  <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold">Histórico</h3>
-                      <Button size="sm" variant="outline" onClick={() => setShowHistory(true)} className="rounded-lg">Abrir histórico</Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Acesse interpretações anteriores sem sair do fluxo principal.</p>
-                  </div>
+                  <Card className="rounded-3xl border border-border/70 bg-white shadow-sm">
+                    <CardHeader className="border-b border-border/70 pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2"><History className="w-4 h-4 text-primary" /> Histórico</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 p-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-3xl border border-border bg-slate-50 p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Último registro</p>
+                          <p className="mt-2 text-sm text-slate-900">Acompanhe as interpretações salvas e restaure resultados com um clique.</p>
+                        </div>
+                        <div className="rounded-3xl border border-border bg-slate-50 p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Salvamento automático</p>
+                          <p className="mt-2 text-sm text-slate-900">As análises são mantidas quando você está logado e podem ser acessadas a qualquer momento.</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-muted-foreground">Use o histórico para comparar interpretações e recuperar informações rapidamente.</p>
+                        <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setShowHistory(true)}>Abrir histórico</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 <TabsContent value="exportacao">
-                  <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm space-y-3">
-                    <Button onClick={handleExportPDF} disabled={isExporting || (!agentResult && !canonicalAnalysis)} className="rounded-xl">
-                      {isExporting ? "Gerando PDF..." : "Exportar para PDF"}
-                    </Button>
-                    <p className="text-sm text-muted-foreground">Exporte a interpretação atual em PDF para compartilhar ou arquivar.</p>
-                  </div>
+                  <Card className="rounded-3xl border border-border/70 bg-white shadow-sm">
+                    <CardHeader className="border-b border-border/70 pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2"><Download className="w-4 h-4 text-primary" /> Exportação</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 p-4">
+                      <div>
+                        <p className="text-sm text-slate-900">Baixe a interpretação atual em PDF ou gere um link para compartilhar com sua equipe.</p>
+                        <p className="text-sm text-muted-foreground mt-1">A exportação mantém a estrutura do resultado e o conteúdo do edital em um relatório pronto para uso.</p>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                        <Button onClick={handleExportPDF} disabled={isExporting || (!agentResult && !canonicalAnalysis)} className="rounded-xl h-12 px-6 text-sm font-semibold">{isExporting ? "Gerando PDF..." : "Exportar PDF"}</Button>
+                        <Button size="sm" variant="outline" className="rounded-xl h-12 px-5" onClick={handleShare} disabled={isSharing}>{isSharing ? "Gerando link..." : "Compartilhar"}</Button>
+                      </div>
+                      <div className="rounded-3xl border border-border bg-slate-50 p-4">
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Dica</p>
+                        <p className="mt-2 text-sm text-slate-900">Use o PDF exportado para arquivar documentos ou compartilhar com parceiros de forma mais profissional.</p>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
               </Tabs>
             )}
@@ -3855,14 +3948,49 @@ export default function TestarIA() {
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-background p-3 space-y-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Atalhos</p>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start rounded-xl"
-                    onClick={() => setShowHistory(true)}
-                  >
-                    <History className="mr-2 h-4 w-4" />
-                    Abrir histórico
-                  </Button>
+                  <Dialog open={showQuickView} onOpenChange={setShowQuickView}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start rounded-xl"
+                      >
+                        <Clock className="mr-2 h-4 w-4" />
+                        Abrir visão rápida
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-xl">
+                      <DialogHeader>
+                        <DialogTitle>Visão rápida</DialogTitle>
+                        <DialogDescription>
+                          Resumo do status atual e contexto da análise.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-3 mt-4">
+                        <div className="rounded-3xl border border-border bg-slate-50 p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Agente atual</p>
+                          <p className="mt-2 text-sm font-semibold text-slate-900">{currentAgentMeta?.name ?? "Assistente"}</p>
+                          <p className="text-sm text-muted-foreground mt-1">{currentAgentMeta?.description}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-3xl border border-border bg-white p-4">
+                            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Entrada</p>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">{activeTab === "texto" ? "Texto" : activeTab === "url" ? "URL" : "PDF"}</p>
+                          </div>
+                          <div className="rounded-3xl border border-border bg-white p-4">
+                            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Status</p>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">{isAnalyzing ? "Analisando" : agentResult ? "Concluído" : "Pronto"}</p>
+                          </div>
+                        </div>
+                        <div className="rounded-3xl border border-border bg-white p-4">
+                          <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Ação rápida</p>
+                          <p className="mt-2 text-sm text-slate-900">Use os botões de controle para limpar ou abrir o histórico sem perder o contexto atual.</p>
+                        </div>
+                      </div>
+                      <DialogClose asChild>
+                        <Button variant="outline" className="mt-6 w-full rounded-xl">Fechar</Button>
+                      </DialogClose>
+                    </DialogContent>
+                  </Dialog>
                   <Button
                     variant="ghost"
                     className="w-full justify-start rounded-xl"
@@ -3895,24 +4023,41 @@ export default function TestarIA() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {ANALYSIS_STAGES.map((stage) => {
-                  const active = analysisStage === stage;
-                  const passed = ANALYSIS_STAGES.indexOf(analysisStage) > ANALYSIS_STAGES.indexOf(stage);
-                  return (
-                    <div
-                      key={stage}
-                      className={`rounded-2xl border px-3 py-2 transition-colors ${active ? "border-primary/30 bg-primary/5" : passed ? "border-emerald-200 bg-emerald-50/70" : "border-border bg-background"}`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-foreground">{getAnalysisStageMeta(stage).title}</span>
-                        <span className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${active ? "text-primary" : passed ? "text-emerald-700" : "text-muted-foreground"}`}>
-                          {active ? "Atual" : passed ? "Feito" : "Aguardando"}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">{getAnalysisStageMeta(stage).description}</p>
+                <Dialog open={showTimelinePopup} onOpenChange={setShowTimelinePopup}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="w-full rounded-xl">
+                      Ver linha do tempo completa
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Linha do tempo de análise</DialogTitle>
+                      <DialogDescription>Veja cada etapa do processo de interpretação em um painel claro e organizado.</DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-4 space-y-3">
+                      {ANALYSIS_STAGES.map((stage) => {
+                        const active = analysisStage === stage;
+                        const passed = ANALYSIS_STAGES.indexOf(analysisStage) > ANALYSIS_STAGES.indexOf(stage);
+                        return (
+                          <div key={stage} className={`rounded-3xl border p-4 ${active ? "border-primary/30 bg-primary/5" : passed ? "border-emerald-200 bg-emerald-50/80" : "border-border bg-background"}`}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-semibold text-slate-900">{getAnalysisStageMeta(stage).title}</p>
+                                <p className="text-sm text-muted-foreground mt-1">{getAnalysisStageMeta(stage).description}</p>
+                              </div>
+                              <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${active ? "bg-primary/10 text-primary" : passed ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"}`}>
+                                {active ? "Atual" : passed ? "Feito" : "Aguardando"}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                    <DialogClose asChild>
+                      <Button variant="outline" className="mt-6 w-full rounded-xl">Fechar</Button>
+                    </DialogClose>
+                  </DialogContent>
+                </Dialog>
               </CardContent>
             </Card>
           </aside>

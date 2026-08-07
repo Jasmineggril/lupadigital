@@ -2438,6 +2438,7 @@ export default function TestarIA() {
   const [urlInput, setUrlInput] = useState("");
   const [activeTab, setActiveTab] = useState("texto");
   const [selectedAgent, setSelectedAgent] = useState<AgentId>("simples");
+  const [manualAgentSelection, setManualAgentSelection] = useState(false);
   const [agentResult, setAgentResult] = useState<AgentResult | null>(null);
   const [canonicalAnalysis, setCanonicalAnalysis] = useState<CanonicalAnalysisLike | null>(null);
   const [checklistState, setChecklistState] = useState<ChecklistItem[]>([]);
@@ -2541,9 +2542,9 @@ export default function TestarIA() {
   }, [analyzeEditalMutation.isPending, analysisStage]);
 
   useEffect(() => {
-    if (!text.trim() || agentResult) return;
+    if (!text.trim() || agentResult || manualAgentSelection) return;
     setSelectedAgent(resolveAutoAgent(text, profile));
-  }, [text, profile, agentResult]);
+  }, [text, profile, agentResult, manualAgentSelection]);
 
   const currentAgentMeta = AGENTS.find((a) => a.id === selectedAgent)!;
   const assistantIdentity = {
@@ -2793,7 +2794,7 @@ export default function TestarIA() {
       return;
     }
 
-    const agentIdToUse = resolveAutoAgent(text, profile);
+    const agentIdToUse = manualAgentSelection ? selectedAgent : resolveAutoAgent(text, profile);
     setSelectedAgent(agentIdToUse);
     setIsAnalyzePressed(true);
     setAnalysisError(null);
@@ -3078,6 +3079,19 @@ export default function TestarIA() {
     setIsAnswering(true);
     setQuestion("");
 
+    if (!user) {
+      const answer = getCanonicalAnswer(q, text, canonicalAnalysis, profile);
+      setAnswerHistory((prev) =>
+        [{ question: q, answer }, ...prev].slice(0, 5),
+      );
+      toast({
+        title: "Chat básico disponível",
+        description: "Faça login para obter respostas mais detalhadas e contexto ampliado.",
+      });
+      setIsAnswering(false);
+      return;
+    }
+
     const API = ((import.meta.env.BASE_URL as string) || "/").replace(/\/$/, "") + "/api";
 
     try {
@@ -3105,14 +3119,24 @@ export default function TestarIA() {
         return;
       }
 
+      if (!res.ok) {
+        throw new Error(data.error || "Erro ao consultar o chat.");
+      }
+
       const answer = data.reply ?? data.error ?? "Não consegui responder. Tente novamente.";
       setAnswerHistory((prev) =>
         [{ question: q, answer }, ...prev].slice(0, 5),
       );
     } catch {
+      const fallbackAnswer = getCanonicalAnswer(q, text, canonicalAnalysis, profile);
       setAnswerHistory((prev) =>
-        [{ question: q, answer: "Erro ao consultar a IA. Verifique sua conexão e tente novamente." }, ...prev].slice(0, 5),
+        [{ question: q, answer: fallbackAnswer }, ...prev].slice(0, 5),
       );
+      toast({
+        title: "Recurso de chat temporariamente indisponível",
+        description: "Use a resposta baseada na análise canônica enquanto o serviço não estiver disponível.",
+        variant: "warning",
+      });
     } finally {
       setIsAnswering(false);
     }
@@ -3285,23 +3309,32 @@ export default function TestarIA() {
               </div>
             </div>
 
-            {/* Profile form for Elegibilidade */}
-            {selectedAgent === "elegibilidade" && (
-              <ProfileForm profile={profile} onChange={setProfile} />
+          <div className="mt-4">
+            <AgentSelector
+              selected={selectedAgent}
+              onSelect={(id) => {
+                setSelectedAgent(id);
+                setManualAgentSelection(true);
+              }}
+            />
+            {!manualAgentSelection && (
+              <p className="text-xs text-muted-foreground mt-2">
+                O agente é sugerido automaticamente com base no conteúdo inserido. Você pode ajustar manualmente se quiser.
+              </p>
             )}
+          </div>
 
-            {/* Text / URL / PDF input */}
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="w-full"
-            >
-              <TabsList className="grid w-full grid-cols-3 mb-3 bg-muted/60">
-                <TabsTrigger value="texto">Colar Texto</TabsTrigger>
-                <TabsTrigger value="url">Usar URL</TabsTrigger>
-                <TabsTrigger value="pdf">Ler PDF</TabsTrigger>
-              </TabsList>
-              <TabsContent value="texto">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-3 mb-3 bg-muted/60">
+              <TabsTrigger value="texto">Colar Texto</TabsTrigger>
+              <TabsTrigger value="url">Usar URL</TabsTrigger>
+              <TabsTrigger value="pdf">Ler PDF</TabsTrigger>
+            </TabsList>
+            <TabsContent value="texto">
                 <div className="relative">
                   <Textarea
                     placeholder="Cole aqui o texto do edital que deseja interpretar..."

@@ -1,0 +1,4062 @@
+{
+  "baseUrl": "https://lupa-digital.vercel.app",
+  "totalUsers": 45,
+  "totalRequests": 450,
+  "totalPasses": 182,
+  "totalFailures": 268,
+  "durationMs": 16957,
+  "results": [
+    {
+      "user": {
+        "id": 1,
+        "name": "Usuário 1",
+        "email": "usuario1@qa.local",
+        "password": "SenhaTeste1!"
+      },
+      "durationMs": 3816,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.882Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 2,
+        "name": "Usuário 2",
+        "email": "usuario2@qa.local",
+        "password": "SenhaTeste2!"
+      },
+      "durationMs": 6231,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.915Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "pass",
+          "evidence": "POST /api/niasci/elattes/analyze -> 200",
+          "details": {
+            "resumo": "O pesquisador em questão possui formação em computação, com experiência em projetos de pesquisa e desenvolvimento de software. Seu perfil combina habilidades técnicas com uma base sólida em computação. O currículo apresenta uma mistura de experiência prática e conhecimento teórico.",
+            "nomeInferido": "Não identificado",
+            "timeline": [
+              {
+                "year": "2024",
+                "text": "Desenvolvimento de projeto de software"
+              },
+              {
+                "year": "2023",
+                "text": "Participação em projeto de pesquisa"
+              },
+              {
+                "year": "2022",
+                "text": "Conclusão da graduação em computação"
+              }
+            ],
+            "competencias": [
+              "Desenvolvimento de software",
+              "Análise de dados",
+              "Programação em Python",
+              "Conhecimento em banco de dados"
+            ],
+            "publicacoes": [],
+            "areas": [
+              "Desenvolvimento de software",
+              "Análise de dados",
+              "Inteligência artificial"
+            ],
+            "sugestoes": [
+              "Edital de Inovação em Tecnologia da Informação — CNPq: compatível devido à experiência em desenvolvimento de software",
+              "Programa de Bolsas de Estudo em Computação — FAPESP: alinhado com a formação em computação",
+              "Chamada de Propostas em Inteligência Artificial — IBM: relacionado às habilidades em análise de dados e programação",
+              "Edital de Apoio a Projetos de Pesquisa em Tecnologia — Finep: compatível com a experiência em projetos de pesquisa",
+              "Programa de Desenvolvimento de Habilidades em Ciência de Dados — Microsoft: alinhado com as competências em análise de dados"
+            ],
+            "oportunidades": [
+              "Participar de hackathons para desenvolver habilidades em resolução de problemas",
+              "Ingressar em grupos de pesquisa em universidades para colaborar em projetos de interesse",
+              "Realizar estágios em empresas de tecnologia para ganhar experiência prática",
+              "Buscar certificações em áreas específicas de tecnologia para aprimorar as competências"
+            ],
+            "sugestoesMelhoria": {
+              "curriculo": [
+                "Recomendação da IA: Incluir links para repositórios de código para demonstrar habilidades práticas",
+                "Recomendação da IA: Adicionar descrições detalhadas de projetos de pesquisa para destacar contribuições"
+              ],
+              "producaoCientifica": [
+                "Recomendação da IA: Publicar artigos em conferências e periódicos científicos para aumentar a visibilidade",
+                "Recomendação da IA: Participar de workshops e seminários para aprender sobre as últimas tendências"
+              ],
+              "competencias": [
+                "Recomendação da IA: Desenvolver habilidades em machine learning para expandir as possibilidades de análise de dados",
+                "Recomendação da IA: Aprender uma nova linguagem de programação para diversificar as competências"
+              ]
+            },
+            "maturidadeCientifica": {
+              "score": 40,
+              "explicacao": "A pontuação foi impactada principalmente pela falta de publicações científicas e pela limitada experiência em projetos de pesquisa de alto nível. A formação em computação e a experiência em desenvolvimento de software contribuíram positivamente, mas não foram suficientes para elevar a pontuação.",
+              "fatoresRedutores": [
+                "Ausência de publicações científicas",
+                "Limitada experiência em projetos de pesquisa de alto nível"
+              ],
+              "acoesPrioritarias": [
+                "Publicar artigos em conferências e periódicos científicos",
+                "Participar de projetos de pesquisa colaborativos",
+                "Buscar oportunidades de estágio ou trabalho em instituições de pesquisa"
+              ]
+            },
+            "alertas": [
+              "⚠ [ausência de dados] O currículo não apresenta informações sobre publicações científicas. Impacto: Dificuldade em demonstrar contribuições para a comunidade científica.",
+              "⚠ [limitação de experiência] A experiência em projetos de pesquisa parece limitada. Impacto: Reduz a capacidade de demonstrar habilidades em pesquisa aplicada."
+            ]
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 3,
+        "name": "Usuário 3",
+        "email": "usuario3@qa.local",
+        "password": "SenhaTeste3!"
+      },
+      "durationMs": 5429,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.806Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 4,
+        "name": "Usuário 4",
+        "email": "usuario4@qa.local",
+        "password": "SenhaTeste4!"
+      },
+      "durationMs": 4828,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.754Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "pass",
+          "evidence": "POST /api/niasci/artigos/analyze -> 200",
+          "details": {
+            "titulo": "Validação de Extração Automática de Informações",
+            "tipo": "Outro",
+            "resumo": "Este artigo sintético visa validar a extração automática de informações de um artigo científico. A metodologia utilizada envolve a análise de um artigo modelo para identificar os componentes canônicos. Os resultados mostram a eficácia da abordagem proposta. A conclusão destaca a importância da extração automática para a disseminação do conhecimento.",
+            "objetivo": "O objetivo principal é validar a extração automática de informações de artigos científicos.",
+            "metodologia": "A abordagem metodológica utilizada envolve a análise de um artigo modelo para identificar os componentes canônicos, como resumo, metodologia, resultados e conclusão.",
+            "resultados": "Os resultados mostram a eficácia da abordagem proposta, com a extração correta dos componentes canônicos do artigo.",
+            "conclusoes": "A conclusão destaca a importância da extração automática para a disseminação do conhecimento e a necessidade de melhorias contínuas na abordagem.",
+            "limitacoes": "As limitações do estudo incluem a utilização de um artigo modelo e a necessidade de testar a abordagem com uma variedade de artigos científicos.",
+            "referencias": [],
+            "citacoes": [],
+            "keywords": [
+              "extração automática",
+              "artigos científicos",
+              "análise de texto"
+            ],
+            "sugestoesDeUso": [
+              "utilizar em pesquisas para melhorar a extração automática de informações",
+              "aplicar em sistemas de gestão de conhecimento"
+            ],
+            "alertas": [
+              "⚠ [ambiguidade] O artigo não fornece informações suficientes sobre a abordagem utilizada."
+            ]
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 5,
+        "name": "Usuário 5",
+        "email": "usuario5@qa.local",
+        "password": "SenhaTeste5!"
+      },
+      "durationMs": 3889,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.847Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 6,
+        "name": "Usuário 6",
+        "email": "usuario6@qa.local",
+        "password": "SenhaTeste6!"
+      },
+      "durationMs": 3326,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.908Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 7,
+        "name": "Usuário 7",
+        "email": "usuario7@qa.local",
+        "password": "SenhaTeste7!"
+      },
+      "durationMs": 3818,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.907Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 8,
+        "name": "Usuário 8",
+        "email": "usuario8@qa.local",
+        "password": "SenhaTeste8!"
+      },
+      "durationMs": 3544,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.881Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 9,
+        "name": "Usuário 9",
+        "email": "usuario9@qa.local",
+        "password": "SenhaTeste9!"
+      },
+      "durationMs": 3536,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.784Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 10,
+        "name": "Usuário 10",
+        "email": "usuario10@qa.local",
+        "password": "SenhaTeste10!"
+      },
+      "durationMs": 3864,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.881Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 11,
+        "name": "Usuário 11",
+        "email": "usuario11@qa.local",
+        "password": "SenhaTeste11!"
+      },
+      "durationMs": 3924,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.856Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 12,
+        "name": "Usuário 12",
+        "email": "usuario12@qa.local",
+        "password": "SenhaTeste12!"
+      },
+      "durationMs": 4399,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:32.974Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 13,
+        "name": "Usuário 13",
+        "email": "usuario13@qa.local",
+        "password": "SenhaTeste13!"
+      },
+      "durationMs": 2074,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.549Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 14,
+        "name": "Usuário 14",
+        "email": "usuario14@qa.local",
+        "password": "SenhaTeste14!"
+      },
+      "durationMs": 2386,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.548Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 15,
+        "name": "Usuário 15",
+        "email": "usuario15@qa.local",
+        "password": "SenhaTeste15!"
+      },
+      "durationMs": 1832,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.545Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 16,
+        "name": "Usuário 16",
+        "email": "usuario16@qa.local",
+        "password": "SenhaTeste16!"
+      },
+      "durationMs": 1695,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.548Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 17,
+        "name": "Usuário 17",
+        "email": "usuario17@qa.local",
+        "password": "SenhaTeste17!"
+      },
+      "durationMs": 1524,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.539Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 18,
+        "name": "Usuário 18",
+        "email": "usuario18@qa.local",
+        "password": "SenhaTeste18!"
+      },
+      "durationMs": 1745,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.543Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 19,
+        "name": "Usuário 19",
+        "email": "usuario19@qa.local",
+        "password": "SenhaTeste19!"
+      },
+      "durationMs": 1360,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.538Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 20,
+        "name": "Usuário 20",
+        "email": "usuario20@qa.local",
+        "password": "SenhaTeste20!"
+      },
+      "durationMs": 2221,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.539Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 21,
+        "name": "Usuário 21",
+        "email": "usuario21@qa.local",
+        "password": "SenhaTeste21!"
+      },
+      "durationMs": 2003,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.546Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 22,
+        "name": "Usuário 22",
+        "email": "usuario22@qa.local",
+        "password": "SenhaTeste22!"
+      },
+      "durationMs": 3746,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.541Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 23,
+        "name": "Usuário 23",
+        "email": "usuario23@qa.local",
+        "password": "SenhaTeste23!"
+      },
+      "durationMs": 1807,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.545Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 24,
+        "name": "Usuário 24",
+        "email": "usuario24@qa.local",
+        "password": "SenhaTeste24!"
+      },
+      "durationMs": 1647,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:38.546Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 25,
+        "name": "Usuário 25",
+        "email": "usuario25@qa.local",
+        "password": "SenhaTeste25!"
+      },
+      "durationMs": 1780,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.788Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 26,
+        "name": "Usuário 26",
+        "email": "usuario26@qa.local",
+        "password": "SenhaTeste26!"
+      },
+      "durationMs": 2970,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.808Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 27,
+        "name": "Usuário 27",
+        "email": "usuario27@qa.local",
+        "password": "SenhaTeste27!"
+      },
+      "durationMs": 1670,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.863Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 28,
+        "name": "Usuário 28",
+        "email": "usuario28@qa.local",
+        "password": "SenhaTeste28!"
+      },
+      "durationMs": 1654,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.797Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 29,
+        "name": "Usuário 29",
+        "email": "usuario29@qa.local",
+        "password": "SenhaTeste29!"
+      },
+      "durationMs": 2265,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.786Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 30,
+        "name": "Usuário 30",
+        "email": "usuario30@qa.local",
+        "password": "SenhaTeste30!"
+      },
+      "durationMs": 1566,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.816Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 31,
+        "name": "Usuário 31",
+        "email": "usuario31@qa.local",
+        "password": "SenhaTeste31!"
+      },
+      "durationMs": 2232,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.799Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 32,
+        "name": "Usuário 32",
+        "email": "usuario32@qa.local",
+        "password": "SenhaTeste32!"
+      },
+      "durationMs": 1537,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.796Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 33,
+        "name": "Usuário 33",
+        "email": "usuario33@qa.local",
+        "password": "SenhaTeste33!"
+      },
+      "durationMs": 2358,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.792Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 34,
+        "name": "Usuário 34",
+        "email": "usuario34@qa.local",
+        "password": "SenhaTeste34!"
+      },
+      "durationMs": 2089,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.789Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 35,
+        "name": "Usuário 35",
+        "email": "usuario35@qa.local",
+        "password": "SenhaTeste35!"
+      },
+      "durationMs": 1380,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.794Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 36,
+        "name": "Usuário 36",
+        "email": "usuario36@qa.local",
+        "password": "SenhaTeste36!"
+      },
+      "durationMs": 2424,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:42.793Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 37,
+        "name": "Usuário 37",
+        "email": "usuario37@qa.local",
+        "password": "SenhaTeste37!"
+      },
+      "durationMs": 1940,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:46.263Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 38,
+        "name": "Usuário 38",
+        "email": "usuario38@qa.local",
+        "password": "SenhaTeste38!"
+      },
+      "durationMs": 2100,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:46.257Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 39,
+        "name": "Usuário 39",
+        "email": "usuario39@qa.local",
+        "password": "SenhaTeste39!"
+      },
+      "durationMs": 1746,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:46.272Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 40,
+        "name": "Usuário 40",
+        "email": "usuario40@qa.local",
+        "password": "SenhaTeste40!"
+      },
+      "durationMs": 1938,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:46.277Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 41,
+        "name": "Usuário 41",
+        "email": "usuario41@qa.local",
+        "password": "SenhaTeste41!"
+      },
+      "durationMs": 1735,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:46.268Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 42,
+        "name": "Usuário 42",
+        "email": "usuario42@qa.local",
+        "password": "SenhaTeste42!"
+      },
+      "durationMs": 1592,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:46.262Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 43,
+        "name": "Usuário 43",
+        "email": "usuario43@qa.local",
+        "password": "SenhaTeste43!"
+      },
+      "durationMs": 2449,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:46.264Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 44,
+        "name": "Usuário 44",
+        "email": "usuario44@qa.local",
+        "password": "SenhaTeste44!"
+      },
+      "durationMs": 1810,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:46.261Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    },
+    {
+      "user": {
+        "id": 45,
+        "name": "Usuário 45",
+        "email": "usuario45@qa.local",
+        "password": "SenhaTeste45!"
+      },
+      "durationMs": 2321,
+      "checks": [
+        {
+          "feature": "Health",
+          "status": "pass",
+          "evidence": "GET /api/healthz -> 200",
+          "details": {
+            "status": "ok",
+            "timestamp": "2026-08-07T16:05:46.268Z"
+          }
+        },
+        {
+          "feature": "Autenticação protegida",
+          "status": "pass",
+          "evidence": "GET /api/edital/agent-history -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Análise de edital",
+          "status": "fail",
+          "evidence": "POST /api/edital/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "e-Lattes",
+          "status": "fail",
+          "evidence": "POST /api/niasci/elattes/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Artigos científicos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/artigos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Projetos",
+          "status": "fail",
+          "evidence": "POST /api/niasci/projetos/analyze -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Planetário",
+          "status": "fail",
+          "evidence": "POST /api/niasci/planetario/generate -> 429",
+          "details": {
+            "error": "O limite temporário de análises foi atingido. Aguarde e tente novamente."
+          }
+        },
+        {
+          "feature": "Assistente IA",
+          "status": "fail",
+          "evidence": "POST /api/niasci/chat -> 401",
+          "details": {
+            "error": "Authentication required"
+          }
+        },
+        {
+          "feature": "Frontend login",
+          "status": "pass",
+          "evidence": "GET /login -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        },
+        {
+          "feature": "Frontend cadastro",
+          "status": "pass",
+          "evidence": "GET /cadastro -> 200",
+          "details": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=devic"
+        }
+      ]
+    }
+  ]
+}

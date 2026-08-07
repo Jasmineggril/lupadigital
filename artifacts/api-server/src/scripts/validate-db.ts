@@ -4,6 +4,7 @@
  * Executa com: pnpm --filter @workspace/api-server exec tsx src/scripts/validate-db.ts
  */
 import { sql } from "drizzle-orm";
+import { loadEnvFile } from "@workspace/db/load-env";
 
 function normalizeConnStr(s: string | undefined): string | undefined {
   if (!s) return undefined;
@@ -17,6 +18,8 @@ function normalizeConnStr(s: string | undefined): string | undefined {
   }
   return v || undefined;
 }
+
+loadEnvFile();
 
 console.log("\n── Variáveis de conexão ──\n");
 

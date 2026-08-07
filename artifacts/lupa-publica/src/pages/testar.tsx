@@ -103,6 +103,14 @@ import {
 import { extractTextFromPdf, type PdfStructuredData } from "@/lib/pdf";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
 import {
+  buildChecklistItems,
+  buildChatSuggestions,
+  buildFaqItems,
+  buildTimelineSteps,
+  type ChecklistItemSummary,
+  type TimelineStep,
+} from "@/lib/analysisViewModel";
+import {
   salvarAnalise,
   atualizarAnalise,
   listarAnalises,
@@ -165,18 +173,6 @@ interface CanonicalAnalysisLike {
     complete?: boolean;
   };
 }
-
-type TimelineStep = {
-  title: string;
-  date: string;
-  description: string;
-};
-
-type ChecklistItemSummary = {
-  label: string;
-  done: boolean;
-  hint: string;
-};
 
 function canonicalToAgentResult(canonical: CanonicalAnalysisLike | null | undefined): AgentResult | null {
   if (!canonical) return null;
@@ -285,43 +281,7 @@ function normalizeCanonicalList(items: string[] | undefined | null) {
 }
 
 function buildCanonicalFAQ(canonical: CanonicalAnalysisLike | null) {
-  if (!canonical) return [];
-
-  const interpretation = canonical.interpretation ?? {};
-  const cronogramaItems = canonical.cronograma?.items ?? [];
-  const checklistItems = canonical.checklist?.items ?? [];
-  const objetivos = normalizeCanonicalText(interpretation.objective);
-  const publico = normalizeCanonicalText(interpretation.targetAudience);
-  const resumo = normalizeCanonicalText(interpretation.summary);
-
-  return [
-    {
-      question: "Quem pode participar deste edital?",
-      answer: publico,
-    },
-    {
-      question: "Quais são os prazos mais importantes?",
-      answer: cronogramaItems.length > 0
-        ? cronogramaItems.map((item) => `${item.fase}: ${item.periodo}`).join(" • ")
-        : normalizeCanonicalText(interpretation.deadlines),
-    },
-    {
-      question: "Quais documentos preciso separar?",
-      answer: canonical.documentosExigidos?.items?.length
-        ? canonical.documentosExigidos.items.join("; ")
-        : normalizeCanonicalText(interpretation.requirements?.join("; ")),
-    },
-    {
-      question: "Como faço a inscrição?",
-      answer: normalizeCanonicalText(interpretation.registrationLocation),
-    },
-    {
-      question: "Meu perfil atende a este edital?",
-      answer: canonical.elegibilidade?.recommendation
-        ? normalizeCanonicalText(canonical.elegibilidade.recommendation)
-        : missingInfoText,
-    },
-  ];
+  return buildFaqItems(canonical as never);
 }
 
 function getCanonicalAnswer(question: string, text: string, canonical: CanonicalAnalysisLike | null, profile: UserProfile) {
@@ -639,28 +599,8 @@ function getSimplifiedText(result: AgentResult) {
   }
 }
 
-function buildChatSuggestions(canonical: CanonicalAnalysisLike | null, timelineSteps: TimelineStep[], checklistItems: ChecklistItemSummary[]) {
-  const suggestions = [
-    "Qual é o prazo principal?",
-    "Quais documentos preciso enviar?",
-    "Explique este edital em linguagem simples",
-    "Meu perfil parece elegível?",
-    "Qual é o cronograma completo?",
-  ];
-
-  if (canonical?.documento?.orgao) {
-    suggestions.unshift("Qual órgão publicou este edital?");
-  }
-
-  if (timelineSteps.some((step) => step.date !== "A confirmar")) {
-    suggestions.push("Quais datas precisam de atenção?");
-  }
-
-  if (checklistItems.some((item) => item.done)) {
-    suggestions.push("Quais documentos já foram detectados?");
-  }
-
-  return suggestions.slice(0, 5);
+function buildChatSuggestionsForPage(canonical: CanonicalAnalysisLike | null, timelineSteps: TimelineStep[], checklistItems: ChecklistItemSummary[]) {
+  return buildChatSuggestions(canonical as never, timelineSteps, checklistItems);
 }
 
 // ── PDF export ───────────────────────────────────────────────────
@@ -2573,41 +2513,20 @@ export default function TestarIA() {
    * Regex simples não consegue diferenciar datas de lei de datas de prazo.
    */
   const timelineSteps = useMemo(() => {
-    const canonicalItems = canonicalAnalysis?.cronograma?.items;
-    if (canonicalItems && canonicalItems.length > 0) {
-      return canonicalItems.map((item) => ({
-        title: item.fase,
-        date: item.periodo,
-        description: item.descricao,
-      }));
-    }
-    // Se não houver análise canônica, mostrar vazio — não usar buildTimelineSteps
-    return [];
-  }, [canonicalAnalysis]);
+    return buildTimelineSteps(canonicalAnalysis as never, agentResult);
+  }, [canonicalAnalysis, agentResult]);
   
   /**
-   * Checklist: SEMPRE usa dados da IA (canonicalAnalysis.checklist).
-   * Se não houver análise, retorna array vazio — NUNCA usa fallback de regex.
-   * 
-   * Racionale: Documentos obrigatórios vs opcionais é uma distinção crítica
-   * que regex não consegue fazer corretamente.
+   * Checklist: usa o resultado canônico sempre que possível, mas faz fallback
+   * para o resultado do agente quando a estrutura canônica está incompleta.
    */
   const checklistItems = useMemo(() => {
-    const canonicalItems = canonicalAnalysis?.checklist?.items;
-    if (canonicalItems && canonicalItems.length > 0) {
-      return canonicalItems.map((item) => ({
-        label: item.doc,
-        done: item.checked,
-        hint: item.observacao,
-      }));
-    }
-    // Se não houver análise canônica, mostrar vazio — não usar buildChecklist
-    return [];
-  }, [canonicalAnalysis]);
+    return buildChecklistItems(canonicalAnalysis as never, agentResult);
+  }, [canonicalAnalysis, agentResult]);
   
   const faqItems = useMemo(() => buildCanonicalFAQ(canonicalAnalysis), [canonicalAnalysis]);
   const chatSuggestions = useMemo(
-    () => buildChatSuggestions(canonicalAnalysis, timelineSteps, checklistItems),
+    () => buildChatSuggestionsForPage(canonicalAnalysis, timelineSteps, checklistItems),
     [canonicalAnalysis, timelineSteps, checklistItems],
   );
 
@@ -3143,7 +3062,7 @@ export default function TestarIA() {
       toast({
         title: "Recurso de chat temporariamente indisponível",
         description: "Use a resposta baseada na análise canônica enquanto o serviço não estiver disponível.",
-        variant: "warning",
+        variant: "default",
       });
     } finally {
       setIsAnswering(false);

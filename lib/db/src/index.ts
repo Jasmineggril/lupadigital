@@ -1,16 +1,42 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import net from "net";
 import pg from "pg";
+import { loadEnvFile } from "./load-env";
 import * as schema from "./schema";
 
 const { Pool } = pg;
 
+loadEnvFile();
+
 // ── Pool config (lazily read from env at pool creation time) ─────────────────
-function getPoolConfig() {
-  return {
+function isSupabasePoolerUrl(urlStr: string): boolean {
+  try {
+    const u = new URL(urlStr);
+    return u.hostname.includes("supabase") && (
+      u.hostname.includes("pooler.supabase.com") ||
+      u.hostname.includes("pooler.supabase.co")
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function getPoolConfig(connectionString?: string) {
+  const base = {
     max: Number(process.env.PG_POOL_MAX ?? 5),
     idleTimeoutMillis: Number(process.env.PG_POOL_IDLE_TIMEOUT_MS ?? 10000),
     connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT ?? 10000),
+  };
+
+  if (!connectionString || !isSupabasePoolerUrl(connectionString)) {
+    return base;
+  }
+
+  return {
+    ...base,
+    ssl: {
+      rejectUnauthorized: false,
+    },
   };
 }
 
@@ -61,9 +87,17 @@ function injectPassword(urlStr: string, password: string): string {
 function ensureSslMode(urlStr: string): string {
   try {
     const u = new URL(urlStr);
+    const host = u.hostname.toLowerCase();
+    const isSupabasePooler =
+      host.includes("pooler.supabase.com") ||
+      host.includes("pooler.supabase.co");
+
     if (!u.searchParams.has("sslmode")) {
-      u.searchParams.set("sslmode", "require");
+      u.searchParams.set(isSupabasePooler ? "no-verify" : "require");
+    } else if (isSupabasePooler && u.searchParams.get("sslmode") === "require") {
+      u.searchParams.set("sslmode", "no-verify");
     }
+
     return u.toString();
   } catch {
     if (!/\bsslmode=/i.test(urlStr)) {
@@ -173,7 +207,7 @@ let _db: DrizzleDB | null = null;
   const databaseUrl = resolveDatabaseUrl();
   if (!databaseUrl) return;
   assertIpv4Reachable(databaseUrl);
-  _pool = new Pool({ connectionString: databaseUrl, ...getPoolConfig() });
+  _pool = new Pool({ connectionString: databaseUrl, ...getPoolConfig(databaseUrl) });
   _db = drizzle(_pool, { schema });
 })();
 

@@ -5352,10 +5352,10 @@ var require_raw_body = __commonJS({
       if (done) {
         return readStream(stream, encoding, length, limit2, wrap2(done));
       }
-      return new Promise(function executor(resolve, reject) {
+      return new Promise(function executor(resolve2, reject) {
         readStream(stream, encoding, length, limit2, function onRead(err, buf) {
           if (err) return reject(err);
-          resolve(buf);
+          resolve2(buf);
         });
       });
     }
@@ -18788,7 +18788,7 @@ var require_view = __commonJS({
     var basename = path3.basename;
     var extname = path3.extname;
     var join = path3.join;
-    var resolve = path3.resolve;
+    var resolve2 = path3.resolve;
     module.exports = View2;
     function View2(name, options) {
       var opts = options || {};
@@ -18822,7 +18822,7 @@ var require_view = __commonJS({
       debug('lookup "%s"', name);
       for (var i = 0; i < roots.length && !path4; i++) {
         var root2 = roots[i];
-        var loc = resolve(root2, name);
+        var loc = resolve2(root2, name);
         var dir = dirname(loc);
         var file2 = basename(loc);
         path4 = this.resolve(dir, file2);
@@ -18847,7 +18847,7 @@ var require_view = __commonJS({
       });
       sync = false;
     };
-    View2.prototype.resolve = function resolve2(dir, file2) {
+    View2.prototype.resolve = function resolve3(dir, file2) {
       var ext = this.ext;
       var path4 = join(dir, file2);
       var stat = tryStat(path4);
@@ -21106,7 +21106,7 @@ var require_application = __commonJS({
     var compileETag = require_utils3().compileETag;
     var compileQueryParser = require_utils3().compileQueryParser;
     var compileTrust = require_utils3().compileTrust;
-    var resolve = __require("node:path").resolve;
+    var resolve2 = __require("node:path").resolve;
     var once2 = require_once();
     var Router7 = require_router();
     var slice2 = Array.prototype.slice;
@@ -21160,7 +21160,7 @@ var require_application = __commonJS({
       this.mountpath = "/";
       this.locals.settings = this.settings;
       this.set("view", View2);
-      this.set("views", resolve("views"));
+      this.set("views", resolve2("views"));
       this.set("jsonp callback name", "callback");
       if (env === "production") {
         this.enable("view cache");
@@ -22677,7 +22677,7 @@ var require_send = __commonJS({
     var extname = path3.extname;
     var join = path3.join;
     var normalize3 = path3.normalize;
-    var resolve = path3.resolve;
+    var resolve2 = path3.resolve;
     var sep = path3.sep;
     var BYTES_RANGE_REGEXP = /^ *bytes=/;
     var MAX_MAXAGE = 60 * 60 * 24 * 365 * 1e3;
@@ -22706,7 +22706,7 @@ var require_send = __commonJS({
       this._maxage = opts.maxAge || opts.maxage;
       this._maxage = typeof this._maxage === "string" ? ms(this._maxage) : Number(this._maxage);
       this._maxage = !isNaN(this._maxage) ? Math.min(Math.max(0, this._maxage), MAX_MAXAGE) : 0;
-      this._root = opts.root ? resolve(opts.root) : null;
+      this._root = opts.root ? resolve2(opts.root) : null;
     }
     util4.inherits(SendStream, Stream2);
     SendStream.prototype.error = function error40(status, err) {
@@ -22855,7 +22855,7 @@ var require_send = __commonJS({
           return res;
         }
         parts = normalize3(path4).split(sep);
-        path4 = resolve(path4);
+        path4 = resolve2(path4);
       }
       if (containsDotFile(parts)) {
         debug('%s dotfile "%s"', this._dotfiles, path4);
@@ -23233,7 +23233,7 @@ var require_response = __commonJS({
     var cookie = require_cookie();
     var send = require_send();
     var extname = path3.extname;
-    var resolve = path3.resolve;
+    var resolve2 = path3.resolve;
     var vary = require_vary();
     var { Buffer: Buffer7 } = __require("node:buffer");
     var res = Object.create(http2.ServerResponse.prototype);
@@ -23439,7 +23439,7 @@ var require_response = __commonJS({
       }
       opts = Object.create(opts);
       opts.headers = headers;
-      var fullPath = !opts.root ? resolve(path4) : path4;
+      var fullPath = !opts.root ? resolve2(path4) : path4;
       return this.sendFile(fullPath, opts, done);
     };
     res.contentType = res.type = function contentType(type) {
@@ -23688,7 +23688,7 @@ var require_serve_static = __commonJS({
     var encodeUrl = require_encodeurl();
     var escapeHtml = require_escape_html();
     var parseUrl = require_parseurl();
-    var resolve = __require("path").resolve;
+    var resolve2 = __require("path").resolve;
     var send = require_send();
     var url2 = __require("url");
     module.exports = serveStatic;
@@ -23707,7 +23707,7 @@ var require_serve_static = __commonJS({
         throw new TypeError("option setHeaders must be function");
       }
       opts.maxage = opts.maxage || opts.maxAge || 0;
-      opts.root = resolve(root2);
+      opts.root = resolve2(root2);
       var onDirectory = redirect ? createRedirectDirectoryListener() : createNotFoundDirectoryListener();
       return function serveStatic2(req, res, next2) {
         if (req.method !== "GET" && req.method !== "HEAD") {
@@ -33620,7 +33620,7 @@ var require_dist3 = __commonJS({
     function parse11(stream, callback) {
       const parser = new parser_1.Parser();
       stream.on("data", (buffer) => parser.parse(buffer, callback));
-      return new Promise((resolve) => stream.on("end", () => resolve()));
+      return new Promise((resolve2) => stream.on("end", () => resolve2()));
     }
   }
 });
@@ -34380,12 +34380,12 @@ var require_client = __commonJS({
           this._connect(callback);
           return;
         }
-        return new this._Promise((resolve, reject) => {
+        return new this._Promise((resolve2, reject) => {
           this._connect((error40) => {
             if (error40) {
               reject(error40);
             } else {
-              resolve(this);
+              resolve2(this);
             }
           });
         });
@@ -34732,8 +34732,8 @@ var require_client = __commonJS({
         } else {
           query = new Query2(config2, values, callback);
           if (!query.callback) {
-            result = new this._Promise((resolve, reject) => {
-              query.callback = (err, res) => err ? reject(err) : resolve(res);
+            result = new this._Promise((resolve2, reject) => {
+              query.callback = (err, res) => err ? reject(err) : resolve2(res);
             }).catch((err) => {
               Error.captureStackTrace(err);
               throw err;
@@ -34817,8 +34817,8 @@ var require_client = __commonJS({
         if (cb) {
           this.connection.once("end", cb);
         } else {
-          return new this._Promise((resolve) => {
-            this.connection.once("end", resolve);
+          return new this._Promise((resolve2) => {
+            this.connection.once("end", resolve2);
           });
         }
       }
@@ -34867,8 +34867,8 @@ var require_pg_pool = __commonJS({
       const cb = function(err, client) {
         err ? rej(err) : res(client);
       };
-      const result = new Promise2(function(resolve, reject) {
-        res = resolve;
+      const result = new Promise2(function(resolve2, reject) {
+        res = resolve2;
         rej = reject;
       }).catch((err) => {
         Error.captureStackTrace(err);
@@ -34929,7 +34929,7 @@ var require_pg_pool = __commonJS({
         if (typeof Promise2.try === "function") {
           return Promise2.try(f);
         }
-        return new Promise2((resolve) => resolve(f()));
+        return new Promise2((resolve2) => resolve2(f()));
       }
       _isFull() {
         return this._clients.length >= this.options.max;
@@ -35322,8 +35322,8 @@ var require_query2 = __commonJS({
     NativeQuery.prototype._getPromise = function() {
       if (this._promise) return this._promise;
       this._promise = new Promise(
-        function(resolve, reject) {
-          this._once("end", resolve);
+        function(resolve2, reject) {
+          this._once("end", resolve2);
           this._once("error", reject);
         }.bind(this)
       );
@@ -35500,12 +35500,12 @@ var require_client2 = __commonJS({
         this._connect(callback);
         return;
       }
-      return new this._Promise((resolve, reject) => {
+      return new this._Promise((resolve2, reject) => {
         this._connect((error40) => {
           if (error40) {
             reject(error40);
           } else {
-            resolve(this);
+            resolve2(this);
           }
         });
       });
@@ -35529,8 +35529,8 @@ var require_client2 = __commonJS({
         query = new NativeQuery(config2, values, callback);
         if (!query.callback) {
           let resolveOut, rejectOut;
-          result = new this._Promise((resolve, reject) => {
-            resolveOut = resolve;
+          result = new this._Promise((resolve2, reject) => {
+            resolveOut = resolve2;
             rejectOut = reject;
           }).catch((err) => {
             Error.captureStackTrace(err);
@@ -35593,8 +35593,8 @@ var require_client2 = __commonJS({
       }
       let result;
       if (!cb) {
-        result = new this._Promise(function(resolve, reject) {
-          cb = (err) => err ? reject(err) : resolve();
+        result = new this._Promise(function(resolve2, reject) {
+          cb = (err) => err ? reject(err) : resolve2();
         });
       }
       this.native.end(function() {
@@ -42883,9 +42883,9 @@ var require_dispatcher_base = __commonJS({
       }
       close(callback) {
         if (callback === void 0) {
-          return new Promise((resolve, reject) => {
+          return new Promise((resolve2, reject) => {
             this.close((err, data2) => {
-              return err ? reject(err) : resolve(data2);
+              return err ? reject(err) : resolve2(data2);
             });
           });
         }
@@ -42923,9 +42923,9 @@ var require_dispatcher_base = __commonJS({
           err = null;
         }
         if (callback === void 0) {
-          return new Promise((resolve, reject) => {
+          return new Promise((resolve2, reject) => {
             this.destroy(err, (err2, data2) => {
-              return err2 ? reject(err2) : resolve(data2);
+              return err2 ? reject(err2) : resolve2(data2);
             });
           });
         }
@@ -46422,8 +46422,8 @@ var require_promise = __commonJS({
     function createDeferredPromise() {
       let res;
       let rej;
-      const promise2 = new Promise((resolve, reject) => {
-        res = resolve;
+      const promise2 = new Promise((resolve2, reject) => {
+        res = resolve2;
         rej = reject;
       });
       return { promise: promise2, resolve: res, reject: rej };
@@ -47818,12 +47818,12 @@ upgrade: ${upgrade}\r
           cb();
         }
       }
-      const waitForDrain = () => new Promise((resolve, reject) => {
+      const waitForDrain = () => new Promise((resolve2, reject) => {
         assert2(callback === null);
         if (socket[kError]) {
           reject(socket[kError]);
         } else {
-          callback = resolve;
+          callback = resolve2;
         }
       });
       socket.on("close", onDrain).on("drain", onDrain);
@@ -48668,12 +48668,12 @@ var require_client_h2 = __commonJS({
           cb();
         }
       }
-      const waitForDrain = () => new Promise((resolve, reject) => {
+      const waitForDrain = () => new Promise((resolve2, reject) => {
         assert2(callback === null);
         if (socket[kError]) {
           reject(socket[kError]);
         } else {
-          callback = resolve;
+          callback = resolve2;
         }
       });
       h2stream.on("close", onDrain).on("drain", onDrain);
@@ -48989,16 +48989,16 @@ var require_client3 = __commonJS({
         return this[kNeedDrain] < 2;
       }
       [kClose]() {
-        return new Promise((resolve) => {
+        return new Promise((resolve2) => {
           if (this[kSize]) {
-            this[kClosedResolve] = resolve;
+            this[kClosedResolve] = resolve2;
           } else {
-            resolve(null);
+            resolve2(null);
           }
         });
       }
       [kDestroy](err) {
-        return new Promise((resolve) => {
+        return new Promise((resolve2) => {
           const requests = this[kQueue].splice(this[kPendingIdx]);
           for (let i = 0; i < requests.length; i++) {
             const request = requests[i];
@@ -49009,7 +49009,7 @@ var require_client3 = __commonJS({
               this[kClosedResolve]();
               this[kClosedResolve] = null;
             }
-            resolve(null);
+            resolve2(null);
           };
           if (this[kHTTPContext]) {
             this[kHTTPContext].destroy(err, callback);
@@ -49414,8 +49414,8 @@ var require_pool_base = __commonJS({
           }
           return Promise.all(closeAll);
         } else {
-          return new Promise((resolve) => {
-            this[kClosedResolve] = resolve;
+          return new Promise((resolve2) => {
+            this[kClosedResolve] = resolve2;
           });
         }
       }
@@ -50532,7 +50532,7 @@ var require_socks5_proxy_agent = __commonJS({
         const proxyHost = this[kProxyUrl].hostname;
         const proxyPort = parseInt(this[kProxyUrl].port) || 1080;
         debug("creating SOCKS5 connection to", proxyHost, proxyPort);
-        const socket = await new Promise((resolve, reject) => {
+        const socket = await new Promise((resolve2, reject) => {
           this[kConnector]({
             hostname: proxyHost,
             host: proxyHost,
@@ -50542,7 +50542,7 @@ var require_socks5_proxy_agent = __commonJS({
             if (err) {
               reject(err);
             } else {
-              resolve(socket2);
+              resolve2(socket2);
             }
           });
         });
@@ -50552,14 +50552,14 @@ var require_socks5_proxy_agent = __commonJS({
           socket.destroy();
         });
         await socks5Client.handshake();
-        await new Promise((resolve, reject) => {
+        await new Promise((resolve2, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error("SOCKS5 authentication timeout"));
           }, 5e3);
           const onAuthenticated = () => {
             clearTimeout(timeout);
             socks5Client.removeListener("error", onError);
-            resolve();
+            resolve2();
           };
           const onError = (err) => {
             clearTimeout(timeout);
@@ -50568,14 +50568,14 @@ var require_socks5_proxy_agent = __commonJS({
           };
           if (socks5Client.state === STATES.AUTHENTICATED) {
             clearTimeout(timeout);
-            resolve();
+            resolve2();
           } else {
             socks5Client.once("authenticated", onAuthenticated);
             socks5Client.once("error", onError);
           }
         });
         await socks5Client.connect(targetHost, targetPort);
-        await new Promise((resolve, reject) => {
+        await new Promise((resolve2, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error("SOCKS5 connection timeout"));
           }, 5e3);
@@ -50583,7 +50583,7 @@ var require_socks5_proxy_agent = __commonJS({
             debug("SOCKS5 tunnel established to", targetHost, targetPort, "via", info);
             clearTimeout(timeout);
             socks5Client.removeListener("error", onError);
-            resolve();
+            resolve2();
           };
           const onError = (err) => {
             clearTimeout(timeout);
@@ -50626,8 +50626,8 @@ var require_socks5_proxy_agent = __commonJS({
                       socket,
                       servername: this[kRequestTls]?.servername || targetHost
                     });
-                    await new Promise((resolve, reject) => {
-                      finalSocket.once("secureConnect", resolve);
+                    await new Promise((resolve2, reject) => {
+                      finalSocket.once("secureConnect", resolve2);
                       finalSocket.once("error", reject);
                     });
                   }
@@ -51664,7 +51664,7 @@ var require_readable = __commonJS({
         if (this._readableState.closeEmitted) {
           return Promise.resolve(null);
         }
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           if (this[kContentLength] && this[kContentLength] > limit2 || this[kBytesRead] > limit2) {
             this.destroy(new AbortError());
           }
@@ -51678,11 +51678,11 @@ var require_readable = __commonJS({
               if (signal.aborted) {
                 reject(signal.reason ?? new AbortError());
               } else {
-                resolve(null);
+                resolve2(null);
               }
             });
           } else {
-            this.on("close", resolve);
+            this.on("close", resolve2);
           }
           this.on("error", noop2).on("data", () => {
             if (this[kBytesRead] > limit2) {
@@ -51710,7 +51710,7 @@ var require_readable = __commonJS({
     }
     function consume(stream, type) {
       assert2(!stream[kConsume]);
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve2, reject) => {
         if (isUnusable(stream)) {
           const rState = stream._readableState;
           if (rState.destroyed && rState.closeEmitted === false) {
@@ -51725,7 +51725,7 @@ var require_readable = __commonJS({
             stream[kConsume] = {
               type,
               stream,
-              resolve,
+              resolve: resolve2,
               reject,
               length: 0,
               body: []
@@ -51799,18 +51799,18 @@ var require_readable = __commonJS({
       return buffer;
     }
     function consumeEnd(consume2, encoding) {
-      const { type, body, resolve, stream, length } = consume2;
+      const { type, body, resolve: resolve2, stream, length } = consume2;
       try {
         if (type === "text") {
-          resolve(chunksDecode(body, length, encoding));
+          resolve2(chunksDecode(body, length, encoding));
         } else if (type === "json") {
-          resolve(JSON.parse(chunksDecode(body, length, encoding)));
+          resolve2(JSON.parse(chunksDecode(body, length, encoding)));
         } else if (type === "arrayBuffer") {
-          resolve(chunksConcat(body, length).buffer);
+          resolve2(chunksConcat(body, length).buffer);
         } else if (type === "blob") {
-          resolve(new Blob(body, { type: stream[kContentType] }));
+          resolve2(new Blob(body, { type: stream[kContentType] }));
         } else if (type === "bytes") {
-          resolve(chunksConcat(body, length));
+          resolve2(chunksConcat(body, length));
         }
         consumeFinish(consume2);
       } catch (err) {
@@ -52000,9 +52000,9 @@ var require_api_request = __commonJS({
     };
     function request(opts, callback) {
       if (callback === void 0) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           request.call(this, opts, (err, data2) => {
-            return err ? reject(err) : resolve(data2);
+            return err ? reject(err) : resolve2(data2);
           });
         });
       }
@@ -52214,9 +52214,9 @@ var require_api_stream = __commonJS({
     };
     function stream(opts, factory, callback) {
       if (callback === void 0) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           stream.call(this, opts, factory, (err, data2) => {
-            return err ? reject(err) : resolve(data2);
+            return err ? reject(err) : resolve2(data2);
           });
         });
       }
@@ -52504,9 +52504,9 @@ var require_api_upgrade = __commonJS({
     };
     function upgrade(opts, callback) {
       if (callback === void 0) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           upgrade.call(this, opts, (err, data2) => {
-            return err ? reject(err) : resolve(data2);
+            return err ? reject(err) : resolve2(data2);
           });
         });
       }
@@ -52599,9 +52599,9 @@ var require_api_connect = __commonJS({
     };
     function connect(opts, callback) {
       if (callback === void 0) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           connect.call(this, opts, (err, data2) => {
-            return err ? reject(err) : resolve(data2);
+            return err ? reject(err) : resolve2(data2);
           });
         });
       }
@@ -53875,7 +53875,7 @@ var require_snapshot_recorder = __commonJS({
   "../../node_modules/.pnpm/undici@7.28.0/node_modules/undici/lib/mock/snapshot-recorder.js"(exports, module) {
     "use strict";
     var { writeFile, readFile, mkdir } = __require("node:fs/promises");
-    var { dirname, resolve } = __require("node:path");
+    var { dirname, resolve: resolve2 } = __require("node:path");
     var { setTimeout: setTimeout2, clearTimeout: clearTimeout2 } = __require("node:timers");
     var { InvalidArgumentError, UndiciError } = require_errors();
     var { hashId, isUrlExcludedFactory, normalizeHeaders: normalizeHeaders2, createHeaderFilters } = require_snapshot_utils();
@@ -54076,7 +54076,7 @@ var require_snapshot_recorder = __commonJS({
           throw new InvalidArgumentError("Snapshot path is required");
         }
         try {
-          const data2 = await readFile(resolve(path3), "utf8");
+          const data2 = await readFile(resolve2(path3), "utf8");
           const parsed = JSON.parse(data2);
           if (Array.isArray(parsed)) {
             this.#snapshots.clear();
@@ -54105,7 +54105,7 @@ var require_snapshot_recorder = __commonJS({
         if (!path3) {
           throw new InvalidArgumentError("Snapshot path is required");
         }
-        const resolvedPath = resolve(path3);
+        const resolvedPath = resolve2(path3);
         await mkdir(dirname(resolvedPath), { recursive: true });
         const data2 = Array.from(this.#snapshots.entries()).map(([hash, snapshot]) => ({
           hash,
@@ -60957,7 +60957,7 @@ var require_fetch = __commonJS({
         const agent = fetchParams.controller.dispatcher;
         const path3 = url2.pathname + url2.search;
         const hasTrailingQuestionMark = url2.search.length === 0 && url2.href[url2.href.length - url2.hash.length - 1] === "?";
-        return new Promise((resolve, reject) => agent.dispatch(
+        return new Promise((resolve2, reject) => agent.dispatch(
           {
             path: hasTrailingQuestionMark ? `${path3}?` : path3,
             origin: url2.origin,
@@ -61045,7 +61045,7 @@ var require_fetch = __commonJS({
                 }
               }
               const onError = this.onError.bind(this);
-              resolve({
+              resolve2({
                 status,
                 statusText,
                 headersList,
@@ -61098,7 +61098,7 @@ var require_fetch = __commonJS({
                   headersList.append(headerName, String(value), true);
                 }
               }
-              resolve({
+              resolve2({
                 status,
                 statusText: STATUS_CODES[status],
                 headersList,
@@ -61122,7 +61122,7 @@ var require_fetch = __commonJS({
                   headersList.append(nameStr, value.toString("latin1"), true);
                 }
               }
-              resolve({
+              resolve2({
                 status,
                 statusText: STATUS_CODES[status],
                 headersList,
@@ -81613,11 +81613,11 @@ function __metadata(metadataKey, metadataValue) {
 }
 function __awaiter(thisArg, _arguments, P, generator) {
   function adopt(value) {
-    return value instanceof P ? value : new P(function(resolve) {
-      resolve(value);
+    return value instanceof P ? value : new P(function(resolve2) {
+      resolve2(value);
     });
   }
-  return new (P || (P = Promise))(function(resolve, reject) {
+  return new (P || (P = Promise))(function(resolve2, reject) {
     function fulfilled(value) {
       try {
         step(generator.next(value));
@@ -81633,7 +81633,7 @@ function __awaiter(thisArg, _arguments, P, generator) {
       }
     }
     function step(result) {
-      result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+      result.done ? resolve2(result.value) : adopt(result.value).then(fulfilled, rejected);
     }
     step((generator = generator.apply(thisArg, _arguments || [])).next());
   });
@@ -81824,14 +81824,14 @@ function __asyncValues(o) {
   }, i);
   function verb(n) {
     i[n] = o[n] && function(v) {
-      return new Promise(function(resolve, reject) {
-        v = o[n](v), settle(resolve, reject, v.done, v.value);
+      return new Promise(function(resolve2, reject) {
+        v = o[n](v), settle(resolve2, reject, v.done, v.value);
       });
     };
   }
-  function settle(resolve, reject, d, v) {
+  function settle(resolve2, reject, d, v) {
     Promise.resolve(v).then(function(v2) {
-      resolve({ value: v2, done: d });
+      resolve2({ value: v2, done: d });
     }, reject);
   }
 }
@@ -85712,15 +85712,15 @@ var require_RealtimeChannel = __commonJS({
             }
           }
         } else {
-          return new Promise((resolve) => {
+          return new Promise((resolve2) => {
             var _a8, _b2, _c;
             const push = this.channelAdapter.push(args.type, args, opts.timeout || this.timeout);
             if (args.type === "broadcast" && !((_c = (_b2 = (_a8 = this.params) === null || _a8 === void 0 ? void 0 : _a8.config) === null || _b2 === void 0 ? void 0 : _b2.broadcast) === null || _c === void 0 ? void 0 : _c.ack)) {
-              resolve("ok");
+              resolve2("ok");
             }
-            push.receive("ok", () => resolve("ok"));
-            push.receive("error", () => resolve("error"));
-            push.receive("timeout", () => resolve("timed out"));
+            push.receive("ok", () => resolve2("ok"));
+            push.receive("error", () => resolve2("error"));
+            push.receive("timeout", () => resolve2("timed out"));
           });
         }
       }
@@ -85745,8 +85745,8 @@ var require_RealtimeChannel = __commonJS({
        * @category Realtime
        */
       async unsubscribe(timeout = this.timeout) {
-        return new Promise((resolve) => {
-          this.channelAdapter.unsubscribe(timeout).receive("ok", () => resolve("ok")).receive("timeout", () => resolve("timed out")).receive("error", () => resolve("error"));
+        return new Promise((resolve2) => {
+          this.channelAdapter.unsubscribe(timeout).receive("ok", () => resolve2("ok")).receive("timeout", () => resolve2("timed out")).receive("error", () => resolve2("error"));
         });
       }
       /**
@@ -85954,11 +85954,11 @@ var require_socketAdapter = __commonJS({
         this.socket.connect();
       }
       disconnect(callback, code, reason, timeout = 1e4) {
-        return new Promise((resolve) => {
-          setTimeout(() => resolve("timeout"), timeout);
+        return new Promise((resolve2) => {
+          setTimeout(() => resolve2("timeout"), timeout);
           this.socket.disconnect(() => {
             callback();
-            resolve("ok");
+            resolve2("ok");
           }, code, reason);
         });
       }
@@ -96224,12 +96224,12 @@ var promisifyStore = (passedStore) => {
   const legacyStore = passedStore;
   class PromisifiedStore {
     async increment(key) {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve2, reject) => {
         legacyStore.incr(
           key,
           (error40, totalHits, resetTime) => {
             if (error40) reject(error40);
-            resolve({ totalHits, resetTime });
+            resolve2({ totalHits, resetTime });
           }
         );
       });
@@ -96383,9 +96383,9 @@ var rateLimit = (passedOptions) => {
   }
   const middleware = handleAsyncErrors(
     async (request, response, next2) => {
-      const closePromise = config2.skipFailedRequests && new Promise((resolve) => response.once("close", resolve));
-      const finishPromise = (config2.skipFailedRequests || config2.skipSuccessfulRequests) && new Promise((resolve) => response.once("finish", resolve));
-      const errorPromise = config2.skipFailedRequests && new Promise((resolve) => response.once("error", resolve));
+      const closePromise = config2.skipFailedRequests && new Promise((resolve2) => response.once("close", resolve2));
+      const finishPromise = (config2.skipFailedRequests || config2.skipSuccessfulRequests) && new Promise((resolve2) => response.once("finish", resolve2));
+      const errorPromise = config2.skipFailedRequests && new Promise((resolve2) => response.once("error", resolve2));
       debug("requested %o", request.originalUrl);
       debug("request from ip %o", request.ip);
       const skip = await config2.skip(request, response);
@@ -103523,6 +103523,30 @@ function drizzle(...params) {
 
 // ../../lib/db/src/index.ts
 import net from "net";
+
+// ../../lib/db/src/load-env.ts
+import { existsSync, readFileSync as readFileSync2 } from "node:fs";
+import { resolve } from "node:path";
+function loadEnvFile(envPath2 = resolve(process.cwd(), ".env")) {
+  if (!existsSync(envPath2)) {
+    return;
+  }
+  const content = readFileSync2(envPath2, "utf8");
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line2 = rawLine.trim();
+    if (!line2 || line2.startsWith("#")) continue;
+    const eqIndex = line2.indexOf("=");
+    if (eqIndex <= 0) continue;
+    const key = line2.slice(0, eqIndex).trim();
+    let value = line2.slice(eqIndex + 1).trim();
+    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
+      value = value.slice(1, -1);
+    }
+    if (!(key in process.env)) {
+      process.env[key] = value;
+    }
+  }
+}
 
 // ../../lib/db/src/schema/index.ts
 var schema_exports = {};
@@ -115007,11 +115031,29 @@ var sharedResultsTable = pgTable("shared_results", {
 
 // ../../lib/db/src/index.ts
 var { Pool: Pool3 } = esm_default;
-function getPoolConfig() {
-  return {
+loadEnvFile();
+function isSupabasePoolerUrl(urlStr) {
+  try {
+    const u = new URL(urlStr);
+    return u.hostname.includes("supabase") && (u.hostname.includes("pooler.supabase.com") || u.hostname.includes("pooler.supabase.co"));
+  } catch {
+    return false;
+  }
+}
+function getPoolConfig(connectionString) {
+  const base = {
     max: Number(process.env.PG_POOL_MAX ?? 5),
     idleTimeoutMillis: Number(process.env.PG_POOL_IDLE_TIMEOUT_MS ?? 1e4),
     connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT ?? 1e4)
+  };
+  if (!connectionString || !isSupabasePoolerUrl(connectionString)) {
+    return base;
+  }
+  return {
+    ...base,
+    ssl: {
+      rejectUnauthorized: false
+    }
   };
 }
 function isIpv6Address(host) {
@@ -115045,8 +115087,12 @@ function injectPassword(urlStr, password) {
 function ensureSslMode(urlStr) {
   try {
     const u = new URL(urlStr);
+    const host = u.hostname.toLowerCase();
+    const isSupabasePooler = host.includes("pooler.supabase.com") || host.includes("pooler.supabase.co");
     if (!u.searchParams.has("sslmode")) {
-      u.searchParams.set("sslmode", "require");
+      u.searchParams.set(isSupabasePooler ? "no-verify" : "require");
+    } else if (isSupabasePooler && u.searchParams.get("sslmode") === "require") {
+      u.searchParams.set("sslmode", "no-verify");
     }
     return u.toString();
   } catch {
@@ -115109,7 +115155,7 @@ var _db = null;
   const databaseUrl = resolveDatabaseUrl();
   if (!databaseUrl) return;
   assertIpv4Reachable(databaseUrl);
-  _pool = new Pool3({ connectionString: databaseUrl, ...getPoolConfig() });
+  _pool = new Pool3({ connectionString: databaseUrl, ...getPoolConfig(databaseUrl) });
   _db = drizzle(_pool, { schema: schema_exports });
 })();
 var db = _db ?? new Proxy({}, {
@@ -134019,7 +134065,7 @@ var safeJSON = (text4) => {
 };
 
 // ../../node_modules/.pnpm/openai@6.48.0_zod@3.25.76/node_modules/openai/internal/utils/sleep.mjs
-var sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+var sleep = (ms) => new Promise((resolve2) => setTimeout(resolve2, ms));
 
 // ../../node_modules/.pnpm/openai@6.48.0_zod@3.25.76/node_modules/openai/version.mjs
 var VERSION = "6.48.0";
@@ -135130,8 +135176,8 @@ function addRequestID(value, response) {
 var _APIPromise_client;
 var APIPromise = class _APIPromise extends Promise {
   constructor(client, responsePromise, parseResponse2 = defaultParseResponse) {
-    super((resolve) => {
-      resolve(null);
+    super((resolve2) => {
+      resolve2(null);
     });
     this.responsePromise = responsePromise;
     this.parseResponse = parseResponse2;
@@ -136028,12 +136074,12 @@ var EventStream = class {
     _EventStream_errored.set(this, false);
     _EventStream_aborted.set(this, false);
     _EventStream_catchingPromiseCreated.set(this, false);
-    __classPrivateFieldSet(this, _EventStream_connectedPromise, new Promise((resolve, reject) => {
-      __classPrivateFieldSet(this, _EventStream_resolveConnectedPromise, resolve, "f");
+    __classPrivateFieldSet(this, _EventStream_connectedPromise, new Promise((resolve2, reject) => {
+      __classPrivateFieldSet(this, _EventStream_resolveConnectedPromise, resolve2, "f");
       __classPrivateFieldSet(this, _EventStream_rejectConnectedPromise, reject, "f");
     }), "f");
-    __classPrivateFieldSet(this, _EventStream_endPromise, new Promise((resolve, reject) => {
-      __classPrivateFieldSet(this, _EventStream_resolveEndPromise, resolve, "f");
+    __classPrivateFieldSet(this, _EventStream_endPromise, new Promise((resolve2, reject) => {
+      __classPrivateFieldSet(this, _EventStream_resolveEndPromise, resolve2, "f");
       __classPrivateFieldSet(this, _EventStream_rejectEndPromise, reject, "f");
     }), "f");
     __classPrivateFieldGet(this, _EventStream_connectedPromise, "f").catch(() => {
@@ -136133,11 +136179,11 @@ var EventStream = class {
    *   const message = await stream.emitted('message') // rejects if the stream errors
    */
   emitted(event) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       __classPrivateFieldSet(this, _EventStream_catchingPromiseCreated, true, "f");
       if (event !== "error")
         this.once("error", reject);
-      this.once(event, resolve);
+      this.once(event, resolve2);
     });
   }
   /**
@@ -136220,8 +136266,8 @@ var EventStream = class {
         }
         if (ended)
           return Promise.resolve(doneResult());
-        return new Promise((resolve, reject) => {
-          readQueue.push({ resolve, reject });
+        return new Promise((resolve2, reject) => {
+          readQueue.push({ resolve: resolve2, reject });
         });
       },
       return: () => {
@@ -137252,7 +137298,7 @@ var ChatCompletionStream = class _ChatCompletionStream extends AbstractChatCompl
           if (done) {
             return { value: void 0, done: true };
           }
-          return new Promise((resolve, reject) => readQueue.push({ resolve, reject })).then((chunk2) => chunk2 ? { value: chunk2, done: false } : { value: void 0, done: true });
+          return new Promise((resolve2, reject) => readQueue.push({ resolve: resolve2, reject })).then((chunk2) => chunk2 ? { value: chunk2, done: false } : { value: void 0, done: true });
         }
         const chunk = pushQueue.shift();
         return { value: chunk, done: false };
@@ -137427,7 +137473,7 @@ var ChatCompletionStreamingRunner = class _ChatCompletionStreamingRunner extends
           if (done) {
             return { value: void 0, done: true };
           }
-          return new Promise((resolve, reject) => readQueue.push({ resolve, reject })).then((event2) => event2 ? { value: event2, done: false } : { value: void 0, done: true });
+          return new Promise((resolve2, reject) => readQueue.push({ resolve: resolve2, reject })).then((event2) => event2 ? { value: event2, done: false } : { value: void 0, done: true });
         }
         const event = pushQueue.shift();
         if (!event) {
@@ -140590,7 +140636,7 @@ var AssistantStream = class extends EventStream {
           if (done) {
             return { value: void 0, done: true };
           }
-          return new Promise((resolve, reject) => readQueue.push({ resolve, reject })).then((chunk2) => chunk2 ? { value: chunk2, done: false } : { value: void 0, done: true });
+          return new Promise((resolve2, reject) => readQueue.push({ resolve: resolve2, reject })).then((chunk2) => chunk2 ? { value: chunk2, done: false } : { value: void 0, done: true });
         }
         const chunk = pushQueue.shift();
         return { value: chunk, done: false };
@@ -142970,7 +143016,7 @@ var ResponseStream = class _ResponseStream extends EventStream {
           if (done) {
             return { value: void 0, done: true };
           }
-          return new Promise((resolve, reject) => readQueue.push({ resolve, reject })).then((event2) => event2 ? { value: event2, done: false } : { value: void 0, done: true });
+          return new Promise((resolve2, reject) => readQueue.push({ resolve: resolve2, reject })).then((event2) => event2 ? { value: event2, done: false } : { value: void 0, done: true });
         }
         const event = pushQueue.shift();
         return { value: event, done: false };
@@ -144931,18 +144977,18 @@ var PostgrestError = class extends Error {
   }
 };
 function sleep2(ms, signal) {
-  return new Promise((resolve) => {
+  return new Promise((resolve2) => {
     if (signal === null || signal === void 0 ? void 0 : signal.aborted) {
-      resolve();
+      resolve2();
       return;
     }
     const id = setTimeout(() => {
       signal === null || signal === void 0 || signal.removeEventListener("abort", onAbort);
-      resolve();
+      resolve2();
     }, ms);
     function onAbort() {
       clearTimeout(id);
-      resolve();
+      resolve2();
     }
     signal === null || signal === void 0 || signal.addEventListener("abort", onAbort);
   });
@@ -149380,7 +149426,7 @@ var _getRequestParams = (method, options, parameters, body) => {
   return _objectSpread22(_objectSpread22({}, params), parameters);
 };
 async function _handleRequest(fetcher, method, url2, options, parameters, body, namespace) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve2, reject) => {
     fetcher(url2, _getRequestParams(method, options, parameters, body)).then((result) => {
       if (!result.ok) throw result;
       if (options === null || options === void 0 ? void 0 : options.noResolveJson) return result;
@@ -149390,7 +149436,7 @@ async function _handleRequest(fetcher, method, url2, options, parameters, body, 
         if (!contentType || !contentType.includes("application/json")) return {};
       }
       return result.json();
-    }).then((data2) => resolve(data2)).catch((error40) => handleError(error40, reject, options, namespace));
+    }).then((data2) => resolve2(data2)).catch((error40) => handleError(error40, reject, options, namespace));
   });
 }
 function createFetchApi(namespace = "storage") {
@@ -152033,11 +152079,11 @@ var DEFAULT_TRACE_PROPAGATION_OPTIONS = {
 };
 function __awaiter2(thisArg, _arguments, P, generator) {
   function adopt(value) {
-    return value instanceof P ? value : new P(function(resolve) {
-      resolve(value);
+    return value instanceof P ? value : new P(function(resolve2) {
+      resolve2(value);
     });
   }
-  return new (P || (P = Promise))(function(resolve, reject) {
+  return new (P || (P = Promise))(function(resolve2, reject) {
     function fulfilled(value) {
       try {
         step(generator.next(value));
@@ -152053,7 +152099,7 @@ function __awaiter2(thisArg, _arguments, P, generator) {
       }
     }
     function step(result) {
-      result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+      result.done ? resolve2(result.value) : adopt(result.value).then(fulfilled, rejected);
     }
     step((generator = generator.apply(thisArg, _arguments || [])).next());
   });
@@ -154560,7 +154606,7 @@ async function waitForTpmBudget(reservationTokens) {
   }
   if (waitMs <= 0) return;
   logger.info({ step: "tpm_pacing_wait", waitMs, usedTokens: used, reservationTokens }, `TPM pacing: waiting ${Math.round(waitMs / 1e3)}s`);
-  await new Promise((resolve) => setTimeout(resolve, waitMs));
+  await new Promise((resolve2) => setTimeout(resolve2, waitMs));
 }
 function getProviderNameFromModel(model) {
   if (model.includes("llama")) return "groq";
@@ -155185,7 +155231,7 @@ async function processChunkWithRetry(agentId, chunk, budget, totalChunks, proces
         return { ok: false, chunk, error: `Or\xE7amento de tempo insuficiente para retry. ${message2}` };
       }
       logger.info({ step: "retry_wait", agentId, chunkId: chunk.chunkId, attempt, delayMs, isRateLimit }, `Waiting ${Math.round(delayMs)}ms before retry`);
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      await new Promise((resolve2) => setTimeout(resolve2, delayMs));
     }
   }
   return { ok: false, chunk, error: lastError instanceof Error ? lastError.message : String(lastError) };

@@ -147,11 +147,15 @@ interface CanonicalAnalysisLike {
     moeda?: string;
     observacao?: string;
   };
+  documento?: {
+    orgao?: string;
+    [key: string]: unknown;
+  };
   documentosExigidos?: {
     items?: string[];
     summary?: string;
   };
-  alertas?: string[];
+  alertas?: Array<string | { descricao?: string; [key: string]: unknown }>;
   agentResult?: Record<string, unknown>;
   processing?: {
     mode?: string;
@@ -179,7 +183,11 @@ function canonicalToAgentResult(canonical: CanonicalAnalysisLike | null | undefi
 
   const interpretation = canonical.interpretation ?? {};
   const agentId = (canonical.source?.agentId as AgentId | undefined) ?? "simples";
-  const alerts = canonical.alertas ?? [];
+
+  const alertas = canonical.alertas ?? [];
+  const alerts = alertas.map((alerta) =>
+    typeof alerta === "string" ? alerta : alerta.descricao ?? JSON.stringify(alerta),
+  );
 
   switch (agentId) {
     case "analista":

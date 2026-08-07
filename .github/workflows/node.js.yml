@@ -25,3 +25,34 @@ jobs:
     - run: pnpm --filter @workspace/api-server run build
     - run: pnpm --filter @workspace/lupa-publica run build
     - run: pnpm --filter @workspace/api-server test
+
+  supabase-preview:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ secrets.SUPABASE_URL && (secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SECRET_KEY) && secrets.VITE_SUPABASE_URL && secrets.VITE_SUPABASE_ANON_KEY && (secrets.DATABASE_URL || secrets.DIRECT_URL || secrets.DIRECT_URL_IPV4) }}
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      DIRECT_URL_IPV4: ${{ secrets.DIRECT_URL_IPV4 }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 9.15.9
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+        cache: pnpm
+        cache-dependency-path: pnpm-lock.yaml
+    - run: pnpm install --frozen-lockfile --prod=false
+    - run: pnpm --filter @workspace/api-server exec tsx src/scripts/validate-supabase.ts
+    - run: pnpm --filter @workspace/api-server exec tsx src/scripts/validate-db.ts

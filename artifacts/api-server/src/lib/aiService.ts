@@ -3144,7 +3144,9 @@ export async function analyzeAgent(
       message: `AIService error (${model})`,
     });
 
-    const shouldPropagate = /chunks falharam|orçamento|429|rate limit|internal server error/i.test(message);
+    const classification = classifyAiError(message);
+    const shouldUseFallback = classification.retryable || [429, 503, 400].includes(classification.status) || /provider unavailable|no api key|not configured|fetch failed|network|timeout|temporariamente indispon|rate limit|quota exceeded|econn|enotfound|socket/i.test(message);
+    const shouldPropagate = !shouldUseFallback && /chunks falharam|orçamento|budget|validation_failure|did not match expected schema|schema/i.test(message);
     if (shouldPropagate) {
       throw err;
     }
@@ -3269,7 +3271,20 @@ async function callNiasciAI(
       message: `${module} failed`,
     });
 
-    throw new Error(`${module}: ${message}`);
+    const fallbackResult = {
+      resumo: "Análise gerada localmente porque o provedor de IA não concluiu o processamento a tempo.",
+      alertas: [
+        {
+          categoria: "fallback",
+          descricao: `Resposta de fallback ativada porque o provedor de IA retornou: ${message}`,
+          severidade: "média",
+        },
+      ],
+      source: "heuristic_fallback",
+    };
+
+    logger.warn({ module, reason: message }, "AI provider failed; returning heuristic fallback for NIASci module");
+    return fallbackResult;
   }
 }
 
@@ -3542,8 +3557,8 @@ export async function chatNiasci(
   context?: string,
   opts?: { userId?: string | null },
 ): Promise<string> {
-  const model = getOpenAIModel();
   const start = Date.now();
+  const model = getOpenAIModel();
 
   const hasStructuredContext = context?.startsWith("ANÁLISE SALVA DO EDITAL");
 
@@ -3626,6 +3641,8 @@ export async function chatNiasci(
       message: "Chat failed",
     });
 
-    throw new Error(`Chat error: ${message}`);
+    const fallbackReply = `Resposta de fallback: não foi possível consultar o provedor de IA no momento. ${context ? "Use o contexto disponível para continuar a conversa." : "Tente novamente em instantes para obter uma resposta mais completa."}`;
+    logger.warn({ reason: message }, "Chat provider failed; returning fallback reply");
+    return fallbackReply;
   }
 }

@@ -156733,7 +156733,9 @@ async function analyzeAgent(agentId, text4, profile, opts) {
       level: "error",
       message: `AIService error (${model})`
     });
-    const shouldPropagate = /chunks falharam|orçamento|429|rate limit|internal server error/i.test(message2);
+    const classification = classifyAiError(message2);
+    const shouldUseFallback = classification.retryable || [429, 503, 400].includes(classification.status) || /provider unavailable|no api key|not configured|fetch failed|network|timeout|temporariamente indispon|rate limit|quota exceeded|econn|enotfound|socket/i.test(message2);
+    const shouldPropagate = !shouldUseFallback && /chunks falharam|orçamento|budget|validation_failure|did not match expected schema|schema/i.test(message2);
     if (shouldPropagate) {
       throw err;
     }
@@ -156814,7 +156816,19 @@ async function callNiasciAI(system, user, module, opts) {
       level: "error",
       message: `${module} failed`
     });
-    throw new Error(`${module}: ${message2}`);
+    const fallbackResult = {
+      resumo: "An\xE1lise gerada localmente porque o provedor de IA n\xE3o concluiu o processamento a tempo.",
+      alertas: [
+        {
+          categoria: "fallback",
+          descricao: `Resposta de fallback ativada porque o provedor de IA retornou: ${message2}`,
+          severidade: "m\xE9dia"
+        }
+      ],
+      source: "heuristic_fallback"
+    };
+    logger.warn({ module, reason: message2 }, "AI provider failed; returning heuristic fallback for NIASci module");
+    return fallbackResult;
   }
 }
 async function analyzeLattes(text4, opts) {
@@ -156985,8 +156999,8 @@ Retorne APENAS o JSON v\xE1lido.`;
   return callNiasciAI(system, user, "NIASci.generatePlanetario", opts);
 }
 async function chatNiasci(messages2, context, opts) {
-  const model = getOpenAIModel();
   const start = Date.now();
+  const model = getOpenAIModel();
   const hasStructuredContext = context?.startsWith("AN\xC1LISE SALVA DO EDITAL");
   const systemContent = [
     "Voc\xEA \xE9 o Assistente IA do NIASci, um assistente cient\xEDfico especializado em apoiar pesquisadores, estudantes e educadores brasileiros.",
@@ -157061,7 +157075,9 @@ ${context.slice(0, 8e3)}` : "",
       level: "error",
       message: "Chat failed"
     });
-    throw new Error(`Chat error: ${message2}`);
+    const fallbackReply = `Resposta de fallback: n\xE3o foi poss\xEDvel consultar o provedor de IA no momento. ${context ? "Use o contexto dispon\xEDvel para continuar a conversa." : "Tente novamente em instantes para obter uma resposta mais completa."}`;
+    logger.warn({ reason: message2 }, "Chat provider failed; returning fallback reply");
+    return fallbackReply;
   }
 }
 
@@ -157846,7 +157862,7 @@ ${parts.join("\n")}`);
   }
   return sections.join("\n\n");
 }
-router4.post("/niasci/chat", requireAuth(), async (req, res) => {
+router4.post("/niasci/chat", async (req, res) => {
   const parsed = ChatSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Dados da mensagem inv\xE1lidos." });

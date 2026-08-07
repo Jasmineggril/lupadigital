@@ -8,7 +8,7 @@ vi.mock("@workspace/integrations-openai-ai-server", async () => {
   };
 });
 
-import { analyzeAgent, buildCanonicalAnalysis, chunkDocument, consolidateChunkFacts } from "../aiService";
+import { analyzeAgent, buildCanonicalAnalysis, chunkDocument, consolidateChunkFacts, chatNiasci } from "../aiService";
 import { classifyAiError } from "../processingErrors";
 
 describe("buildCanonicalAnalysis", () => {
@@ -120,6 +120,28 @@ describe("buildCanonicalAnalysis", () => {
       }),
       alertas: expect.arrayContaining([expect.objectContaining({ categoria: "fallback" })]),
     }));
+  });
+
+  it("retorna fallback quando a IA falha por rate limit", async () => {
+    const { createWithFallback } = await import("@workspace/integrations-openai-ai-server");
+    vi.mocked(createWithFallback).mockRejectedValueOnce(Object.assign(new Error("429 Too Many Requests: rate limit reached"), { status: 429 }));
+
+    const result = await analyzeAgent("analista", "Edital da Prefeitura de São Paulo. Inscrição até 20/10/2025. Requisitos: CPF, RG e comprovante de residência. Valor: R$ 5.000,00.", undefined);
+
+    expect(result).toEqual(expect.objectContaining({
+      type: "analista",
+      alertas: expect.arrayContaining([expect.objectContaining({ categoria: "fallback" })]),
+    }));
+  });
+
+  it("retorna uma resposta de fallback quando o chat da IA é rate-limited", async () => {
+    process.env.GROQ_API_KEY = "test-key";
+    const { openai } = await import("@workspace/integrations-openai-ai-server");
+    vi.spyOn(openai.chat.completions, "create" as any).mockRejectedValueOnce(Object.assign(new Error("429 Too Many Requests: rate limit reached"), { status: 429 }));
+
+    const reply = await chatNiasci([{ role: "user", content: "Explique o objetivo deste edital." }], undefined, { userId: "test-user" });
+
+    expect(reply).toContain("fallback");
   });
 
   it("divide documentos longos em chunks sem truncar o conteúdo", () => {

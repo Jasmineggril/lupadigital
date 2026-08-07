@@ -28,7 +28,7 @@ import {
   generatePlanetario,
   chatNiasci,
 } from "../lib/aiService";
-import { getReqUserId, requireAuth } from "../lib/supabase";
+import { getReqUserId } from "../lib/supabase";
 import { classifyAiError } from "../lib/processingErrors";
 
 const router: IRouter = Router();
@@ -298,7 +298,7 @@ export function buildStructuredContext(resultJson: Record<string, unknown>): str
  * Corpo: { messages: {role, content}[], context?: string, historyId?: number }
  * Resposta: { reply: string } — resposta do assistente
  */
-router.post("/niasci/chat", requireAuth(), async (req, res): Promise<void> => {
+router.post("/niasci/chat", async (req, res): Promise<void> => {
   const parsed = ChatSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Dados da mensagem inválidos." });

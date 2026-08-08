@@ -55,4 +55,4 @@ jobs:
         cache-dependency-path: pnpm-lock.yaml
     - run: pnpm install --frozen-lockfile --prod=false
     - run: pnpm --filter @workspace/api-server exec tsx src/scripts/validate-supabase.ts
-    - run: pnpm --filter @workspace/api-server exec tsx src/scripts/validate-db.ts
+    - run: pnpm --filter @workspace/api-server exec tsx src/scripts/ci-validate-db.ts

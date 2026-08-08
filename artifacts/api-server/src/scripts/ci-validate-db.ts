@@ -9,7 +9,10 @@
  * - Caso contrário, verifica se o host definido em DATABASE_URL/DIRECT_URL tem
  *   resolução IPv4; se tiver, executa `validate-db.ts`.
  * - Se não houver resolução IPv4 e o host pertencer ao Supabase, emite uma
- *   mensagem instrutiva e sai com código 0 (skip), evitando falha do job.
+ *   mensagem instrutiva e retorna erro (sai com código 1) para que o CI falhe
+ *   explicitamente — isso evita falso positivo quando a conexão ao banco é
+ *   essencial. Se preferir manter o comportamento anterior (pular), defina
+ *   `CI_SUPABASE_ALLOW_IPV6_SKIP=true` nos secrets.
  */
 import dns from 'dns/promises';
 import net from 'net';
@@ -69,11 +72,15 @@ async function main() {
         await import('./validate-db.ts');
         return;
       } else if (host.includes('supabase')) {
-        console.log(`  ⚠️   ${key} aponta para host Supabase (${host}) sem registro IPv4.`);
-        console.log('       Pulando validação de DB no CI. Defina o secret `DIRECT_URL_IPV4` com a ' +
-                    'Connection Pooler URL (Transaction mode, porta 6543) para validar no CI.');
-        console.log('\n       Como encontrar a URL:\n         Supabase → Settings → Database → Connection string → Transaction mode');
-        process.exit(0);
+        console.error(`  ⚠️   ${key} aponta para host Supabase (${host}) sem registro IPv4.`);
+        console.error('       Falhando o job de CI. Para permitir o comportamento antigo (pular), defina o secret `CI_SUPABASE_ALLOW_IPV6_SKIP=true`.');
+        console.error('       Para validar corretamente no CI, defina `DIRECT_URL_IPV4` com a Connection Pooler URL (Transaction mode, porta 6543).');
+        console.error('\n       Como encontrar a URL:\n         Supabase → Settings → Database → Connection string → Transaction mode');
+        if (process.env.CI_SUPABASE_ALLOW_IPV6_SKIP === 'true') {
+          console.log('  ℹ️   CI_SUPABASE_ALLOW_IPV6_SKIP=true detectado — pulando validação como antes.');
+          process.exit(0);
+        }
+        process.exit(1);
       }
     } catch (e) {
       // se a URL estiver malformada, deixe validate-db.ts lidar com isso

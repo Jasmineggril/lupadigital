@@ -130,7 +130,10 @@ export default function Timeline() {
   const { data: agentHistory, isLoading } = useListAgentHistory();
 
   const timelineRecords = useMemo(
-    () => (agentHistory ?? []).filter((r) => r.agentId === "acompanhamento"),
+    () =>
+      (Array.isArray(agentHistory) ? agentHistory : []).filter(
+        (r) => r.agentId === "acompanhamento",
+      ),
     [agentHistory]
   );
 

@@ -55,8 +55,8 @@ export default function Dashboard() {
   const isLoading = agentLoading || legacyLoading;
 
   const stats = useMemo(() => {
-    const agentItems = agentHistory ?? [];
-    const legacyItems = legacyHistory ?? [];
+    const agentItems = Array.isArray(agentHistory) ? agentHistory : [];
+    const legacyItems = Array.isArray(legacyHistory) ? legacyHistory : [];
 
     const total = agentItems.length + legacyItems.length;
 

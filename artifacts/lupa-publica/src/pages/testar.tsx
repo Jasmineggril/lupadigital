@@ -1970,15 +1970,19 @@ function HistoryPanel({
       return q.length === 0 || normalizeSearch(item).includes(q);
     };
 
-    const agentItems: UnifiedItem[] = (agentHistory ?? [])
-      .filter(
-        (item: AgentResultRecord) => matchDate(item.createdAt) && matches(item),
-      )
-      .map((data: AgentResultRecord) => ({ kind: "agent", data }));
+    const agentItems: UnifiedItem[] = Array.isArray(agentHistory)
+      ? agentHistory
+          .filter(
+            (item: AgentResultRecord) => matchDate(item.createdAt) && matches(item),
+          )
+          .map((data: AgentResultRecord) => ({ kind: "agent", data }))
+      : [];
 
-    const legacyItems: UnifiedItem[] = (legacyHistory ?? [])
-      .filter((item: SavedEdital) => matchDate(item.createdAt) && matches(item))
-      .map((data: SavedEdital) => ({ kind: "legacy", data }));
+    const legacyItems: UnifiedItem[] = Array.isArray(legacyHistory)
+      ? legacyHistory
+          .filter((item: SavedEdital) => matchDate(item.createdAt) && matches(item))
+          .map((data: SavedEdital) => ({ kind: "legacy", data }))
+      : [];
 
     const supabaseItemsUnified: UnifiedItem[] = supabaseItems
       .filter((item) => matchDate(item.created_at) && matches(item))
@@ -2131,8 +2135,8 @@ function HistoryPanel({
   };
 
   const totalCount =
-    (agentHistory?.length ?? 0) +
-    (legacyHistory?.length ?? 0) +
+    (Array.isArray(agentHistory) ? agentHistory.length : 0) +
+    (Array.isArray(legacyHistory) ? legacyHistory.length : 0) +
     supabaseItems.length;
 
   return (

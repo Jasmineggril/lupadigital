@@ -3212,7 +3212,7 @@ async function callNiasciAI(
   system: string,
   user: string,
   module: string,
-  opts?: { userId?: string | null },
+  opts?: { userId?: string | null; maxTokens?: number },
 ): Promise<Record<string, unknown>> {
   const model = getOpenAIModel();
   const start = Date.now();
@@ -3227,6 +3227,7 @@ async function callNiasciAI(
       {
         model,
         temperature: 0.3,
+        max_tokens: opts?.maxTokens ?? 1024,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },
@@ -3533,7 +3534,10 @@ Retorne um JSON com esta estrutura:
 
 Retorne APENAS o JSON válido.`;
 
-  return callNiasciAI(system, user, "NIASci.generatePlanetario", opts);
+  return callNiasciAI(system, user, "NIASci.generatePlanetario", {
+    ...opts,
+    maxTokens: 1024,
+  });
 }
 
 // ── chatNiasci ───────────────────────────────────────────────────────────────

@@ -21,8 +21,8 @@ function isSupabasePoolerUrl(urlStr: string): boolean {
   }
 }
 
-export function getPoolConfig(connectionString?: string) {
-  const base = {
+export function getPoolConfig(connectionString?: string): pg.PoolConfig {
+  const base: pg.PoolConfig = {
     max: Number(process.env.PG_POOL_MAX ?? 5),
     idleTimeoutMillis: Number(process.env.PG_POOL_IDLE_TIMEOUT_MS ?? 10000),
     connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT ?? 10000),
@@ -93,7 +93,7 @@ function ensureSslMode(urlStr: string): string {
       host.includes("pooler.supabase.co");
 
     if (!u.searchParams.has("sslmode")) {
-      u.searchParams.set(isSupabasePooler ? "no-verify" : "require");
+      u.searchParams.set("sslmode", isSupabasePooler ? "no-verify" : "require");
     } else if (isSupabasePooler && u.searchParams.get("sslmode") === "require") {
       u.searchParams.set("sslmode", "no-verify");
     }

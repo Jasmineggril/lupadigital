@@ -143048,7 +143048,7 @@ function ensureSslMode(urlStr) {
     const host = u.hostname.toLowerCase();
     const isSupabasePooler = host.includes("pooler.supabase.com") || host.includes("pooler.supabase.co");
     if (!u.searchParams.has("sslmode")) {
-      u.searchParams.set(isSupabasePooler ? "no-verify" : "require");
+      u.searchParams.set("sslmode", isSupabasePooler ? "no-verify" : "require");
     } else if (isSupabasePooler && u.searchParams.get("sslmode") === "require") {
       u.searchParams.set("sslmode", "no-verify");
     }

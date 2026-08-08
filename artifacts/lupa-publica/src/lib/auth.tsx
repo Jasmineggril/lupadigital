@@ -36,6 +36,14 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const DEMO_USER: AuthUser = {
+  name: "Usuário demo",
+  email: "demo@lupadigital.local",
+  profileType: "cidadao",
+  verified: true,
+  plan: "gratuito",
+};
+
 /**
  * Converte um objeto User do Supabase para o formato AuthUser do sistema.
  *
@@ -57,12 +65,18 @@ function toAuthUser(u: User): AuthUser {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      return DEMO_USER;
+    }
+    return null;
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Se o Supabase não estiver configurado, não há sessão a recuperar
+    // Se o Supabase não estiver configurado, entra em modo demo para manter o fluxo funcional.
     if (!isSupabaseConfigured || !supabase) {
+      setUser(DEMO_USER);
       setIsLoading(false);
       return;
     }
@@ -92,7 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const login = async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
     if (!isSupabaseConfigured || !supabase) {
-      return { ok: false, error: "Serviço de autenticação não configurado." };
+      setUser(DEMO_USER);
+      return { ok: true };
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (!error) return { ok: true };
@@ -120,7 +135,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const register = async (data: RegisterData): Promise<{ ok: boolean; error?: string }> => {
     if (!isSupabaseConfigured || !supabase) {
-      return { ok: false, error: "Serviço de autenticação não configurado." };
+      setUser({
+        ...DEMO_USER,
+        name: data.name || DEMO_USER.name,
+        email: data.email || DEMO_USER.email,
+        profileType: data.profileType || DEMO_USER.profileType,
+      });
+      return { ok: true };
     }
     const { error } = await supabase.auth.signUp({
       email: data.email,

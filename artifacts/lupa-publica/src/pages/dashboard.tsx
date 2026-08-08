@@ -48,6 +48,18 @@ const AGENT_BADGE: Record<string, { label: string; color: string }> = {
   elegibilidade: { label: "Elegibilidade", color: "bg-teal-100 text-teal-700" },
 };
 
+function normalizeHistoryItems<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const candidate = record.items ?? record.data ?? record.result ?? record.results;
+    if (Array.isArray(candidate)) return candidate as T[];
+  }
+
+  return [];
+}
+
 export default function Dashboard() {
   const { data: agentHistory, isLoading: agentLoading } = useListAgentHistory();
   const { data: legacyHistory, isLoading: legacyLoading } = useListEditalHistory();
@@ -55,8 +67,17 @@ export default function Dashboard() {
   const isLoading = agentLoading || legacyLoading;
 
   const stats = useMemo(() => {
-    const agentItems = agentHistory ?? [];
-    const legacyItems = legacyHistory ?? [];
+    const agentItems = normalizeHistoryItems<{
+      id: string;
+      agentId: string;
+      title: string;
+      createdAt: string;
+    }>(agentHistory);
+    const legacyItems = normalizeHistoryItems<{
+      id: string;
+      title: string;
+      createdAt: string;
+    }>(legacyHistory);
 
     const total = agentItems.length + legacyItems.length;
 

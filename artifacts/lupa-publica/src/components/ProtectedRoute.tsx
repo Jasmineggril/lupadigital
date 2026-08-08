@@ -53,6 +53,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   }, [isLoading, user, setLocation]);
 
+  if (user) {
+    return <>{children}</>;
+  }
+
   // Estado de carregamento: sessão Supabase sendo recuperada do storage
   if (isLoading) {
     return (

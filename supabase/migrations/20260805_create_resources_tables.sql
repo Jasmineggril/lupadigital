@@ -27,14 +27,26 @@ CREATE TABLE IF NOT EXISTS public.edital_analyses (
 
 ALTER TABLE public.edital_analyses ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "edital_analyses_select_own" ON public.edital_analyses
-  FOR SELECT USING (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "edital_analyses_insert_own" ON public.edital_analyses
-  FOR INSERT WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "edital_analyses_update_own" ON public.edital_analyses
-  FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "edital_analyses_delete_own" ON public.edital_analyses
-  FOR DELETE USING (user_id = auth.uid()::text);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'edital_analyses' AND policyname = 'edital_analyses_select_own') THEN
+    CREATE POLICY "edital_analyses_select_own" ON public.edital_analyses
+      FOR SELECT USING (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'edital_analyses' AND policyname = 'edital_analyses_insert_own') THEN
+    CREATE POLICY "edital_analyses_insert_own" ON public.edital_analyses
+      FOR INSERT WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'edital_analyses' AND policyname = 'edital_analyses_update_own') THEN
+    CREATE POLICY "edital_analyses_update_own" ON public.edital_analyses
+      FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'edital_analyses' AND policyname = 'edital_analyses_delete_own') THEN
+    CREATE POLICY "edital_analyses_delete_own" ON public.edital_analyses
+      FOR DELETE USING (user_id = auth.uid()::text);
+  END IF;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_edital_analyses_user_id    ON public.edital_analyses (user_id);
 CREATE INDEX IF NOT EXISTS idx_edital_analyses_created_at ON public.edital_analyses (created_at);
@@ -65,14 +77,26 @@ CREATE TABLE IF NOT EXISTS public.lattes_profiles (
 
 ALTER TABLE public.lattes_profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "lattes_profiles_select_own" ON public.lattes_profiles
-  FOR SELECT USING (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "lattes_profiles_insert_own" ON public.lattes_profiles
-  FOR INSERT WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "lattes_profiles_update_own" ON public.lattes_profiles
-  FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "lattes_profiles_delete_own" ON public.lattes_profiles
-  FOR DELETE USING (user_id = auth.uid()::text);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'lattes_profiles' AND policyname = 'lattes_profiles_select_own') THEN
+    CREATE POLICY "lattes_profiles_select_own" ON public.lattes_profiles
+      FOR SELECT USING (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'lattes_profiles' AND policyname = 'lattes_profiles_insert_own') THEN
+    CREATE POLICY "lattes_profiles_insert_own" ON public.lattes_profiles
+      FOR INSERT WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'lattes_profiles' AND policyname = 'lattes_profiles_update_own') THEN
+    CREATE POLICY "lattes_profiles_update_own" ON public.lattes_profiles
+      FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'lattes_profiles' AND policyname = 'lattes_profiles_delete_own') THEN
+    CREATE POLICY "lattes_profiles_delete_own" ON public.lattes_profiles
+      FOR DELETE USING (user_id = auth.uid()::text);
+  END IF;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_lattes_profiles_user_id    ON public.lattes_profiles (user_id);
 CREATE INDEX IF NOT EXISTS idx_lattes_profiles_created_at ON public.lattes_profiles (created_at);
@@ -90,14 +114,26 @@ CREATE TABLE IF NOT EXISTS public.article_analyses (
 
 ALTER TABLE public.article_analyses ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "article_analyses_select_own" ON public.article_analyses
-  FOR SELECT USING (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "article_analyses_insert_own" ON public.article_analyses
-  FOR INSERT WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "article_analyses_update_own" ON public.article_analyses
-  FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "article_analyses_delete_own" ON public.article_analyses
-  FOR DELETE USING (user_id = auth.uid()::text);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'article_analyses' AND policyname = 'article_analyses_select_own') THEN
+    CREATE POLICY "article_analyses_select_own" ON public.article_analyses
+      FOR SELECT USING (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'article_analyses' AND policyname = 'article_analyses_insert_own') THEN
+    CREATE POLICY "article_analyses_insert_own" ON public.article_analyses
+      FOR INSERT WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'article_analyses' AND policyname = 'article_analyses_update_own') THEN
+    CREATE POLICY "article_analyses_update_own" ON public.article_analyses
+      FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'article_analyses' AND policyname = 'article_analyses_delete_own') THEN
+    CREATE POLICY "article_analyses_delete_own" ON public.article_analyses
+      FOR DELETE USING (user_id = auth.uid()::text);
+  END IF;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_article_analyses_user_id    ON public.article_analyses (user_id);
 CREATE INDEX IF NOT EXISTS idx_article_analyses_created_at ON public.article_analyses (created_at);
@@ -115,14 +151,26 @@ CREATE TABLE IF NOT EXISTS public.research_projects (
 
 ALTER TABLE public.research_projects ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "research_projects_select_own" ON public.research_projects
-  FOR SELECT USING (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "research_projects_insert_own" ON public.research_projects
-  FOR INSERT WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "research_projects_update_own" ON public.research_projects
-  FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "research_projects_delete_own" ON public.research_projects
-  FOR DELETE USING (user_id = auth.uid()::text);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'research_projects' AND policyname = 'research_projects_select_own') THEN
+    CREATE POLICY "research_projects_select_own" ON public.research_projects
+      FOR SELECT USING (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'research_projects' AND policyname = 'research_projects_insert_own') THEN
+    CREATE POLICY "research_projects_insert_own" ON public.research_projects
+      FOR INSERT WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'research_projects' AND policyname = 'research_projects_update_own') THEN
+    CREATE POLICY "research_projects_update_own" ON public.research_projects
+      FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'research_projects' AND policyname = 'research_projects_delete_own') THEN
+    CREATE POLICY "research_projects_delete_own" ON public.research_projects
+      FOR DELETE USING (user_id = auth.uid()::text);
+  END IF;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_research_projects_user_id    ON public.research_projects (user_id);
 CREATE INDEX IF NOT EXISTS idx_research_projects_created_at ON public.research_projects (created_at);
@@ -140,14 +188,26 @@ CREATE TABLE IF NOT EXISTS public.planetarium_contents (
 
 ALTER TABLE public.planetarium_contents ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "planetarium_contents_select_own" ON public.planetarium_contents
-  FOR SELECT USING (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "planetarium_contents_insert_own" ON public.planetarium_contents
-  FOR INSERT WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "planetarium_contents_update_own" ON public.planetarium_contents
-  FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "planetarium_contents_delete_own" ON public.planetarium_contents
-  FOR DELETE USING (user_id = auth.uid()::text);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'planetarium_contents' AND policyname = 'planetarium_contents_select_own') THEN
+    CREATE POLICY "planetarium_contents_select_own" ON public.planetarium_contents
+      FOR SELECT USING (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'planetarium_contents' AND policyname = 'planetarium_contents_insert_own') THEN
+    CREATE POLICY "planetarium_contents_insert_own" ON public.planetarium_contents
+      FOR INSERT WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'planetarium_contents' AND policyname = 'planetarium_contents_update_own') THEN
+    CREATE POLICY "planetarium_contents_update_own" ON public.planetarium_contents
+      FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'planetarium_contents' AND policyname = 'planetarium_contents_delete_own') THEN
+    CREATE POLICY "planetarium_contents_delete_own" ON public.planetarium_contents
+      FOR DELETE USING (user_id = auth.uid()::text);
+  END IF;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_planetarium_contents_user_id    ON public.planetarium_contents (user_id);
 CREATE INDEX IF NOT EXISTS idx_planetarium_contents_created_at ON public.planetarium_contents (created_at);
@@ -165,14 +225,26 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "chat_messages_select_own" ON public.chat_messages
-  FOR SELECT USING (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "chat_messages_insert_own" ON public.chat_messages
-  FOR INSERT WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "chat_messages_update_own" ON public.chat_messages
-  FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "chat_messages_delete_own" ON public.chat_messages
-  FOR DELETE USING (user_id = auth.uid()::text);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'chat_messages' AND policyname = 'chat_messages_select_own') THEN
+    CREATE POLICY "chat_messages_select_own" ON public.chat_messages
+      FOR SELECT USING (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'chat_messages' AND policyname = 'chat_messages_insert_own') THEN
+    CREATE POLICY "chat_messages_insert_own" ON public.chat_messages
+      FOR INSERT WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'chat_messages' AND policyname = 'chat_messages_update_own') THEN
+    CREATE POLICY "chat_messages_update_own" ON public.chat_messages
+      FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'chat_messages' AND policyname = 'chat_messages_delete_own') THEN
+    CREATE POLICY "chat_messages_delete_own" ON public.chat_messages
+      FOR DELETE USING (user_id = auth.uid()::text);
+  END IF;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_chat_messages_user_id    ON public.chat_messages (user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON public.chat_messages (created_at);

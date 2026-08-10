@@ -25,14 +25,26 @@ CREATE TABLE IF NOT EXISTS public.ai_usage_logs (
 
 ALTER TABLE public.ai_usage_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "ai_usage_logs_select_own" ON public.ai_usage_logs
-  FOR SELECT USING (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "ai_usage_logs_insert_own" ON public.ai_usage_logs
-  FOR INSERT WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "ai_usage_logs_update_own" ON public.ai_usage_logs
-  FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "ai_usage_logs_delete_own" ON public.ai_usage_logs
-  FOR DELETE USING (user_id = auth.uid()::text);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ai_usage_logs' AND policyname = 'ai_usage_logs_select_own') THEN
+    CREATE POLICY "ai_usage_logs_select_own" ON public.ai_usage_logs
+      FOR SELECT USING (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ai_usage_logs' AND policyname = 'ai_usage_logs_insert_own') THEN
+    CREATE POLICY "ai_usage_logs_insert_own" ON public.ai_usage_logs
+      FOR INSERT WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ai_usage_logs' AND policyname = 'ai_usage_logs_update_own') THEN
+    CREATE POLICY "ai_usage_logs_update_own" ON public.ai_usage_logs
+      FOR UPDATE USING (user_id = auth.uid()::text) WITH CHECK (user_id = auth.uid()::text);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ai_usage_logs' AND policyname = 'ai_usage_logs_delete_own') THEN
+    CREATE POLICY "ai_usage_logs_delete_own" ON public.ai_usage_logs
+      FOR DELETE USING (user_id = auth.uid()::text);
+  END IF;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_user_id    ON public.ai_usage_logs (user_id);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_created_at ON public.ai_usage_logs (created_at);

@@ -29,7 +29,6 @@ jobs:
   supabase-preview:
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ secrets.SUPABASE_URL && (secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SECRET_KEY) && secrets.VITE_SUPABASE_URL && secrets.VITE_SUPABASE_ANON_KEY && (secrets.DATABASE_URL || secrets.DIRECT_URL || secrets.DIRECT_URL_IPV4) }}
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -54,5 +53,7 @@ jobs:
         cache: pnpm
         cache-dependency-path: pnpm-lock.yaml
     - run: pnpm install --frozen-lockfile --prod=false
-    - run: pnpm --filter @workspace/api-server exec tsx src/scripts/validate-supabase.ts
-    - run: pnpm --filter @workspace/api-server exec tsx src/scripts/validate-db.ts
+    - if: ${{ env.SUPABASE_URL != '' && (env.SUPABASE_SERVICE_ROLE_KEY != '' || env.SUPABASE_SECRET_KEY != '') && env.VITE_SUPABASE_URL != '' && env.VITE_SUPABASE_ANON_KEY != '' && (env.DATABASE_URL != '' || env.DIRECT_URL != '' || env.DIRECT_URL_IPV4 != '') }}
+      run: pnpm --filter @workspace/api-server exec tsx src/scripts/validate-supabase.ts
+    - if: ${{ env.DATABASE_URL != '' || env.DIRECT_URL != '' || env.DIRECT_URL_IPV4 != '' }}
+      run: pnpm --filter @workspace/api-server exec tsx src/scripts/validate-db.ts

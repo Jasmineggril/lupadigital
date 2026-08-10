@@ -166,10 +166,6 @@ interface CanonicalAnalysisLike {
     moeda?: string;
     observacao?: string;
   };
-  documento?: {
-    orgao?: string;
-    [key: string]: unknown;
-  };
   documentosExigidos?: {
     items?: string[];
     summary?: string;
@@ -1290,6 +1286,31 @@ function AlertasPanel({ alertas }: { alertas: string[] }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function EmptySection({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center rounded-3xl border border-dashed border-border/70 bg-slate-50/60 p-8">
+      <div className="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center mb-4">
+        {icon}
+      </div>
+      <p className="text-sm font-semibold text-slate-900">{title}</p>
+      <p className="text-sm text-muted-foreground mt-1.5 max-w-[340px]">
+        {description}
+      </p>
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
@@ -3528,14 +3549,35 @@ export default function TestarIA() {
               </div>
             )}
             {analysisError && !isAnalyzing && (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                  <div>
+                  <div className="flex-1">
                     <p className="font-semibold">Não foi possível concluir a interpretação</p>
                     <p className="mt-1">{analysisError}</p>
                   </div>
                 </div>
+                {text.trim().length >= 20 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl border-rose-300 bg-white text-rose-700 hover:bg-rose-100"
+                      onClick={handleAnalyze}
+                      disabled={isAnalyzing}
+                    >
+                      Tentar novamente
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-xl text-rose-600 hover:bg-rose-100"
+                      onClick={() => setAnalysisError(null)}
+                    >
+                      Dispensar
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -3782,9 +3824,24 @@ export default function TestarIA() {
                           </div>
                         </div>
                       )) : (
-                        <div className="rounded-3xl border border-border/70 bg-slate-50 p-4">
-                          <p className="text-sm text-muted-foreground">Não foi possível localizar informações de cronograma no documento.</p>
-                        </div>
+                        <EmptySection
+                          icon={<CalendarDays className="w-5 h-5 text-primary" />}
+                          title="Cronograma não identificado"
+                          description="O edital analisado não trouxe datas ou etapas suficientes para montar um cronograma."
+                          action={
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl"
+                              onClick={() => {
+                                setSelectedAgent("acompanhamento");
+                                setManualAgentSelection(true);
+                              }}
+                            >
+                              Analisar com agente Acompanhamento
+                            </Button>
+                          }
+                        />
                       )}
                     </CardContent>
                   </Card>
@@ -3805,9 +3862,24 @@ export default function TestarIA() {
                           </div>
                         </div>
                       )) : (
-                        <div className="rounded-3xl border border-border/70 bg-slate-50 p-4">
-                          <p className="text-sm text-muted-foreground">Não foi possível localizar informações de checklist no documento.</p>
-                        </div>
+                        <EmptySection
+                          icon={<ClipboardList className="w-5 h-5 text-primary" />}
+                          title="Checklist não identificado"
+                          description="Não foi possível listar documentos obrigatórios deste edital a partir da interpretação atual."
+                          action={
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl"
+                              onClick={() => {
+                                setSelectedAgent("documentacao");
+                                setManualAgentSelection(true);
+                              }}
+                            >
+                              Analisar com agente Documentação
+                            </Button>
+                          }
+                        />
                       )}
                     </CardContent>
                   </Card>
@@ -3836,9 +3908,24 @@ export default function TestarIA() {
                           ))}
                         </div>
                       ) : (
-                        <div className="rounded-3xl border border-border/70 bg-slate-50 p-4">
-                          <p className="text-sm text-muted-foreground">Elegibilidade disponível quando o foco da interpretação for correspondente.</p>
-                        </div>
+                        <EmptySection
+                          icon={<UserCheck className="w-5 h-5 text-primary" />}
+                          title="Análise de elegibilidade"
+                          description="Use o agente de Elegibilidade para verificar quais critérios do edital o seu perfil atende."
+                          action={
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl"
+                              onClick={() => {
+                                setSelectedAgent("elegibilidade");
+                                setManualAgentSelection(true);
+                              }}
+                            >
+                              Analisar com agente Elegibilidade
+                            </Button>
+                          }
+                        />
                       )}
                     </CardContent>
                   </Card>

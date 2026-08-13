@@ -18,7 +18,7 @@
  *
  * Tabelas permitidas (ALLOWED_TABLES):
  *   edital_analyses, lattes_profiles, article_analyses, research_projects,
- *   planetarium_contents, chat_messages
+ *   planetarium_contents, chat_messages, documents, ai_analyses
  *
  * Segurança:
  *   - Tabelas fora da allowlist retornam 404 (não revela a existência da tabela)
@@ -44,6 +44,8 @@ const ALLOWED_TABLES = new Set([
   "research_projects",
   "planetarium_contents",
   "chat_messages",
+  "documents",
+  "ai_analyses",
 ]);
 
 /**
@@ -84,7 +86,22 @@ const EdtalAnalysisSchema = z.object({
   favorito: z.boolean().optional(),
 });
 
+/** Schema de validação para a tabela documents */
+const DocumentSchema = z.object({
+  filename: z.string().optional(),
+  mime_type: z.string().nullable().optional(),
+  size: z.number().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
 /** Schema de validação para a tabela ai_analyses */
+const AIAnalysisSchema = z.object({
+  model: z.string().nullable().optional(),
+  input: z.string().nullable().optional(),
+  output: z.record(z.string(), z.unknown()).nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
 /** Schema de validação para a tabela lattes_profiles */
 const LattesProfileSchema = z.object({
   name: z.string().optional(),
@@ -136,6 +153,8 @@ const SCHEMAS: Record<string, z.ZodTypeAny> = {
   research_projects: ResearchProjectSchema,
   planetarium_contents: PlanetariumContentSchema,
   chat_messages: ChatMessageSchema,
+  documents: DocumentSchema,
+  ai_analyses: AIAnalysisSchema,
 };
 
 // Aplica requireAuth() a todas as rotas deste router.

@@ -3222,8 +3222,14 @@ async function callNiasciAI(
 ): Promise<Record<string, unknown>> {
   const model = getOpenAIModel();
   const start = Date.now();
+  const estimatedPromptTokens = estimateTokens(system) + estimateTokens(user);
+  // Orçamento de saída dimensionado pelo TPM do provedor (8k no tier grátis do
+  // gpt-oss-120b). Os esquemas de resposta dos módulos NIASci são grandes e um
+  // max_tokens fixo baixo trunca o JSON no meio → 400 "Failed to validate JSON".
+  const maxTokens = calcRequestMaxTokens(estimatedPromptTokens, model);
 
   try {
+    await waitForTpmBudget(Math.ceil(estimatedPromptTokens * PROMPT_BUDGET_SAFETY) + maxTokens);
     // response_format: json_object força a OpenAI a retornar JSON válido.
     // ATENÇÃO: exige que a palavra "JSON" apareça no prompt de sistema —
     // caso contrário, a API retorna erro 400 "Must contain word JSON".
@@ -3233,7 +3239,7 @@ async function callNiasciAI(
       {
         model,
         temperature: 0.3,
-        max_tokens: opts?.maxTokens ?? 1024,
+        max_tokens: maxTokens,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },
@@ -3390,7 +3396,7 @@ Retorne APENAS o JSON válido. Nunca retorne listas vazias para competencias, su
  * @returns Estrutura completa do artigo com todos os componentes acadêmicos
  */
 export async function analyzeArtigo(text: string, opts?: { userId?: string | null }) {
-  const truncated = text.length > 14000 ? text.slice(0, 14000) + "\n[Texto truncado]" : text;
+  const truncated = text.length > 10000 ? text.slice(0, 10000) + "\n[Texto truncado]" : text;
 
   const system = [
     "Você é um assistente de pesquisa acadêmica especializado em análise de artigos científicos brasileiros e internacionais.",
@@ -3540,10 +3546,7 @@ Retorne um JSON com esta estrutura:
 
 Retorne APENAS o JSON válido.`;
 
-  return callNiasciAI(system, user, "NIASci.generatePlanetario", {
-    ...opts,
-    maxTokens: 1024,
-  });
+  return callNiasciAI(system, user, "NIASci.generatePlanetario", opts);
 }
 
 // ── chatNiasci ───────────────────────────────────────────────────────────────

@@ -156780,12 +156780,15 @@ async function analyzeAgent(agentId, text4, profile, opts) {
 async function callNiasciAI(system, user, module, opts) {
   const model = getOpenAIModel();
   const start = Date.now();
+  const estimatedPromptTokens = estimateTokens(system) + estimateTokens(user);
+  const maxTokens = calcRequestMaxTokens(estimatedPromptTokens, model);
   try {
+    await waitForTpmBudget(Math.ceil(estimatedPromptTokens * PROMPT_BUDGET_SAFETY) + maxTokens);
     const { raw, parsed, usage } = await createJsonChatCompletion(
       {
         model,
         temperature: 0.3,
-        max_tokens: opts?.maxTokens ?? 1024,
+        max_tokens: maxTokens,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },
@@ -156897,7 +156900,7 @@ Retorne APENAS o JSON v\xE1lido. Nunca retorne listas vazias para competencias, 
   return callNiasciAI(system, user, "NIASci.analyzeLattes", opts);
 }
 async function analyzeArtigo(text4, opts) {
-  const truncated = text4.length > 14e3 ? text4.slice(0, 14e3) + "\n[Texto truncado]" : text4;
+  const truncated = text4.length > 1e4 ? text4.slice(0, 1e4) + "\n[Texto truncado]" : text4;
   const system = [
     "Voc\xEA \xE9 um assistente de pesquisa acad\xEAmica especializado em an\xE1lise de artigos cient\xEDficos brasileiros e internacionais.",
     "Sua fun\xE7\xE3o \xE9 extrair e estruturar os componentes can\xF4nicos do artigo de forma clara e fiel ao texto original.",
@@ -157003,10 +157006,7 @@ Retorne um JSON com esta estrutura:
 }
 
 Retorne APENAS o JSON v\xE1lido.`;
-  return callNiasciAI(system, user, "NIASci.generatePlanetario", {
-    ...opts,
-    maxTokens: 1024
-  });
+  return callNiasciAI(system, user, "NIASci.generatePlanetario", opts);
 }
 async function chatNiasci(messages2, context, opts) {
   const start = Date.now();

@@ -67,7 +67,7 @@ function verifySecret(provided: string | undefined): boolean {
 // ── Teste de cada provedor (isolado, sem fallback) ──────────────────────────
 
 async function testGroq(): Promise<ProviderResult> {
-  const model = "llama-3.3-70b-versatile";
+  const model = "openai/gpt-oss-120b";
   const key = process.env.GROQ_API_KEY;
   if (!key) return { provider: "groq", model, keyConfigured: false, httpStatus: null, durationMs: null, success: false, errorType: "not_configured" };
 

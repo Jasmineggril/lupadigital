@@ -14,7 +14,7 @@ describe("getOpenAIModel", () => {
     process.env.AI_INTEGRATIONS_GEMINI_API_KEY = "";
     process.env.GEMINI_API_KEY = "";
 
-    expect(getOpenAIModel()).toBe("llama-3.3-70b-versatile");
+    expect(getOpenAIModel()).toBe("openai/gpt-oss-120b");
   });
 
   it("returns gemini model when GEMINI_API_KEY is set", () => {

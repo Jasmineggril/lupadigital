@@ -43,13 +43,13 @@ export function getOpenAIBaseURL(): string | undefined {
 
 export function getOpenAIModel(): string {
   if (process.env.AI_MODEL) return process.env.AI_MODEL;
-  if (process.env.GROQ_API_KEY) return "llama-3.3-70b-versatile";
+  if (process.env.GROQ_API_KEY) return "openai/gpt-oss-120b";
   if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
   if (getGeminiApiKey()) return "gemini-2.5-flash";
   return "gpt-5.4-mini";
 }
 
-/** Modelo com suporte a visão (imagens) para OCR. Groq com llama-3.3-70b-versatile NÃO suporta imagens. */
+/** Modelo com suporte a visão (imagens) para OCR. Groq com openai/gpt-oss-120b NÃO suporta imagens. */
 export function getVisionModel(): string {
   if (getOpenAIKey()) return "gpt-4o";
   if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
@@ -102,7 +102,7 @@ export function getVisionClient(): VisionClient {
   const clients = getVisionClients();
   if (clients.length === 0) {
     throw new Error(
-      "OCR_INDISPONIVEL: O provedor de IA configurado (Groq/llama-3.3-70b-versatile) não oferece suporte a OCR de imagens. " +
+      "OCR_INDISPONIVEL: O provedor de IA configurado (Groq/openai/gpt-oss-120b) não oferece suporte a OCR de imagens. " +
         "Configure GEMINI_API_KEY ou OPENAI_API_KEY para habilitar OCR de PDFs escaneados.",
     );
   }
@@ -395,7 +395,7 @@ function getFallbackProvider(): FallbackProvider | null {
     if (process.env.GROQ_API_KEY) {
       return {
         name: "groq",
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         client: new OpenAI({
           apiKey: process.env.GROQ_API_KEY,
           baseURL: "https://api.groq.com/openai/v1",

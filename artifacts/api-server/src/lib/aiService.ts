@@ -70,12 +70,12 @@ const CHUNK_FACT_MAX_OUTPUT = 2048;
 const TPM_WINDOW_MS = 60_000;
 
 // Orçamento de tokens por minuto do provedor (limite do tier grátis medido).
-// Groq/llama-3.3-70b-versatile: 12.000 TPM (medido via 413 da API).
+// Groq/openai/gpt-oss-120b: 12.000 TPM (medido via 413 da API).
 function getTpmLimit(model?: string): number {
   const fromEnv = Number.parseInt(process.env.AI_TPM_LIMIT ?? "", 10);
   if (fromEnv > 0) return fromEnv;
   const m = (model ?? getOpenAIModel()).toLowerCase();
-  if (m.includes("llama") || m.includes("groq")) return 12_000;
+  if (m.includes("gpt-oss") || m.includes("llama") || m.includes("groq")) return 12_000;
   if (m.includes("gemini")) return 100_000;
   if (m.includes("gpt")) return 60_000;
   return DEFAULT_AI_TPM_LIMIT;
@@ -149,7 +149,7 @@ async function waitForTpmBudget(reservationTokens: number): Promise<void> {
 }
 
 function getProviderNameFromModel(model: string): string {
-  if (model.includes("llama")) return "groq";
+  if (model.includes("gpt-oss") || model.includes("llama")) return "groq";
   if (model.includes("gemini")) return "gemini";
   if (model.includes("gpt")) return "openai";
   return "unknown";
@@ -172,7 +172,7 @@ const OUTPUT_RESERVE = 512;
 
 function getModelContextConfig(model?: string): ModelContextConfig {
   const m = (model ?? getOpenAIModel()).toLowerCase();
-  if (m.includes("llama") || m.includes("groq")) return MODEL_CONFIGS.groq;
+  if (m.includes("gpt-oss") || m.includes("llama") || m.includes("groq")) return MODEL_CONFIGS.groq;
   if (m.includes("gemini")) return MODEL_CONFIGS.gemini;
   if (m.includes("gpt")) return MODEL_CONFIGS.openai;
   return DEFAULT_MODEL_CONFIG;
@@ -2621,7 +2621,7 @@ const VALIDATORS: Record<AgentId, z.ZodTypeAny> = {
  *
  * Limitação atual (documentada): o OCR depende de um modelo de visão de um
  * provedor configurado (OpenAI GPT-4o ou Gemini gemini-2.5-flash). O Groq
- * (llama-3.3-70b-versatile) NÃO tem suporte a imagens. Se a chave preferida
+ * (llama-3.3-70b-versatile → substituído por openai/gpt-oss-120b) NÃO tem suporte a imagens. Se a chave preferida
  * (GPT-4o) estiver sem cota (429), o serviço tenta o próximo provedor com
  * visão configurado; se nenhum provedor conseguir processar, retorna um
  * erro específico de "OCR indisponível" em vez de um fallback genérico.
@@ -2641,7 +2641,7 @@ export async function ocrPdf(
   const visionClients = getVisionClients();
   if (visionClients.length === 0) {
     throw new Error(
-      "OCR_INDISPONIVEL: Este PDF parece ser escaneado (apenas imagens). O provedor de IA configurado (Groq/llama-3.3-70b-versatile) não oferece OCR. Configure GEMINI_API_KEY ou OPENAI_API_KEY para analisar PDFs escaneados, ou cole o texto manualmente na aba 'Colar Texto'.",
+      "OCR_INDISPONIVEL: Este PDF parece ser escaneado (apenas imagens). O provedor de IA configurado (Groq/openai/gpt-oss-120b) não oferece OCR. Configure GEMINI_API_KEY ou OPENAI_API_KEY para analisar PDFs escaneados, ou cole o texto manualmente na aba 'Colar Texto'.",
     );
   }
   const start = Date.now();

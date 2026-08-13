@@ -162,7 +162,7 @@ describe("fallback provider", () => {
     } as Response);
 
     const result = await createWithFallback({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [{ role: "user", content: "test" }],
     });
 
@@ -187,7 +187,7 @@ describe("fallback provider", () => {
 
     await expect(
       createWithFallback({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "test" }],
       }),
     ).rejects.toThrow("401 Unauthorized");
@@ -218,7 +218,7 @@ describe("fallback provider", () => {
     } as Response);
 
     const result = await createWithFallback({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [{ role: "user", content: "test" }],
     });
 
@@ -244,7 +244,7 @@ describe("fallback provider", () => {
 
     await expect(
       createWithFallback({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "test" }],
       }),
     ).rejects.toThrow("500 Internal Server Error");
@@ -396,7 +396,7 @@ describe("fallback Groq 503 → Gemini conclui análise", () => {
 
     const { createWithFallback } = await import("@workspace/integrations-openai-ai-server");
     const result = await createWithFallback({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [{ role: "user", content: "Analise este edital." }],
     });
 
@@ -442,7 +442,7 @@ describe("createWithFallback - signal not in payload body", () => {
 
     await createWithFallback(
       {
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "test" }],
         max_tokens: 1024,
       },
@@ -483,7 +483,7 @@ describe("createWithFallback - signal not in payload body", () => {
 
     const result = await createWithFallback(
       {
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: "test" }],
       },
       { signal, timeout: 60000 },
@@ -508,7 +508,7 @@ describe("createWithFallback - signal not in payload body", () => {
 
     const { createWithFallback } = await import("@workspace/integrations-openai-ai-server");
     const result = await createWithFallback({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [{ role: "user", content: "test" }],
     });
 

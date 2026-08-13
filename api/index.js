@@ -154050,7 +154050,7 @@ function getOpenAIBaseURL() {
 }
 function getOpenAIModel() {
   if (process.env.AI_MODEL) return process.env.AI_MODEL;
-  if (process.env.GROQ_API_KEY) return "llama-3.3-70b-versatile";
+  if (process.env.GROQ_API_KEY) return "openai/gpt-oss-120b";
   if (process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) return "gemini-2.5-flash";
   if (getGeminiApiKey()) return "gemini-2.5-flash";
   return "gpt-5.4-mini";
@@ -154276,7 +154276,7 @@ function getFallbackProvider() {
     if (process.env.GROQ_API_KEY) {
       return {
         name: "groq",
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         client: new OpenAI({
           apiKey: process.env.GROQ_API_KEY,
           baseURL: "https://api.groq.com/openai/v1",
@@ -154557,7 +154557,7 @@ function getTpmLimit(model) {
   const fromEnv = Number.parseInt(process.env.AI_TPM_LIMIT ?? "", 10);
   if (fromEnv > 0) return fromEnv;
   const m = (model ?? getOpenAIModel()).toLowerCase();
-  if (m.includes("llama") || m.includes("groq")) return 12e3;
+  if (m.includes("gpt-oss") || m.includes("llama") || m.includes("groq")) return 12e3;
   if (m.includes("gemini")) return 1e5;
   if (m.includes("gpt")) return 6e4;
   return DEFAULT_AI_TPM_LIMIT;
@@ -154611,7 +154611,7 @@ async function waitForTpmBudget(reservationTokens) {
   await new Promise((resolve2) => setTimeout(resolve2, waitMs));
 }
 function getProviderNameFromModel(model) {
-  if (model.includes("llama")) return "groq";
+  if (model.includes("gpt-oss") || model.includes("llama")) return "groq";
   if (model.includes("gemini")) return "gemini";
   if (model.includes("gpt")) return "openai";
   return "unknown";
@@ -154625,7 +154625,7 @@ var DEFAULT_MODEL_CONFIG = { contextWindow: 128e3, maxOutputTokens: 4096, prompt
 var OUTPUT_RESERVE = 512;
 function getModelContextConfig(model) {
   const m = (model ?? getOpenAIModel()).toLowerCase();
-  if (m.includes("llama") || m.includes("groq")) return MODEL_CONFIGS.groq;
+  if (m.includes("gpt-oss") || m.includes("llama") || m.includes("groq")) return MODEL_CONFIGS.groq;
   if (m.includes("gemini")) return MODEL_CONFIGS.gemini;
   if (m.includes("gpt")) return MODEL_CONFIGS.openai;
   return DEFAULT_MODEL_CONFIG;
@@ -156327,7 +156327,7 @@ async function ocrPdf(pages, opts) {
   const visionClients = getVisionClients();
   if (visionClients.length === 0) {
     throw new Error(
-      "OCR_INDISPONIVEL: Este PDF parece ser escaneado (apenas imagens). O provedor de IA configurado (Groq/llama-3.3-70b-versatile) n\xE3o oferece OCR. Configure GEMINI_API_KEY ou OPENAI_API_KEY para analisar PDFs escaneados, ou cole o texto manualmente na aba 'Colar Texto'."
+      "OCR_INDISPONIVEL: Este PDF parece ser escaneado (apenas imagens). O provedor de IA configurado (Groq/openai/gpt-oss-120b) n\xE3o oferece OCR. Configure GEMINI_API_KEY ou OPENAI_API_KEY para analisar PDFs escaneados, ou cole o texto manualmente na aba 'Colar Texto'."
     );
   }
   const start = Date.now();
@@ -156781,6 +156781,7 @@ async function callNiasciAI(system, user, module, opts) {
       {
         model,
         temperature: 0.3,
+        max_tokens: opts?.maxTokens ?? 1024,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },
@@ -156998,7 +156999,10 @@ Retorne um JSON com esta estrutura:
 }
 
 Retorne APENAS o JSON v\xE1lido.`;
-  return callNiasciAI(system, user, "NIASci.generatePlanetario", opts);
+  return callNiasciAI(system, user, "NIASci.generatePlanetario", {
+    ...opts,
+    maxTokens: 1024
+  });
 }
 async function chatNiasci(messages2, context, opts) {
   const start = Date.now();
@@ -157942,7 +157946,7 @@ function verifySecret(provided) {
   return timingSafeEqual2(a, b);
 }
 async function testGroq() {
-  const model = "llama-3.3-70b-versatile";
+  const model = "openai/gpt-oss-120b";
   const key = process.env.GROQ_API_KEY;
   if (!key) return { provider: "groq", model, keyConfigured: false, httpStatus: null, durationMs: null, success: false, errorType: "not_configured" };
   const start = Date.now();

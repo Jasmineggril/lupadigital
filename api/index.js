@@ -156781,6 +156781,7 @@ async function callNiasciAI(system, user, module, opts) {
       {
         model,
         temperature: 0.3,
+        max_tokens: opts?.maxTokens ?? 1024,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },
@@ -156998,7 +156999,10 @@ Retorne um JSON com esta estrutura:
 }
 
 Retorne APENAS o JSON v\xE1lido.`;
-  return callNiasciAI(system, user, "NIASci.generatePlanetario", opts);
+  return callNiasciAI(system, user, "NIASci.generatePlanetario", {
+    ...opts,
+    maxTokens: 1024
+  });
 }
 async function chatNiasci(messages2, context, opts) {
   const start = Date.now();

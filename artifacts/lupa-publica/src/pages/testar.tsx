@@ -3964,6 +3964,13 @@ export default function TestarIA() {
                           ))}
                         </div>
                       )}
+                      {answerHistory.length === 0 && faqItems.length === 0 && (
+                        <EmptySection
+                          icon={<MessageSquare className="w-5 h-5 text-primary" />}
+                          title="Faça uma pergunta sobre o edital"
+                          description="Pergunte sobre prazos, documentos ou critérios e receba respostas com base na interpretação gerada."
+                        />
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>

@@ -157471,7 +157471,9 @@ var ALLOWED_TABLES = /* @__PURE__ */ new Set([
   "article_analyses",
   "research_projects",
   "planetarium_contents",
-  "chat_messages"
+  "chat_messages",
+  "documents",
+  "ai_analyses"
 ]);
 function tableNameIsAllowed(name) {
   return ALLOWED_TABLES.has(name);
@@ -157493,6 +157495,18 @@ var EdtalAnalysisSchema = external_exports.object({
   timeline: external_exports.record(external_exports.string(), external_exports.unknown()).nullable().optional(),
   recomendacoes: external_exports.record(external_exports.string(), external_exports.unknown()).nullable().optional(),
   favorito: external_exports.boolean().optional()
+});
+var DocumentSchema = external_exports.object({
+  filename: external_exports.string().optional(),
+  mime_type: external_exports.string().nullable().optional(),
+  size: external_exports.number().optional(),
+  metadata: external_exports.record(external_exports.string(), external_exports.unknown()).nullable().optional()
+});
+var AIAnalysisSchema = external_exports.object({
+  model: external_exports.string().nullable().optional(),
+  input: external_exports.string().nullable().optional(),
+  output: external_exports.record(external_exports.string(), external_exports.unknown()).nullable().optional(),
+  metadata: external_exports.record(external_exports.string(), external_exports.unknown()).nullable().optional()
 });
 var LattesProfileSchema = external_exports.object({
   name: external_exports.string().optional(),
@@ -157530,7 +157544,9 @@ var SCHEMAS = {
   article_analyses: ArticleAnalysisSchema,
   research_projects: ResearchProjectSchema,
   planetarium_contents: PlanetariumContentSchema,
-  chat_messages: ChatMessageSchema
+  chat_messages: ChatMessageSchema,
+  documents: DocumentSchema,
+  ai_analyses: AIAnalysisSchema
 };
 router3.use(requireAuth());
 router3.get("/resources/:table", async (req, res) => {

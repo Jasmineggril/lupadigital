@@ -70,12 +70,15 @@ const CHUNK_FACT_MAX_OUTPUT = 2048;
 const TPM_WINDOW_MS = 60_000;
 
 // Orçamento de tokens por minuto do provedor (limite do tier grátis medido).
-// Groq/openai/gpt-oss-120b: 12.000 TPM (medido via 413 da API).
+// Groq/openai/gpt-oss-120b: 8.000 TPM (medido via 413 da API — "Limit 8000").
+// Groq/llama-3.3-70b-versatile (legado): 12.000 TPM. Limites por modelo
+// conforme console.groq.com/docs/rate-limits.
 function getTpmLimit(model?: string): number {
   const fromEnv = Number.parseInt(process.env.AI_TPM_LIMIT ?? "", 10);
   if (fromEnv > 0) return fromEnv;
   const m = (model ?? getOpenAIModel()).toLowerCase();
-  if (m.includes("gpt-oss") || m.includes("llama") || m.includes("groq")) return 12_000;
+  if (m.includes("gpt-oss")) return 8_000;
+  if (m.includes("llama") || m.includes("groq")) return 12_000;
   if (m.includes("gemini")) return 100_000;
   if (m.includes("gpt")) return 60_000;
   return DEFAULT_AI_TPM_LIMIT;
@@ -2786,12 +2789,15 @@ Responda SOMENTE com o JSON, sem markdown, sem código, sem texto adicional.`;
 
   const model = getOpenAIModel();
   const start = Date.now();
+  const estimatedPromptTokens = estimateTokens(systemPrompt) + estimateTokens(userPrompt);
+  const maxTokens = calcRequestMaxTokens(estimatedPromptTokens, model);
 
   try {
+    await waitForTpmBudget(Math.ceil(estimatedPromptTokens * PROMPT_BUDGET_SAFETY) + maxTokens);
     const { raw, parsed, usage } = await createJsonChatCompletion(
       {
         model,
-        max_tokens: 4096,
+        max_tokens: maxTokens,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },

@@ -154557,7 +154557,8 @@ function getTpmLimit(model) {
   const fromEnv = Number.parseInt(process.env.AI_TPM_LIMIT ?? "", 10);
   if (fromEnv > 0) return fromEnv;
   const m = (model ?? getOpenAIModel()).toLowerCase();
-  if (m.includes("gpt-oss") || m.includes("llama") || m.includes("groq")) return 12e3;
+  if (m.includes("gpt-oss")) return 8e3;
+  if (m.includes("llama") || m.includes("groq")) return 12e3;
   if (m.includes("gemini")) return 1e5;
   if (m.includes("gpt")) return 6e4;
   return DEFAULT_AI_TPM_LIMIT;
@@ -156429,11 +156430,14 @@ Retorne um JSON v\xE1lido com exatamente estes campos:
 Responda SOMENTE com o JSON, sem markdown, sem c\xF3digo, sem texto adicional.`;
   const model = getOpenAIModel();
   const start = Date.now();
+  const estimatedPromptTokens = estimateTokens(systemPrompt) + estimateTokens(userPrompt);
+  const maxTokens = calcRequestMaxTokens(estimatedPromptTokens, model);
   try {
+    await waitForTpmBudget(Math.ceil(estimatedPromptTokens * PROMPT_BUDGET_SAFETY) + maxTokens);
     const { raw, parsed, usage } = await createJsonChatCompletion(
       {
         model,
-        max_tokens: 4096,
+        max_tokens: maxTokens,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },

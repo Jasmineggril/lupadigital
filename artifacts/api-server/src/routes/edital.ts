@@ -25,12 +25,11 @@
  */
 
 import { Router, type IRouter } from "express";
-import { desc, eq, sql, and } from "drizzle-orm";
 import * as cheerio from "cheerio";
 import { z } from "zod";
 import multer from "multer";
-import { db, savedEditalsTable, agentResultsTable, sharedResultsTable } from "@workspace/db";
 import { randomUUID } from "crypto";
+import { httpSelect, httpSelectTwoFilters, httpInsert, httpDelete, httpCount, mapKeys } from "../lib/db-http";
 import {
   SimplifyEditalBody,
   SaveEditalBody,
@@ -53,7 +52,7 @@ const upload = multer({
 const router: IRouter = Router();
 
 import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital, ocrPdf, buildCanonicalAnalysis, validateDocumentAnalysis } from "../lib/aiService";
-import { getReqUserId, requireAuth } from "../lib/supabase";
+import { getReqUserId, requireAuth, getSupabaseAdmin } from "../lib/supabase";
 import { classifyAiError } from "../lib/processingErrors";
 
 /**
@@ -119,11 +118,7 @@ router.get("/edital/agent-history", async (req, res): Promise<void> => {
     return;
   }
 
-  const rows = await db
-    .select()
-    .from(agentResultsTable)
-    .where(eq((agentResultsTable as any).userId, userId))
-    .orderBy(desc(agentResultsTable.createdAt));
+  const rows = await httpSelect("agent_results", { user_id: userId }, { order: "created_at", ascending: false });
   res.json(rows);
 });
 
@@ -179,7 +174,7 @@ router.post("/edital/agent-history", async (req, res): Promise<void> => {
   } catch (e) {
     req.log?.warn({ e }, "Erro não crítico preparando payload de agent-history");
   }
-  const [saved] = await db.insert(agentResultsTable).values(payload).returning();
+  const saved = await httpInsert("agent_results", payload);
   res.status(201).json(saved);
 });
 
@@ -196,10 +191,7 @@ router.delete("/edital/agent-history/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [deleted] = await db
-    .delete(agentResultsTable)
-    .where(and(eq(agentResultsTable.id, params.data.id), eq((agentResultsTable as any).userId, userId)))
-    .returning();
+  const deleted = await httpDelete("agent_results", "id", params.data.id, "user_id", userId);
 
   if (!deleted) {
     res.status(404).json({ error: "Análise não encontrada." });
@@ -430,11 +422,7 @@ router.get("/edital/history", async (req, res): Promise<void> => {
     return;
   }
 
-  const rows = await db
-    .select()
-    .from(savedEditalsTable)
-    .where(eq((savedEditalsTable as any).userId, userId))
-    .orderBy(desc(savedEditalsTable.createdAt));
+  const rows = await httpSelect("saved_editals", { user_id: userId }, { order: "created_at", ascending: false });
 
   res.json(ListEditalHistoryResponse.parse(rows));
 });
@@ -453,7 +441,7 @@ router.post("/edital/history", async (req, res): Promise<void> => {
   }
 
   const payload = { ...parsed.data, userId: userId } as any;
-  const [saved] = await db.insert(savedEditalsTable).values(payload).returning();
+  const saved = await httpInsert("saved_editals", payload);
   res.status(201).json(saved);
 });
 
@@ -470,10 +458,7 @@ router.delete("/edital/history/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [deleted] = await db
-    .delete(savedEditalsTable)
-    .where(and(eq(savedEditalsTable.id, params.data.id), eq((savedEditalsTable as any).userId, userId)))
-    .returning();
+  const deleted = await httpDelete("saved_editals", "id", params.data.id, "user_id", userId);
 
   if (!deleted) {
     res.status(404).json({ error: "Edital não encontrado." });
@@ -491,29 +476,22 @@ router.get("/edital/stats", requireAuth(), async (req, res): Promise<void> => {
     return;
   }
 
-  const [totalRow] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(agentResultsTable)
-    .where(eq(agentResultsTable.userId, userId));
+  const total = await httpCount("agent_results", { user_id: userId });
 
-  const byAgent = await db
-    .select({
-      agentId: agentResultsTable.agentId,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(agentResultsTable)
-    .where(eq(agentResultsTable.userId, userId))
-    .groupBy(agentResultsTable.agentId);
+  const allRows = await httpSelect("agent_results", { user_id: userId }, { order: "created_at", ascending: false });
 
-  const recentAnalyses = await db
-    .select()
-    .from(agentResultsTable)
-    .where(eq(agentResultsTable.userId, userId))
-    .orderBy(desc(agentResultsTable.createdAt))
-    .limit(10);
+  // Group by agentId in JS (PostgREST doesn't support GROUP BY directly)
+  const agentMap = new Map<string, number>();
+  for (const row of allRows) {
+    const agentId = (row as any).agentId ?? "unknown";
+    agentMap.set(agentId, (agentMap.get(agentId) ?? 0) + 1);
+  }
+  const byAgent = Array.from(agentMap.entries()).map(([agentId, count]) => ({ agentId, count }));
+
+  const recentAnalyses = allRows.slice(0, 10);
 
   res.json({
-    total: totalRow?.count ?? 0,
+    total,
     byAgent,
     recentAnalyses,
   });
@@ -535,7 +513,13 @@ router.post("/edital/share", async (req, res) => {
   const { agentId, title, resultJson } = parsed.data;
   const token = randomUUID();
   try {
-    await db.insert(sharedResultsTable).values({ token, agentId, title, resultJson });
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase
+      .from("shared_results")
+      .insert({ token, agent_id: agentId, title, result_json: resultJson });
+    if (error) {
+      throw new Error(error.message);
+    }
   } catch (error) {
     req.log?.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to create share link");
     res.status(503).json({ error: "Falha ao criar o link de compartilhamento. Tente novamente." });
@@ -572,24 +556,26 @@ router.post("/edital/ocr-pdf", async (req, res): Promise<void> => {
 // ── GET /edital/share/:token — retrieve shared result ─────────────
 router.get("/edital/share/:token", async (req, res) => {
   const { token } = req.params;
-  let rows: Array<{ token: string }>;
   try {
-    rows = await db
-      .select()
-      .from(sharedResultsTable)
-      .where(eq(sharedResultsTable.token, token))
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("shared_results")
+      .select("*")
+      .eq("token", token)
       .limit(1);
+    if (error) {
+      throw new Error(error.message);
+    }
+    if (!data || data.length === 0) {
+      res.status(404).json({ error: "Link não encontrado ou expirado." });
+      return;
+    }
+    res.json(mapKeys(data[0]));
   } catch (error) {
     req.log?.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to fetch shared result");
     res.status(503).json({ error: "Falha ao buscar o link compartilhado. Tente novamente." });
     return;
   }
-  if (rows.length === 0) {
-    // Token inexistente, inválido ou expirado — mesma resposta para não vazar existência.
-    res.status(404).json({ error: "Link não encontrado ou expirado." });
-    return;
-  }
-  res.json(rows[0]);
 });
 
 export default router;

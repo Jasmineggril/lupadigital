@@ -30,6 +30,7 @@ import {
 } from "../lib/aiService";
 import { getReqUserId } from "../lib/supabase";
 import { classifyAiError } from "../lib/processingErrors";
+import { httpSelectTwoFilters } from "../lib/db-http";
 
 const router: IRouter = Router();
 
@@ -177,9 +178,6 @@ router.post("/niasci/planetario/generate", async (req, res): Promise<void> => {
 
 // ── Assistente IA ─────────────────────────────────────────────────────────────
 
-import { and, eq } from "drizzle-orm";
-import { db, agentResultsTable } from "@workspace/db";
-
 /**
  * Schema de validação para o chat do Assistente IA.
  * Aceita um histórico de mensagens, contexto opcional e historyId opcional.
@@ -310,14 +308,13 @@ router.post("/niasci/chat", async (req, res): Promise<void> => {
 
   if (parsed.data.historyId && userId) {
     try {
-      const [row] = await db
-        .select()
-        .from(agentResultsTable)
-        .where(and(
-          eq(agentResultsTable.id, parsed.data.historyId),
-          eq(agentResultsTable.userId, userId),
-        ))
-        .limit(1);
+      const rows = await httpSelectTwoFilters(
+        "agent_results",
+        "id", parsed.data.historyId,
+        "user_id", userId,
+        { limit: 1 },
+      );
+      const row = rows[0] as any;
 
       if (!row) {
         // 404 genérico — não revela se o registro existe

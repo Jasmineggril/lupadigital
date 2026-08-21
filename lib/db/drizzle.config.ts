@@ -2,21 +2,17 @@
  * drizzle.config.ts
  *
  * POR QUE A RESOLUÇÃO FORÇADA DE IPv4?
- * O drizzle-kit usa um binário Go internamente. O runtime Go tem dois resolvedores
- * de DNS: o puro (usa /etc/resolv.conf, ignora NSS/libc) e o CGO (usa getaddrinfo,
- * respeita NSS). No Replit, o Go pode usar o resolvedor puro e obter o endereço
- * IPv6 público do host "helium" em vez do IPv4 interno (172.24.0.3) que o Node.js
- * encontra via NSS. Resultado: timeout ao tentar conectar no IPv6.
+ * O drizzle-kit usa um binário Go internamente. O runtime Go pode obter um
+ * endereço IPv6 inacessível em vez do IPv4. Solução: substituir o hostname
+ * por um endereço IPv4 direto antes de passar a URL ao drizzle-kit.
  *
- * Solução: antes de passar a URL ao drizzle-kit, resolvemos o hostname para IPv4
- * via `getent ahostsv4` (que usa a mesma pilha NSS do Node.js) e substituímos
- * na URL de conexão.
+ * Suporta Linux (getent) e Windows (nslookup / ping).
  */
 import { execSync } from "child_process";
 import { defineConfig } from "drizzle-kit";
 import path from "path";
 
-// Prioridade: DIRECT_URL_IPV4 (pooler Supabase) > DIRECT_URL > DATABASE_URL
+// Prioridade: DIRECT_URL_IPV4 > DIRECT_URL > DATABASE_URL
 const rawUrl =
   process.env.DIRECT_URL_IPV4 ??
   process.env.DIRECT_URL ??
@@ -28,45 +24,54 @@ if (!rawUrl) {
   );
 }
 
-/**
- * Resolve o hostname de uma URL PostgreSQL para seu endereço IPv4,
- * usando `getent ahostsv4` (NSS) — o mesmo mecanismo que o Node.js usa.
- *
- * Isso garante que o binário Go do drizzle-kit use o IPv4 interno
- * em vez de resolver via DNS puro e obter um IPv6 inacessível.
- *
- * @param rawUrl - URL de conexão PostgreSQL (ex: postgresql://user:pass@host/db)
- * @returns URL com o hostname substituído pelo IPv4, ou a URL original se falhar
- */
-function forceIPv4(rawUrl: string): string {
+function forceIPv4(urlStr: string): string {
   try {
-    const url = new URL(rawUrl);
+    const url = new URL(urlStr);
     const host = url.hostname;
 
-    // Já é IPv4 ou IPv6 literal — não precisa resolver
+    // Já é IPv4 ou IPv6 literal
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":")) {
-      return rawUrl;
+      return urlStr;
     }
 
-    // Usa getent ahostsv4 para obter o IPv4 via NSS (respeita /etc/hosts,
-    // mDNS, e qualquer resolvedor configurado no sistema — igual ao Node.js)
-    const output = execSync(`getent ahostsv4 ${host} 2>/dev/null`, {
-      encoding: "utf-8",
-      timeout: 3000,
-    }).trim();
+    let ipv4: string | undefined;
 
-    // Formato da saída: "172.24.0.3  STREAM helium"
-    const ipv4 = output.split(/\s+/)[0];
+    if (process.platform === "win32") {
+      // Windows: nslookup retorna IPs na saída
+      const out = execSync(`nslookup ${host}`, {
+        encoding: "utf-8",
+        timeout: 5000,
+      });
+      const match = out.match(/Address:\s+(\d+\.\d+\.\d+\.\d+)/g);
+      if (match) {
+        // Pega o último (o IP resolvido, não o DNS server)
+        const last = match[match.length - 1];
+        const ip = last.replace(/Address:\s+/, "").trim();
+        if (/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+          ipv4 = ip;
+        }
+      }
+    } else {
+      // Linux/macOS: getent ahostsv4
+      const out = execSync(`getent ahostsv4 ${host} 2>/dev/null`, {
+        encoding: "utf-8",
+        timeout: 3000,
+      }).trim();
+      const ip = out.split(/\s+/)[0];
+      if (ip && /^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+        ipv4 = ip;
+      }
+    }
 
-    if (ipv4 && /^\d{1,3}(\.\d{1,3}){3}$/.test(ipv4)) {
+    if (ipv4) {
       url.hostname = ipv4;
       return url.toString();
     }
   } catch {
-    // Resolução falhou — usa a URL original sem alteração
+    // Resolução falhou — usa a URL original
   }
 
-  return rawUrl;
+  return urlStr;
 }
 
 const connectionUrl = forceIPv4(rawUrl);

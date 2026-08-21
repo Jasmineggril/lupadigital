@@ -1,7 +1,20 @@
 import "./load-env";
+import * as Sentry from "@sentry/node";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { runMigrations } from "./lib/migrate";
+
+// Sentry init — must be before any other code
+const sentryDsn = process.env.SENTRY_DSN;
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    release: "lupa-digital@1.0.0",
+    environment: process.env.NODE_ENV ?? "development",
+    tracesSampleRate: 0.2,
+    enabled: process.env.NODE_ENV === "production",
+  });
+}
 
 // Rede de segurança: um erro não tratado em um handler async (ex.: falha no
 // Supabase em /edital/share) vira rejeição não capturada e derruba o processo

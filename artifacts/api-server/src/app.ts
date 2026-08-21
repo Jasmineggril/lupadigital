@@ -23,6 +23,7 @@
  */
 
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import * as Sentry from "@sentry/node";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -162,6 +163,11 @@ app.use("/api/diag", diagLimiter); // diagnóstico de provedores (5 req/min)
 // ── Router principal ─────────────────────────────────────────────────────────
 // Todas as rotas da API são prefixadas com /api
 app.use("/api", router);
+
+// ── Sentry error handler (after all routes, before other error handlers) ────
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 // ── Global JSON Error Handler ─────────────────────────────────────────────────
 // Captura qualquer erro não tratado nas rotas e devolve JSON em vez de HTML.

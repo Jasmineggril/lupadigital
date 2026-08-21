@@ -149,15 +149,15 @@ Quando houver dúvida, ausência ou contradição, o sistema deve:
 ```
 Usuário
   ↓
-Frontend React/Vite
+Frontend React/Vite (SPA)
+  ↓  proxy /api → serverless
+API Express (Vercel Serverless Function)
   ↓
-API Express
+AIService (Groq gpt-oss-120b / OpenAI GPT-4o fallback)
   ↓
-AIService (OpenAI GPT-4o)
+Supabase (PostgREST via HTTPS)
   ↓
-Supabase
-  ↓
-PostgreSQL
+PostgreSQL (Supabase)
 ```
 
 ---
@@ -166,13 +166,13 @@ PostgreSQL
 
 | Camada | Tecnologia |
 |---|---|
-| Frontend | React, Vite, TypeScript, Tailwind CSS |
-| Backend | Node.js, Express, TypeScript |
-| Banco de dados | PostgreSQL via Supabase |
-| ORM | Drizzle ORM |
-| IA | OpenAI GPT-4o |
-| Auth | Supabase Auth |
-| Deploy | Vercel (frontend) |
+| Frontend | React, Vite 7, TypeScript, Tailwind CSS, Wouter |
+| Backend | Node.js, Express 5, TypeScript |
+| Banco de dados | PostgreSQL via Supabase (PostgREST/HTTPS) |
+| IA | Groq gpt-oss-120b (primário), OpenAI GPT-4o (fallback) |
+| Auth | Supabase Auth (JWT + JWKS) |
+| Deploy | Vercel (frontend + API serverless) |
+| Workspace | pnpm monorepo |
 
 ---
 

@@ -10,7 +10,8 @@
     "preinstall": "node -e \"var fs=require('fs');['package-lock.json','yarn.lock'].forEach(function(f){try{fs.unlinkSync(f)}catch(e){}});var ua=process.env.npm_config_user_agent||'';if(!/^pnpm\\//.test(ua)){console.error('Use pnpm instead');process.exit(1)}\"",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "test:e2e": "node scripts/e2e-test.mjs"
   },
   "private": true,
   "dependencies": {

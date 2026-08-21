@@ -40,6 +40,7 @@ import { SimplifyEditalResponse } from "@workspace/api-zod";
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
 import { GLOBAL_BUDGET_MS, RESERVE_MS, MIN_CHUNK_TIMEOUT_MS, createTimeBudget, type TimeBudget } from "./timeBudget";
+import { cacheGet, cacheSet } from "./aiCache";
 export { createTimeBudget };
 
 const MAX_BACKOFF_MS = 30_000;
@@ -2757,6 +2758,13 @@ export async function simplifyEdital(
     .trim();
   const truncated = cleaned.length > 10000 ? cleaned.slice(0, 10000) + "\n\n[Texto truncado para processamento]" : cleaned;
 
+  // Check cache — same text → same analysis (skip for users with opts)
+  const cached = cacheGet("simplify", truncated);
+  if (cached) {
+    logger.info({ module: "simplifyEdital", cacheHit: true }, "AI cache hit — returning cached result");
+    return cached;
+  }
+
   const systemPrompt = [
     "Você é um especialista em simplificação de documentos públicos brasileiros.",
     "Sua missão é tornar editais acessíveis para toda a população, independentemente do nível de escolaridade.",
@@ -2822,6 +2830,9 @@ Responda SOMENTE com o JSON, sem markdown, sem código, sem texto adicional.`;
       throw e;
     }
 
+    // Store in cache for future requests
+    cacheSet("simplify", truncated, validated.data);
+
     await persistUsageLog({
       module: "AIService.simplifyEdital",
       model,
@@ -2881,6 +2892,14 @@ export async function analyzeAgent(
   const model = getOpenAIModel();
   const start = Date.now();
   const requestId = randomUUID();
+
+  // Check cache — same agent + text → same analysis
+  const cacheKey = `${agentId}:${JSON.stringify(parsedProfile.success ? parsedProfile.data : {})}`;
+  const cached = cacheGet(cacheKey, normalizedText);
+  if (cached) {
+    logger.info({ requestId, module: "analyzeAgent", agentId, cacheHit: true }, "AI cache hit — returning cached result");
+    return cached;
+  }
 
   let currentStep = "initialization";
   try {
@@ -3005,6 +3024,25 @@ export async function analyzeAgent(
       currentStep = "response_sent";
       logger.info({ requestId, step: "response_sent", agentId, mode: "single" }, "Analysis response ready");
 
+      const singleResult = {
+        ...canonical,
+        ...validated.data,
+        type: agentId,
+        agentResult: validated.data,
+        analysisId: canonical.analysisId,
+        schemaVersion: canonical.schemaVersion,
+        interpretation: canonical.interpretation,
+        cronograma: canonical.cronograma,
+        checklist: canonical.checklist,
+        elegibilidade: canonical.elegibilidade,
+        valores: canonical.valores,
+        documentosExigidos: canonical.documentosExigidos,
+        alertas: canonical.alertas,
+      } as Record<string, unknown>;
+
+      // Store in cache for future requests
+      cacheSet(cacheKey, normalizedText, singleResult);
+
       await persistUsageLog({
         module: "AIService.analyzeAgent",
         model,
@@ -3021,21 +3059,7 @@ export async function analyzeAgent(
         message: "AI request completed",
       });
 
-      return {
-        ...canonical,
-        ...validated.data,
-        type: agentId,
-        agentResult: validated.data,
-        analysisId: canonical.analysisId,
-        schemaVersion: canonical.schemaVersion,
-        interpretation: canonical.interpretation,
-        cronograma: canonical.cronograma,
-        checklist: canonical.checklist,
-        elegibilidade: canonical.elegibilidade,
-        valores: canonical.valores,
-        documentosExigidos: canonical.documentosExigidos,
-        alertas: canonical.alertas,
-      } as Record<string, unknown>;
+      return singleResult;
     }
 
     currentStep = "chunk_processing_started";
@@ -3096,7 +3120,7 @@ export async function analyzeAgent(
       message: chunkProcessing.processing.complete ? "Chunked analysis completed" : "Chunked analysis completed with partial failures",
     });
 
-    return {
+    const chunkedResult = {
       ...canonical,
       ...consolidatedAgentResult,
       type: agentId,
@@ -3112,6 +3136,11 @@ export async function analyzeAgent(
       alertas: canonical.alertas,
       processing: canonical.processing,
     } as Record<string, unknown>;
+
+    // Store in cache for future requests
+    cacheSet(cacheKey, normalizedText, chunkedResult);
+
+    return chunkedResult;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const errorName = err instanceof Error ? err.name : "UnknownError";

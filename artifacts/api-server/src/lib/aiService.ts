@@ -40,8 +40,16 @@ import { SimplifyEditalResponse } from "@workspace/api-zod";
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
 import { GLOBAL_BUDGET_MS, RESERVE_MS, MIN_CHUNK_TIMEOUT_MS, createTimeBudget, type TimeBudget } from "./timeBudget";
-import { cacheGet, cacheSet } from "./aiCache";
+import { cacheGet, cacheSet, type CacheKeyParts } from "./aiCache";
 export { createTimeBudget };
+
+/**
+ * Versões dos prompts/esquemas usadas na chave do cache de IA.
+ * Incremente sempre que um prompt, mandato ou esquema de saída mudar,
+ * para que resultados gerados pela versão anterior não sejam reaproveitados.
+ */
+export const SIMPLIFY_PROMPT_VERSION = "simplify-v1";
+export const ANALYZE_PROMPT_VERSION = "analyze-v1+schema-1.0.1";
 
 const MAX_BACKOFF_MS = 30_000;
 
@@ -2758,8 +2766,13 @@ export async function simplifyEdital(
     .trim();
   const truncated = cleaned.length > 10000 ? cleaned.slice(0, 10000) + "\n\n[Texto truncado para processamento]" : cleaned;
 
-  // Check cache — same text → same analysis (skip for users with opts)
-  const cached = cacheGet("simplify", truncated);
+  // Check cache — mesmo texto completo + mesmo modelo + mesma versão de prompt
+  const simplifyCacheKey: CacheKeyParts = {
+    scope: "simplify",
+    model: getOpenAIModel(),
+    promptVersion: SIMPLIFY_PROMPT_VERSION,
+  };
+  const cached = cacheGet(simplifyCacheKey, truncated);
   if (cached) {
     logger.info({ module: "simplifyEdital", cacheHit: true }, "AI cache hit — returning cached result");
     return cached;
@@ -2831,7 +2844,7 @@ Responda SOMENTE com o JSON, sem markdown, sem código, sem texto adicional.`;
     }
 
     // Store in cache for future requests
-    cacheSet("simplify", truncated, validated.data);
+    cacheSet({ ...simplifyCacheKey, model }, truncated, validated.data);
 
     await persistUsageLog({
       module: "AIService.simplifyEdital",
@@ -2893,8 +2906,18 @@ export async function analyzeAgent(
   const start = Date.now();
   const requestId = randomUUID();
 
-  // Check cache — same agent + text → same analysis
-  const cacheKey = `${agentId}:${JSON.stringify(parsedProfile.success ? parsedProfile.data : {})}`;
+  // Check cache — chave inclui agente, modelo, versão do prompt e todas as
+  // opções que alteram o resultado (perfil do usuário e configuração de chunking),
+  // além do hash do texto completo.
+  const cacheKey: CacheKeyParts = {
+    scope: `analyze:${agentId}`,
+    model,
+    promptVersion: ANALYZE_PROMPT_VERSION,
+    options: {
+      profile: parsedProfile.success ? parsedProfile.data ?? null : null,
+      chunking: getChunkingConfig(),
+    },
+  };
   const cached = cacheGet(cacheKey, normalizedText);
   if (cached) {
     logger.info({ requestId, module: "analyzeAgent", agentId, cacheHit: true }, "AI cache hit — returning cached result");

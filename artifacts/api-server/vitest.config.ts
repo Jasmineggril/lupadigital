@@ -15,6 +15,8 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.ts"],
+    // Limpa o cache de IA entre testes (isolamento; o cache segue ativo em cada teste)
+    setupFiles: ["./src/test/setup.ts"],
     reporters: ["verbose"],
   },
 });

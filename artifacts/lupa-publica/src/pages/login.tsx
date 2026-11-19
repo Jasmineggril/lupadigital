@@ -1,120 +1,106 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
-import { useAuth } from "@/lib/auth";
+/**
+ * @file login.tsx
+ * @description Login por e-mail e senha (Supabase Auth), com retorno seguro à
+ * página solicitada (?next=, validado contra redirecionamento externo).
+ */
+
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useSearch } from "wouter";
+import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, LogIn, AlertCircle } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { safeNext } from "@/lib/safe-redirect";
+import { EMAIL_RE, FormAlert, PasswordField, TextField } from "@/components/lupa/ui";
+import { VerifyEmailNotice } from "./cadastro";
 
 export default function Login() {
   const [, navigate] = useLocation();
-  const { login } = useAuth();
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const next = safeNext(params.get("next"));
+  const { login, user, isLoading, sessionExpired } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<{ text: string; code?: string } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const inFlight = useRef(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Já autenticado: segue para o destino
+  useEffect(() => {
+    if (!isLoading && user) navigate(next, { replace: true });
+  }, [isLoading, user, next, navigate]);
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
-    const result = await login(email, password);
-    if (result.ok) {
-      navigate("/testar");
-    } else {
-      setError(result.error ?? "Erro ao entrar.");
-      setLoading(false);
+    if (inFlight.current) return;
+    if (!EMAIL_RE.test(email.trim()) || !password) {
+      setError({ text: "Informe e-mail e senha." });
+      return;
     }
+    inFlight.current = true;
+    setSubmitting(true);
+    setError(null);
+    const r = await login(email, password);
+    inFlight.current = false;
+    setSubmitting(false);
+    if (r.ok) navigate(next, { replace: true });
+    else setError({ text: r.error, code: r.code });
   };
 
-  return (
-    <div className="min-h-[calc(100dvh-4rem)] flex items-center justify-center bg-[#F8FAFC] px-4 py-12">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] mb-4 shadow-lg">
-            <LogIn className="w-7 h-7 text-white" />
-          </div>
-          <h1 className="text-2xl font-extrabold text-[#0F172A] mb-1">Bem-vindo de volta</h1>
-          <p className="text-sm text-[#475569]">Entre na sua conta para continuar</p>
+  if (showResend) {
+    return (
+      <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-slate-50 px-4 py-12">
+        <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+          <VerifyEmailNotice email={email} />
         </div>
+      </div>
+    );
+  }
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                {error}
-              </div>
+  return (
+    <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-slate-50 px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="mb-6 text-center">
+          <LogIn className="mx-auto h-10 w-10 text-primary" aria-hidden />
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">Entrar</h1>
+          <p className="mt-1 text-sm text-slate-600">Acesse suas recomendações de editais e seu perfil docente.</p>
+        </div>
+        <div className="rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+          <form onSubmit={onSubmit} noValidate className="space-y-4">
+            {(sessionExpired || params.get("motivo") === "sessao-expirada") && !error && (
+              <FormAlert kind="info">Sua sessão expirou. Entre novamente para continuar de onde parou.</FormAlert>
             )}
-
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="text-sm font-semibold text-[#0F172A]">E-mail</label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                className="rounded-xl border-[#E2E8F0] focus-visible:ring-[#2563EB]/30 focus-visible:border-[#2563EB] h-11"
-              />
+            {params.get("senha") === "redefinida" && !error && <FormAlert kind="success">Senha redefinida. Entre com a nova senha.</FormAlert>}
+            {error && (
+              <FormAlert>
+                {error.text}
+                {error.code === "email_not_confirmed" && (
+                  <button type="button" className="ml-1 font-semibold underline" onClick={() => setShowResend(true)}>
+                    Reenviar confirmação
+                  </button>
+                )}
+              </FormAlert>
+            )}
+            <TextField label="E-mail" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <PasswordField label="Senha" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <div className="flex justify-end">
+              <Link href="/esqueci-senha" className="text-sm font-semibold text-primary hover:underline">
+                Esqueci minha senha
+              </Link>
             </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="text-sm font-semibold text-[#0F172A]">Senha</label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPass ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  className="rounded-xl border-[#E2E8F0] focus-visible:ring-[#2563EB]/30 focus-visible:border-[#2563EB] h-11 pr-11"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(v => !v)}
-                  aria-label={showPass ? "Ocultar senha" : "Mostrar senha"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#475569] hover:text-[#0F172A]"
-                >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              <div className="flex justify-end">
-                <Link href="/esqueci-senha" className="text-xs text-[#2563EB] hover:underline font-medium">
-                  Esqueci minha senha
-                </Link>
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full h-11 rounded-xl bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold text-sm"
-              disabled={loading}
-            >
-              {loading ? (
-                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />Entrando...</>
-              ) : "Entrar"}
+            <Button type="submit" className="h-11 w-full" disabled={submitting} aria-busy={submitting} data-testid="login-submit">
+              {submitting ? "Entrando…" : "Entrar"}
             </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-[#E2E8F0] text-center">
-            <p className="text-sm text-[#475569]">
-              Ainda não tem conta?{" "}
-              <Link href="/cadastro" className="text-[#2563EB] font-semibold hover:underline">
-                Criar conta
-              </Link>
-            </p>
-          </div>
+          <p className="mt-6 text-center text-sm text-slate-600">
+            Ainda não tem conta?{" "}
+            <Link href="/cadastro" className="font-semibold text-primary hover:underline">
+              Criar conta
+            </Link>
+          </p>
         </div>
-
-        <p className="text-center text-xs text-[#475569] mt-6">
-          MVP acadêmico — autenticação via Supabase Auth.
-        </p>
       </div>
     </div>
   );

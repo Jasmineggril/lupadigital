@@ -87,6 +87,33 @@ export default function ComoFunciona() {
           </CardContent>
         </Card>
       </div>
+
+      <section id="compatibilidade" className="mt-20 scroll-mt-24 rounded-2xl border bg-white p-6 text-left shadow-sm">
+        <h2 className="text-2xl font-bold">Como calculamos a compatibilidade edital × docente</h2>
+        <p className="mt-2 text-muted-foreground">
+          A recomendação tem duas partes avaliadas separadamente. Uma nota alta de aderência nunca esconde um requisito eliminatório.
+        </p>
+        <h3 className="mt-6 text-lg font-semibold">1. Aderência temática (0 a 100)</h3>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">
+          <li>Procuramos os termos do seu perfil no título, objeto, áreas, elegibilidade e requisitos do edital (sem diferenciar acentos, maiúsculas, singular e plural).</li>
+          <li>Um termo com várias palavras só conta se todas as palavras importantes aparecerem.</li>
+          <li>Pesos: áreas e temas de pesquisa valem 3; palavras-chave e competências valem 2. O índice é a soma dos pesos encontrados × 10, limitado a 100.</li>
+          <li>Faixas: alta (60 ou mais), média (30 a 59), baixa (abaixo de 30). “Indeterminada” quando o perfil não tem termos ou o edital não tem texto para comparar.</li>
+          <li><strong>O índice não é probabilidade de aprovação</strong>: mede só quanto o edital fala dos seus temas.</li>
+        </ul>
+        <h3 className="mt-6 text-lg font-semibold">2. Elegibilidade (requisito a requisito)</h3>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">
+          <li><strong>Atendida (a comprovar)</strong>: seu perfil informa algo que cumpre o requisito. Como o dado é autodeclarado ou importado, ele precisa ser comprovado na submissão.</li>
+          <li><strong>Não atendida</strong>: seu perfil informa algo que contradiz o requisito (por exemplo, o edital exige doutorado e o perfil informa mestrado).</li>
+          <li><strong>Pendente de comprovação</strong>: falta o dado no perfil ou o requisito não pode ser avaliado automaticamente.</li>
+          <li>Hoje avaliamos automaticamente: titulação mínima, vínculo institucional, instituição sediada no DF e currículo Lattes. Os demais requisitos aparecem como pendentes, com o trecho do edital.</li>
+        </ul>
+        <h3 className="mt-6 text-lg font-semibold">3. Rastreabilidade</h3>
+        <p className="mt-2 text-slate-700">
+          Cada recomendação registra a versão do edital e a versão do seu perfil usadas no cálculo, e é recalculada quando qualquer um dos dois muda.
+          Toda informação do edital mostra o trecho e o link da fonte oficial; o que não foi encontrado aparece como pendente de verificação.
+        </p>
+      </section>
     </div>
   );
 }

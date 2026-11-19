@@ -17,6 +17,7 @@ import editalRouter from "./edital";
 import resourcesRouter from "./resources";
 import niasciRouter from "./niasci";
 import diagRouter from "./diag";
+import lupaRouter from "./lupa";
 
 const router: IRouter = Router();
 
@@ -24,6 +25,7 @@ router.use(healthRouter);
 router.use(diagRouter);   // antes de edital/niasci (não requer auth Supabase)
 router.use(editalRouter);
 router.use(niasciRouter);   // antes do resourcesRouter (que tem requireAuth global)
+router.use(lupaRouter);     // perfil docente, catálogo, recomendações, admin (auth por rota)
 router.use(resourcesRouter);
 
 export default router;

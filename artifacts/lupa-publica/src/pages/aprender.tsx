@@ -207,7 +207,7 @@ export default function Aprender() {
         </div>
       </header>
 
-      <main className="container mx-auto max-w-5xl space-y-10 px-4 py-8">
+      <div className="container mx-auto max-w-5xl space-y-10 px-4 py-8">
         <nav aria-label="Passos da trilha" className="flex gap-2 overflow-x-auto pb-1">
           {LEARN_STEPS.map((s, i) => (
             <button
@@ -276,7 +276,7 @@ export default function Aprender() {
             Conclua os 6 passos para liberar o quiz final.
           </p>
         )}
-      </main>
+      </div>
     </div>
   );
 }

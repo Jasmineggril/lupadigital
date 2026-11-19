@@ -1,14 +1,24 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { User } from "@supabase/supabase-js";
-import { supabase, isSupabaseConfigured } from "./supabase";
-
-export type ProfileType = "estudante" | "concurseiro" | "pesquisador" | "cidadao";
-
 /**
- * Perfil do usuário autenticado exposto pelo contexto de auth.
- * Os campos são mapeados a partir dos metadados salvos no Supabase.
+ * @file auth.tsx
+ * @description Autenticação com Supabase Auth (única fonte de sessão).
+ *
+ * - Cadastro, login, logout, reenvio de confirmação, recuperação e redefinição de senha.
+ * - Sessão persistida e renovada pelo SDK (autoRefreshToken); expiração detectada por
+ *   SIGNED_OUT inesperado ou 401 da API (evento "lupa:session-expired").
+ * - Papel de administrador vem do servidor (GET /api/me), nunca do cadastro ou do perfil.
+ *
+ * Nenhuma senha é armazenada ou manipulada fora do Supabase.
  */
+
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import type { AuthError, User } from "@supabase/supabase-js";
+import { supabase, isSupabaseConfigured, hadStoredSessionAtLoad } from "./supabase";
+import { apiFetch } from "./api";
+
+export type ProfileType = "estudante" | "concurseiro" | "pesquisador" | "cidadao" | "docente";
+
 export interface AuthUser {
+  id: string;
   name: string;
   email: string;
   profileType: ProfileType;
@@ -16,157 +26,220 @@ export interface AuthUser {
   plan: "gratuito" | "estudante" | "concurseiro" | "premium";
 }
 
-interface RegisterData {
-  name: string;
-  email: string;
-  password: string;
-  profileType: ProfileType;
-}
+type Result = { ok: true } | { ok: false; error: string; code?: string };
 
 interface AuthContextValue {
   user: AuthUser | null;
-  /** Autentica com e-mail e senha. Retorna { ok, error? }. */
-  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
-  /** Cria uma nova conta. Retorna { ok, error? }. */
-  register: (data: RegisterData) => Promise<{ ok: boolean; error?: string }>;
-  /** Encerra a sessão atual. */
-  logout: () => void;
   isLoading: boolean;
+  isAdmin: boolean;
+  /** true quando a sessão terminou sem o usuário ter saído */
+  sessionExpired: boolean;
+  dismissSessionExpired: () => void;
+  login: (email: string, password: string) => Promise<Result>;
+  register: (data: { name: string; email: string; password: string }) => Promise<(Result & { needsConfirmation?: boolean })>;
+  resendConfirmation: (email: string) => Promise<Result>;
+  requestPasswordReset: (email: string) => Promise<Result>;
+  updatePassword: (password: string) => Promise<Result>;
+  logout: () => Promise<void>;
+  /** Evento PASSWORD_RECOVERY recebido (link de redefinição válido) */
+  recoveryReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/**
- * Converte um objeto User do Supabase para o formato AuthUser do sistema.
- *
- * Os campos extras (name, profileType, plan) são gravados em user_metadata
- * durante o cadastro via supabase.auth.signUp({ options: { data: {...} } }).
- *
- * @param u - Usuário retornado pela API do Supabase
- * @returns Perfil normalizado para uso no frontend
- */
 function toAuthUser(u: User): AuthUser {
   const m = u.user_metadata ?? {};
   return {
+    id: u.id,
     name: (m.name as string) || (u.email?.split("@")[0] ?? "Usuário"),
     email: u.email ?? "",
-    profileType: (m.profileType as ProfileType) ?? "cidadao",
+    profileType: (m.profileType as ProfileType) ?? "docente",
     verified: u.email_confirmed_at != null,
     plan: (m.plan as AuthUser["plan"]) ?? "gratuito",
   };
 }
 
+const NOT_CONFIGURED: Result = { ok: false, error: "Serviço de autenticação indisponível neste ambiente.", code: "not_configured" };
+
+/** Mensagens claras para os erros do Supabase Auth. Exportado para testes. */
+export function authErrorMessage(error: Pick<AuthError, "message" | "status"> & { code?: string }): { error: string; code: string } {
+  const msg = (error.message ?? "").toLowerCase();
+  const code = (error.code ?? "").toLowerCase();
+  if (code === "invalid_credentials" || msg.includes("invalid login credentials")) {
+    return { error: "E-mail ou senha incorretos.", code: "invalid_credentials" };
+  }
+  if (code === "email_not_confirmed" || msg.includes("email not confirmed")) {
+    return { error: "Seu e-mail ainda não foi confirmado. Abra o link que enviamos ou peça um novo envio.", code: "email_not_confirmed" };
+  }
+  if (code === "user_already_exists" || msg.includes("already registered")) {
+    return { error: "Já existe uma conta com este e-mail. Entre ou recupere a senha.", code: "user_already_exists" };
+  }
+  if (code === "weak_password" || msg.includes("password should")) {
+    return { error: "Senha fraca: use pelo menos 8 caracteres, com letras e números.", code: "weak_password" };
+  }
+  if (code === "same_password" || msg.includes("should be different")) {
+    return { error: "A nova senha precisa ser diferente da atual.", code: "same_password" };
+  }
+  if (code.includes("otp_expired") || msg.includes("expired") || msg.includes("invalid") && msg.includes("token")) {
+    return { error: "O link expirou ou já foi usado. Peça um novo link.", code: "link_expired" };
+  }
+  if (error.status === 429 || code.includes("rate_limit") || msg.includes("rate limit") || msg.includes("security purposes")) {
+    return { error: "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.", code: "rate_limited" };
+  }
+  if ((error.status ?? 0) >= 500 || msg.includes("fetch") || msg.includes("network")) {
+    return { error: "O serviço de autenticação está indisponível. Tente novamente em instantes.", code: "unavailable" };
+  }
+  return { error: "Não foi possível concluir. Tente novamente.", code: "unknown" };
+}
+
+function siteUrl(path: string) {
+  const base = ((import.meta.env.BASE_URL as string) || "/").replace(/\/$/, "");
+  return `${window.location.origin}${base}${path}`;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [recoveryReady, setRecoveryReady] = useState(false);
+  const explicitLogout = useRef(false);
+  const hadSession = useRef(false);
+
+  const refreshRole = useCallback(async (hasUser: boolean) => {
+    if (!hasUser) {
+      setIsAdmin(false);
+      return;
+    }
+    try {
+      const me = await apiFetch<{ is_admin: boolean }>("/me");
+      setIsAdmin(Boolean(me.is_admin));
+    } catch {
+      setIsAdmin(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // Se o Supabase não estiver configurado, não há sessão a recuperar
     if (!isSupabaseConfigured || !supabase) {
       setIsLoading(false);
       return;
     }
-
-    // Recupera a sessão já existente (ex: usuário que recarregou a página)
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.user) setUser(toAuthUser(data.session.user));
+      const u = data.session?.user ?? null;
+      // Sessão salva que o SDK não conseguiu renovar ao carregar a página
+      if (!u && hadStoredSessionAtLoad) setSessionExpired(true);
+      hadSession.current = Boolean(u);
+      setUser(u ? toAuthUser(u) : null);
       setIsLoading(false);
+      void refreshRole(Boolean(u));
     });
-
-    // Escuta eventos de auth: login, logout, refresh automático de token
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ? toAuthUser(session.user) : null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const u = session?.user ?? null;
+      if (event === "PASSWORD_RECOVERY") setRecoveryReady(true);
+      if (event === "SIGNED_OUT" && hadSession.current && !explicitLogout.current) setSessionExpired(true);
+      if (event === "SIGNED_IN") setSessionExpired(false);
+      hadSession.current = Boolean(u);
+      explicitLogout.current = false;
+      setUser(u ? toAuthUser(u) : null);
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") void refreshRole(Boolean(u));
     });
+    const onExpired = () => {
+      if (hadSession.current) setSessionExpired(true);
+    };
+    window.addEventListener("lupa:session-expired", onExpired);
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("lupa:session-expired", onExpired);
+    };
+  }, [refreshRole]);
 
-    return () => subscription.unsubscribe();
-  }, []);
-
-  /**
-   * Autentica o usuário com e-mail e senha via Supabase Auth.
-   *
-   * Erros do Supabase são convertidos em mensagens amigáveis em português.
-   *
-   * @param email - E-mail do usuário
-   * @param password - Senha em texto plano (Supabase valida e armazena com hash)
-   * @returns { ok: true } em caso de sucesso, ou { ok: false, error } com mensagem
-   */
-  const login = async (email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
-    if (!isSupabaseConfigured || !supabase) {
-      return { ok: false, error: "Serviço de autenticação não configurado." };
+  const login: AuthContextValue["login"] = async (email, password) => {
+    if (!supabase) return NOT_CONFIGURED;
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (!error) {
+      setSessionExpired(false);
+      return { ok: true };
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (!error) return { ok: true };
-
-    if (error.message.includes("Invalid login credentials")) {
-      return { ok: false, error: "E-mail ou senha incorretos." };
-    }
-    if (error.message.includes("Email not confirmed")) {
-      return { ok: false, error: "Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada." };
-    }
-    if (error.message.includes("rate limit") || error.status === 429) {
-      return { ok: false, error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
-    }
-    return { ok: false, error: "Erro ao entrar. Tente novamente." };
+    return { ok: false, ...authErrorMessage(error) };
   };
 
-  /**
-   * Cria uma nova conta no Supabase Auth.
-   *
-   * Os metadados extras (name, profileType, plan) são passados em options.data
-   * para que fiquem disponíveis em user.user_metadata após o login.
-   *
-   * @param data - Dados do formulário de cadastro
-   * @returns { ok: true } em caso de sucesso, ou { ok: false, error } com mensagem
-   */
-  const register = async (data: RegisterData): Promise<{ ok: boolean; error?: string }> => {
-    if (!isSupabaseConfigured || !supabase) {
-      return { ok: false, error: "Serviço de autenticação não configurado." };
-    }
-    const { error } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
+  const register: AuthContextValue["register"] = async ({ name, email, password }) => {
+    if (!supabase) return NOT_CONFIGURED;
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
       options: {
-        data: {
-          name: data.name,
-          profileType: data.profileType,
-          plan: "gratuito",
-        },
+        // user_metadata: dados de exibição apenas. Papel de admin NÃO é definido aqui.
+        data: { name: name.trim(), profileType: "docente", plan: "gratuito" },
+        emailRedirectTo: siteUrl("/perfil?boas-vindas=1"),
       },
     });
-    if (!error) return { ok: true };
-
-    if (error.message.includes("already registered") || error.message.includes("User already registered")) {
-      return { ok: false, error: "Este e-mail já está cadastrado." };
-    }
-    if (error.message.includes("Password should be at least")) {
-      return { ok: false, error: "A senha deve ter pelo menos 6 caracteres." };
-    }
-    if (error.message.includes("rate limit") || error.status === 429) {
-      return { ok: false, error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
-    }
-    return { ok: false, error: "Erro ao criar conta. Tente novamente." };
+    if (error) return { ok: false, ...authErrorMessage(error) };
+    // Com confirmação de e-mail ativa, não há sessão até o usuário abrir o link.
+    // (Para e-mail já cadastrado o Supabase devolve user sem identities e sem sessão.)
+    return { ok: true, needsConfirmation: !data.session };
   };
 
-  /**
-   * Encerra a sessão do usuário atual e limpa o estado local.
-   * O signOut é chamado de forma assíncrona sem bloquear a UI.
-   */
-  const logout = () => {
-    if (supabase) supabase.auth.signOut().catch(() => {});
+  const resendConfirmation: AuthContextValue["resendConfirmation"] = async (email) => {
+    if (!supabase) return NOT_CONFIGURED;
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: siteUrl("/perfil?boas-vindas=1") },
+    });
+    if (error) return { ok: false, ...authErrorMessage(error) };
+    return { ok: true };
+  };
+
+  const requestPasswordReset: AuthContextValue["requestPasswordReset"] = async (email) => {
+    if (!supabase) return NOT_CONFIGURED;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: siteUrl("/redefinir-senha") });
+    // Não revela se o e-mail existe: só limite de frequência e indisponibilidade aparecem
+    if (error) {
+      const mapped = authErrorMessage(error);
+      if (mapped.code === "rate_limited" || mapped.code === "unavailable") return { ok: false, ...mapped };
+    }
+    return { ok: true };
+  };
+
+  const updatePassword: AuthContextValue["updatePassword"] = async (password) => {
+    if (!supabase) return NOT_CONFIGURED;
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return { ok: false, ...authErrorMessage(error) };
+    setRecoveryReady(false);
+    return { ok: true };
+  };
+
+  const logout = async () => {
+    explicitLogout.current = true;
+    setSessionExpired(false);
+    if (supabase) await supabase.auth.signOut().catch(() => {});
     setUser(null);
+    setIsAdmin(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        isAdmin,
+        sessionExpired,
+        dismissSessionExpired: () => setSessionExpired(false),
+        login,
+        register,
+        resendConfirmation,
+        requestPasswordReset,
+        updatePassword,
+        logout,
+        recoveryReady,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
-/**
- * Hook para acessar o contexto de autenticação em qualquer componente filho.
- * Lança erro se usado fora do AuthProvider.
- */
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");

@@ -6,6 +6,19 @@ import type { Database } from "@/lib/supabase-types";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
 
+/**
+ * Havia sessão salva no navegador ANTES de o cliente iniciar? Usado para avisar
+ * "sua sessão expirou" quando o SDK descarta, ao carregar a página, uma sessão
+ * vencida que não pôde ser renovada.
+ */
+export const hadStoredSessionAtLoad: boolean = (() => {
+  try {
+    return Object.keys(window.localStorage).some((k) => k.startsWith("sb-") && k.endsWith("-auth-token"));
+  } catch {
+    return false;
+  }
+})();
+
 export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: { persistSession: true, autoRefreshToken: true },

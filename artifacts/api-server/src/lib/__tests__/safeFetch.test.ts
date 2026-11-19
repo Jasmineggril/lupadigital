@@ -2,8 +2,18 @@
  * Testes da proteção contra SSRF (lib/safeFetch.ts).
  * Bug corrigido: redirecionamentos intermediários para IPs internos não eram verificados.
  */
-import { describe, expect, it, vi } from "vitest";
-import { assertPublicHost, isPrivateIp, safeFetch, UnsafeUrlError } from "../safeFetch";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import http from "node:http";
+import zlib from "node:zlib";
+import type { AddressInfo } from "node:net";
+import {
+  assertPublicHost,
+  createPinnedFetch,
+  createSafeLookup,
+  isPrivateIp,
+  safeFetch,
+  UnsafeUrlError,
+} from "../safeFetch";
 
 const publicResolver = async () => ["93.184.216.34"];
 
@@ -113,5 +123,73 @@ describe("safeFetch", () => {
 
   it("recusa URL com credenciais embutidas", async () => {
     await expect(safeFetch("https://user:pass@site.example/", { resolve: publicResolver })).rejects.toBeInstanceOf(UnsafeUrlError);
+  });
+});
+
+describe("DNS rebinding (conexão fixada no IP verificado)", () => {
+  let server: http.Server;
+  let port = 0;
+  let hits = 0;
+
+  beforeAll(async () => {
+    server = http.createServer((req, res) => {
+      hits++;
+      if (req.url === "/gzip") {
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8", "content-encoding": "gzip" });
+        res.end(zlib.gzipSync("<html>conteúdo comprimido</html>"));
+        return;
+      }
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end("segredo interno");
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((r) => server.close(() => r()));
+  });
+
+  it("DNS que responde IP público na checagem e interno na conexão é bloqueado sem conectar", async () => {
+    hits = 0;
+    let calls = 0;
+    const rebinding = async () => (++calls === 1 ? ["93.184.216.34"] : ["127.0.0.1"]);
+    await expect(safeFetch(`http://rebind.example:${port}/`, { resolve: rebinding })).rejects.toBeInstanceOf(UnsafeUrlError);
+    expect(calls).toBeGreaterThanOrEqual(2); // a conexão fez a sua própria resolução
+    expect(hits).toBe(0); // o servidor interno nunca foi alcançado
+  });
+
+  it("o fetch fixado conecta no IP entregue pelo lookup verificado e descomprime gzip", async () => {
+    hits = 0;
+    // Só neste teste 127.0.0.1 é tratado como permitido, para exercitar o caminho de sucesso
+    const pinned = createPinnedFetch(async () => ["127.0.0.1"], () => false);
+    const res = await pinned(`http://qualquer-nome.example:${port}/gzip`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    expect(await res.text()).toBe("<html>conteúdo comprimido</html>");
+    expect(hits).toBe(1);
+  });
+
+  it("o fetch fixado padrão recusa nome que resolve para IP interno", async () => {
+    hits = 0;
+    const pinned = createPinnedFetch(async () => ["127.0.0.1"]);
+    await expect(pinned(`http://interno.example:${port}/`)).rejects.toBeInstanceOf(UnsafeUrlError);
+    expect(hits).toBe(0);
+  });
+
+  it("createSafeLookup devolve todos os endereços verificados ou recusa se algum for interno", async () => {
+    const ok = await new Promise<unknown>((resolve, reject) =>
+      createSafeLookup(async () => ["93.184.216.34", "2606:4700::1"])("site.example", { all: true }, (err, addr) =>
+        err ? reject(err) : resolve(addr),
+      ),
+    );
+    expect(ok).toEqual([
+      { address: "93.184.216.34", family: 4 },
+      { address: "2606:4700::1", family: 6 },
+    ]);
+    const err = await new Promise<unknown>((resolve) =>
+      createSafeLookup(async () => ["93.184.216.34", "10.0.0.1"])("site.example", { all: true }, (e) => resolve(e)),
+    );
+    expect(err).toBeInstanceOf(UnsafeUrlError);
   });
 });

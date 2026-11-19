@@ -11,11 +11,20 @@
  *   - cada salto de redirecionamento é verificado (até MAX_REDIRECTS);
  *   - IPs literais e nomes resolvidos são checados contra faixas privadas,
  *     loopback, link-local, CGNAT, multicast e reservadas;
- *   - o corpo é lido em streaming com limite de bytes.
+ *   - o corpo é lido em streaming com limite de bytes;
+ *   - a conexão usa o MESMO IP que foi verificado (pinnedFetch), fechando a
+ *     brecha de DNS rebinding: antes, o DNS era consultado na checagem e de novo
+ *     pelo fetch, e um atacante podia responder um IP público na primeira vez e
+ *     um IP interno na segunda.
  */
 
 import dns from "node:dns/promises";
+import type { LookupAddress } from "node:dns";
+import http from "node:http";
+import https from "node:https";
 import net from "node:net";
+import { Readable } from "node:stream";
+import zlib from "node:zlib";
 
 export const MAX_REDIRECTS = 5;
 export const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -91,6 +100,96 @@ export async function assertPublicHost(hostname: string, resolve: Resolver = def
   }
 }
 
+/**
+ * Função `lookup` para http/https: resolve o nome, recusa se QUALQUER endereço
+ * for privado e entrega à conexão apenas endereços já verificados. Como a
+ * verificação acontece dentro da própria conexão, não há janela para o DNS
+ * mudar entre a checagem e o connect.
+ */
+export function createSafeLookup(resolve: Resolver = defaultResolver, isBlocked: (ip: string) => boolean = isPrivateIp) {
+  return (
+    hostname: string,
+    options: { all?: boolean; family?: number | string } | number | undefined,
+    callback: (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void,
+  ) => {
+    const wantAll = typeof options === "object" && options !== null && options.all === true;
+    (async () => {
+      const host = hostname.replace(/^\[|\]$/g, "");
+      if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host.endsWith(".local")) {
+        throw new UnsafeUrlError("A URL aponta para um endereço de rede privada ou local, o que não é permitido.");
+      }
+      let addrs: string[];
+      try {
+        addrs = net.isIP(host) ? [host] : await resolve(host);
+      } catch {
+        throw new UnsafeUrlError("Não foi possível resolver o hostname da URL.");
+      }
+      // Esta é a resolução usada na conexão: se qualquer IP for interno, recusa
+      if (addrs.length === 0 || addrs.some((ip) => isBlocked(ip))) {
+        throw new UnsafeUrlError("A URL aponta para um endereço de rede privada ou local, o que não é permitido.");
+      }
+      return addrs.map((address) => ({ address, family: net.isIPv6(address) ? 6 : 4 }));
+    })()
+      .then((list) => {
+        if (wantAll) callback(null, list);
+        else callback(null, list[0].address, list[0].family);
+      })
+      .catch((err: NodeJS.ErrnoException) => {
+        if (!err.code) err.code = "ENOTFOUND";
+        callback(err, wantAll ? [] : "", 4);
+      });
+  };
+}
+
+/**
+ * fetch mínimo sobre node:http/https que conecta somente a IPs verificados.
+ * Não segue redirecionamentos (safeFetch faz isso salto a salto).
+ */
+export function createPinnedFetch(
+  resolve: Resolver = defaultResolver,
+  isBlocked: (ip: string) => boolean = isPrivateIp,
+): typeof fetch {
+  const lookup = createSafeLookup(resolve, isBlocked);
+  return (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url);
+    const mod = url.protocol === "https:" ? https : http;
+    const headers: Record<string, string> = { "accept-encoding": "gzip, deflate, br" };
+    for (const [k, v] of Object.entries((init?.headers as Record<string, string> | undefined) ?? {})) {
+      headers[k.toLowerCase()] = v;
+    }
+    return await new Promise<Response>((resolvePromise, reject) => {
+      const req = mod.request(
+        url,
+        { method: init?.method ?? "GET", headers, lookup: lookup as never, signal: init?.signal ?? undefined },
+        (res) => {
+          const encoding = String(res.headers["content-encoding"] ?? "").toLowerCase();
+          let stream: Readable = res;
+          if (encoding === "gzip" || encoding === "x-gzip") stream = res.pipe(zlib.createGunzip());
+          else if (encoding === "deflate") stream = res.pipe(zlib.createInflate());
+          else if (encoding === "br") stream = res.pipe(zlib.createBrotliDecompress());
+          const outHeaders = new Headers();
+          for (const [k, v] of Object.entries(res.headers)) {
+            if (v === undefined || k === "content-encoding" || k === "content-length") continue;
+            outHeaders.set(k, Array.isArray(v) ? v.join(", ") : String(v));
+          }
+          if (!encoding && res.headers["content-length"]) outHeaders.set("content-length", String(res.headers["content-length"]));
+          const status = res.statusCode ?? 502;
+          const nullBody = status === 204 || status === 304 || (status >= 300 && status < 400);
+          if (nullBody) res.resume();
+          resolvePromise(
+            new Response(nullBody ? null : (Readable.toWeb(stream) as ReadableStream<Uint8Array>), {
+              status,
+              headers: outHeaders,
+            }),
+          );
+        },
+      );
+      req.on("error", reject);
+      req.end();
+    });
+  }) as typeof fetch;
+}
+
 function assertHttpUrl(raw: string): URL {
   let url: URL;
   try {
@@ -158,7 +257,8 @@ export interface SafeFetchResult {
  * cada destino antes de conectar.
  */
 export async function safeFetch(rawUrl: string, opts: SafeFetchOptions = {}): Promise<SafeFetchResult> {
-  const fetchImpl = opts.fetchImpl ?? fetch;
+  // Por padrão conecta só a IPs verificados (proteção contra DNS rebinding)
+  const fetchImpl = opts.fetchImpl ?? createPinnedFetch(opts.resolve);
   const maxRedirects = opts.maxRedirects ?? MAX_REDIRECTS;
   const maxBytes = opts.maxBytes ?? MAX_RESPONSE_BYTES;
   const signal = AbortSignal.timeout(opts.timeoutMs ?? 15_000);

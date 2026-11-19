@@ -1,333 +1,270 @@
 /**
  * @file navbar.tsx
- * @description Barra de navegação principal da aplicação LUPA Digital.
+ * @description Navegação principal do LUPA Digital.
  *
- * Características:
- *   - Header fixo (sticky top-0) com z-index alto para sobrepor conteúdo
- *   - Layout responsivo: navegação desktop e menu hambúrguer mobile
- *   - Dropdown "Acesso Rápido" com links para os 6 módulos NIASci
- *   - Menu de usuário com avatar, tipo de perfil e opção de logout
- *   - Link ativo destacado via comparação com useLocation()
- *   - Fechamento automático de dropdowns ao clicar fora (click outside pattern)
+ * Logado:   Início · Oportunidades · Minhas recomendações · Editais salvos · Meu perfil
+ *           · Administração (só admin, informado pelo servidor) · Ferramentas
+ *           Menu da conta: Configurações · Sair
+ * Visitante: Início · Oportunidades · Aprender · Glossário · Como funciona · Ferramentas
+ *           · Entrar · Criar conta
  *
- * Estados de UI:
- *   - isOpen           → menu hambúrguer mobile aberto/fechado
- *   - isAcessoOpen     → dropdown "Acesso Rápido" desktop aberto/fechado
- *   - isAcessoMobileOpen → sub-menu "Acesso Rápido" mobile aberto/fechado
- *   - showUserMenu     → menu de perfil do usuário aberto/fechado
- *
- * O componente consome useAuth() para exibir o nome e perfil do usuário
- * autenticado e acionar logout via Supabase.
+ * Acessibilidade: menus abrem/fecham por teclado (Esc fecha e devolve o foco),
+ * link atual com aria-current, foco visível.
  */
 
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth";
-import { ChevronDown, Crown, LogIn, LogOut, Menu, UserCircle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { ChevronDown, LogOut, Menu, Settings, UserCircle, X } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 
-const links = [
-  { href: "/", label: "Home" },
-  { href: "/testar", label: "Nova Análise" },
-  { href: "/historico", label: "Histórico" },
-  { href: "/aprender", label: "Aprender" },
+type NavItem = { href: string; label: string };
+
+const TOOLS: NavItem[] = [
+  { href: "/testar", label: "Analisar um edital (IA)" },
+  { href: "/historico", label: "Histórico de análises" },
+  { href: "/aprender", label: "Aprender a ler um edital" },
   { href: "/glossario", label: "Glossário" },
-  { href: "/como-funciona", label: "Como Funciona" },
-  { href: "/planos", label: "Planos" },
-  { href: "/faq", label: "FAQ" },
-];
-
-const acessoRapidoLinks = [
-  { href: "/niasci/editais", label: "Editais" },
-  { href: "/niasci/elattes", label: "e-Lattes" },
-  { href: "/niasci/artigos", label: "Artigos Científicos" },
+  { href: "/niasci/elattes", label: "e-Lattes (leitura guiada)" },
+  { href: "/niasci/artigos", label: "Artigos científicos" },
   { href: "/niasci/projetos", label: "Projetos" },
   { href: "/niasci/planetario", label: "Planetário" },
   { href: "/niasci/assistente", label: "Assistente IA" },
 ];
 
-const PROFILE_LABELS: Record<string, string> = {
-  estudante: "Estudante",
-  concurseiro: "Concurseiro",
-  pesquisador: "Pesquisador",
-  cidadao: "Cidadão",
-};
+const focusRing = "rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2";
+
+function isActive(location: string, href: string) {
+  if (href === "/") return location === "/";
+  return location === href || location.startsWith(`${href}/`);
+}
+
+function useDismiss(open: boolean, close: () => void, ref: React.RefObject<HTMLElement | null>, trigger: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) close();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        close();
+        trigger.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, close, ref, trigger]);
+}
+
+function Dropdown({ label, items, location, onNavigate }: { label: string; items: NavItem[]; location: string; onNavigate?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  useDismiss(open, () => setOpen(false), ref, btn);
+  const active = items.some((i) => isActive(location, i.href));
+  return (
+    <div ref={ref} className="relative">
+      <button
+        ref={btn}
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="true"
+        onClick={() => setOpen((v) => !v)}
+        className={`inline-flex items-center gap-1 px-1 py-1 ${focusRing} ${active ? "font-semibold text-primary" : "text-slate-700 hover:text-primary"}`}
+      >
+        {label} <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
+      </button>
+      {open && (
+        <ul className="absolute right-0 top-full z-50 mt-2 w-64 rounded-2xl border bg-white p-2 shadow-lg">
+          {items.map((i) => (
+            <li key={i.href}>
+              <Link
+                href={i.href}
+                aria-current={isActive(location, i.href) ? "page" : undefined}
+                onClick={() => {
+                  setOpen(false);
+                  onNavigate?.();
+                }}
+                className={`block rounded-xl px-3 py-2 text-sm ${focusRing} ${isActive(location, i.href) ? "bg-primary/5 font-semibold text-primary" : "text-slate-800 hover:bg-slate-50"}`}
+              >
+                {i.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export function Navbar() {
-  const [location, setLocation] = useLocation();
-  const [isOpen, setIsOpen] = useState(false);
-  const [isAcessoOpen, setIsAcessoOpen] = useState(false);
-  const [isAcessoMobileOpen, setIsAcessoMobileOpen] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const acessoDesktopRef = useRef<HTMLDivElement | null>(null);
-  const acessoMobileRef = useRef<HTMLDivElement | null>(null);
-  const { user, logout } = useAuth();
+  const [location, navigate] = useLocation();
+  const { user, isAdmin, logout } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
+  const accountBtn = useRef<HTMLButtonElement>(null);
+  useDismiss(accountOpen, () => setAccountOpen(false), accountRef, accountBtn);
 
-  useEffect(() => {
-    function onClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
-      const clickedDesktop = acessoDesktopRef.current?.contains(target);
-      const clickedMobile = acessoMobileRef.current?.contains(target);
+  useEffect(() => setMobileOpen(false), [location]);
 
-      if (!clickedDesktop && !clickedMobile) {
-        setIsAcessoOpen(false);
-        setIsAcessoMobileOpen(false);
-      }
-    }
+  const main: NavItem[] = user
+    ? [
+        { href: "/inicio", label: "Início" },
+        { href: "/oportunidades", label: "Oportunidades" },
+        { href: "/recomendacoes", label: "Minhas recomendações" },
+        { href: "/salvos", label: "Editais salvos" },
+        { href: "/perfil", label: "Meu perfil" },
+        ...(isAdmin ? [{ href: "/admin", label: "Administração" }] : []),
+      ]
+    : [
+        { href: "/", label: "Início" },
+        { href: "/oportunidades", label: "Oportunidades" },
+        { href: "/aprender", label: "Aprender" },
+        { href: "/glossario", label: "Glossário" },
+        { href: "/como-funciona", label: "Como funciona" },
+      ];
+  const tools = user ? TOOLS : TOOLS.filter((t) => !["/aprender", "/glossario"].includes(t.href));
 
-    document.addEventListener("mousedown", onClickOutside);
-    document.addEventListener("touchstart", onClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      document.removeEventListener("touchstart", onClickOutside);
-    };
-  }, []);
+  const doLogout = async () => {
+    setAccountOpen(false);
+    setMobileOpen(false);
+    await logout();
+    navigate("/");
+  };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-[#E2E8F0] bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
-      <div className="container mx-auto px-4 flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5" data-testid="link-logo">
-          <img src="/logo.png" alt="LUPA Digital" className="h-10 w-auto object-contain" />
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/80">
+      <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
+        <Link href={user ? "/inicio" : "/"} className={`flex shrink-0 items-center gap-2.5 ${focusRing}`} data-testid="link-logo">
+          <img src="/logo.png" alt="" className="h-10 w-auto object-contain" />
           <span className="flex flex-col leading-none">
-            <span className="text-[1.05rem] font-bold text-[#0F172A] tracking-tight">LUPA Digital</span>
-            <span className="text-[0.6rem] text-[#475569] font-medium tracking-wide">Simplificando editais e documentos públicos</span>
+            <span className="text-[1.05rem] font-bold tracking-tight text-slate-900">LUPA Digital</span>
+            <span className="text-[0.65rem] font-medium text-slate-600">Editais e pesquisa · NIASci/UnDF</span>
           </span>
         </Link>
 
-        {/* Desktop Nav */}
-        <nav className="hidden lg:flex items-center gap-3 xl:gap-4 text-sm font-medium overflow-visible">
-          <Link
-            href="/sobre"
-            className={`transition-colors hover:text-[#2563EB] ${
-              location === "/sobre" ? "text-[#2563EB] font-semibold" : "text-[#475569]"
-            }`}
-            data-testid="nav-link-sobre"
-          >
-            Sobre
-          </Link>
-
-          <div ref={acessoDesktopRef} className="relative inline-flex overflow-visible">
-            <button
-              type="button"
-              className={`inline-flex items-center gap-1 transition-colors hover:text-[#2563EB] ${
-                acessoRapidoLinks.some((item) => location === item.href || location.startsWith(item.href))
-                  ? "text-[#2563EB] font-semibold"
-                  : "text-[#475569]"
-              }`}
-              aria-expanded={isAcessoOpen}
-              aria-controls="acesso-rapido-menu"
-              onClick={() => setIsAcessoOpen((prev) => !prev)}
-              data-testid="nav-link-acesso-rapido"
-            >
-              Acesso Rápido
-              <ChevronDown className="h-4 w-4" />
-            </button>
-
-            {isAcessoOpen && (
-              <div id="acesso-rapido-menu" role="menu" className="absolute left-1/2 top-full z-50 -translate-x-1/2 w-fit min-w-[12rem] rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-lg shadow-slate-900/5">
-                <div className="space-y-1">
-                  {acessoRapidoLinks.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
-                        location === item.href ? "text-[#2563EB] font-semibold" : "text-[#0F172A]"
-                      } hover:bg-[#EFF6FF]`}
-                      onClick={() => setIsAcessoOpen(false)}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {links.map((link) => (
+        <nav aria-label="Principal" className="hidden items-center gap-4 text-sm xl:flex">
+          {main.map((i) => (
             <Link
-              key={link.href}
-              href={link.href}
-              className={`transition-colors hover:text-[#2563EB] ${
-                location === link.href
-                  ? "text-[#2563EB] font-semibold"
-                  : "text-[#475569]"
-              }`}
-              data-testid={`nav-link-${link.label.toLowerCase().replace(/\s+/g, "-")}`}
+              key={i.href}
+              href={i.href}
+              aria-current={isActive(location, i.href) ? "page" : undefined}
+              className={`px-1 py-1 ${focusRing} ${isActive(location, i.href) ? "font-semibold text-primary" : "text-slate-700 hover:text-primary"}`}
             >
-              {link.label}
+              {i.label}
             </Link>
           ))}
-
+          <Dropdown label="Ferramentas" items={tools} location={location} />
           {user ? (
-            <div className="relative">
+            <div ref={accountRef} className="relative">
               <button
-                onClick={() => setShowUserMenu((v) => !v)}
-                className="flex items-center gap-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-3 py-1.5 text-sm font-semibold text-[#0F172A] hover:border-[#2563EB]/40 transition-colors"
+                ref={accountBtn}
+                type="button"
+                aria-expanded={accountOpen}
+                aria-haspopup="true"
+                onClick={() => setAccountOpen((v) => !v)}
+                className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-900 hover:border-primary/40 ${focusRing}`}
+                data-testid="account-menu"
               >
-                <UserCircle className="w-4 h-4 text-[#2563EB]" />
-                <span className="max-w-[100px] truncate">{user.name.split(" ")[0]}</span>
-                <span className="text-[10px] bg-[#2563EB]/10 text-[#2563EB] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
-                  {PROFILE_LABELS[user.profileType] ?? "Usuário"}
-                </span>
+                <UserCircle className="h-4 w-4 text-primary" aria-hidden />
+                <span className="max-w-[120px] truncate">{user.name.split(" ")[0]}</span>
+                <span className="sr-only">— menu da conta</span>
               </button>
-              {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-52 bg-white border border-[#E2E8F0] rounded-2xl shadow-lg z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-[#E2E8F0]">
-                    <p className="text-xs text-[#475569]">Logado como</p>
-                    <p className="text-sm font-bold text-[#0F172A] truncate">{user.name}</p>
-                    <p className="text-xs text-[#475569] truncate">{user.email}</p>
+              {accountOpen && (
+                <div className="absolute right-0 mt-2 w-60 overflow-hidden rounded-2xl border bg-white shadow-lg">
+                  <div className="border-b px-4 py-3">
+                    <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
+                    <p className="truncate text-xs text-slate-600">{user.email}</p>
                   </div>
-                  <Link href="/dashboard" onClick={() => setShowUserMenu(false)}>
-                    <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#0F172A] hover:bg-[#F8FAFC] transition-colors">
-                      <UserCircle className="w-4 h-4 text-[#2563EB]" />
-                      Minha área
-                    </button>
+                  <Link href="/configuracoes" onClick={() => setAccountOpen(false)} className={`flex items-center gap-2 px-4 py-2.5 text-sm text-slate-800 hover:bg-slate-50 ${focusRing}`}>
+                    <Settings className="h-4 w-4" aria-hidden /> Configurações
                   </Link>
-                  <Link href="/planos" onClick={() => setShowUserMenu(false)}>
-                    <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#0F172A] hover:bg-[#F8FAFC] transition-colors">
-                      <Crown className="w-4 h-4 text-[#7C3AED]" />
-                      Ver planos
-                    </button>
-                  </Link>
-                  <Link href="/verificacao" onClick={() => setShowUserMenu(false)}>
-                    <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#0F172A] hover:bg-[#F8FAFC] transition-colors">
-                      <UserCircle className="w-4 h-4 text-[#2563EB]" />
-                      Verificar perfil
-                    </button>
-                  </Link>
-                  <div className="border-t border-[#E2E8F0]">
-                    <button
-                      onClick={() => {
-                        logout();
-                        setShowUserMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#EF4444] hover:bg-red-50 transition-colors"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Sair
-                    </button>
-                  </div>
+                  <button type="button" onClick={doLogout} className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-700 hover:bg-red-50 ${focusRing}`} data-testid="logout">
+                    <LogOut className="h-4 w-4" aria-hidden /> Sair
+                  </button>
                 </div>
               )}
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Link href="/login" data-testid="nav-login">
-                <Button variant="outline" size="sm" className="rounded-xl border-[#2563EB]/30 text-[#2563EB] hover:bg-[#2563EB]/5 gap-1.5">
-                  <LogIn className="w-3.5 h-3.5" />
-                  Entrar
-                </Button>
+              <Link href="/login" className={buttonVariants({ variant: "outline", size: "sm" })} data-testid="nav-login">
+                Entrar
               </Link>
-              <Link href="/cadastro" data-testid="nav-cta">
-                <Button size="sm" className="rounded-xl bg-[#2563EB] hover:bg-[#1d4ed8] text-white">
-                  Criar conta
-                </Button>
+              <Link href="/cadastro" className={buttonVariants({ size: "sm" })} data-testid="nav-cta">
+                Criar conta
               </Link>
             </div>
           )}
         </nav>
 
-        {/* Mobile Nav Toggle */}
         <button
-          className="lg:hidden p-2"
-          onClick={() => setIsOpen(!isOpen)}
-          aria-expanded={isOpen}
-          aria-controls="mobile-navigation"
-          data-testid="mobile-menu-toggle"
+          type="button"
+          className={`p-2 xl:hidden ${focusRing}`}
+          aria-expanded={mobileOpen}
+          aria-controls="menu-movel"
+          aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
+          onClick={() => setMobileOpen((v) => !v)}
         >
-          {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          {mobileOpen ? <X className="h-6 w-6" aria-hidden /> : <Menu className="h-6 w-6" aria-hidden />}
         </button>
       </div>
 
-      {/* Mobile Nav */}
-      {isOpen && (
-        <div id="mobile-navigation" className="lg:hidden border-b border-[#E2E8F0] bg-white">
-          <nav className="container mx-auto px-4 flex flex-col py-4 gap-3">
-            <Link
-              href="/sobre"
-              className={`text-sm font-medium transition-colors py-1 ${
-                location === "/sobre" ? "text-[#2563EB] font-semibold" : "text-[#475569]"
-              }`}
-              onClick={() => setIsOpen(false)}
-            >
-              Sobre
-            </Link>
-            <div className="space-y-2">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-medium text-[#475569] transition-colors hover:text-[#2563EB]"
-                onClick={() => setIsAcessoMobileOpen((prev) => !prev)}
-                aria-expanded={isAcessoMobileOpen}
-                aria-controls="mobile-acesso-rapido"
-              >
-                Acesso Rápido
-                <ChevronDown className={`h-4 w-4 transition-transform ${isAcessoMobileOpen ? "rotate-180" : ""}`} />
-              </button>
-              {isAcessoMobileOpen && (
-                <div id="mobile-acesso-rapido" role="menu" className="space-y-2">
-                  <div ref={acessoMobileRef} className="mt-2 space-y-1 rounded-2xl border border-[#E2E8F0] bg-white p-2 shadow-sm">
-                    {acessoRapidoLinks.map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`block rounded-xl px-3 py-2 text-sm transition-colors ${
-                          location === item.href ? "text-[#2563EB] font-semibold" : "text-[#475569]"
-                        } hover:bg-[#EFF6FF]`}
-                        onClick={() => {
-                          setIsOpen(false);
-                          setIsAcessoMobileOpen(false);
-                        }}
-                      >
-                        {item.label}
-                      </Link>
-                    ))}
-                  </div>
+      {mobileOpen && (
+        <nav id="menu-movel" aria-label="Principal (celular)" className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t bg-white xl:hidden">
+          <ul className="container mx-auto space-y-1 px-4 py-3">
+            {main.map((i) => (
+              <li key={i.href}>
+                <Link
+                  href={i.href}
+                  aria-current={isActive(location, i.href) ? "page" : undefined}
+                  className={`block rounded-xl px-3 py-3 text-base ${focusRing} ${isActive(location, i.href) ? "bg-primary/5 font-semibold text-primary" : "text-slate-800"}`}
+                >
+                  {i.label}
+                </Link>
+              </li>
+            ))}
+            <li className="pt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Ferramentas</li>
+            {tools.map((i) => (
+              <li key={i.href}>
+                <Link href={i.href} className={`block rounded-xl px-3 py-2.5 text-sm text-slate-700 ${focusRing}`}>
+                  {i.label}
+                </Link>
+              </li>
+            ))}
+            <li className="border-t pt-3">
+              {user ? (
+                <div className="space-y-1">
+                  <p className="px-3 text-sm text-slate-600">{user.email}</p>
+                  <Link href="/configuracoes" className={`block rounded-xl px-3 py-3 text-base text-slate-800 ${focusRing}`}>
+                    Configurações
+                  </Link>
+                  <button type="button" onClick={doLogout} className={`block w-full rounded-xl px-3 py-3 text-left text-base text-red-700 ${focusRing}`}>
+                    Sair
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <Link href="/login" className={buttonVariants({ variant: "outline" })}>
+                    Entrar
+                  </Link>
+                  <Link href="/cadastro" className={buttonVariants()}>
+                    Criar conta
+                  </Link>
                 </div>
               )}
-          </div>
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`text-sm font-medium transition-colors py-1 ${
-                location === link.href ? "text-[#2563EB] font-semibold" : "text-[#475569]"
-              }`}
-              onClick={() => setIsOpen(false)}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <div className="border-t border-[#E2E8F0] pt-3 space-y-2">
-            {user ? (
-              <>
-                <p className="text-xs text-[#475569] font-medium">{user.name} · {PROFILE_LABELS[user.profileType]}</p>
-                <Link href="/verificacao" onClick={() => setIsOpen(false)}>
-                  <Button variant="outline" className="w-full rounded-xl border-[#2563EB]/30 text-[#2563EB]">
-                    Verificar perfil
-                  </Button>
-                </Link>
-                <Button
-                  variant="outline"
-                  className="w-full rounded-xl border-red-200 text-[#EF4444] hover:bg-red-50"
-                  onClick={() => { logout(); setIsOpen(false); }}
-                >
-                  Sair
-                </Button>
-              </>
-            ) : (
-              <>
-                <Link href="/login" onClick={() => setIsOpen(false)}>
-                  <Button variant="outline" className="w-full rounded-xl border-[#2563EB]/30 text-[#2563EB]">Entrar</Button>
-                </Link>
-                <Link href="/cadastro" onClick={() => setIsOpen(false)}>
-                  <Button className="w-full rounded-xl bg-[#2563EB] hover:bg-[#1d4ed8] text-white">Criar conta</Button>
-                </Link>
-              </>
-            )}
-          </div>
+            </li>
+          </ul>
         </nav>
-      </div>
-    )}
+      )}
     </header>
   );
 }
+
+export default Navbar;

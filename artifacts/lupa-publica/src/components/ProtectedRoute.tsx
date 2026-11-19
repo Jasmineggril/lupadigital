@@ -1,71 +1,44 @@
 /**
  * @file ProtectedRoute.tsx
- * @description Componente de guarda de rota para páginas que exigem autenticação.
+ * @description Guarda de rotas privadas.
  *
- * Padrão utilizado: Route Guard (Guard Pattern)
- * Verifica o estado de autenticação antes de renderizar os filhos.
- * Redireciona para /login caso o usuário não esteja autenticado.
- *
- * Por que useEffect para o redirect?
- * Chamar setLocation() durante a fase de render causaria o erro React:
- * "Cannot update a component while rendering a different component."
- * O useEffect adia o redirect para após o commit do DOM, evitando esse problema.
- *
- * Fluxo:
- *   1. isLoading = true  → exibe spinner (sessão Supabase ainda sendo recuperada)
- *   2. isLoading = false, user = null → redireciona para /login
- *   3. isLoading = false, user = OK   → renderiza children normalmente
+ * - Sem sessão: vai para /login?next=<página atual> (destino validado em safe-redirect).
+ * - adminOnly: exige papel de administrador informado pelo servidor (/api/me).
+ *   A proteção real está no backend (requireAdmin); aqui é só experiência de uso.
  */
 
 import { type ReactNode, useEffect } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
+import { ShieldAlert } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { loginUrlFor } from "@/lib/safe-redirect";
+import { LoadingState } from "@/components/lupa/ui";
 
-/** Props do componente ProtectedRoute */
-interface ProtectedRouteProps {
-  /** Conteúdo a ser exibido quando o usuário estiver autenticado */
-  children: ReactNode;
-}
+export function ProtectedRoute({ children, adminOnly = false }: { children: ReactNode; adminOnly?: boolean }) {
+  const { user, isLoading, isAdmin, sessionExpired } = useAuth();
+  const [location, setLocation] = useLocation();
+  const search = useSearch();
 
-/**
- * Componente que envolve rotas privadas da aplicação.
- * Enquanto a sessão está sendo verificada, exibe um spinner centralizado.
- * Após a verificação, redireciona usuários não autenticados para /login.
- *
- * @param children - Elementos filhos a serem renderizados para usuários autenticados
- * @returns Spinner durante carregamento, null durante redirect, ou children se autenticado
- *
- * @example
- * // No App.tsx:
- * <Route path="/dashboard">
- *   <ProtectedRoute><Dashboard /></ProtectedRoute>
- * </Route>
- */
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
-
-  // Redirect para login após a verificação da sessão, usando useEffect
-  // para evitar setState durante o render (violação das regras do React)
   useEffect(() => {
     if (!isLoading && !user) {
-      setLocation("/login");
+      const target = loginUrlFor(`${location}${search ? `?${search}` : ""}`);
+      setLocation(sessionExpired ? `${target}&motivo=sessao-expirada` : target, { replace: true });
     }
-  }, [isLoading, user, setLocation]);
+  }, [isLoading, user, location, search, setLocation, sessionExpired]);
 
-  // Estado de carregamento: sessão Supabase sendo recuperada do storage
-  if (isLoading) {
+  if (isLoading) return <LoadingState label="Verificando sua sessão…" />;
+  if (!user) return null;
+  if (adminOnly && !isAdmin) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        {/* Spinner simples com border-trick do Tailwind */}
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2563EB]" />
+      <div className="container mx-auto max-w-lg px-4 py-16 text-center">
+        <ShieldAlert className="mx-auto h-10 w-10 text-amber-600" aria-hidden />
+        <h1 className="mt-3 text-xl font-bold text-slate-900">Acesso restrito</h1>
+        <p className="mt-2 text-slate-600">Esta área é exclusiva da administração do LUPA Digital.</p>
+        <Link href="/inicio" className="mt-4 inline-block font-semibold text-primary hover:underline">
+          Voltar ao início
+        </Link>
       </div>
     );
   }
-
-  // Usuário não autenticado: retorna null enquanto o redirect do useEffect ocorre
-  if (!user) return null;
-
-  // Usuário autenticado: renderiza o conteúdo protegido
   return <>{children}</>;
 }

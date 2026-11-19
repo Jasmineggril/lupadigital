@@ -1,159 +1,199 @@
-import { useState } from "react";
+/**
+ * @file cadastro.tsx
+ * @description Cadastro simples e progressivo (passo 1: nome, e-mail e senha).
+ *
+ * - Confirmação de senha, mostrar/ocultar, validação clara e bloqueio de envio duplicado.
+ * - Com confirmação de e-mail ativa no Supabase: explica o próximo passo e permite
+ *   reenviar o e-mail com intervalo mínimo (60 s).
+ * - Sem confirmação obrigatória: vai direto para a configuração do perfil.
+ * - Não pede currículo nem escolhe papel (admin é definido só pelo servidor).
+ */
+
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth, type ProfileType } from "@/lib/auth";
+import { MailCheck, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, UserPlus, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { EMAIL_RE, FormAlert, PasswordField, TextField, passwordProblems } from "@/components/lupa/ui";
 
-const PROFILES: { value: ProfileType; label: string; desc: string; icon: string }[] = [
-  { value: "estudante", label: "Estudante", desc: "Graduação, pós-graduação ou técnico", icon: "🎓" },
-  { value: "concurseiro", label: "Concurseiro", desc: "Preparação para concursos públicos", icon: "📋" },
-  { value: "pesquisador", label: "Pesquisador", desc: "Pesquisa científica ou acadêmica", icon: "🔬" },
-  { value: "cidadao", label: "Cidadão Comum", desc: "Interesse geral em editais públicos", icon: "👤" },
-];
+const RESEND_COOLDOWN_S = 60;
 
-export default function Cadastro() {
-  const [, navigate] = useLocation();
-  const { register } = useAuth();
+export function useCooldown(seconds: number) {
+  const [left, setLeft] = useState(0);
+  useEffect(() => {
+    if (left <= 0) return;
+    const t = window.setTimeout(() => setLeft((v) => v - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [left]);
+  return { left, start: () => setLeft(seconds) };
+}
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [profileType, setProfileType] = useState<ProfileType>("cidadao");
-  const [showPass, setShowPass] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+export function VerifyEmailNotice({ email }: { email: string }) {
+  const { resendConfirmation } = useAuth();
+  const { left, start } = useCooldown(RESEND_COOLDOWN_S);
+  const [msg, setMsg] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [sending, setSending] = useState(false);
+  useEffect(() => start(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (password.length < 6) { setError("A senha deve ter pelo menos 6 caracteres."); return; }
-    setLoading(true);
-    const result = await register({ name, email, password, profileType });
-    if (result.ok) {
-      navigate("/planos");
+  const resend = async () => {
+    if (sending || left > 0) return;
+    setSending(true);
+    const r = await resendConfirmation(email);
+    setSending(false);
+    if (r.ok) {
+      setMsg({ kind: "success", text: "Enviamos um novo e-mail de confirmação." });
+      start();
     } else {
-      setError(result.error ?? "Erro ao cadastrar.");
-      setLoading(false);
+      setMsg({ kind: "error", text: r.error });
+      if (r.code === "rate_limited") start();
     }
   };
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] bg-[#F8FAFC] px-4 py-12">
-      <div className="w-full max-w-lg mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] mb-4 shadow-lg">
-            <UserPlus className="w-7 h-7 text-white" />
-          </div>
-          <h1 className="text-2xl font-extrabold text-[#0F172A] mb-1">Criar sua conta</h1>
-          <p className="text-sm text-[#475569]">Escolha seu perfil para receber a melhor experiência</p>
-        </div>
+    <div className="space-y-4 text-center" data-testid="verify-email-notice">
+      <MailCheck className="mx-auto h-12 w-12 text-emerald-600" aria-hidden />
+      <h1 className="text-xl font-bold text-slate-900">Confirme seu e-mail</h1>
+      <p className="text-sm text-slate-700">
+        Enviamos um link de confirmação para <strong className="break-all">{email}</strong>. Abra o e-mail e clique no link para
+        ativar a conta. Depois disso você vai direto para a configuração do seu perfil.
+      </p>
+      <ul className="mx-auto max-w-sm list-disc space-y-1 pl-5 text-left text-sm text-slate-600">
+        <li>O e-mail pode levar alguns minutos para chegar.</li>
+        <li>Confira as pastas de spam e lixo eletrônico.</li>
+        <li>O link vale por tempo limitado; se expirar, peça um novo abaixo.</li>
+      </ul>
+      {msg && <FormAlert kind={msg.kind}>{msg.text}</FormAlert>}
+      <Button type="button" variant="outline" onClick={resend} disabled={sending || left > 0} className="w-full" data-testid="resend-confirmation">
+        {sending ? "Enviando…" : left > 0 ? `Reenviar e-mail em ${left}s` : "Reenviar e-mail de confirmação"}
+      </Button>
+      <Link href="/login" className="block text-sm font-semibold text-primary hover:underline">
+        Já confirmei — entrar
+      </Link>
+    </div>
+  );
+}
 
-        <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                {error}
-              </div>
-            )}
+export default function Cadastro() {
+  const [, navigate] = useLocation();
+  const { register } = useAuth();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [accept, setAccept] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-[#0F172A]">Nome completo</label>
-              <Input
-                type="text"
-                placeholder="Seu nome completo"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                required
-                className="rounded-xl border-[#E2E8F0] focus-visible:ring-[#2563EB]/30 focus-visible:border-[#2563EB] h-11"
-              />
+  const problems = passwordProblems(password);
+  const errors = {
+    name: name.trim().length < 3 ? "Informe seu nome completo." : null,
+    email: !EMAIL_RE.test(email.trim()) ? "Informe um e-mail válido." : null,
+    password: problems.length ? `A senha precisa de ${problems.join(", ")}.` : null,
+    confirm: confirm !== password || !confirm ? "As senhas não conferem." : null,
+    accept: !accept ? "É preciso aceitar a política de privacidade." : null,
+  };
+  const valid = Object.values(errors).every((e) => e === null);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTouched(true);
+    setError("");
+    if (!valid || inFlight.current) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    const r = await register({ name, email, password });
+    inFlight.current = false;
+    setSubmitting(false);
+    if (!r.ok) {
+      setError(r.error);
+      return;
+    }
+    if (r.needsConfirmation) setPendingEmail(email.trim());
+    else navigate("/perfil?boas-vindas=1");
+  };
+
+  const show = (k: keyof typeof errors) => (touched ? errors[k] : null);
+
+  return (
+    <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-slate-50 px-4 py-12">
+      <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+        {pendingEmail ? (
+          <VerifyEmailNotice email={pendingEmail} />
+        ) : (
+          <>
+            <div className="mb-6 text-center">
+              <UserPlus className="mx-auto h-10 w-10 text-primary" aria-hidden />
+              <h1 className="mt-2 text-2xl font-bold text-slate-900">Criar conta</h1>
+              <p className="mt-1 text-sm text-slate-600">
+                Passo 1 de 2: seus dados de acesso. No passo 2 você monta o perfil docente — não é preciso enviar currículo agora.
+              </p>
             </div>
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-[#0F172A]">E-mail</label>
-              <Input
+            <form onSubmit={onSubmit} noValidate className="space-y-4" aria-describedby={error ? "cadastro-erro" : undefined}>
+              {error && (
+                <div id="cadastro-erro">
+                  <FormAlert>{error}</FormAlert>
+                </div>
+              )}
+              <TextField label="Nome completo" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} error={show("name")} />
+              <TextField
+                label="E-mail"
                 type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
+                autoComplete="email"
                 required
-                className="rounded-xl border-[#E2E8F0] focus-visible:ring-[#2563EB]/30 focus-visible:border-[#2563EB] h-11"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                error={show("email")}
+                hint="Preferencialmente o institucional (@undf.edu.br ou equivalente)."
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-[#0F172A]">Senha</label>
-              <div className="relative">
-                <Input
-                  type={showPass ? "text" : "password"}
-                  placeholder="Mínimo 6 caracteres"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  className="rounded-xl border-[#E2E8F0] focus-visible:ring-[#2563EB]/30 focus-visible:border-[#2563EB] h-11 pr-11"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#475569] hover:text-[#0F172A]"
-                >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+              <PasswordField
+                label="Senha"
+                autoComplete="new-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                error={show("password")}
+                hint="Mínimo de 8 caracteres, com letras e números."
+              />
+              <PasswordField label="Confirme a senha" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} error={show("confirm")} />
+              <div className="space-y-1">
+                <label className="flex items-start gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={accept}
+                    onChange={(e) => setAccept(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 focus-visible:ring-2 focus-visible:ring-primary/40"
+                    aria-invalid={show("accept") ? true : undefined}
+                    aria-describedby={show("accept") ? "accept-err" : undefined}
+                  />
+                  <span>
+                    Li e aceito a{" "}
+                    <Link href="/privacidade" className="font-semibold text-primary underline">
+                      política de privacidade
+                    </Link>
+                    .
+                  </span>
+                </label>
+                {show("accept") && (
+                  <p id="accept-err" className="text-xs font-medium text-red-700">
+                    {errors.accept}
+                  </p>
+                )}
               </div>
-            </div>
-
-            {/* Profile type selector */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-[#0F172A]">Tipo de perfil</label>
-              <div className="grid grid-cols-2 gap-2">
-                {PROFILES.map(p => (
-                  <button
-                    key={p.value}
-                    type="button"
-                    onClick={() => setProfileType(p.value)}
-                    className={`relative text-left p-3 rounded-xl border-2 transition-all ${
-                      profileType === p.value
-                        ? "border-[#2563EB] bg-[#2563EB]/5"
-                        : "border-[#E2E8F0] hover:border-[#2563EB]/40"
-                    }`}
-                  >
-                    <span className="text-xl mb-1 block">{p.icon}</span>
-                    <p className="text-sm font-bold text-[#0F172A] leading-tight">{p.label}</p>
-                    <p className="text-[11px] text-[#475569] mt-0.5 leading-tight">{p.desc}</p>
-                    {profileType === p.value && (
-                      <CheckCircle2 className="absolute top-2 right-2 w-4 h-4 text-[#2563EB]" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full h-11 rounded-xl bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold text-sm"
-              disabled={loading}
-            >
-              {loading ? (
-                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />Criando conta...</>
-              ) : "Criar minha conta"}
-            </Button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t border-[#E2E8F0] text-center">
-            <p className="text-sm text-[#475569]">
-              Já tem uma conta?{" "}
-              <Link href="/login" className="text-[#2563EB] font-semibold hover:underline">
+              <Button type="submit" className="h-11 w-full" disabled={submitting} aria-busy={submitting} data-testid="cadastro-submit">
+                {submitting ? "Criando conta…" : "Criar conta"}
+              </Button>
+            </form>
+            <p className="mt-6 text-center text-sm text-slate-600">
+              Já tem conta?{" "}
+              <Link href="/login" className="font-semibold text-primary hover:underline">
                 Entrar
               </Link>
             </p>
-          </div>
-        </div>
-
-        <p className="text-center text-xs text-[#475569] mt-6">
-          MVP acadêmico — autenticação via Supabase Auth.
-        </p>
+          </>
+        )}
       </div>
     </div>
   );

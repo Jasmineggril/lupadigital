@@ -1,88 +1,76 @@
-import { useState } from "react";
+/**
+ * @file esqueci-senha.tsx
+ * @description Recuperação de senha via Supabase Auth.
+ * A resposta é a mesma exista ou não a conta (não revela e-mails cadastrados).
+ */
+
+import { useRef, useState } from "react";
 import { Link } from "wouter";
+import { ArrowLeft, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { EMAIL_RE, FormAlert, TextField } from "@/components/lupa/ui";
+import { useCooldown } from "./cadastro";
 
 export default function EsqueciSenha() {
+  const { requestPasswordReset } = useAuth();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const inFlight = useRef(false);
+  const { left, start } = useCooldown(60);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Protótipo MVP — autenticação local sem e-mail real
-    setSent(true);
+    if (inFlight.current || left > 0) return;
+    if (!EMAIL_RE.test(email.trim())) {
+      setError("Informe um e-mail válido.");
+      return;
+    }
+    inFlight.current = true;
+    setSubmitting(true);
+    setError("");
+    const r = await requestPasswordReset(email);
+    inFlight.current = false;
+    setSubmitting(false);
+    if (r.ok) {
+      setSent(true);
+      start();
+    } else {
+      setError(r.error);
+      if (r.code === "rate_limited") start();
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-[#E2E8F0] p-8">
-        {/* Logo */}
-        <div className="flex items-center gap-2 mb-8">
-          <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center">
-            <span className="text-white font-bold text-xs">L</span>
-          </div>
-          <span className="font-bold text-[#0F172A]">LUPA Digital</span>
-        </div>
-
+    <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-slate-50 px-4 py-12">
+      <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+        <KeyRound className="mx-auto h-10 w-10 text-primary" aria-hidden />
+        <h1 className="mt-2 text-center text-2xl font-bold text-slate-900">Recuperar senha</h1>
         {sent ? (
-          /* Estado pós-envio */
-          <div className="text-center">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-7 h-7 text-emerald-600" />
-            </div>
-            <h1 className="text-xl font-bold text-[#0F172A] mb-2">Verifique seu e-mail</h1>
-            <p className="text-sm text-[#475569] mb-6">
-              Se houver uma conta associada a <strong>{email}</strong>, você receberá
-              as instruções para redefinir sua senha em breve.
-            </p>
-            <Link href="/login">
-              <Button className="w-full h-11 rounded-xl bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold text-sm">
-                Voltar para o login
-              </Button>
-            </Link>
+          <div className="mt-4 space-y-4" data-testid="reset-sent">
+            <FormAlert kind="success">
+              Se houver uma conta com <strong className="break-all">{email}</strong>, você receberá um link para criar uma nova senha. O link vale por tempo
+              limitado.
+            </FormAlert>
+            <Button variant="outline" className="w-full" disabled={left > 0} onClick={onSubmit as unknown as () => void}>
+              {left > 0 ? `Enviar de novo em ${left}s` : "Enviar de novo"}
+            </Button>
           </div>
         ) : (
-          /* Formulário */
-          <>
-            <h1 className="text-2xl font-bold text-[#0F172A] mb-1">Esqueci minha senha</h1>
-            <p className="text-sm text-[#475569] mb-6">
-              Digite seu e-mail e enviaremos as instruções para redefinir sua senha.
-            </p>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#0F172A] uppercase tracking-wide">
-                  E-mail
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu@email.com"
-                    className="w-full h-11 pl-9 pr-4 rounded-xl border border-[#E2E8F0] bg-white text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all"
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full h-11 rounded-xl bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold text-sm"
-              >
-                Enviar instruções
-              </Button>
-            </form>
-
-            <div className="mt-6 pt-6 border-t border-[#E2E8F0]">
-              <Link href="/login" className="flex items-center justify-center gap-2 text-sm text-[#475569] hover:text-[#0F172A] transition-colors">
-                <ArrowLeft className="w-4 h-4" />
-                Voltar para o login
-              </Link>
-            </div>
-          </>
+          <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
+            <p className="text-sm text-slate-600">Informe o e-mail da sua conta. Enviaremos um link para você definir uma nova senha.</p>
+            {error && <FormAlert>{error}</FormAlert>}
+            <TextField label="E-mail" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Button type="submit" className="h-11 w-full" disabled={submitting || left > 0} aria-busy={submitting}>
+              {submitting ? "Enviando…" : left > 0 ? `Aguarde ${left}s` : "Enviar link"}
+            </Button>
+          </form>
         )}
+        <Link href="/login" className="mt-6 flex items-center justify-center gap-1 text-sm font-semibold text-primary hover:underline">
+          <ArrowLeft className="h-4 w-4" aria-hidden /> Voltar para o login
+        </Link>
       </div>
     </div>
   );

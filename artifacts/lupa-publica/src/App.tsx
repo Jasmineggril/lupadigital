@@ -30,6 +30,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { AuthProvider } from "@/lib/auth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { SessionExpiredBanner } from "@/components/lupa/SessionExpiredBanner";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { getSupabaseSessionToken } from "@/lib/supabase";
 
@@ -78,6 +79,15 @@ const Verificacao = React.lazy(() => import("@/pages/verificacao"));
 const Dashboard = React.lazy(() => import("@/pages/dashboard"));
 const Timeline = React.lazy(() => import("@/pages/timeline"));
 const EsqueciSenha = React.lazy(() => import("@/pages/esqueci-senha"));
+const RedefinirSenha = React.lazy(() => import("@/pages/redefinir-senha"));
+const Inicio = React.lazy(() => import("@/pages/docente/inicio"));
+const Oportunidades = React.lazy(() => import("@/pages/docente/oportunidades"));
+const OportunidadeDetalhe = React.lazy(() => import("@/pages/docente/oportunidade"));
+const Recomendacoes = React.lazy(() => import("@/pages/docente/recomendacoes"));
+const Salvos = React.lazy(() => import("@/pages/docente/salvos"));
+const Perfil = React.lazy(() => import("@/pages/docente/perfil"));
+const Configuracoes = React.lazy(() => import("@/pages/docente/configuracoes"));
+const Admin = React.lazy(() => import("@/pages/docente/admin"));
 
 /**
  * Instância singleton do cliente React Query.
@@ -98,8 +108,12 @@ function Router() {
   return (
     <div className="flex flex-col min-h-[100dvh]">
       <ScrollToTop />
+      <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:shadow">
+        Pular para o conteúdo
+      </a>
       <Navbar />
-      <main className="flex-1 flex flex-col">
+      <SessionExpiredBanner />
+      <main id="conteudo" className="flex-1 flex flex-col">
         <Suspense fallback={<div className="flex-1 grid place-items-center p-8 text-sm text-muted-foreground">Carregando...</div>}>
           <Switch>
             {/* ── Páginas públicas ──────────────────────────────────────── */}
@@ -148,6 +162,29 @@ function Router() {
             <Route path="/planos" component={Planos} />
             <Route path="/verificacao" component={Verificacao} />
             <Route path="/esqueci-senha" component={EsqueciSenha} />
+            <Route path="/redefinir-senha" component={RedefinirSenha} />
+
+            {/* ── Fluxo docente: oportunidades e recomendações ──────────── */}
+            <Route path="/oportunidades" component={Oportunidades} />
+            <Route path="/oportunidades/:id" component={OportunidadeDetalhe} />
+            <Route path="/inicio">
+              <ProtectedRoute><Inicio /></ProtectedRoute>
+            </Route>
+            <Route path="/recomendacoes">
+              <ProtectedRoute><Recomendacoes /></ProtectedRoute>
+            </Route>
+            <Route path="/salvos">
+              <ProtectedRoute><Salvos /></ProtectedRoute>
+            </Route>
+            <Route path="/perfil">
+              <ProtectedRoute><Perfil /></ProtectedRoute>
+            </Route>
+            <Route path="/configuracoes">
+              <ProtectedRoute><Configuracoes /></ProtectedRoute>
+            </Route>
+            <Route path="/admin">
+              <ProtectedRoute adminOnly><Admin /></ProtectedRoute>
+            </Route>
 
             {/* ── Área do usuário (protegidas) ──────────────────────────── */}
             <Route path="/dashboard">

@@ -72,6 +72,13 @@ const howSteps = [
 
 const paths = [
   {
+    icon: <User className="h-6 w-6" aria-hidden />,
+    title: "Sou docente da UnDF",
+    text: "Crie sua conta, monte o perfil e receba editais da FAPDF compatíveis com suas competências, com a explicação de cada recomendação.",
+    href: "/cadastro",
+    cta: "Criar conta gratuita",
+  },
+  {
     icon: <GraduationCap className="h-6 w-6" aria-hidden />,
     title: "Nunca li um edital",
     text: "Faça a trilha de 6 passos com um edital de exemplo comentado e um quiz no final.",
@@ -223,7 +230,7 @@ export default function Home() {
       <section className="bg-slate-50 py-14" aria-labelledby="comecar">
         <div className="container mx-auto max-w-6xl px-4">
           <h2 id="comecar" className="text-2xl font-bold text-slate-900 md:text-3xl">Por onde começar?</h2>
-          <div className="mt-8 grid gap-5 md:grid-cols-3">
+          <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
             {paths.map((p) => (
               <Link key={p.href} href={p.href} className="group block rounded-2xl border bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
                 <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">{p.icon}</div>

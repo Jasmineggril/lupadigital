@@ -30,6 +30,8 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/testar", label: "Nova Análise" },
   { href: "/historico", label: "Histórico" },
+  { href: "/aprender", label: "Aprender" },
+  { href: "/glossario", label: "Glossário" },
   { href: "/como-funciona", label: "Como Funciona" },
   { href: "/planos", label: "Planos" },
   { href: "/faq", label: "FAQ" },
@@ -93,7 +95,7 @@ export function Navbar() {
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-3 xl:gap-4 text-sm font-medium overflow-visible">
+        <nav className="hidden lg:flex items-center gap-3 xl:gap-4 text-sm font-medium overflow-visible">
           <Link
             href="/sobre"
             className={`transition-colors hover:text-[#2563EB] ${
@@ -227,7 +229,7 @@ export function Navbar() {
 
         {/* Mobile Nav Toggle */}
         <button
-          className="md:hidden p-2"
+          className="lg:hidden p-2"
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-controls="mobile-navigation"
@@ -239,7 +241,7 @@ export function Navbar() {
 
       {/* Mobile Nav */}
       {isOpen && (
-        <div id="mobile-navigation" className="md:hidden border-b border-[#E2E8F0] bg-white">
+        <div id="mobile-navigation" className="lg:hidden border-b border-[#E2E8F0] bg-white">
           <nav className="container mx-auto px-4 flex flex-col py-4 gap-3">
             <Link
               href="/sobre"

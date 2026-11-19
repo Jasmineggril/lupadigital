@@ -3209,7 +3209,9 @@ export async function analyzeAgent(
       throw err;
     }
 
-    const fallbackAnalysis = buildHeuristicCanonicalAnalysis(agentId, normalizedText, parsedProfile.success ? parsedProfile.data : undefined, message);
+    // O motivo técnico (ex.: "401 Invalid API Key") fica só no log; o alerta
+    // mostrado ao usuário usa o texto genérico.
+    const fallbackAnalysis = buildHeuristicCanonicalAnalysis(agentId, normalizedText, parsedProfile.success ? parsedProfile.data : undefined);
     logger.warn({
       requestId,
       step: currentStep,

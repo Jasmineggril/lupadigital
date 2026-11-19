@@ -1,3 +1,4 @@
+import { checkAiKey } from "../lib/aiKeyCheck";
 import { Router, type IRouter, type Request, type Response } from "express";
 import getSupabaseAdmin from "../lib/supabase";
 import { cacheStats } from "../lib/aiCache";
@@ -107,14 +108,12 @@ router.get("/readyz/deep", async (req: Request, res: Response) => {
     };
   }
 
-  // AI provider check (lightweight — just verify key exists)
+  // AI provider check: valida a chave no provedor (GET /models, sem gastar tokens)
   const aiStart = performance.now();
-  const groqKey = process.env.GROQ_API_KEY ?? "";
-  const openaiKey = process.env.OPENAI_API_KEY ?? "";
-  const aiOk = groqKey.length > 10 || openaiKey.length > 10;
+  const ai = await checkAiKey();
   checks.ai = {
-    ok: aiOk,
-    detail: aiOk ? undefined : "No AI provider keys configured",
+    ok: ai.ok,
+    detail: ai.ok ? undefined : ai.detail,
     durationMs: Math.round(performance.now() - aiStart),
   };
 

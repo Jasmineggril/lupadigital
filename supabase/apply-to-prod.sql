@@ -12,7 +12,7 @@
 -- sem quebrar nada. Nenhum DROP é executado.
 --
 -- Origem: consolidação das migrations do repo (fix/ci-typecheck-and-supabase-preview):
---   - 20260805_create_resources_tables.sql
+--   - 20260806_create_resources_tables.sql (antes 20260805_…, renomeada: versão duplicada)
 --   - 20260805_create_ai_usage_logs.sql
 --   - 20260810_create_documents_ai_analyses.sql
 -- ============================================================================

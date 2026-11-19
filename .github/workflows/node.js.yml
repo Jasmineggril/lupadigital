@@ -23,6 +23,7 @@ jobs:
     - run: pnpm install --frozen-lockfile --prod=false
     - run: pnpm typecheck
     - run: pnpm --filter @workspace/api-server run build
+    - run: node scripts/check-serverless.mjs
     - run: pnpm --filter @workspace/lupa-publica run build
     - run: pnpm --filter @workspace/api-server test
 

@@ -140,7 +140,10 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
       "mongodb-client-encryption", "nodemailer", "handlebars", "knex",
       "typeorm", "protobufjs", "onnxruntime-node", "@tensorflow/*",
       "@prisma/client", "@mikro-orm/*", "@grpc/*", "@swc/*", "@aws-sdk/*",
-      "@azure/*", "@opentelemetry/*", "@google-cloud/*", "@google/*",
+      // "@opentelemetry/*" NÃO é externo aqui: o @sentry/node depende dele e a
+      // função do Vercel não tem node_modules — externo derrubava toda a API
+      // (ERR_MODULE_NOT_FOUND @opentelemetry/instrumentation → FUNCTION_INVOCATION_FAILED).
+      "@azure/*", "@google-cloud/*", "@google/*",
       "googleapis", "firebase-admin", "@parcel/watcher",
       "@sentry/profiling-node", "@tree-sitter/*", "aws-sdk", "classic-level",
       "dd-trace", "ffi-napi", "grpc", "hiredis", "kerberos", "leveldown",

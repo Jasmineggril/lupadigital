@@ -82,9 +82,11 @@ export function buildCacheKey(parts: CacheKeyParts, text: string): string {
 export function isCompleteResult(value: unknown): boolean {
   if (value === null || value === undefined) return false;
   if (typeof value !== "object") return true;
-  const v = value as { complete?: unknown; processing?: { complete?: unknown } | null };
+  const v = value as { complete?: unknown; processing?: { complete?: unknown; mode?: unknown } | null };
   if (v.complete === false) return false;
   if (v.processing && typeof v.processing === "object" && v.processing.complete === false) return false;
+  // Análise heurística (sem IA) nunca vai para o cache: some assim que a IA voltar
+  if (v.processing && typeof v.processing === "object" && v.processing.mode === "fallback") return false;
   return true;
 }
 

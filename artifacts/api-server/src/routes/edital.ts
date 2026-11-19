@@ -53,6 +53,7 @@ const router: IRouter = Router();
 
 import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital, ocrPdf, buildCanonicalAnalysis, validateDocumentAnalysis } from "../lib/aiService";
 import { getReqUserId, requireAuth, getSupabaseAdmin } from "../lib/supabase";
+import { safeFetch, UnsafeUrlError } from "../lib/safeFetch";
 import { classifyAiError } from "../lib/processingErrors";
 
 /**
@@ -201,57 +202,7 @@ router.delete("/edital/agent-history/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-// ── SSRF guard: block private/loopback/link-local IP ranges ─────
-import dns from "node:dns/promises";
-import net from "node:net";
-
-function isPrivateIp(ip: string): boolean {
-  // Normalize IPv6-mapped IPv4 (::ffff:x.x.x.x)
-  const addr = ip.startsWith("::ffff:") ? ip.slice(7) : ip;
-
-  if (net.isIPv4(addr)) {
-    const parts = addr.split(".").map(Number);
-    return (
-      parts[0] === 10 ||
-      parts[0] === 127 ||
-      (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
-      (parts[0] === 192 && parts[1] === 168) ||
-      (parts[0] === 169 && parts[1] === 254) || // link-local
-      (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) || // CGNAT
-      addr === "0.0.0.0"
-    );
-  }
-
-  // IPv6 loopback and link-local
-  const norm = ip.toLowerCase();
-  return (
-    norm === "::1" ||
-    norm.startsWith("fe80:") ||
-    norm.startsWith("fc") ||
-    norm.startsWith("fd") ||
-    norm === "::"
-  );
-}
-
-async function assertPublicHost(hostname: string): Promise<void> {
-  let addrs: string[];
-  try {
-    addrs = (await dns.resolve(hostname)).flat();
-  } catch {
-    // Try IPv6
-    try {
-      addrs = (await dns.resolve6(hostname)).flat();
-    } catch {
-      throw new Error("Não foi possível resolver o hostname da URL.");
-    }
-  }
-  if (addrs.length === 0) throw new Error("Nenhum endereço IP encontrado para o hostname.");
-  for (const ip of addrs) {
-    if (isPrivateIp(ip)) {
-      throw new Error("A URL aponta para um endereço de rede privada ou local, o que não é permitido.");
-    }
-  }
-}
+// ── SSRF guard: ver lib/safeFetch.ts (cada redirecionamento é verificado) ──
 
 router.post("/edital/extract-url", async (req, res): Promise<void> => {
   const parsed = ExtractEditalFromUrlBody.safeParse(req.body);
@@ -261,51 +212,18 @@ router.post("/edital/extract-url", async (req, res): Promise<void> => {
   }
 
   const { url } = parsed.data;
-
-  let fetchedUrl = url;
-  if (!/^https?:\/\//i.test(url)) {
-    fetchedUrl = `https://${url}`;
-  }
-
-  // Only allow http/https
-  let parsedUrlObj: URL;
-  try {
-    parsedUrlObj = new URL(fetchedUrl);
-  } catch {
-    res.status(400).json({ error: "URL inválida." });
-    return;
-  }
-  if (parsedUrlObj.protocol !== "http:" && parsedUrlObj.protocol !== "https:") {
-    res.status(400).json({ error: "Apenas URLs com protocolo http ou https são aceitas." });
-    return;
-  }
-
-  // SSRF guard: resolve hostname and block private/loopback IPs
-  try {
-    await assertPublicHost(parsedUrlObj.hostname);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "URL não permitida.";
-    res.status(400).json({ error: message });
-    return;
-  }
+  const fetchedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
 
   let html: string;
   try {
-    const response = await fetch(fetchedUrl, {
+    const response = await safeFetch(fetchedUrl, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; LUPA Digital/NIASci/1.0; +https://lupadigital.dev)",
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
-      signal: AbortSignal.timeout(15000),
-      redirect: "follow",
+      timeoutMs: 15000,
     });
-
-    // After redirect, re-check the final URL's host
-    const finalHost = new URL(response.url).hostname;
-    if (finalHost !== parsedUrlObj.hostname) {
-      await assertPublicHost(finalHost);
-    }
 
     if (!response.ok) {
       res.status(422).json({ error: `Não foi possível acessar a URL (status ${response.status}). Verifique se ela é pública e tente novamente.` });
@@ -313,16 +231,21 @@ router.post("/edital/extract-url", async (req, res): Promise<void> => {
     }
 
     // Detect charset from Content-Type header before decoding
-    const contentType = response.headers.get("content-type") ?? "";
+    const contentType = response.contentType;
     let charset = "utf-8";
 
     // e.g. "text/html; charset=windows-1252"
     const ctMatch = contentType.match(/charset=([^\s;]+)/i);
     if (ctMatch) charset = ctMatch[1].trim().toLowerCase();
 
-    // Read as bytes so we can re-decode with the right charset
-    const bytes = await response.arrayBuffer();
-    let rawHtml = new TextDecoder(charset, { fatal: false }).decode(bytes);
+    const bytes = response.body;
+    let rawHtml: string;
+    try {
+      rawHtml = new TextDecoder(charset, { fatal: false }).decode(bytes);
+    } catch {
+      rawHtml = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      charset = "utf-8";
+    }
 
     // If charset wasn't in Content-Type, sniff it from <meta charset> in first 4KB
     if (!ctMatch) {
@@ -345,6 +268,10 @@ router.post("/edital/extract-url", async (req, res): Promise<void> => {
 
     html = rawHtml;
   } catch (err) {
+    if (err instanceof UnsafeUrlError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
     const message = err instanceof Error ? err.message : String(err);
     req.log?.warn({ url: fetchedUrl, message }, "Failed to fetch URL");
     res.status(422).json({ error: "Não foi possível acessar a URL. Verifique se ela está correta e disponível." });
@@ -499,10 +426,13 @@ router.get("/edital/stats", requireAuth(), async (req, res): Promise<void> => {
 
 // ── POST /edital/share — create a share link ──────────────────────
 const ShareBodySchema = z.object({
-  agentId: z.string(),
-  title: z.string(),
+  agentId: z.string().min(1).max(64),
+  title: z.string().max(300),
   resultJson: z.record(z.string(), z.unknown()),
 });
+
+/** Tamanho máximo do JSON compartilhado (evita usar o banco como depósito de dados). */
+export const MAX_SHARE_JSON_BYTES = 512 * 1024;
 
 router.post("/edital/share", async (req, res) => {
   const parsed = ShareBodySchema.safeParse(req.body);
@@ -511,12 +441,23 @@ router.post("/edital/share", async (req, res) => {
     return;
   }
   const { agentId, title, resultJson } = parsed.data;
+  if (Buffer.byteLength(JSON.stringify(resultJson), "utf8") > MAX_SHARE_JSON_BYTES) {
+    res.status(413).json({ error: "O resultado é grande demais para ser compartilhado." });
+    return;
+  }
   const token = randomUUID();
+  const userId = getReqUserId(req);
   try {
     const supabase = getSupabaseAdmin();
-    const { error } = await supabase
-      .from("shared_results")
-      .insert({ token, agent_id: agentId, title, result_json: resultJson });
+    const row: Record<string, unknown> = { token, agent_id: agentId, title, result_json: resultJson };
+    // Registra quem criou o link quando o usuário está logado
+    if (userId) row.user_id = String(userId);
+    let { error } = await supabase.from("shared_results").insert(row);
+    // Bancos sem a migration 20260713 (coluna user_id): grava sem o dono
+    if (error && userId && /user_id/.test(error.message)) {
+      delete row.user_id;
+      ({ error } = await supabase.from("shared_results").insert(row));
+    }
     if (error) {
       throw new Error(error.message);
     }
@@ -538,6 +479,14 @@ router.post("/edital/ocr-pdf", async (req, res): Promise<void> => {
   }
   if (pages.length > 30) {
     res.status(400).json({ error: "Máximo de 30 páginas por requisição." });
+    return;
+  }
+  // Cada página é uma imagem JPEG em base64 (sem o prefixo data:), até ~3 MB
+  const invalidPage = pages.some(
+    (p) => typeof p !== "string" || p.length === 0 || p.length > 4_000_000 || !/^[A-Za-z0-9+/=\r\n]+$/.test(p),
+  );
+  if (invalidPage) {
+    res.status(400).json({ error: "Página inválida: envie imagens em base64 de até 3 MB." });
     return;
   }
 

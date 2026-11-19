@@ -88,15 +88,21 @@ router.get("/readyz/deep", async (req: Request, res: Response) => {
         setTimeout(() => reject(new Error("timeout")), HEALTHZ_TIMEOUT_MS)
       ),
     ]);
+    if (result.error) {
+      // Detalhe completo só no log; a resposta pública não expõe mensagens do banco
+      req.log?.warn({ requestId, error: result.error.message }, "Deep readiness: database check failed");
+    }
     checks.database = {
       ok: !result.error,
-      detail: result.error?.message ?? undefined,
+      detail: result.error ? "Falha ao consultar o banco" : undefined,
       durationMs: Math.round(performance.now() - dbStart),
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    req.log?.warn({ requestId, error: message }, "Deep readiness: database check failed");
     checks.database = {
       ok: false,
-      detail: error instanceof Error ? error.message : String(error),
+      detail: message === "timeout" ? "Tempo limite" : "Falha ao consultar o banco",
       durationMs: Math.round(performance.now() - dbStart),
     };
   }
@@ -113,7 +119,6 @@ router.get("/readyz/deep", async (req: Request, res: Response) => {
   };
 
   const allOk = Object.values(checks).every((c) => c.ok);
-  const totalDuration = Math.round(performance.now() - performance.now());
 
   res.status(allOk ? 200 : 503).json({
     status: allOk ? "ok" : "degraded",

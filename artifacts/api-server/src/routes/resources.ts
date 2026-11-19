@@ -23,7 +23,8 @@
  * Segurança:
  *   - Tabelas fora da allowlist retornam 404 (não revela a existência da tabela)
  *   - Todas as operações filtram por user_id (owner isolation)
- *   - Payloads são validados com Zod antes de ir ao banco
+ *   - Payloads são validados com Zod e SOMENTE os dados validados vão ao banco
+ *   - id, user_id, created_at e updated_at nunca são aceitos do cliente (400)
  *   - Erros do Supabase nunca são repassados diretamente ao cliente
  */
 
@@ -144,7 +145,7 @@ const PlanetariumContentSchema = z.object({
 
 /**
  * Mapa de schemas indexados por nome de tabela.
- * Tabelas sem schema listado aceitam qualquer payload (sem validação adicional).
+ * Toda tabela da allowlist precisa de schema: sem schema, nada é gravado.
  */
 const SCHEMAS: Record<string, z.ZodTypeAny> = {
   edital_analyses: EdtalAnalysisSchema,
@@ -156,6 +157,77 @@ const SCHEMAS: Record<string, z.ZodTypeAny> = {
   documents: DocumentSchema,
   ai_analyses: AIAnalysisSchema,
 };
+
+// ── Campos controlados pelo servidor ─────────────────────────────────────────
+// Nunca aceitos do cliente: id e timestamps são gerados pelo banco e user_id vem
+// sempre do JWT. Enviar qualquer um deles no corpo resulta em 400, para que uma
+// tentativa de transferir a propriedade de um registro nunca passe em silêncio.
+export const SERVER_CONTROLLED_FIELDS = ["id", "user_id", "created_at", "updated_at"] as const;
+
+type WritePayloadResult =
+  | { ok: true; data: Record<string, unknown> }
+  | { ok: false; status: number; body: Record<string, unknown> };
+
+/**
+ * Monta o payload a ser gravado a partir do corpo da requisição.
+ *
+ * - Rejeita (400) campos controlados pelo servidor (id, user_id, created_at, updated_at).
+ * - Valida com o schema Zod da tabela e usa SOMENTE os dados validados
+ *   (campos fora do schema são descartados, nunca gravados).
+ * - Em "create", injeta user_id a partir do usuário autenticado.
+ * - Em "update", nunca inclui user_id (a propriedade não pode mudar) e exige
+ *   ao menos um campo válido.
+ */
+export function buildWritePayload(
+  table: string,
+  body: unknown,
+  mode: "create" | "update",
+  userId: string,
+): WritePayloadResult {
+  const schema = SCHEMAS[table];
+  if (!schema) {
+    // Toda tabela da allowlist tem schema; sem schema não gravamos nada.
+    return { ok: false, status: 404, body: { error: "Tabela não permitida" } };
+  }
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return { ok: false, status: 400, body: { code: "VALIDATION_ERROR", message: "Payload inválido" } };
+  }
+
+  const forbidden = SERVER_CONTROLLED_FIELDS.filter((f) => Object.prototype.hasOwnProperty.call(body, f));
+  if (forbidden.length > 0) {
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        code: "FORBIDDEN_FIELD",
+        message: "Campos controlados pelo servidor não podem ser enviados.",
+        fields: forbidden,
+      },
+    };
+  }
+
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      status: 400,
+      body: { code: "VALIDATION_ERROR", message: "Payload inválido", details: parsed.error.format() },
+    };
+  }
+
+  // Cópia defensiva só com chaves do schema; remove qualquer campo controlado
+  // que porventura venha de um schema futuro.
+  const data: Record<string, unknown> = { ...(parsed.data as Record<string, unknown>) };
+  for (const f of SERVER_CONTROLLED_FIELDS) delete data[f];
+
+  if (mode === "create") {
+    return { ok: true, data: { ...data, user_id: userId } };
+  }
+  if (Object.keys(data).length === 0) {
+    return { ok: false, status: 400, body: { code: "VALIDATION_ERROR", message: "Nenhum campo válido para atualizar." } };
+  }
+  return { ok: true, data };
+}
 
 // Aplica requireAuth() a todas as rotas deste router.
 // Requisições sem JWT válido recebem 401 antes de chegarem a qualquer handler.
@@ -225,25 +297,15 @@ router.post("/resources/:table", async (req: Request, res: Response): Promise<vo
   }
   const supabase = getSupabaseAdmin();
   try {
-    const rawPayload = { ...req.body };
-    // Valida o payload apenas se houver schema definido para esta tabela
-    const schema = SCHEMAS[String(table)];
-    if (schema) {
-      const parsed = schema.safeParse(rawPayload);
-      if (!parsed.success) {
-        res.status(400).json({
-          code: "VALIDATION_ERROR",
-          message: "Payload inválido",
-          details: parsed.error.format(),
-        });
-        return;
-      }
+    // Só dados validados; user_id vem do JWT (nunca do body)
+    const built = buildWritePayload(String(table), req.body, "create", String(userId));
+    if (!built.ok) {
+      res.status(built.status).json(built.body);
+      return;
     }
-    // Injeta user_id do JWT, sobrescrevendo qualquer valor enviado no body
-    const payload = { ...rawPayload, user_id: userId };
     const { data, error } = await supabase
       .from(String(table))
-      .insert([payload])
+      .insert([built.data])
       .select()
       .single();
     if (error) throw error;
@@ -333,26 +395,26 @@ router.put("/resources/:table/:id", async (req: Request, res: Response): Promise
   }
   const supabase = getSupabaseAdmin();
   try {
-    const rawPayload = { ...req.body };
-    const schema = SCHEMAS[String(table)];
-    if (schema) {
-      const parsed = schema.safeParse(rawPayload);
-      if (!parsed.success) {
-        res.status(400).json({
-          code: "VALIDATION_ERROR",
-          message: "Payload inválido",
-          details: parsed.error.format(),
-        });
-        return;
-      }
+    // Só dados validados; id/user_id/timestamps nunca podem ser alterados
+    const built = buildWritePayload(String(table), req.body, "update", String(userId));
+    if (!built.ok) {
+      res.status(built.status).json(built.body);
+      return;
     }
     const { data, error } = await supabase
       .from(String(table))
-      .update(rawPayload)
+      .update(built.data)
       .match({ id, user_id: userId }) // atômico: só atualiza se id E user_id baterem
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      // PGRST116 = nenhuma linha (id inexistente ou de outro usuário)
+      if ((error as any).code === "PGRST116") {
+        res.status(404).json({ error: "Não encontrado ou sem permissão" });
+        return;
+      }
+      throw error;
+    }
     if (!data) {
       res.status(404).json({ error: "Não encontrado ou sem permissão" });
       return;

@@ -409,3 +409,60 @@ CREATE INDEX IF NOT EXISTS idx_ai_analyses_user_id    ON public.ai_analyses (use
 CREATE INDEX IF NOT EXISTS idx_ai_analyses_created_at ON public.ai_analyses (created_at);
 
 -- End of migration
+
+
+-- ============================================================================
+-- 20261119 — RLS nas tabelas legadas (ver migrations/20261119_enable_rls_legacy_tables.sql)
+-- ============================================================================
+
+ALTER TABLE IF EXISTS public.conversations  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.messages       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.saved_editals  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.agent_results  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.shared_results ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public._migrations    ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF to_regclass('public.agent_results') IS NOT NULL THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_results' AND policyname = 'agent_results_select_own') THEN
+      CREATE POLICY "agent_results_select_own" ON public.agent_results
+        FOR SELECT USING (user_id = auth.uid()::text);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_results' AND policyname = 'agent_results_delete_own') THEN
+      CREATE POLICY "agent_results_delete_own" ON public.agent_results
+        FOR DELETE USING (user_id = auth.uid()::text);
+    END IF;
+  END IF;
+
+  IF to_regclass('public.saved_editals') IS NOT NULL THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'saved_editals' AND policyname = 'saved_editals_select_own') THEN
+      CREATE POLICY "saved_editals_select_own" ON public.saved_editals
+        FOR SELECT USING (user_id = auth.uid()::text);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'saved_editals' AND policyname = 'saved_editals_delete_own') THEN
+      CREATE POLICY "saved_editals_delete_own" ON public.saved_editals
+        FOR DELETE USING (user_id = auth.uid()::text);
+    END IF;
+  END IF;
+END;
+$$;
+
+-- A função exec_sql (usada pelo executor de migrations do backend) executa SQL
+-- arbitrário. Se existir, só a service role pode chamá-la.
+DO $$
+DECLARE
+  fn regprocedure;
+BEGIN
+  FOR fn IN SELECT p.oid::regprocedure FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public' AND p.proname = 'exec_sql'
+  LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated', fn);
+  END LOOP;
+END;
+$$;
+
+-- Índice para a busca de links compartilhados por token já existe (UNIQUE).
+-- Índice para limpeza/ordenação por data:
+CREATE INDEX IF NOT EXISTS idx_shared_results_created_at ON public.shared_results (created_at);

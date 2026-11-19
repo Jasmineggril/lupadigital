@@ -32,6 +32,14 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { supabaseAuthMiddleware } from "./lib/supabase";
 import { getRateLimitConfig } from "./lib/runtimeConfig";
+import {
+  aiRateKey,
+  createAnonHourlyLimiter,
+  getAnonAiLimits,
+  getRequestHost,
+  isOriginAllowed,
+  parseAllowedOrigins,
+} from "./lib/accessPolicy";
 
 const app: Express = express();
 
@@ -40,28 +48,23 @@ const app: Express = express();
 app.set("trust proxy", 1);
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
-// Lê origens permitidas da variável de ambiente ALLOWED_ORIGINS (CSV).
-// Em desenvolvimento (NODE_ENV=development), qualquer origem é aceita para
-// facilitar o trabalho local. Em produção, apenas as origens listadas.
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+// Regras em lib/accessPolicy.ts: sem Origin, desenvolvimento, mesma origem do
+// deploy (domínio principal e previews do Vercel) ou allowlist ALLOWED_ORIGINS.
+// Antes, ALLOWED_ORIGINS vazio liberava qualquer origem com credentials.
+const ALLOWED_ORIGINS = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
 
-const corsOptions: cors.CorsOptions = {
-  origin(origin, callback) {
-    // Requisições sem header Origin (curl, Postman, server-to-server) sempre passam
-    if (!origin) return callback(null, true);
-    // Modo desenvolvimento: libera tudo para agilizar o trabalho local
-    if (process.env.NODE_ENV === "development") return callback(null, true);
-    // Produção: verifica se a origem está na allowlist ou se a lista está vazia
-    // (lista vazia = ainda não configurada, deixa passar com log implícito)
-    if (ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin)) {
-      return callback(null, true);
-    }
-    callback(new Error(`CORS: origem não permitida: ${origin}`));
-  },
-  credentials: true, // necessário para enviar cookies/Authorization headers cross-origin
+const corsDelegate: cors.CorsOptionsDelegate<express.Request> = (req, callback) => {
+  const allowed = isOriginAllowed({
+    origin: req.headers.origin,
+    requestHost: getRequestHost(req),
+    allowlist: ALLOWED_ORIGINS,
+    nodeEnv: process.env.NODE_ENV,
+  });
+  if (!allowed) {
+    callback(new Error(`CORS: origem não permitida: ${req.headers.origin}`));
+    return;
+  }
+  callback(null, { origin: true, credentials: true });
 };
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
@@ -81,10 +84,11 @@ const defaultLimiter = rateLimit({
   message: { error: "Muitas requisições. Tente novamente em um minuto." },
 });
 
-/** Limite para endpoints de IA (OpenAI) */
+/** Limite para endpoints de IA — por usuário logado ou, sem login, por IP */
 export const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: aiMax,
+  keyGenerator: aiRateKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Limite de análises atingido. Aguarde um minuto e tente novamente." },
@@ -98,6 +102,22 @@ export const ocrLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Limite de processamento de PDF atingido. Aguarde um minuto." },
 });
+
+// Visitantes sem login: limite por hora e por IP (usuários logados passam direto).
+const anonLimits = getAnonAiLimits();
+const anonAiLimiter = createAnonHourlyLimiter(
+  anonLimits.perHour,
+  "Você atingiu o limite de análises sem login. Entre ou crie uma conta gratuita para continuar.",
+);
+const anonOcrLimiter = createAnonHourlyLimiter(
+  anonLimits.ocrPerHour,
+  "Você atingiu o limite de leitura de PDFs sem login. Entre ou crie uma conta gratuita para continuar.",
+);
+/** Links de compartilhamento: grava no banco, então também tem limite por hora */
+const shareLimiter = createAnonHourlyLimiter(
+  30,
+  "Limite de links compartilhados atingido. Entre na sua conta para continuar.",
+);
 
 /** Limite rigoroso para rota de diagnóstico de IA (5 req/min por IP) */
 const diagLimiter = rateLimit({
@@ -137,7 +157,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 
-app.use(cors(corsOptions));
+app.use(cors(corsDelegate));
 app.use(defaultLimiter);
 
 // Limite de 10mb para suportar PDFs encodados em base64 no corpo da requisição
@@ -153,11 +173,12 @@ app.use(supabaseAuthMiddleware());
 // ── Rate limiters específicos por rota ───────────────────────────────────────
 // Aplicados ANTES do router principal para garantir que o limite é checado
 // antes de qualquer lógica de negócio ou acesso ao banco de dados.
-app.use("/api/edital/ocr-pdf", ocrLimiter);
-app.use("/api/edital/analyze", aiLimiter);
-app.use("/api/edital/simplify", aiLimiter);
-app.use("/api/edital/extract-url", aiLimiter);
-app.use("/api/niasci", aiLimiter); // todas as sub-rotas do NIASci usam IA
+app.use("/api/edital/ocr-pdf", anonOcrLimiter, ocrLimiter);
+app.use("/api/edital/analyze", anonAiLimiter, aiLimiter);
+app.use("/api/edital/simplify", anonAiLimiter, aiLimiter);
+app.use("/api/edital/extract-url", anonOcrLimiter, aiLimiter);
+app.use("/api/niasci", anonAiLimiter, aiLimiter); // todas as sub-rotas do NIASci usam IA
+app.post("/api/edital/share", shareLimiter);
 app.use("/api/diag", diagLimiter); // diagnóstico de provedores (5 req/min)
 
 // ── Router principal ─────────────────────────────────────────────────────────

@@ -41,6 +41,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LearnBox } from "@/components/edu/LearnBox";
+import { AutoTerms } from "@/components/edu/AutoTerms";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -358,6 +360,10 @@ function getFriendlyErrorMessage(error: unknown) {
 
   const render = (message: string) => {
     const normalized = normalize(message);
+    // Limite para visitantes sem login (backend: code ANON_LIMIT)
+    if (normalized.includes("sem login") || normalized.includes("anon_limit")) {
+      return "Você atingiu o limite de análises gratuitas sem login. Entre ou crie uma conta gratuita para continuar.";
+    }
     if (normalized.includes("minimo") || normalized.includes("20 caracteres")) {
       return "Insira um texto com pelo menos 20 caracteres para continuar.";
     }
@@ -3763,32 +3769,32 @@ export default function TestarIA() {
 
             {agentResult && !isAnalyzing && (
               <Tabs defaultValue="resumo" className="w-full">
-                <TabsList className="mb-4 grid grid-cols-2 gap-2 rounded-[32px] border border-slate-200 bg-slate-100 p-2 shadow-sm shadow-slate-200/20 sm:grid-cols-4 lg:grid-cols-7">
-                  <TabsTrigger value="resumo" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                <TabsList className="mb-4 grid h-auto grid-cols-3 gap-2 rounded-[32px] border border-slate-200 bg-slate-100 p-2 shadow-sm shadow-slate-200/20 sm:grid-cols-4">
+                  <TabsTrigger value="resumo" className="flex min-w-0 flex-col gap-1 whitespace-normal rounded-2xl px-2 py-3 text-[12px] font-semibold leading-tight text-slate-700">
                     <BarChart2 className="w-4 h-4" />
                     Interpretação
                   </TabsTrigger>
-                  <TabsTrigger value="cronograma" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                  <TabsTrigger value="cronograma" className="flex min-w-0 flex-col gap-1 whitespace-normal rounded-2xl px-2 py-3 text-[12px] font-semibold leading-tight text-slate-700">
                     <CalendarDays className="w-4 h-4" />
                     Cronograma
                   </TabsTrigger>
-                  <TabsTrigger value="checklist" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                  <TabsTrigger value="checklist" className="flex min-w-0 flex-col gap-1 whitespace-normal rounded-2xl px-2 py-3 text-[12px] font-semibold leading-tight text-slate-700">
                     <ClipboardList className="w-4 h-4" />
                     Checklist
                   </TabsTrigger>
-                  <TabsTrigger value="elegibilidade" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                  <TabsTrigger value="elegibilidade" className="flex min-w-0 flex-col gap-1 whitespace-normal rounded-2xl px-2 py-3 text-[12px] font-semibold leading-tight text-slate-700">
                     <UserCheck className="w-4 h-4" />
                     Elegibilidade
                   </TabsTrigger>
-                  <TabsTrigger value="chat" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                  <TabsTrigger value="chat" className="flex min-w-0 flex-col gap-1 whitespace-normal rounded-2xl px-2 py-3 text-[12px] font-semibold leading-tight text-slate-700">
                     <MessageSquare className="w-4 h-4" />
                     Chat
                   </TabsTrigger>
-                  <TabsTrigger value="historico" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                  <TabsTrigger value="historico" className="flex min-w-0 flex-col gap-1 whitespace-normal rounded-2xl px-2 py-3 text-[12px] font-semibold leading-tight text-slate-700">
                     <History className="w-4 h-4" />
                     Histórico
                   </TabsTrigger>
-                  <TabsTrigger value="exportacao" className="flex flex-col gap-1 rounded-2xl px-3 py-3 text-[13px] font-semibold text-slate-700">
+                  <TabsTrigger value="exportacao" className="flex min-w-0 flex-col gap-1 whitespace-normal rounded-2xl px-2 py-3 text-[12px] font-semibold leading-tight text-slate-700">
                     <Download className="w-4 h-4" />
                     Exportação
                   </TabsTrigger>
@@ -3800,6 +3806,7 @@ export default function TestarIA() {
                       <CardTitle className="text-base font-semibold flex items-center gap-2"><BarChart2 className="w-4 h-4 text-primary" /> Interpretação</CardTitle>
                     </CardHeader>
                     <CardContent className="p-4">
+                      <LearnBox section="resumo" />
                       <AgentResultPanel result={agentResult} onCheckToggle={handleCheckToggle} printRef={printRef} />
                     </CardContent>
                   </Card>
@@ -3811,6 +3818,7 @@ export default function TestarIA() {
                       <CardTitle className="text-base font-semibold flex items-center gap-2"><CalendarDays className="w-4 h-4 text-primary" /> Cronograma</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4 p-4">
+                      <LearnBox section="cronograma" />
                       {timelineSteps.length > 0 ? timelineSteps.map((step, index) => (
                         <div key={step.title} className="flex gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
                           <div className="flex flex-col items-center">
@@ -3820,7 +3828,7 @@ export default function TestarIA() {
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-slate-900">{step.title}</p>
                             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-1">{step.date}</p>
-                            <p className="text-sm text-slate-700 mt-3">{step.description}</p>
+                            <p className="text-sm text-slate-700 mt-3"><AutoTerms text={step.description} /></p>
                           </div>
                         </div>
                       )) : (
@@ -3853,12 +3861,13 @@ export default function TestarIA() {
                       <CardTitle className="text-base font-semibold flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Checklist</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4 p-4">
+                      <LearnBox section="checklist" />
                       {checklistItems.length > 0 ? checklistItems.map((item) => (
                         <div key={item.label} className={`flex items-start gap-4 rounded-3xl border p-4 ${item.done ? "border-emerald-200 bg-emerald-50/80" : "border-border bg-slate-50"}`}>
                           <div className={`mt-1 h-4 w-4 rounded-full ${item.done ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                           <div className="min-w-0">
                             <p className={`text-sm font-semibold ${item.done ? "text-emerald-800" : "text-slate-900"}`}>{item.label}</p>
-                            <p className="text-sm text-muted-foreground mt-2">{item.hint}</p>
+                            <p className="text-sm text-muted-foreground mt-2"><AutoTerms text={item.hint} /></p>
                           </div>
                         </div>
                       )) : (
@@ -3891,6 +3900,7 @@ export default function TestarIA() {
                       <CardTitle className="text-base font-semibold flex items-center gap-2"><UserCheck className="w-4 h-4 text-primary" /> Elegibilidade</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4 p-4">
+                      <LearnBox section="elegibilidade" />
                       {agentResult.type === "elegibilidade" ? (
                         <div className="space-y-4">
                           {agentResult.criterios.map((c) => (
@@ -3898,7 +3908,7 @@ export default function TestarIA() {
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                   <p className="text-sm font-semibold text-slate-900">{c.criterio}</p>
-                                  <p className="text-sm text-muted-foreground mt-2">{c.observacao}</p>
+                                  <p className="text-sm text-muted-foreground mt-2"><AutoTerms text={c.observacao} /></p>
                                 </div>
                                 <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${c.atende === true ? "bg-teal-600 text-white" : c.atende === "parcial" ? "bg-amber-600 text-white" : c.atende === null ? "bg-slate-400 text-slate-950" : "bg-rose-600 text-white"}`}>
                                   {c.atende === true ? "Atende" : c.atende === "parcial" ? "Parcial" : c.atende === null ? "Não verificado" : "Não atende"}
@@ -3937,6 +3947,7 @@ export default function TestarIA() {
                       <CardTitle className="text-base font-semibold flex items-center gap-2"><MessageSquare className="w-4 h-4 text-primary" /> Chat contextual</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4 p-4">
+                      <LearnBox section="chat" />
                       <p className="text-sm text-muted-foreground">Pergunte sobre o edital interpretado e receba respostas claras baseadas na análise.</p>
                       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                         <Input placeholder="Ex: Qual é o prazo final?" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={isAnswering} />

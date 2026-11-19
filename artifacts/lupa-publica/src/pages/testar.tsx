@@ -3213,7 +3213,7 @@ export default function TestarIA() {
         />
       )}
 
-      <main className="container mx-auto px-4 py-8 max-w-7xl flex-1">
+      <div className="container mx-auto px-4 py-8 max-w-7xl flex-1">
         <div className="mb-8 rounded-3xl border border-border/70 bg-white/80 p-5 shadow-sm backdrop-blur">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-2">
@@ -4176,7 +4176,7 @@ export default function TestarIA() {
             </Card>
           </aside>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

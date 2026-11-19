@@ -57,7 +57,7 @@ export default function Recomendacoes() {
           </Link>
         }
       />
-      <main className="container mx-auto max-w-6xl space-y-10 px-4 py-8">
+      <div className="container mx-auto max-w-6xl space-y-10 px-4 py-8">
         {loading ? (
           <LoadingState label="Calculando compatibilidade…" />
         ) : error ? (
@@ -91,7 +91,7 @@ export default function Recomendacoes() {
             )}
           </>
         )}
-      </main>
+      </div>
     </div>
   );
 }

@@ -85,10 +85,17 @@ export function TextField({ label, hint, error, className, ...props }: FieldProp
   const errId = error ? `${id}-err` : undefined;
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-semibold text-slate-900">
-        {label}
-        {props.required && <span className="text-red-600" aria-hidden> *</span>}
-      </label>
+      <div className="flex items-baseline gap-1">
+        <label htmlFor={id} className="block text-sm font-semibold text-slate-900">
+          {label}
+        </label>
+        {/* Fora do <label>: o asterisco não entra no nome acessível; "required" já informa a obrigatoriedade */}
+        {props.required && (
+          <span className="text-sm font-semibold text-red-700" aria-hidden>
+            *
+          </span>
+        )}
+      </div>
       <input
         id={id}
         aria-invalid={error ? true : undefined}
@@ -117,10 +124,17 @@ export function PasswordField({ label, hint, error, ...props }: FieldProps) {
   const errId = error ? `${id}-err` : undefined;
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-semibold text-slate-900">
-        {label}
-        {props.required && <span className="text-red-600" aria-hidden> *</span>}
-      </label>
+      <div className="flex items-baseline gap-1">
+        <label htmlFor={id} className="block text-sm font-semibold text-slate-900">
+          {label}
+        </label>
+        {/* Fora do <label>: o asterisco não entra no nome acessível; "required" já informa a obrigatoriedade */}
+        {props.required && (
+          <span className="text-sm font-semibold text-red-700" aria-hidden>
+            *
+          </span>
+        )}
+      </div>
       <div className="relative">
         <input
           id={id}
@@ -161,13 +175,19 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const seq = useRef(0);
+  const hasData = useRef(false);
   const run = useCallback(async () => {
     const id = ++seq.current;
-    setLoading(true);
+    // Só a primeira carga mostra "carregando": recargas mantêm o conteúdo (e o
+    // estado dos componentes, como mensagens de resultado) na tela.
+    if (!hasData.current) setLoading(true);
     setError(null);
     try {
       const value = await fn();
-      if (id === seq.current) setData(value);
+      if (id === seq.current) {
+        hasData.current = true;
+        setData(value);
+      }
     } catch (err) {
       if (id === seq.current) setError(err instanceof Error ? err.message : "Erro inesperado.");
     } finally {

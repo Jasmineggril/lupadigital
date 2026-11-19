@@ -32,7 +32,7 @@ export default function Oportunidades() {
         title="Editais de fontes oficiais"
         description="Coletados diretamente das páginas oficiais (começando pela FAPDF), com o trecho de origem de cada informação. Informações não encontradas aparecem como pendentes."
       />
-      <main className="container mx-auto max-w-6xl space-y-6 px-4 py-8">
+      <div className="container mx-auto max-w-6xl space-y-6 px-4 py-8">
         <div className="flex flex-col gap-3 sm:flex-row">
           <label className="flex-1">
             <span className="sr-only">Buscar edital</span>
@@ -79,7 +79,7 @@ export default function Oportunidades() {
             </div>
           </>
         )}
-      </main>
+      </div>
     </div>
   );
 }

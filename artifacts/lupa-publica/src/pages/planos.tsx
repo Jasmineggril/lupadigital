@@ -26,7 +26,7 @@ export default function Planos() {
   return (
     <div className="min-h-[100dvh] bg-slate-50">
       <PageHeader eyebrow="Acesso" title="O LUPA Digital é gratuito" description="Projeto acadêmico do NIASci/UnDF. Não há planos pagos nem cobrança." />
-      <main className="container mx-auto max-w-3xl px-4 py-8">
+      <div className="container mx-auto max-w-3xl px-4 py-8">
         <section className="rounded-2xl border bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">O que está disponível</h2>
           <ul className="mt-3 space-y-2">
@@ -48,7 +48,7 @@ export default function Planos() {
             )}
           </div>
         </section>
-      </main>
+      </div>
     </div>
   );
 }

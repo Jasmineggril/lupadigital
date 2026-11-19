@@ -71,7 +71,7 @@ export default function Configuracoes() {
   return (
     <div className="min-h-[100dvh] bg-slate-50">
       <PageHeader eyebrow="Configurações" title="Configurações da conta" description={user ? `Conectado como ${user.email}` : undefined} />
-      <main className="container mx-auto max-w-3xl space-y-6 px-4 py-8">
+      <div className="container mx-auto max-w-3xl space-y-6 px-4 py-8">
         <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6" aria-labelledby="notif">
           <h2 id="notif" className="text-lg font-semibold text-slate-900">
             Notificações
@@ -140,7 +140,7 @@ export default function Configuracoes() {
             Sair da conta
           </Button>
         </section>
-      </main>
+      </div>
     </div>
   );
 }

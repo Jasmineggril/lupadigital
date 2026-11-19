@@ -16,7 +16,7 @@ export default function Verificacao() {
   return (
     <div className="min-h-[100dvh] bg-slate-50">
       <PageHeader eyebrow="Verificação" title="Verificação de perfil" />
-      <main className="container mx-auto max-w-2xl px-4 py-8">
+      <div className="container mx-auto max-w-2xl px-4 py-8">
         <div className="rounded-2xl border bg-white p-6 shadow-sm">
           <p className="flex gap-2 text-slate-700">
             <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
@@ -27,7 +27,7 @@ export default function Verificacao() {
             Ir para o meu perfil
           </Link>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

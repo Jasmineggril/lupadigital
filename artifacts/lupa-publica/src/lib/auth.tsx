@@ -12,7 +12,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { AuthError, User } from "@supabase/supabase-js";
-import { supabase, isSupabaseConfigured } from "./supabase";
+import { supabase, isSupabaseConfigured, hadStoredSessionAtLoad } from "./supabase";
 import { apiFetch } from "./api";
 
 export type ProfileType = "estudante" | "concurseiro" | "pesquisador" | "cidadao" | "docente";
@@ -126,6 +126,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     supabase.auth.getSession().then(({ data }) => {
       const u = data.session?.user ?? null;
+      // Sessão salva que o SDK não conseguiu renovar ao carregar a página
+      if (!u && hadStoredSessionAtLoad) setSessionExpired(true);
       hadSession.current = Boolean(u);
       setUser(u ? toAuthUser(u) : null);
       setIsLoading(false);

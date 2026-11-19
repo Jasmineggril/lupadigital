@@ -82,7 +82,7 @@ export default function OportunidadeDetalhe() {
         </div>
       </header>
 
-      <main className="container mx-auto grid max-w-5xl gap-6 px-4 py-8 lg:grid-cols-[1.5fr_1fr]">
+      <div className="container mx-auto grid max-w-5xl gap-6 px-4 py-8 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-6">
           <section className="rounded-2xl border bg-white p-5 shadow-sm" aria-labelledby="estruturado">
             <h2 id="estruturado" className="text-lg font-semibold text-slate-900">
@@ -201,7 +201,7 @@ export default function OportunidadeDetalhe() {
             )}
           </section>
         </aside>
-      </main>
+      </div>
     </div>
   );
 }

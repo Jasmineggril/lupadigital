@@ -18,7 +18,7 @@ import { OPPORTUNITY_TYPE_LABELS, SOURCE_LABELS, formatDateTime, type TeacherPro
 import { ErrorState, FormAlert, LoadingState, PageHeader, TextField, useAsync } from "@/components/lupa/ui";
 import { TermsInput } from "@/components/lupa/TermsInput";
 
-type Editable = Omit<TeacherProfile, "user_id" | "field_sources" | "version" | "updated_at">;
+type Editable = Omit<TeacherProfile, "user_id" | "field_sources" | "version" | "updated_at"> & { created_at?: string };
 
 function SourceTag({ profile, field }: { profile: TeacherProfile; field: string }) {
   const s = profile.field_sources[field];
@@ -70,8 +70,16 @@ export default function Perfil() {
     setSaving(true);
     setMsg(null);
     setFieldErrors({});
+    // Só os campos editáveis (o backend recusa qualquer outro, como created_at)
     const body = {
-      ...form,
+      areas: form.areas,
+      competencies: form.competencies,
+      research_topics: form.research_topics,
+      keywords: form.keywords,
+      opportunity_types: form.opportunity_types,
+      declared_degree: form.declared_degree,
+      declared_bond: form.declared_bond,
+      notification_prefs: form.notification_prefs,
       display_name: form.display_name || null,
       institution: form.institution || null,
       unit: form.unit || null,
@@ -121,7 +129,7 @@ export default function Perfil() {
         title="Perfil docente"
         description="Essas informações orientam as recomendações. Você pode preencher aos poucos e mudar quando quiser."
       />
-      <main className="container mx-auto max-w-4xl space-y-6 px-4 py-8">
+      <div className="container mx-auto max-w-4xl space-y-6 px-4 py-8">
         {welcome && (
           <FormAlert kind="info">
             Conta criada! Agora conte um pouco sobre sua atuação. Comece pelas áreas e temas — o resto pode ficar para depois.
@@ -264,7 +272,7 @@ export default function Perfil() {
             </div>
           </form>
         )}
-      </main>
+      </div>
     </div>
   );
 }

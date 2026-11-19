@@ -230,7 +230,7 @@ export default function Admin() {
           </Button>
         }
       />
-      <main className="container mx-auto max-w-6xl space-y-8 px-4 py-8">
+      <div className="container mx-auto max-w-6xl space-y-8 px-4 py-8">
         <section aria-labelledby="integ" className="rounded-2xl border bg-white p-5 shadow-sm">
           <h2 id="integ" className="text-lg font-semibold text-slate-900">
             Situação das integrações
@@ -355,7 +355,7 @@ export default function Admin() {
             Importar perfis
           </Button>
         </section>
-      </main>
+      </div>
     </div>
   );
 }

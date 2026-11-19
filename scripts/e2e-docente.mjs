@@ -81,7 +81,11 @@ await step("cadastro: envio único, aviso de confirmação e reenvio com interva
   await page.getByLabel("Confirme a senha").fill(PROF.password);
   await page.getByRole("checkbox").check();
   const btn = page.getByTestId("cadastro-submit");
-  await Promise.all([btn.click(), btn.click({ force: true }).catch(() => {})]);
+  // Dois cliques no mesmo instante (antes de o React re-renderizar): só um cadastro pode sair
+  await btn.evaluate((b) => {
+    b.click();
+    b.click();
+  });
   await page.getByTestId("verify-email-notice").waitFor();
   const resend = page.getByTestId("resend-confirmation");
   assert(await resend.isDisabled(), "reenvio deveria começar bloqueado");

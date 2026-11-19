@@ -27,3 +27,5 @@ await getStore().updateSource("fapdf", { request_delay_ms: 0 });
 
 const port = Number(process.env.PORT ?? 3001);
 app.listen(port, "127.0.0.1", () => console.log(`e2e api on ${port} (store=${getStore().kind}, coleta=fixtures)`));
+
+export {};

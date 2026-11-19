@@ -93,7 +93,7 @@ export default function Glossario() {
         </div>
       </header>
 
-      <main className="container mx-auto max-w-4xl px-4 py-8">
+      <div className="container mx-auto max-w-4xl px-4 py-8">
         {results.length === 0 ? (
           <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-slate-600">
             Nenhum termo encontrado para “{query}”. Tente outra palavra ou{" "}
@@ -141,7 +141,7 @@ export default function Glossario() {
             ))}
           </dl>
         )}
-      </main>
+      </div>
     </div>
   );
 }

@@ -15,7 +15,7 @@ export default function Salvos() {
   return (
     <div className="min-h-[100dvh] bg-slate-50">
       <PageHeader eyebrow="Editais salvos" title="Seus editais salvos" description="Guarde editais para acompanhar prazos e documentos." />
-      <main className="container mx-auto max-w-6xl px-4 py-8">
+      <div className="container mx-auto max-w-6xl px-4 py-8">
         {loading ? (
           <LoadingState />
         ) : error ? (
@@ -37,7 +37,7 @@ export default function Salvos() {
             ))}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

@@ -48,7 +48,7 @@ export default function Inicio() {
   return (
     <div className="min-h-[100dvh] bg-slate-50">
       <PageHeader eyebrow="Início" title={`Olá, ${user?.name.split(" ")[0] ?? "docente"}`} description="Suas oportunidades, prazos e o que falta no perfil para melhorar as recomendações." />
-      <main className="container mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[1.6fr_1fr]">
+      <div className="container mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[1.6fr_1fr]">
         {loading ? (
           <LoadingState />
         ) : error ? (
@@ -150,7 +150,7 @@ export default function Inicio() {
             </aside>
           </>
         )}
-      </main>
+      </div>
     </div>
   );
 }

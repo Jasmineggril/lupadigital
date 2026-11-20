@@ -115,7 +115,7 @@ function Router() {
       <Navbar />
       <SessionExpiredBanner />
       <main id="conteudo" className="flex-1 flex flex-col">
-        <Suspense fallback={<div className="flex-1 grid place-items-center p-8 text-sm text-muted-foreground">Carregando...</div>}>
+        <Suspense fallback={<div className="flex-1 grid place-items-center p-8 text-sm text-muted-foreground">Carregando…</div>}>
           <Switch>
             {/* ── Páginas públicas ──────────────────────────────────────── */}
             <Route path="/" component={Home} />

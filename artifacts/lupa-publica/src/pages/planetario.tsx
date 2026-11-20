@@ -265,7 +265,7 @@ export default function Planetario() {
                   <button
                     key={a.value}
                     onClick={() => setAudience(a.value)}
-                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition
                       ${audience === a.value
                         ? "border-violet-500 bg-violet-500/10 text-violet-700 dark:text-violet-300"
                         : "border-border/60 hover:border-violet-500/30 text-muted-foreground"}`}
@@ -290,7 +290,7 @@ export default function Planetario() {
                   <button
                     key={t}
                     onClick={() => setTopic(t)}
-                    className="text-xs px-2.5 py-1 rounded-full border border-border/60 hover:border-violet-500/40 hover:bg-violet-500/5 transition-all"
+                    className="text-xs px-2.5 py-1 rounded-full border border-border/60 hover:border-violet-500/40 hover:bg-violet-500/5 transition"
                   >
                     {t}
                   </button>
@@ -307,9 +307,9 @@ export default function Planetario() {
             <textarea
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder="Ex: Fotossíntese, Buracos negros, Evolução das espécies..."
+              placeholder="Ex: Fotossíntese, Buracos negros, Evolução das espécies…"
               rows={4}
-              className="w-full px-4 py-3 rounded-2xl border border-border/60 bg-card text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500/50 transition-all"
+              className="w-full px-4 py-3 rounded-2xl border border-field bg-card text-sm resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500/50 transition"
             />
             <Button
               onClick={handleGenerate}
@@ -448,7 +448,7 @@ export default function Planetario() {
                                   setQuizAnswers((prev) => ({ ...prev, [i]: letter }));
                                   setQuizRevealed((prev) => ({ ...prev, [i]: true }));
                                 }}
-                                className={`text-left px-3 py-2 rounded-lg text-sm transition-all border
+                                className={`text-left px-3 py-2 rounded-lg text-sm transition border
                                   ${revealed && isCorrect ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : ""}
                                   ${revealed && isSelected && !isCorrect ? "border-red-500 bg-red-500/10 text-red-700" : ""}
                                   ${!revealed ? "border-border/60 hover:border-violet-500/40 hover:bg-violet-500/5" : ""}

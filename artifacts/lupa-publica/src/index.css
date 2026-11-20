@@ -4,6 +4,177 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Paleta da LUPA (DESIGN.md): as escalas do Tailwind usadas no projeto passam a seguir a identidade.
+   slate → ink · emerald/green → success · amber/yellow/orange → warning · red/rose → danger ·
+   sky/blue/cyan/teal/violet → lens (não usamos roxo/lilás). */
+@theme {
+  --color-slate-50: #F4F6F7;
+  --color-slate-100: #EAEFF2;
+  --color-slate-200: #DCE3E8;
+  --color-slate-300: #8493A2;
+  --color-slate-400: #6E7E8E;
+  --color-slate-500: #5A6B7B;
+  --color-slate-600: #4A5C6E;
+  --color-slate-700: #3B4E63;
+  --color-slate-800: #253A50;
+  --color-slate-900: #10263D;
+  --color-slate-950: #0A1A2B;
+  --color-gray-50: #F4F6F7;
+  --color-gray-100: #EAEFF2;
+  --color-gray-200: #DCE3E8;
+  --color-gray-300: #8493A2;
+  --color-gray-400: #6E7E8E;
+  --color-gray-500: #5A6B7B;
+  --color-gray-600: #4A5C6E;
+  --color-gray-700: #3B4E63;
+  --color-gray-800: #253A50;
+  --color-gray-900: #10263D;
+  --color-gray-950: #0A1A2B;
+  --color-emerald-50: #EEF7F1;
+  --color-emerald-100: #E0F0E6;
+  --color-emerald-200: #BFDFCB;
+  --color-emerald-300: #8CC7A3;
+  --color-emerald-400: #4FA673;
+  --color-emerald-500: #2C8A57;
+  --color-emerald-600: #1E7A4B;
+  --color-emerald-700: #19663F;
+  --color-emerald-800: #145234;
+  --color-emerald-900: #0F3F28;
+  --color-emerald-950: #082617;
+  --color-green-50: #EEF7F1;
+  --color-green-100: #E0F0E6;
+  --color-green-200: #BFDFCB;
+  --color-green-300: #8CC7A3;
+  --color-green-400: #4FA673;
+  --color-green-500: #2C8A57;
+  --color-green-600: #1E7A4B;
+  --color-green-700: #19663F;
+  --color-green-800: #145234;
+  --color-green-900: #0F3F28;
+  --color-green-950: #082617;
+  --color-amber-50: #FFF8E8;
+  --color-amber-100: #FFF3D6;
+  --color-amber-200: #FDE3A8;
+  --color-amber-300: #F7C96B;
+  --color-amber-400: #E9A93A;
+  --color-amber-500: #C98618;
+  --color-amber-600: #A56A06;
+  --color-amber-700: #8A5300;
+  --color-amber-800: #6E4200;
+  --color-amber-900: #573500;
+  --color-amber-950: #331F00;
+  --color-yellow-50: #FFF8E8;
+  --color-yellow-100: #FFF3D6;
+  --color-yellow-200: #FDE3A8;
+  --color-yellow-300: #F7C96B;
+  --color-yellow-400: #E9A93A;
+  --color-yellow-500: #C98618;
+  --color-yellow-600: #A56A06;
+  --color-yellow-700: #8A5300;
+  --color-yellow-800: #6E4200;
+  --color-yellow-900: #573500;
+  --color-yellow-950: #331F00;
+  --color-orange-50: #FFF8E8;
+  --color-orange-100: #FFF3D6;
+  --color-orange-200: #FDE3A8;
+  --color-orange-300: #F7C96B;
+  --color-orange-400: #E9A93A;
+  --color-orange-500: #C98618;
+  --color-orange-600: #A56A06;
+  --color-orange-700: #8A5300;
+  --color-orange-800: #6E4200;
+  --color-orange-900: #573500;
+  --color-orange-950: #331F00;
+  --color-red-50: #FDF1F0;
+  --color-red-100: #FDECEA;
+  --color-red-200: #F7CCC8;
+  --color-red-300: #EE9F98;
+  --color-red-400: #DE6B61;
+  --color-red-500: #C9423A;
+  --color-red-600: #B3261E;
+  --color-red-700: #951F18;
+  --color-red-800: #771913;
+  --color-red-900: #5E140F;
+  --color-red-950: #380B08;
+  --color-rose-50: #FDF1F0;
+  --color-rose-100: #FDECEA;
+  --color-rose-200: #F7CCC8;
+  --color-rose-300: #EE9F98;
+  --color-rose-400: #DE6B61;
+  --color-rose-500: #C9423A;
+  --color-rose-600: #B3261E;
+  --color-rose-700: #951F18;
+  --color-rose-800: #771913;
+  --color-rose-900: #5E140F;
+  --color-rose-950: #380B08;
+  --color-sky-50: #EFF7F8;
+  --color-sky-100: #E5F2F3;
+  --color-sky-200: #C4E2E5;
+  --color-sky-300: #93CBD1;
+  --color-sky-400: #4FA7B1;
+  --color-sky-500: #1C8792;
+  --color-sky-600: #0B6E78;
+  --color-sky-700: #095A62;
+  --color-sky-800: #08474E;
+  --color-sky-900: #06373C;
+  --color-sky-950: #032125;
+  --color-blue-50: #EFF7F8;
+  --color-blue-100: #E5F2F3;
+  --color-blue-200: #C4E2E5;
+  --color-blue-300: #93CBD1;
+  --color-blue-400: #4FA7B1;
+  --color-blue-500: #1C8792;
+  --color-blue-600: #0B6E78;
+  --color-blue-700: #095A62;
+  --color-blue-800: #08474E;
+  --color-blue-900: #06373C;
+  --color-blue-950: #032125;
+  --color-cyan-50: #EFF7F8;
+  --color-cyan-100: #E5F2F3;
+  --color-cyan-200: #C4E2E5;
+  --color-cyan-300: #93CBD1;
+  --color-cyan-400: #4FA7B1;
+  --color-cyan-500: #1C8792;
+  --color-cyan-600: #0B6E78;
+  --color-cyan-700: #095A62;
+  --color-cyan-800: #08474E;
+  --color-cyan-900: #06373C;
+  --color-cyan-950: #032125;
+  --color-teal-50: #EFF7F8;
+  --color-teal-100: #E5F2F3;
+  --color-teal-200: #C4E2E5;
+  --color-teal-300: #93CBD1;
+  --color-teal-400: #4FA7B1;
+  --color-teal-500: #1C8792;
+  --color-teal-600: #0B6E78;
+  --color-teal-700: #095A62;
+  --color-teal-800: #08474E;
+  --color-teal-900: #06373C;
+  --color-teal-950: #032125;
+  --color-violet-50: #EFF7F8;
+  --color-violet-100: #E5F2F3;
+  --color-violet-200: #C4E2E5;
+  --color-violet-300: #93CBD1;
+  --color-violet-400: #4FA7B1;
+  --color-violet-500: #1C8792;
+  --color-violet-600: #0B6E78;
+  --color-violet-700: #095A62;
+  --color-violet-800: #08474E;
+  --color-violet-900: #06373C;
+  --color-violet-950: #032125;
+  --color-ink: #10263D;
+  --color-ink-2: #3B4E63;
+  --color-paper: #F4F6F7;
+  --color-hairline: #DCE3E8;
+  --color-field: #7D8C9B;
+  --color-lens: #0B6E78;
+  --color-lens-deep: #095A62;
+  --color-lens-tint: #E5F2F3;
+  --color-marker: #FFE58A;
+  --font-display: 'Bricolage Grotesque', 'Public Sans', system-ui, sans-serif;
+}
+
+
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -78,12 +249,12 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* #F8FAFC */
-  --background: 210 40% 98%;
-  /* #0F172A */
-  --foreground: 222 47% 11%;
-  /* #E2E8F0 */
-  --border: 214 32% 91%;
+  /* paper #F4F6F7 */
+  --background: 200 16% 96%;
+  /* ink #10263D */
+  --foreground: 211 58% 15%;
+  /* hairline #DCE3E8 */
+  --border: 205 21% 89%;
   
   /* #FFFFFF */
   --card: 0 0% 100%;
@@ -94,49 +265,50 @@
   --sidebar-foreground: 222 47% 11%;
   --sidebar-border: 214 32% 91%;
   /* #2563EB */
-  --sidebar-primary: 221 83% 53%;
+  --sidebar-primary: 186 83% 26%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 214 32% 91%;
   --sidebar-accent-foreground: 222 47% 11%;
-  --sidebar-ring: 221 83% 53%;
+  --sidebar-ring: 186 83% 26%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
   --popover-border: 214 32% 91%;
 
-  /* Primary: #2563EB */
-  --primary: 221 83% 53%;
+  /* Primary: lens #0B6E78 */
+  --primary: 186 83% 26%;
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary: #7C3AED */
-  --secondary: 263 84% 58%;
-  --secondary-foreground: 0 0% 100%;
+  /* Secondary: superfície neutra (sem roxo) */
+  --secondary: 202 24% 93%;
+  --secondary-foreground: 211 58% 15%;
 
-  /* #E2E8F0 muted bg */
-  --muted: 214 32% 91%;
-  /* #475569 */
-  --muted-foreground: 215 19% 34%;
+  /* #EAEFF2 muted bg */
+  --muted: 202 24% 93%;
+  /* muted #5A6B7B */
+  --muted-foreground: 209 15% 42%;
 
-  /* Success green #10B981 */
-  --accent: 160 84% 39%;
-  --accent-foreground: 0 0% 100%;
+  /* lens-tint para hover/seleção */
+  --accent: 184 37% 93%;
+  --accent-foreground: 185 83% 21%;
 
-  /* Error #EF4444 */
-  --destructive: 0 84% 60%;
+  /* danger #B3261E */
+  --destructive: 3 71% 41%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 214 32% 91%;
-  --ring: 221 83% 53%;
+  /* field #7D8C9B (≥ 3:1) */
+  --input: 210 13% 55%;
+  --ring: 186 83% 26%;
   
-  --chart-1: 221 83% 53%;
-  --chart-2: 263 84% 58%;
+  --chart-1: 186 83% 26%;
+  --chart-2: 211 58% 15%;
   --chart-3: 160 84% 39%;
   --chart-4: 38 92% 50%;
   --chart-5: 0 84% 60%;
 
-  --app-font-sans: 'Inter', sans-serif;
-  --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
+  --app-font-sans: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --app-font-serif: 'Bricolage Grotesque', 'Public Sans', system-ui, sans-serif;
+  --app-font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
   --radius: .75rem;
   
   --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,0.05);
@@ -260,7 +432,28 @@
     font-weight: 600;
     letter-spacing: -0.01em;
     color: hsl(var(--foreground));
+    text-wrap: balance;
   }
+
+  p { text-wrap: pretty; }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  @media (pointer: fine) {
+    html { overscroll-behavior: none; }
+  }
+  button, a, input, select, textarea, label { touch-action: manipulation; }
+
+  /* Foco visível consistente (DESIGN.md §4): anel lens + afastamento */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid #0B6E78;
+    outline-offset: 2px;
+  }
+  /* Selects nativos com fundo/texto explícitos (modo escuro do Windows) */
+  select { background-color: #fff; color: #10263D; }
+
+  ::selection { background: #FFE58A; color: #10263D; }
 
   a {
     color: hsl(var(--primary));
@@ -271,15 +464,24 @@
     text-decoration: underline;
   }
 
-  /* Make cards subtler */
+  /* Cartões planos (DESIGN.md §6) */
   .rounded-xl.border.bg-card {
-    box-shadow: var(--shadow-sm);
-    border-radius: var(--radius-md);
+    box-shadow: none;
+    border-radius: var(--radius-lg);
   }
 
-  /* Buttons slightly more flat */
+  /* Botões planos: só cor, fundo e opacidade mudam (sem transition: all) */
   button, .btn {
-    transition: box-shadow 150ms ease, transform 120ms ease;
+    transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out, opacity 150ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   /* Reduce visual noise for muted text */
@@ -402,5 +604,39 @@
   .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
+  }
+}
+/* ── Componentes da LUPA (DESIGN.md) ─────────────────────────────────────── */
+@layer components {
+  .font-display { font-family: var(--font-display); font-optical-sizing: auto; letter-spacing: -0.02em; }
+  .eyebrow {
+    font-family: var(--app-font-mono);
+    font-size: 0.75rem;
+    line-height: 1.3;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #0B6E78;
+  }
+  .tabular { font-variant-numeric: tabular-nums; }
+  /* Assinatura: trecho oficial marcado como evidência */
+  .evidence {
+    border-left: 3px solid #E8C547;
+    background: #FFFCF0;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0 6px 6px 0;
+    color: #3B4E63;
+  }
+  .evidence-source {
+    font-family: var(--app-font-mono);
+    font-size: 0.75rem;
+    color: #5A6B7B;
+    word-break: break-word;
+  }
+  .mark-term {
+    background: linear-gradient(transparent 12%, #FFE58A 12%, #FFE58A 88%, transparent 88%);
+    color: #10263D;
+    padding: 0 0.15em;
+    border-radius: 2px;
   }
 }

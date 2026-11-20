@@ -19,12 +19,13 @@ function RecItem({ r }: { r: Recommendation }) {
         <ThematicBadge level={r.result.thematic.level} score={r.result.thematic.score} />
         <EligibilityBadge overall={r.result.eligibility.overall} />
       </div>
-      <p className="text-sm text-slate-700">{r.result.summary}</p>
-      <details className="group rounded-xl border bg-slate-50 p-3">
-        <summary className="cursor-pointer text-sm font-semibold text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+      <p className="text-sm leading-relaxed text-ink-2">{r.result.summary}</p>
+      <details className="group rounded-lg border border-hairline bg-paper">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 text-sm font-semibold text-lens focus:outline-none focus-visible:ring-2 focus-visible:ring-lens [&::-webkit-details-marker]:hidden">
           Ver explicação completa
+          <span aria-hidden className="text-base transition-transform group-open:rotate-90">›</span>
         </summary>
-        <div className="mt-3">
+        <div className="border-t border-hairline bg-white px-3 py-4">
           <RecommendationExplanation rec={r} />
         </div>
       </details>

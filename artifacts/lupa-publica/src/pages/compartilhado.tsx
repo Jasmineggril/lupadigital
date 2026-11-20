@@ -171,7 +171,7 @@ export default function Compartilhado() {
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-            <p className="text-sm text-muted-foreground">Carregando interpretação...</p>
+            <p className="text-sm text-muted-foreground">Carregando interpretação…</p>
           </div>
         )}
 

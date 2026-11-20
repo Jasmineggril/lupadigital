@@ -56,7 +56,7 @@ const TOOLS: NavItem[] = [
   { href: "/niasci/assistente", label: "Assistente IA" },
 ];
 
-const focusRing = "rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2";
+const focusRing = "rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-2";
 
 function isActive(location: string, href: string) {
   if (href === "/") return location === "/";
@@ -166,12 +166,12 @@ export function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/80">
-      <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
+    <header className="sticky top-0 z-50 w-full border-b border-hairline bg-white">
+      <div className="container mx-auto flex h-16 max-w-[75rem] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link href={user ? "/inicio" : "/"} className={`flex shrink-0 items-center gap-2.5 ${focusRing}`} data-testid="link-logo">
-          <img src="/logo.png" alt="" className="h-10 w-auto object-contain" />
+          <img src="/logo.png" alt="" width={40} height={40} className="h-10 w-10 object-contain" />
           <span className="flex flex-col leading-none">
-            <span className="text-[1.05rem] font-bold tracking-tight text-slate-900">LUPA Digital</span>
+            <span className="font-display text-[1.125rem] font-bold tracking-tight text-ink" translate="no">LUPA Digital</span>
             <span className="text-[0.65rem] font-medium text-slate-600">Editais e pesquisa · NIASci/UnDF</span>
           </span>
         </Link>
@@ -182,7 +182,9 @@ export function Navbar() {
               key={i.href}
               href={i.href}
               aria-current={isActive(location, i.href) ? "page" : undefined}
-              className={`px-1 py-1 ${focusRing} ${isActive(location, i.href) ? "font-semibold text-primary" : "text-slate-700 hover:text-primary"}`}
+              className={`relative px-1 py-1 after:absolute after:inset-x-1 after:-bottom-[1.15rem] after:h-0.5 ${focusRing} ${
+                isActive(location, i.href) ? "font-semibold text-lens after:bg-lens" : "text-ink-2 hover:text-ink after:bg-transparent"
+              }`}
             >
               {i.label}
             </Link>

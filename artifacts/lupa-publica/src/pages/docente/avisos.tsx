@@ -84,7 +84,7 @@ export default function Avisos() {
               {data!.notifications.map((n) => {
                 const Icon = n.kind === "recomendacao" ? BellRing : FilePenLine;
                 return (
-                  <li key={n.id} className={`rounded-2xl border p-4 shadow-sm ${n.read_at ? "bg-white" : "border-primary/30 bg-primary/5"}`}>
+                  <li key={n.id} className={`rounded-xl border p-4 ${n.read_at ? "bg-white" : "border-primary/30 bg-primary/5"}`}>
                     <div className="flex gap-3">
                       <Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
                       <div className="min-w-0 flex-1">

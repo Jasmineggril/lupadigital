@@ -125,7 +125,7 @@ function SourceCard({ s, onChanged }: { s: Source; onChanged: () => void }) {
   };
 
   return (
-    <article className="rounded-2xl border bg-white p-5 shadow-sm">
+    <article className="rounded-xl border border-hairline bg-white p-5">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-semibold text-slate-900">{s.name}</h3>
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${s.enabled ? "bg-emerald-100 text-emerald-900" : "bg-slate-200 text-slate-700"}`}>
@@ -276,7 +276,7 @@ export default function Admin() {
         }
       />
       <div className="container mx-auto max-w-6xl space-y-8 px-4 py-8">
-        <section aria-labelledby="integ" className="rounded-2xl border bg-white p-5 shadow-sm">
+        <section aria-labelledby="integ" className="rounded-xl border border-hairline bg-white p-5">
           <h2 id="integ" className="text-lg font-semibold text-slate-900">
             Situação das integrações
           </h2>
@@ -307,7 +307,7 @@ export default function Admin() {
           {sources.loading ? <LoadingState /> : sources.error ? <ErrorState message={sources.error} onRetry={sources.reload} /> : sources.data!.sources.map((s) => <SourceCard key={s.id} s={s} onChanged={refreshAll} />)}
         </section>
 
-        <section aria-labelledby="execs" className="rounded-2xl border bg-white p-5 shadow-sm">
+        <section aria-labelledby="execs" className="rounded-xl border border-hairline bg-white p-5">
           <h2 id="execs" className="text-lg font-semibold text-slate-900">
             Execuções
           </h2>
@@ -319,7 +319,7 @@ export default function Admin() {
             <p className="mt-2 text-sm text-slate-600">Nenhuma coleta executada ainda.</p>
           ) : (
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[640px] text-left text-sm tabular">
                 <caption className="sr-only">Histórico de execuções da coleta</caption>
                 <thead className="text-xs uppercase text-slate-500">
                   <tr>
@@ -360,7 +360,7 @@ export default function Admin() {
           )}
         </section>
 
-        <section aria-labelledby="revisao" className="rounded-2xl border bg-white p-5 shadow-sm">
+        <section aria-labelledby="revisao" className="rounded-xl border border-hairline bg-white p-5">
           <h2 id="revisao" className="text-lg font-semibold text-slate-900">
             Revisão do catálogo
           </h2>
@@ -380,7 +380,7 @@ export default function Admin() {
           )}
         </section>
 
-        <section aria-labelledby="importacao" className="rounded-2xl border bg-white p-5 shadow-sm">
+        <section aria-labelledby="importacao" className="rounded-xl border border-hairline bg-white p-5">
           <h2 id="importacao" className="text-lg font-semibold text-slate-900">
             Importação institucional de perfis (provisória)
           </h2>
@@ -445,7 +445,7 @@ function CompareSection() {
   };
 
   return (
-    <section aria-labelledby="comparar" className="rounded-2xl border bg-white p-5 shadow-sm">
+    <section aria-labelledby="comparar" className="rounded-xl border border-hairline bg-white p-5">
       <h2 id="comparar" className="text-lg font-semibold text-slate-900">
         Inspecionar comparações
       </h2>

@@ -4,32 +4,58 @@
  * situação, prazo), ordenação e paginação — tudo calculado no servidor.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime, SOURCE_NAMES, STATUS_LABELS, type CatalogResponse, type OpportunityStatus } from "@/lib/lupa-types";
-import { EmptyState, ErrorState, LoadingState, PageHeader, useAsync } from "@/components/lupa/ui";
+import { EmptyState, ErrorState, LoadingState, PageHeader, inputClass, useAsync } from "@/components/lupa/ui";
 import { OpportunityCard } from "@/components/lupa/opportunity";
 import { Button } from "@/components/ui/button";
 
 const PAGE_SIZE = 12;
-const field =
-  "h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+const field = inputClass;
+const SORTS = ["recentes", "prazo", "titulo"] as const;
 
 export default function Oportunidades() {
-  const [query, setQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
-  const [status, setStatus] = useState<"" | OpportunityStatus>("");
-  const [area, setArea] = useState("");
-  const [source, setSource] = useState("");
-  const [prazo, setPrazo] = useState("");
-  const [sort, setSort] = useState<"recentes" | "prazo" | "titulo">("recentes");
-  const [page, setPage] = useState(1);
+  // Filtros vivem na URL (podem ser compartilhados, sobrevivem a recarregar e ao "voltar")
+  const [, navigate] = useLocation();
+  const initial = new URLSearchParams(useSearch());
+  const [query, setQuery] = useState(initial.get("q") ?? "");
+  const [debounced, setDebounced] = useState(initial.get("q") ?? "");
+  const [status, setStatus] = useState<"" | OpportunityStatus>((initial.get("situacao") as OpportunityStatus) ?? "");
+  const [area, setArea] = useState(initial.get("area") ?? "");
+  const [source, setSource] = useState(initial.get("fonte") ?? "");
+  const [prazo, setPrazo] = useState(initial.get("prazo") ?? "");
+  const [sort, setSort] = useState<(typeof SORTS)[number]>(
+    SORTS.includes(initial.get("ordem") as (typeof SORTS)[number]) ? (initial.get("ordem") as (typeof SORTS)[number]) : "recentes",
+  );
+  const [page, setPage] = useState(Math.max(1, Number(initial.get("pagina")) || 1));
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query.trim()), 300);
     return () => clearTimeout(t);
   }, [query]);
-  useEffect(() => setPage(1), [debounced, status, area, source, prazo, sort]);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    setPage(1);
+  }, [debounced, status, area, source, prazo, sort]);
+
+  useEffect(() => {
+    const u = new URLSearchParams();
+    if (debounced) u.set("q", debounced);
+    if (status) u.set("situacao", status);
+    if (area) u.set("area", area);
+    if (source) u.set("fonte", source);
+    if (prazo) u.set("prazo", prazo);
+    if (sort !== "recentes") u.set("ordem", sort);
+    if (page > 1) u.set("pagina", String(page));
+    const next = u.toString();
+    if (next !== window.location.search.replace(/^\?/, "")) navigate(`/oportunidades${next ? `?${next}` : ""}`, { replace: true });
+  }, [debounced, status, area, source, prazo, sort, page, navigate]);
 
   const params = new URLSearchParams({ sort, page: String(page), page_size: String(PAGE_SIZE) });
   if (debounced) params.set("q", debounced);
@@ -67,13 +93,13 @@ export default function Oportunidades() {
         description="Coletados das páginas oficiais (começando pela FAPDF), com o trecho de origem de cada informação. O que não foi encontrado aparece como pendente: confira sempre o edital oficial."
       />
       <div className="container mx-auto max-w-6xl space-y-6 px-4 py-8">
-        <form role="search" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7" onSubmit={(e) => e.preventDefault()}>
+        <form role="search" aria-label="Filtrar editais" className="grid gap-3 rounded-xl border border-hairline bg-white p-4 sm:grid-cols-2 lg:grid-cols-7" onSubmit={(e) => e.preventDefault()}>
           <label className="sm:col-span-2 lg:col-span-2">
-            <span className="mb-1 block text-xs font-semibold text-slate-700">Buscar</span>
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Título, número, objeto ou área" className={field} />
+            <span className="mb-1 block text-[0.8125rem] font-semibold text-ink">Buscar</span>
+            <input type="search" name="q" autoComplete="off" spellCheck={false} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ex.: inteligência artificial, 05/2026…" className={field} />
           </label>
           <label>
-            <span className="mb-1 block text-xs font-semibold text-slate-700">Área</span>
+            <span className="mb-1 block text-[0.8125rem] font-semibold text-ink">Área</span>
             <select value={area} onChange={(e) => setArea(e.target.value)} className={field}>
               <option value="">Todas</option>
               {(data?.facets.areas ?? []).map((a) => (
@@ -84,7 +110,7 @@ export default function Oportunidades() {
             </select>
           </label>
           <label>
-            <span className="mb-1 block text-xs font-semibold text-slate-700">Situação</span>
+            <span className="mb-1 block text-[0.8125rem] font-semibold text-ink">Situação</span>
             <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className={field}>
               <option value="">Todas</option>
               {(Object.keys(STATUS_LABELS) as OpportunityStatus[]).map((s) => (
@@ -95,7 +121,7 @@ export default function Oportunidades() {
             </select>
           </label>
           <label>
-            <span className="mb-1 block text-xs font-semibold text-slate-700">Prazo confirmado</span>
+            <span className="mb-1 block text-[0.8125rem] font-semibold text-ink">Prazo confirmado</span>
             <select value={prazo} onChange={(e) => setPrazo(e.target.value)} className={field}>
               <option value="">Qualquer</option>
               <option value="15">Próximos 15 dias</option>
@@ -104,7 +130,7 @@ export default function Oportunidades() {
             </select>
           </label>
           <label>
-            <span className="mb-1 block text-xs font-semibold text-slate-700">Fonte</span>
+            <span className="mb-1 block text-[0.8125rem] font-semibold text-ink">Fonte</span>
             <select value={source} onChange={(e) => setSource(e.target.value)} className={field}>
               <option value="">Todas</option>
               {(data?.facets.sources ?? []).map((s) => (
@@ -115,7 +141,7 @@ export default function Oportunidades() {
             </select>
           </label>
           <label>
-            <span className="mb-1 block text-xs font-semibold text-slate-700">Ordenar por</span>
+            <span className="mb-1 block text-[0.8125rem] font-semibold text-ink">Ordenar por</span>
             <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className={field}>
               <option value="recentes">Mais recentes</option>
               <option value="prazo">Prazo mais próximo</option>
@@ -146,7 +172,7 @@ export default function Oportunidades() {
             </div>
             <div className={`grid gap-4 md:grid-cols-2 ${pending ? "opacity-60" : ""}`} aria-busy={pending} data-testid="catalogo-lista">
               {data.opportunities.map((o) => (
-                <OpportunityCard key={o.id} o={o} />
+                <OpportunityCard key={o.id} o={o} headingLevel={2} />
               ))}
             </div>
             {pages > 1 && (

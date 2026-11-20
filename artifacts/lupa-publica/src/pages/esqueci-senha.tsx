@@ -6,11 +6,12 @@
 
 import { useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, KeyRound } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { EMAIL_RE, FormAlert, TextField } from "@/components/lupa/ui";
 import { useCooldown } from "./cadastro";
+import { AuthLayout } from "@/components/lupa/AuthLayout";
 
 export default function EsqueciSenha() {
   const { requestPasswordReset } = useAuth();
@@ -44,34 +45,48 @@ export default function EsqueciSenha() {
   };
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
-        <KeyRound className="mx-auto h-10 w-10 text-primary" aria-hidden />
-        <h1 className="mt-2 text-center text-2xl font-bold text-slate-900">Recuperar senha</h1>
-        {sent ? (
-          <div className="mt-4 space-y-4" data-testid="reset-sent">
-            <FormAlert kind="success">
-              Se houver uma conta com <strong className="break-all">{email}</strong>, você receberá um link para criar uma nova senha. O link vale por tempo
-              limitado.
-            </FormAlert>
-            <Button variant="outline" className="w-full" disabled={left > 0} onClick={onSubmit as unknown as () => void}>
-              {left > 0 ? `Enviar de novo em ${left}s` : "Enviar de novo"}
-            </Button>
-          </div>
-        ) : (
-          <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
-            <p className="text-sm text-slate-600">Informe o e-mail da sua conta. Enviaremos um link para você definir uma nova senha.</p>
-            {error && <FormAlert>{error}</FormAlert>}
-            <TextField label="E-mail" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            <Button type="submit" className="h-11 w-full" disabled={submitting || left > 0} aria-busy={submitting}>
-              {submitting ? "Enviando…" : left > 0 ? `Aguarde ${left}s` : "Enviar link"}
-            </Button>
-          </form>
-        )}
-        <Link href="/login" className="mt-6 flex items-center justify-center gap-1 text-sm font-semibold text-primary hover:underline">
+    <AuthLayout
+      eyebrow="Conta docente"
+      title="Recuperar senha"
+      description="Informe o e-mail da sua conta. Enviaremos um link para você definir uma nova senha."
+      footer={
+        <Link href="/login" className="inline-flex items-center gap-1 font-semibold text-lens underline-offset-2 hover:underline">
           <ArrowLeft className="h-4 w-4" aria-hidden /> Voltar para o login
         </Link>
-      </div>
-    </div>
+      }
+    >
+      {sent ? (
+        <div className="space-y-4" data-testid="reset-sent">
+          <FormAlert kind="success">
+            Se houver uma conta com <strong className="break-all">{email}</strong>, você receberá um link para criar uma nova senha. O link vale por tempo
+            limitado.
+          </FormAlert>
+          <Button variant="outline" className="w-full" disabled={left > 0} onClick={onSubmit as unknown as () => void}>
+            {left > 0 ? `Enviar de novo em ${left}s` : "Enviar de novo"}
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={onSubmit} noValidate className="space-y-5">
+          {error && <FormAlert>{error}</FormAlert>}
+          <TextField
+            label="E-mail"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            spellCheck={false}
+            autoCapitalize="none"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            error={error && !EMAIL_RE.test(email.trim()) ? error : null}
+            placeholder="nome@undf.edu.br…"
+          />
+          <Button type="submit" className="w-full" disabled={submitting || left > 0} aria-busy={submitting}>
+            {submitting ? "Enviando…" : left > 0 ? `Aguarde ${left}s` : "Enviar link"}
+          </Button>
+        </form>
+      )}
+    </AuthLayout>
   );
 }

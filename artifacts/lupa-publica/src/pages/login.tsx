@@ -6,12 +6,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { safeNext } from "@/lib/safe-redirect";
 import { EMAIL_RE, FormAlert, PasswordField, TextField } from "@/components/lupa/ui";
 import { VerifyEmailNotice } from "./cadastro";
+import { AuthLayout } from "@/components/lupa/AuthLayout";
 
 export default function Login() {
   const [, navigate] = useLocation();
@@ -51,57 +51,66 @@ export default function Login() {
 
   if (showResend) {
     return (
-      <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-slate-50 px-4 py-12">
-        <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
-          <VerifyEmailNotice email={email} />
-        </div>
-      </div>
+      <AuthLayout eyebrow="Conta docente" title="Confirme seu e-mail para entrar">
+        <VerifyEmailNotice email={email} />
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <LogIn className="mx-auto h-10 w-10 text-primary" aria-hidden />
-          <h1 className="mt-2 text-2xl font-bold text-slate-900">Entrar</h1>
-          <p className="mt-1 text-sm text-slate-600">Acesse suas recomendações de editais e seu perfil docente.</p>
-        </div>
-        <div className="rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
-          <form onSubmit={onSubmit} noValidate className="space-y-4">
-            {(sessionExpired || params.get("motivo") === "sessao-expirada") && !error && (
-              <FormAlert kind="info">Sua sessão expirou. Entre novamente para continuar de onde parou.</FormAlert>
+    <AuthLayout
+      eyebrow="Conta docente"
+      title="Entrar na LUPA"
+      description="Acesse suas recomendações de editais, os editais salvos e o seu perfil."
+      footer={
+        <>
+          Ainda não tem conta?{" "}
+          <Link href="/cadastro" className="font-semibold text-lens underline-offset-2 hover:underline">
+            Criar conta docente
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit} noValidate className="space-y-5">
+        {(sessionExpired || params.get("motivo") === "sessao-expirada") && !error && (
+          <FormAlert kind="info">Sua sessão expirou. Entre novamente para continuar de onde parou.</FormAlert>
+        )}
+        {params.get("senha") === "redefinida" && !error && <FormAlert kind="success">Senha redefinida. Entre com a nova senha.</FormAlert>}
+        {error && (
+          <FormAlert>
+            {error.text}
+            {error.code === "email_not_confirmed" && (
+              <button type="button" className="ml-1 font-semibold underline" onClick={() => setShowResend(true)}>
+                Reenviar confirmação
+              </button>
             )}
-            {params.get("senha") === "redefinida" && !error && <FormAlert kind="success">Senha redefinida. Entre com a nova senha.</FormAlert>}
-            {error && (
-              <FormAlert>
-                {error.text}
-                {error.code === "email_not_confirmed" && (
-                  <button type="button" className="ml-1 font-semibold underline" onClick={() => setShowResend(true)}>
-                    Reenviar confirmação
-                  </button>
-                )}
-              </FormAlert>
-            )}
-            <TextField label="E-mail" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            <PasswordField label="Senha" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-            <div className="flex justify-end">
-              <Link href="/esqueci-senha" className="text-sm font-semibold text-primary hover:underline">
-                Esqueci minha senha
-              </Link>
-            </div>
-            <Button type="submit" className="h-11 w-full" disabled={submitting} aria-busy={submitting} data-testid="login-submit">
-              {submitting ? "Entrando…" : "Entrar"}
-            </Button>
-          </form>
-          <p className="mt-6 text-center text-sm text-slate-600">
-            Ainda não tem conta?{" "}
-            <Link href="/cadastro" className="font-semibold text-primary hover:underline">
-              Criar conta
+          </FormAlert>
+        )}
+        <TextField
+          label="E-mail"
+          name="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          spellCheck={false}
+          autoCapitalize="none"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          aria-invalid={error && !error.code ? true : undefined}
+        />
+        <div className="space-y-2">
+          <PasswordField label="Senha" name="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <div className="flex justify-end">
+            <Link href="/esqueci-senha" className="text-sm font-semibold text-lens underline-offset-2 hover:underline">
+              Esqueci minha senha
             </Link>
-          </p>
+          </div>
         </div>
-      </div>
-    </div>
+        <Button type="submit" className="w-full" disabled={submitting} aria-busy={submitting} data-testid="login-submit">
+          {submitting ? "Entrando…" : "Entrar"}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

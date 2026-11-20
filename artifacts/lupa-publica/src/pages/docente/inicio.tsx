@@ -75,7 +75,7 @@ export default function Inicio() {
                 />
               ) : (
                 relevant.map((r) => (
-                  <article key={r.opportunity_id} className="rounded-2xl border bg-white p-4 shadow-sm">
+                  <article key={r.opportunity_id} className="rounded-xl border border-hairline bg-white p-4">
                     <div className="flex flex-wrap gap-2">
                       <ThematicBadge level={r.result.thematic.level} score={r.result.thematic.score} />
                       <EligibilityBadge overall={r.result.eligibility.overall} />
@@ -95,7 +95,7 @@ export default function Inicio() {
             </section>
 
             <aside className="space-y-6">
-              <section aria-labelledby="prazos" className="rounded-2xl border bg-white p-5 shadow-sm">
+              <section aria-labelledby="prazos" className="rounded-xl border border-hairline bg-white p-5">
                 <h2 id="prazos" className="flex items-center gap-2 font-semibold text-slate-900">
                   <CalendarClock className="h-5 w-5 text-primary" aria-hidden /> Prazos próximos
                 </h2>
@@ -116,7 +116,7 @@ export default function Inicio() {
                 <p className="mt-3 text-xs text-slate-500">Só aparecem datas encontradas no texto oficial. Confirme sempre no edital.</p>
               </section>
 
-              <section aria-labelledby="pendencias" className="rounded-2xl border bg-white p-5 shadow-sm">
+              <section aria-labelledby="pendencias" className="rounded-xl border border-hairline bg-white p-5">
                 <h2 id="pendencias" className="flex items-center gap-2 font-semibold text-slate-900">
                   <ClipboardList className="h-5 w-5 text-primary" aria-hidden /> Pendências do perfil
                 </h2>
@@ -136,7 +136,7 @@ export default function Inicio() {
                 </Link>
               </section>
 
-              <section aria-labelledby="melhorar" className="rounded-2xl border border-sky-200 bg-sky-50 p-5">
+              <section aria-labelledby="melhorar" className="rounded-xl border border-sky-200 bg-sky-50 p-5">
                 <h2 id="melhorar" className="flex items-center gap-2 font-semibold text-sky-950">
                   <Lightbulb className="h-5 w-5" aria-hidden /> Como melhorar as recomendações
                 </h2>

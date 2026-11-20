@@ -414,9 +414,9 @@ export default function Projetos() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ex: Projeto de pesquisa sobre uso de machine learning para diagnóstico precoce de diabetes em populações rurais do Brasil. Equipe de 3 pesquisadores, duração de 18 meses, financiamento via CNPq..."
+              placeholder="Ex: Projeto de pesquisa sobre uso de machine learning para diagnóstico precoce de diabetes em populações rurais do Brasil. Equipe de 3 pesquisadores, duração de 18 meses, financiamento via CNPq…"
               rows={6}
-              className="w-full px-4 py-3 rounded-2xl border border-border/60 bg-card text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500/50 transition-all"
+              className="w-full px-4 py-3 rounded-2xl border border-field bg-card text-sm resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500/50 transition"
             />
             {description && (
               <p className="text-xs text-muted-foreground/40 mt-1 text-right">{description.length} caracteres</p>
@@ -698,13 +698,13 @@ export default function Projetos() {
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="Título do projeto"
-                  className="w-full px-3 py-2 rounded-lg border border-border/60 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                  className="w-full px-3 py-2 rounded-lg border border-field bg-card text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-violet-500/30"
                 />
                 <input
                   value={newObjective}
                   onChange={(e) => setNewObjective(e.target.value)}
                   placeholder="Objetivo principal (opcional)"
-                  className="w-full px-3 py-2 rounded-lg border border-border/60 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                  className="w-full px-3 py-2 rounded-lg border border-field bg-card text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-violet-500/30"
                 />
                 <div className="flex gap-2">
                   <Button size="sm" onClick={createLocalProject} className="bg-violet-600 hover:bg-violet-700 text-white">Criar</Button>
@@ -720,7 +720,7 @@ export default function Projetos() {
             const isExpanded = expandedProject === project.id;
 
             return (
-              <Card key={project.id} className={`transition-all ${isExpanded ? "border-violet-500/30" : ""}`}>
+              <Card key={project.id} className={`transition ${isExpanded ? "border-violet-500/30" : ""}`}>
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <button
@@ -753,7 +753,7 @@ export default function Projetos() {
                     </div>
                     <div className="h-1.5 rounded-full bg-muted/30 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-violet-500 transition-all"
+                        className="h-full rounded-full bg-violet-500 transition"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -776,13 +776,13 @@ export default function Projetos() {
                           <input
                             value={s.name}
                             onChange={(e) => updateStageName(project.id, s.id, e.target.value)}
-                            className={`flex-1 text-sm bg-transparent border-0 focus:outline-none transition-colors
+                            className={`flex-1 text-sm bg-transparent border-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 transition-colors
                               ${s.status === "concluída" ? "line-through text-muted-foreground/50" : ""}
                               ${s.status === "em andamento" ? "text-amber-600 dark:text-amber-400" : ""}`}
                           />
                           <button
                             onClick={() => deleteStage(project.id, s.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-all rounded"
+                            className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition rounded"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>

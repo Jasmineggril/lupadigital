@@ -5,6 +5,7 @@
  * recomendação explicada.
  */
 
+import { useEffect } from "react";
 import { Link, useRoute } from "wouter";
 import { ExternalLink, FileText } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -12,7 +13,24 @@ import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { FIELD_LABELS, formatDate, formatDateTime, type Opportunity, type Recommendation } from "@/lib/lupa-types";
 import { EmptyState, ErrorState, LoadingState, useAsync } from "@/components/lupa/ui";
-import { EligibilityBadge, FeedbackButtons, RecommendationExplanation, SaveButton, StatusBadge, ThematicBadge } from "@/components/lupa/opportunity";
+import { EligibilityBadge, FeedbackButtons, InterestButton, RecommendationExplanation, SaveButton, StatusBadge, ThematicBadge } from "@/components/lupa/opportunity";
+
+const FIELD_ORDER = [
+  "objeto",
+  "areas",
+  "elegibilidade",
+  "requisitos",
+  "restricoes",
+  "valores",
+  "contrapartidas",
+  "parcerias",
+  "documentos",
+  "datas",
+  "criterios_avaliacao",
+  "canal_inscricao",
+] as const;
+/** Campos que muitos editais simplesmente não têm: a ausência não é falha. */
+const OPTIONAL = new Set(["contrapartidas", "parcerias", "restricoes"]);
 
 const DOC_LABEL = { edital: "Edital", anexo: "Anexo", retificacao: "Retificação", resultado: "Resultado", outro: "Documento" } as const;
 const EVENT_LABEL = { retificacao: "Retificação", prorrogacao: "Prorrogação", resultado: "Resultado" } as const;
@@ -42,6 +60,11 @@ export default function OportunidadeDetalhe() {
     return { o: opportunity, rec };
   }, [id, user?.id]);
 
+  // Abrir o edital salvo marca a versão atual como vista (some o aviso "alterado")
+  useEffect(() => {
+    if (user && data?.rec?.saved) void apiFetch(`/saved-opportunities/${id}/seen`, { method: "POST" }).catch(() => undefined);
+  }, [user, data?.rec?.saved, id]);
+
   if (loading) return <LoadingState />;
   if (error)
     return (
@@ -69,8 +92,12 @@ export default function OportunidadeDetalhe() {
           </div>
           <h1 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">{o.title}</h1>
           <p className="mt-2 text-sm text-slate-600">
-            Capturado em {formatDateTime(o.captured_at)} · versão {o.version} ·{" "}
+            Última consulta à página oficial: {formatDateTime(o.last_seen_at)} ·{" "}
             {o.review_status === "revisado" ? "revisado pela administração" : "aguardando revisão humana"}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Histórico: encontrado em {formatDateTime(o.first_seen_at)} · conteúdo capturado em {formatDateTime(o.captured_at)} · versão {o.version}
+            {o.version > 1 ? ` (a página oficial mudou ${o.version - 1} ${o.version - 1 === 1 ? "vez" : "vezes"} desde a primeira captura)` : ""}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <a href={o.canonical_url} target="_blank" rel="noopener noreferrer" className={buttonVariants()}>
@@ -78,6 +105,7 @@ export default function OportunidadeDetalhe() {
               <span className="sr-only">(abre em nova aba)</span>
             </a>
             {user && rec && <SaveButton opportunityId={o.id} initial={rec.saved} />}
+            {user && rec && <InterestButton opportunityId={o.id} initial={Boolean(rec.interested)} />}
           </div>
         </div>
       </header>
@@ -90,8 +118,9 @@ export default function OportunidadeDetalhe() {
             </h2>
             <p className="mt-1 text-xs text-slate-500">Extraído automaticamente do texto oficial. O documento oficial prevalece.</p>
             <dl className="mt-4 space-y-4">
-              {(["objeto", "areas", "elegibilidade", "requisitos", "valores", "documentos", "datas", "restricoes"] as const).map((key) => {
+              {FIELD_ORDER.map((key) => {
                 const value = f[key];
+                if (!value && OPTIONAL.has(key)) return null;
                 return (
                   <div key={key}>
                     <dt className="text-sm font-semibold text-slate-900">{FIELD_LABELS[key]}</dt>

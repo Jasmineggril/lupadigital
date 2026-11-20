@@ -58,12 +58,33 @@ Detalhados em `lib/lupa/matching.ts` e na página `/como-funciona#compatibilidad
 
 - **Aderência temática** (0–100): termos do perfil encontrados no edital. Pesos: áreas e temas 3; palavras-chave e competências 2. O índice é a soma × 10, limitado a 100. **Não é probabilidade de aprovação.**
 - **Elegibilidade**, requisito a requisito: `atendida` (dado autodeclarado, a comprovar), `nao_atendida` ou `pendente_comprovacao`. Qualquer `nao_atendida` torna o resultado geral **impedimento**, mesmo com aderência alta, e gera um aviso.
+- **Interesse do usuário**, separado das anteriores e sem alterar o índice: o tipo do edital (inferido do título/objeto) está entre os tipos desejados? Algum "interesse do momento" do perfil aparece no edital?
+- **Pendências:** campos do edital não encontrados e dados do perfil que faltam.
+- **Limites do índice:** compara palavras, não sentido. Um edital com termos genéricos pode ter aderência alta; um edital de texto curto pode ter aderência "indeterminada". Por isso a explicação mostra cada termo e o trecho.
 - Cada recomendação registra `opportunity_version` e `profile_version`, e é recalculada quando qualquer uma das duas muda.
-- O feedback de relevância fica em `recommendation_feedback`.
+- O feedback de relevância fica em `recommendation_feedback` e **não altera os critérios**.
+
+## Interesse, avisos e catálogo
+
+- **Catálogo** (`GET /api/opportunities`): busca (`q`), filtros `area`, `source`, `status` (`aberta`, `encerrada`, `suspensa`, `cancelada`, `desconhecida`) e `prazo_dias` (prazo de submissão **confirmado no texto oficial** nos próximos N dias), ordenação `sort` (`recentes`, `prazo`, `titulo`) e paginação (`page`, `page_size` ≤ 50). Cada item traz `deadline` e `types` (tipo inferido do título/objeto).
+- **Salvar e demonstrar interesse:** `PUT /api/saved-opportunities/:id` salva; `PUT /api/saved-opportunities/:id/interest` `{ "interested": true }` salva e marca interesse. Cada salvo guarda a versão do edital vista; se a página oficial mudar, o item aparece como "alterado desde que você salvou" até ser aberto de novo (`POST …/:id/seen`).
+- **Central de avisos** (`GET /api/notifications`, `POST /api/notifications/read` com `{ "all": true }` ou `{ "ids": [...] }`): interna, sem e-mail.
+  - `recomendacao`: edital aberto, aderência alta ou média e sem impedimento conhecido.
+  - `mudanca_salvo`: edital salvo ganhou nova versão.
+  - Chave única (usuário, tipo, edital, versão) impede duplicação. A preferência "nunca" desliga os avisos de recomendação.
+- **Situação suspensa/cancelada:** só com frase que se refira ao edital ("o edital foi suspenso", "cancelamento do edital"), na própria página da oportunidade. A palavra solta não basta. Retificação e prorrogação continuam sendo **eventos** e não mudam a situação.
+- **Extração adicional:** contrapartidas, parcerias, critérios de avaliação e canal de inscrição, sempre com trecho e URL. Contrapartidas, parcerias e restrições são opcionais por natureza: a ausência não entra em `missing_fields`. A versão do extrator entra no hash do conteúdo, então melhorar a extração gera nova versão rastreável.
+
+### Administração
+
+- `GET /api/admin/sources` traz a última execução de cada fonte.
+- `GET /api/admin/profiles` e `POST /api/admin/compare` `{ "user_id": "...", "opportunity_id"?: "..." }`: calcula a compatibilidade **sem gravar**, para inspecionar critérios.
+- Importação institucional com relatório por registro: ver `docs/integracoes/elattes.md`.
+- Usuário comum recebe **403** em todas as rotas `/api/admin/*`.
 
 ## Banco
 
-Migração `supabase/migrations/20261120_docentes_oportunidades.sql`:
+Migrações `supabase/migrations/20261120_docentes_oportunidades.sql` e `20261121_docentes_refinamentos.sql` (esta só adiciona colunas e a tabela `notifications`, com RLS do dono):
 
 - Só cria tabelas novas, sem `DROP`, com RLS em todas.
 - Policies:

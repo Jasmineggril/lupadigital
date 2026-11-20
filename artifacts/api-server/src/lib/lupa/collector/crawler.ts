@@ -193,7 +193,8 @@ export async function persistCrawl(store: LupaStore, source: OpportunitySource, 
     const { fields, missing } = extractFields(page);
     const events = eventsFromDocuments(documents, page.text, page.url).sort((a, b) => `${a.kind}${a.title}`.localeCompare(`${b.kind}${b.title}`));
     const status = inferStatus(fields, page.text, now);
-    const hashInput = { title: page.title, text: page.text };
+    // A versão do extrator entra no hash: melhorar a extração gera nova versão rastreável
+    const hashInput = { title: page.title, text: page.text, extractor: EXTRACTOR_VERSION };
     const outcome = await store.upsertOpportunity({
       source_id: source.id,
       canonical_url: page.url,
@@ -230,6 +231,9 @@ export interface RunOptions extends CrawlOptions {
 }
 
 /** Executa a coleta com registro de início/fim e trava contra execução concorrente. */
+/** Incrementar quando a extração de campos mudar. */
+export const EXTRACTOR_VERSION = 2;
+
 export async function runCollection(store: LupaStore, sourceId: string, opts: RunOptions): Promise<CollectionRun> {
   const source = await store.getSource(sourceId);
   if (!source) throw new Error(`Fonte desconhecida: ${sourceId}`);

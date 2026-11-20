@@ -76,7 +76,10 @@ export default function Configuracoes() {
           <h2 id="notif" className="text-lg font-semibold text-slate-900">
             Notificações
           </h2>
-          <FormAlert kind="info">O envio de avisos por e-mail ainda não está ativo. Sua preferência fica registrada para quando estiver.</FormAlert>
+          <FormAlert kind="info">
+            Os avisos aparecem na <a href="/avisos" className="font-semibold underline">central de avisos</a> da plataforma. O envio por e-mail ainda não
+            está ativo: essa preferência fica registrada para quando estiver. “Nunca” desliga os avisos de novos editais compatíveis.
+          </FormAlert>
           {loading ? (
             <LoadingState />
           ) : error ? (
@@ -99,7 +102,7 @@ export default function Configuracoes() {
                 >
                   <option value="diaria">Diária</option>
                   <option value="semanal">Semanal</option>
-                  <option value="nunca">Nunca</option>
+                  <option value="nunca">Nunca (desliga avisos de novos editais)</option>
                 </select>
               </div>
               {prefsMsg && <FormAlert kind={prefsMsg.kind}>{prefsMsg.text}</FormAlert>}

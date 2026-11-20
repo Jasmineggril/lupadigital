@@ -10,9 +10,9 @@ import { Link } from "wouter";
 import { Play, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
-import { formatDateTime, type Opportunity } from "@/lib/lupa-types";
+import { formatDateTime, type Opportunity, type RecommendationResult } from "@/lib/lupa-types";
 import { EmptyState, ErrorState, FormAlert, LoadingState, PageHeader, useAsync } from "@/components/lupa/ui";
-import { StatusBadge } from "@/components/lupa/opportunity";
+import { EligibilityBadge, RecommendationExplanation, StatusBadge, ThematicBadge } from "@/components/lupa/opportunity";
 
 interface Source {
   id: string;
@@ -24,6 +24,32 @@ interface Source {
   request_delay_ms: number;
   frequency_minutes: number;
   enabled: boolean;
+  institution?: string | null;
+  source_type?: string;
+  last_run?: Run | null;
+}
+interface ImportReport {
+  importados: number;
+  atualizados: number;
+  ignorados: number;
+  rejeitados: number;
+  registros: Array<{ indice: number; situacao: "importado" | "atualizado" | "ignorado" | "rejeitado"; detalhe?: string }>;
+}
+interface ProfileSummary {
+  user_id: string;
+  display_name: string | null;
+  institution: string | null;
+  unit: string | null;
+  version: number;
+  updated_at: string;
+  terms: number;
+}
+interface CompareResult {
+  opportunity_id: string;
+  title: string;
+  opportunity_version: number;
+  review_status: Opportunity["review_status"];
+  result: RecommendationResult;
 }
 interface Run {
   id: string;
@@ -100,8 +126,22 @@ function SourceCard({ s, onChanged }: { s: Source; onChanged: () => void }) {
 
   return (
     <article className="rounded-2xl border bg-white p-5 shadow-sm">
-      <h3 className="font-semibold text-slate-900">{s.name}</h3>
-      <p className="text-xs text-slate-500">Domínios permitidos: {s.allowed_hosts.join(", ")}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="font-semibold text-slate-900">{s.name}</h3>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${s.enabled ? "bg-emerald-100 text-emerald-900" : "bg-slate-200 text-slate-700"}`}>
+          {s.enabled ? "Ativa" : "Inativa"}
+        </span>
+      </div>
+      <p className="text-xs text-slate-500">
+        {s.institution ? `${s.institution} · ` : ""}Tipo: {s.source_type === "portal_editais" ? "portal de editais" : s.source_type ?? "—"} · Domínios permitidos:{" "}
+        {s.allowed_hosts.join(", ")}
+      </p>
+      <p className="mt-1 text-xs text-slate-600">
+        Última execução:{" "}
+        {s.last_run
+          ? `${formatDateTime(s.last_run.started_at)} — ${RUN_LABEL[s.last_run.status].toLowerCase()} (${s.last_run.stats.oportunidades ?? 0} editais, ${s.last_run.errors.length} falha(s))`
+          : "nenhuma"}
+      </p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         {[
           ["Frequência desejada (min)", freq, setFreq, 60],
@@ -194,6 +234,7 @@ export default function Admin() {
   const opps = useAsync(() => apiFetch<{ opportunities: Opportunity[] }>("/admin/opportunities"));
   const [importText, setImportText] = useState("");
   const [importMsg, setImportMsg] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [importReport, setImportReport] = useState<ImportReport | null>(null);
 
   const refreshAll = () => {
     void runs.reload();
@@ -211,9 +252,13 @@ export default function Admin() {
       return;
     }
     try {
-      const r = await apiFetch<{ created: number; updated: number }>("/admin/profiles/import", { method: "POST", body: JSON.stringify(payload) });
-      setImportMsg({ kind: "success", text: `${r.created} perfil(is) criado(s) e ${r.updated} atualizado(s). Origem registrada como importação institucional.` });
-      setImportText("");
+      const r = await apiFetch<ImportReport>("/admin/profiles/import", { method: "POST", body: JSON.stringify(payload) });
+      setImportReport(r);
+      setImportMsg({
+        kind: r.rejeitados > 0 ? "error" : "success",
+        text: `${r.importados} importado(s), ${r.atualizados} atualizado(s), ${r.ignorados} ignorado(s), ${r.rejeitados} rejeitado(s). Origem registrada como importação institucional.`,
+      });
+      if (r.rejeitados === 0) setImportText("");
     } catch (err) {
       setImportMsg({ kind: "error", text: err instanceof Error ? err.message : "Falha na importação." });
     }
@@ -351,11 +396,130 @@ export default function Admin() {
               <FormAlert kind={importMsg.kind}>{importMsg.text}</FormAlert>
             </div>
           )}
+          {importReport && importReport.registros.some((r) => r.situacao === "rejeitado" || r.situacao === "ignorado") && (
+            <details className="mt-2 text-sm" open={importReport.rejeitados > 0}>
+              <summary className="cursor-pointer font-semibold text-slate-800">Detalhes por registro</summary>
+              <ul className="mt-1 space-y-1 text-xs">
+                {importReport.registros
+                  .filter((r) => r.situacao === "rejeitado" || r.situacao === "ignorado")
+                  .map((r) => (
+                    <li key={r.indice} className={r.situacao === "rejeitado" ? "text-red-800" : "text-slate-600"}>
+                      Registro {r.indice + 1}: {r.situacao}
+                      {r.detalhe ? ` — ${r.detalhe}` : ""}
+                    </li>
+                  ))}
+              </ul>
+            </details>
+          )}
           <Button className="mt-3" variant="outline" onClick={doImport} disabled={!importText.trim()}>
             Importar perfis
           </Button>
         </section>
+
+        <CompareSection />
       </div>
     </div>
+  );
+}
+
+/** Inspeção de comparações: calcula (sem gravar) a compatibilidade de um docente com o catálogo. */
+function CompareSection() {
+  const profiles = useAsync(() => apiFetch<{ profiles: ProfileSummary[] }>("/admin/profiles"));
+  const [userId, setUserId] = useState("");
+  const [results, setResults] = useState<{ profile_version: number; results: CompareResult[] } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+
+  const compare = async () => {
+    if (!userId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setResults(await apiFetch("/admin/compare", { method: "POST", body: JSON.stringify({ user_id: userId }) }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao comparar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section aria-labelledby="comparar" className="rounded-2xl border bg-white p-5 shadow-sm">
+      <h2 id="comparar" className="text-lg font-semibold text-slate-900">
+        Inspecionar comparações
+      </h2>
+      <p className="mt-1 text-sm text-slate-600">
+        Calcula a compatibilidade de um docente com todos os editais (inclusive pendentes e rejeitados), sem gravar nada. Útil para conferir os
+        critérios.
+      </p>
+      {profiles.loading ? (
+        <LoadingState />
+      ) : profiles.error ? (
+        <ErrorState message={profiles.error} onRetry={profiles.reload} />
+      ) : profiles.data!.profiles.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-600">Nenhum perfil docente cadastrado ainda.</p>
+      ) : (
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+          <label className="flex-1 space-y-1 text-sm">
+            <span className="block font-semibold text-slate-900">Docente</span>
+            <select value={userId} onChange={(e) => setUserId(e.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2">
+              <option value="">Escolha um perfil</option>
+              {profiles.data!.profiles.map((p) => (
+                <option key={p.user_id} value={p.user_id}>
+                  {p.display_name || "(sem nome)"} — {p.institution || "instituição não informada"} · {p.terms} termo(s) · v{p.version}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button onClick={compare} disabled={!userId || busy} aria-busy={busy}>
+            {busy ? "Calculando…" : "Comparar com o catálogo"}
+          </Button>
+        </div>
+      )}
+      {error && (
+        <div className="mt-3">
+          <FormAlert kind="error">{error}</FormAlert>
+        </div>
+      )}
+      {results &&
+        (results.results.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-600">O catálogo está vazio.</p>
+        ) : (
+          <ul className="mt-4 space-y-2">
+            {results.results.map((r) => (
+              <li key={r.opportunity_id} className="rounded-xl border p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-slate-900">{r.title}</span>
+                  <ThematicBadge level={r.result.thematic.level} score={r.result.thematic.score} />
+                  <EligibilityBadge overall={r.result.eligibility.overall} />
+                  <span className="text-xs text-slate-500">
+                    edital v{r.opportunity_version} · perfil v{results.profile_version} · {r.review_status}
+                  </span>
+                </div>
+                <button type="button" className="mt-1 text-xs font-semibold text-primary underline" onClick={() => setOpen(open === r.opportunity_id ? null : r.opportunity_id)} aria-expanded={open === r.opportunity_id}>
+                  {open === r.opportunity_id ? "Ocultar explicação" : "Ver explicação"}
+                </button>
+                {open === r.opportunity_id && (
+                  <div className="mt-2">
+                    <RecommendationExplanation
+                      rec={{
+                        opportunity_id: r.opportunity_id,
+                        opportunity_version: r.opportunity_version,
+                        profile_version: results.profile_version,
+                        computed_at: new Date().toISOString(),
+                        result: r.result,
+                        opportunity: {} as Opportunity,
+                        feedback: null,
+                        saved: false,
+                      }}
+                    />
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        ))}
+    </section>
   );
 }

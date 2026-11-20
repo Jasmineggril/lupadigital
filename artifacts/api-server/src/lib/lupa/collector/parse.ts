@@ -16,8 +16,8 @@
 
 import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
-import type { DocumentKind, EventKind, Evidenced, OpportunityFields } from "../types";
-import { EXTRACTED_FIELD_KEYS } from "../types";
+import type { DocumentKind, EventKind, Evidenced, OpportunityFields, OpportunityStatus } from "../types";
+import { EXTRACTED_FIELD_KEYS, OPTIONAL_FIELD_KEYS } from "../types";
 import { isDocumentUrl, normalizeUrl } from "./urls";
 
 export type PageKind = "categoria" | "oportunidade";
@@ -148,7 +148,15 @@ function extractDates(lines: string[], url: string) {
 
 const SUBMISSION_LABEL = /^(inscri|submiss|propostas|envio|prazo|encerramento)/;
 
-export function inferStatus(fields: OpportunityFields, text: string, now = new Date()): "aberta" | "encerrada" | "desconhecida" {
+/**
+ * Situação da chamada. Só usa o texto da PRÓPRIA página da oportunidade (o crawler
+ * nunca chama isto em página de categoria). Suspensão/cancelamento exigem frase
+ * que se refira ao edital/chamada — a palavra solta não basta.
+ * Encontrar "retificação" ou "prorrogação" NÃO muda a situação: são eventos.
+ */
+export function inferStatus(fields: OpportunityFields, text: string, now = new Date()): OpportunityStatus {
+  if (/\b(edital|chamada|processo seletivo)\b[^.\n]{0,40}\b(cancelad[oa]|revogad[oa]|anulad[oa])\b|\b(cancelamento|revoga[cç][aã]o|anula[cç][aã]o)\s+d[oa]\s+(edital|chamada)\b/i.test(text)) return "cancelada";
+  if (/\b(edital|chamada|processo seletivo)\b[^.\n]{0,40}\bsuspens[oa]\b|\bsuspens[aã]o\s+d[oa]\s+(edital|chamada)\b/i.test(text)) return "suspensa";
   if (/\b(edital|chamada)\s+(encerrad[oa]|finalizad[oa])\b|inscri[cç][õo]es\s+encerradas/i.test(text)) return "encerrada";
   const deadlines = (fields.datas ?? []).filter((d) => d.iso && SUBMISSION_LABEL.test(d.label)).map((d) => d.iso as string);
   if (deadlines.length === 0) return "desconhecida";
@@ -192,7 +200,19 @@ export function extractFields(page: ParsedPage): { fields: OpportunityFields; mi
   const restr = grab(lines, /\bvedad[oa]s?\b|n[aã]o\s+poder[aã]o|[ée]\s+proibid|n[aã]o\s+ser[aã]o\s+aceit/i, url);
   if (restr.length) fields.restricoes = restr;
 
-  const missing = EXTRACTED_FIELD_KEYS.filter((k) => fields[k] === undefined);
+  const contra = grab(lines, /\bcontrapartida/i, url);
+  if (contra.length) fields.contrapartidas = contra;
+
+  const parc = grab(lines, /\bparceri|\bcoopera[cç][aã]o\s+(com|entre)|\bconsórcio|\binstitui[cç][aã]o\s+parceira|\bco-?executora/i, url);
+  if (parc.length) fields.parcerias = parc;
+
+  const crit = grab(lines, /crit[eé]rios?\s+(de\s+)?(avalia[cç][aã]o|julgamento|sele[cç][aã]o|classifica[cç][aã]o)|\bpontua[cç][aã]o\b|\bnota\s+(m[ií]nima|final)/i, url);
+  if (crit.length) fields.criterios_avaliacao = crit;
+
+  const canal = grab(lines, /(inscri[cç][õo]es|propostas|submiss[aã]o)\s+(ser[aã]o|dever[aã]o ser)\s+(realizad|feit|enviad|submetid)|\bsistema\s+[A-Z]|\bplataforma\b|\bformul[aá]rio\s+eletr[oô]nico|\bpor\s+meio\s+do\s+(site|sistema|endere[cç]o)/i, url, 3);
+  if (canal.length) fields.canal_inscricao = canal;
+
+  const missing = EXTRACTED_FIELD_KEYS.filter((k) => fields[k] === undefined && !OPTIONAL_FIELD_KEYS.has(k));
   return { fields, missing };
 }
 

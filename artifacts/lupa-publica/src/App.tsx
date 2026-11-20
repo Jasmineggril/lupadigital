@@ -85,6 +85,7 @@ const Oportunidades = React.lazy(() => import("@/pages/docente/oportunidades"));
 const OportunidadeDetalhe = React.lazy(() => import("@/pages/docente/oportunidade"));
 const Recomendacoes = React.lazy(() => import("@/pages/docente/recomendacoes"));
 const Salvos = React.lazy(() => import("@/pages/docente/salvos"));
+const Avisos = React.lazy(() => import("@/pages/docente/avisos"));
 const Perfil = React.lazy(() => import("@/pages/docente/perfil"));
 const Configuracoes = React.lazy(() => import("@/pages/docente/configuracoes"));
 const Admin = React.lazy(() => import("@/pages/docente/admin"));
@@ -178,6 +179,9 @@ function Router() {
             </Route>
             <Route path="/perfil">
               <ProtectedRoute><Perfil /></ProtectedRoute>
+            </Route>
+            <Route path="/avisos">
+              <ProtectedRoute><Avisos /></ProtectedRoute>
             </Route>
             <Route path="/configuracoes">
               <ProtectedRoute><Configuracoes /></ProtectedRoute>

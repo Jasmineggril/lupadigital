@@ -23,6 +23,12 @@ export const LattesSummarySchema = z
     unidade: z.string().trim().max(200).optional(),
     instituicao: z.string().trim().max(200).optional(),
     titulacao: z.enum(["graduacao", "especializacao", "mestrado", "doutorado"]).optional(),
+    /** ORCID (opcional), formato 0000-0000-0000-0000 */
+    orcid: z.string().regex(/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/).optional(),
+    /** Origem do resumo (ex.: "elattes", "exportacao_manual") — informativo */
+    origem: z.string().trim().max(60).optional(),
+    /** Versão do resumo na origem, se houver */
+    versao: z.union([z.number().int().min(0), z.string().max(40)]).optional(),
     areas: z.array(z.string().trim().min(2).max(120)).max(30).default([]),
     competencias: z.array(z.string().trim().min(2).max(120)).max(40).default([]),
     temas: z.array(z.string().trim().min(2).max(120)).max(40).default([]),

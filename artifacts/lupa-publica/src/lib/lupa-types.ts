@@ -19,7 +19,13 @@ export interface OpportunityFields {
   documentos?: Evidenced[];
   datas?: Array<Evidenced & { label: string; iso: string | null }>;
   restricoes?: Evidenced[];
+  contrapartidas?: Evidenced[];
+  parcerias?: Evidenced[];
+  criterios_avaliacao?: Evidenced[];
+  canal_inscricao?: Evidenced[];
 }
+
+export type OpportunityStatus = "aberta" | "encerrada" | "suspensa" | "cancelada" | "desconhecida";
 
 export interface Opportunity {
   id: string;
@@ -27,7 +33,7 @@ export interface Opportunity {
   canonical_url: string;
   edital_number: string | null;
   title: string;
-  status: "aberta" | "encerrada" | "desconhecida";
+  status: OpportunityStatus;
   fields: OpportunityFields;
   missing_fields: string[];
   version: number;
@@ -37,6 +43,32 @@ export interface Opportunity {
   captured_at: string;
   documents: Array<{ url: string; kind: "edital" | "anexo" | "retificacao" | "resultado" | "outro"; title: string }>;
   events: Array<{ kind: "retificacao" | "prorrogacao" | "resultado"; title: string; url: string | null; event_date: string | null; evidence: string }>;
+  /** Último prazo de submissão confirmado no texto oficial (calculado no servidor) */
+  deadline?: string | null;
+  /** Tipos inferidos do título/objeto (ex.: bolsa, evento) */
+  types?: string[];
+  interested?: boolean;
+  changed_since_saved?: boolean;
+}
+
+export interface CatalogResponse {
+  opportunities: Opportunity[];
+  total: number;
+  page: number;
+  page_size: number;
+  facets: { sources: string[]; areas: string[] };
+  updated_at: string | null;
+}
+
+export interface NotificationItem {
+  id: string;
+  kind: "recomendacao" | "mudanca_salvo";
+  opportunity_id: string;
+  opportunity_version: number;
+  title: string;
+  body: string;
+  read_at: string | null;
+  created_at: string;
 }
 
 export type EligibilityState = "atendida" | "nao_atendida" | "pendente_comprovacao";
@@ -47,6 +79,7 @@ export interface RecommendationResult {
     overall: "sem_impedimento_conhecido" | "impedimento" | "pendente";
     checks: Array<{ requirement: string; evidence: string; source_url: string; state: EligibilityState; reason: string; profile_basis: string | null }>;
   };
+  interest?: { opportunity_type: "corresponde" | "nao_corresponde" | "nao_informado"; temporary_matches: string[] };
   missing: string[];
   warnings: string[];
   summary: string;
@@ -61,6 +94,7 @@ export interface Recommendation {
   opportunity: Opportunity;
   feedback: { relevant: boolean } | null;
   saved: boolean;
+  interested?: boolean;
 }
 
 export type FieldSource = "autodeclarado" | "importacao_json_provisoria" | "importacao_institucional" | "elattes";
@@ -80,6 +114,9 @@ export interface TeacherProfile {
   lattes_url: string | null;
   declared_degree: "graduacao" | "especializacao" | "mestrado" | "doutorado" | null;
   declared_bond: "efetivo" | "temporario" | "visitante" | "aposentado" | "sem_vinculo" | null;
+  orcid: string | null;
+  temporary_interests: string[];
+  collaboration_role: "coordenar" | "colaborar" | "ambos" | null;
   notification_prefs: { email: boolean; frequency: "diaria" | "semanal" | "nunca" };
   field_sources: Record<string, { source: FieldSource; updated_at: string }>;
   version: number;
@@ -112,7 +149,21 @@ export const FIELD_LABELS: Record<string, string> = {
   documentos: "Documentos",
   datas: "Datas",
   restricoes: "Restrições",
+  contrapartidas: "Contrapartidas",
+  parcerias: "Parcerias",
+  criterios_avaliacao: "Critérios de avaliação",
+  canal_inscricao: "Canal de inscrição",
 };
+
+export const STATUS_LABELS: Record<OpportunityStatus, string> = {
+  aberta: "Aberta",
+  encerrada: "Encerrada",
+  suspensa: "Suspensa",
+  cancelada: "Cancelada",
+  desconhecida: "Situação não confirmada",
+};
+
+export const SOURCE_NAMES: Record<string, string> = { fapdf: "FAPDF" };
 
 export function formatDate(iso: string | null | undefined) {
   if (!iso) return "—";

@@ -45,6 +45,9 @@ describe("extração", () => {
     expect(fields.restricoes?.[0].evidence).toMatch(/vedada/);
     expect(fields.datas?.some((d) => d.iso === "2099-06-30" && d.label === "inscrições")).toBe(true);
     expect(fields.documentos?.[0].evidence).toMatch(/currículo Lattes/);
+    expect(fields.criterios_avaliacao?.[0].evidence).toMatch(/mérito científico/);
+    expect(fields.canal_inscricao?.[0].evidence).toMatch(/sistema SEI/);
+    expect(fields.contrapartidas?.[0].evidence).toMatch(/10%/);
     expect(missing).toEqual([]);
     expect(inferStatus(fields, p.text, new Date("2026-11-20"))).toBe("aberta");
   });
@@ -53,6 +56,18 @@ describe("extração", () => {
     const { fields, missing } = extractFields(p);
     expect(missing).toEqual(expect.arrayContaining(["elegibilidade", "valores", "datas"]));
     expect(inferStatus(fields, p.text)).toBe("desconhecida");
+  });
+});
+
+describe("situação da chamada", () => {
+  const f = { datas: [{ label: "inscrições", value: "", evidence: "", source_url: "", iso: "2099-01-01" }] };
+  it("suspensão/cancelamento exigem frase sobre o edital", () => {
+    expect(inferStatus(f, "O Edital nº 01/2026 foi suspenso por decisão judicial.")).toBe("suspensa");
+    expect(inferStatus(f, "Fica tornado público o cancelamento do edital.")).toBe("cancelada");
+  });
+  it("palavra solta não muda a situação; retificação/prorrogação são eventos", () => {
+    expect(inferStatus(f, "Pagamentos suspensos no feriado. Inscrições cancelam a anterior.")).toBe("aberta");
+    expect(inferStatus(f, "1ª Retificação do edital. Prorrogação do prazo de inscrições.")).toBe("aberta");
   });
 });
 

@@ -4,7 +4,7 @@
  *
  * Logado:   Início · Oportunidades · Minhas recomendações · Editais salvos · Meu perfil
  *           · Administração (só admin, informado pelo servidor) · Ferramentas
- *           Menu da conta: Configurações · Sair
+ *           Avisos (sino com contador de não lidos) · Menu da conta: Configurações · Sair
  * Visitante: Início · Oportunidades · Aprender · Glossário · Como funciona · Ferramentas
  *           · Entrar · Criar conta
  *
@@ -14,9 +14,33 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronDown, LogOut, Menu, Settings, UserCircle, X } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, Settings, UserCircle, X } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { apiFetch } from "@/lib/api";
+
+/** Contador de avisos não lidos; atualiza ao trocar de página e ao marcar como lido. */
+function useUnreadCount(enabled: boolean, location: string) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) {
+      setCount(0);
+      return;
+    }
+    let alive = true;
+    const load = () =>
+      apiFetch<{ unread: number }>("/notifications")
+        .then((r) => alive && setCount(r.unread))
+        .catch(() => undefined);
+    void load();
+    window.addEventListener("lupa:notifications-changed", load);
+    return () => {
+      alive = false;
+      window.removeEventListener("lupa:notifications-changed", load);
+    };
+  }, [enabled, location]);
+  return count;
+}
 
 type NavItem = { href: string; label: string };
 
@@ -113,6 +137,8 @@ export function Navbar() {
   useDismiss(accountOpen, () => setAccountOpen(false), accountRef, accountBtn);
 
   useEffect(() => setMobileOpen(false), [location]);
+  const unread = useUnreadCount(Boolean(user), location);
+  const bellLabel = unread > 0 ? `Avisos — ${unread} não ${unread === 1 ? "lido" : "lidos"}` : "Avisos";
 
   const main: NavItem[] = user
     ? [
@@ -162,6 +188,22 @@ export function Navbar() {
             </Link>
           ))}
           <Dropdown label="Ferramentas" items={tools} location={location} />
+          {user && (
+            <Link
+              href="/avisos"
+              aria-label={bellLabel}
+              aria-current={isActive(location, "/avisos") ? "page" : undefined}
+              className={`relative p-2 text-slate-700 hover:text-primary ${focusRing}`}
+              data-testid="nav-avisos"
+            >
+              <Bell className="h-5 w-5" aria-hidden />
+              {unread > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 min-w-[1.1rem] rounded-full bg-red-600 px-1 text-center text-[0.65rem] font-bold leading-[1.1rem] text-white" aria-hidden>
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
+            </Link>
+          )}
           {user ? (
             <div ref={accountRef} className="relative">
               <button
@@ -242,6 +284,9 @@ export function Navbar() {
               {user ? (
                 <div className="space-y-1">
                   <p className="px-3 text-sm text-slate-600">{user.email}</p>
+                  <Link href="/avisos" className={`block rounded-xl px-3 py-3 text-base text-slate-800 ${focusRing}`}>
+                    {unread > 0 ? `Avisos (${unread} não ${unread === 1 ? "lido" : "lidos"})` : "Avisos"}
+                  </Link>
                   <Link href="/configuracoes" className={`block rounded-xl px-3 py-3 text-base text-slate-800 ${focusRing}`}>
                     Configurações
                   </Link>

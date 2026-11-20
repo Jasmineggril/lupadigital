@@ -22,6 +22,15 @@
  *    Resultado geral: "impedimento" se houver qualquer nao_atendida, mesmo com alta
  *    aderência temática; "pendente" se houver pendências; senão
  *    "sem_impedimento_conhecido".
+ *
+ * 3. Interesse do usuário — separado das duas anteriores e sem alterar o índice:
+ *    - tipo de oportunidade: o tipo do edital (inferido por palavras do título/objeto,
+ *      ex.: "bolsa", "evento") está entre os tipos desejados no perfil?
+ *    - interesses temporários do perfil encontrados no edital.
+ *
+ * 4. Pendências: campos do edital não encontrados e dados do perfil que faltam.
+ *
+ * O feedback "útil / não útil" é guardado, mas NÃO altera estes critérios.
  */
 
 import type { EligibilityCheck, Opportunity, RecommendationResult, TeacherProfile } from "./types";
@@ -176,8 +185,46 @@ function evaluateRequirement(text: string, sourceUrl: string, p: TeacherProfile)
   return null;
 }
 
+const TYPE_PATTERNS: Array<[string, RegExp]> = [
+  ["bolsa", /\bbolsas?\b/],
+  ["evento", /\beventos?\b|\bcongress|\bsimp[oó]sio|\bsemin[aá]rio|\bparticipa[cç][aã]o em eventos/],
+  ["publicacao", /\bpublica[cç][aã]o\b|\bpublica[cç][õo]es\b|\bperi[oó]dicos?\b|\blivros?\b/],
+  ["inovacao", /\binova[cç][aã]o\b|\bstartups?\b|\bempreendedor|\btecnol[oó]gic[oa] e inova/],
+  ["infraestrutura", /\binfraestrutura\b|\bequipamentos?\b|\blaborat[oó]rios?\b/],
+  ["formacao", /\bforma[cç][aã]o\b|\bcapacita[cç][aã]o\b|\bcursos?\b/],
+  ["auxilio_pesquisa", /\bpesquisa\b|\bprojetos? de pesquisa\b|\bpesquisador/],
+];
+
+/** Tipos de oportunidade inferidos do título e do objeto (pode haver mais de um). */
+export function inferOpportunityTypes(o: Opportunity): string[] {
+  const text = `${o.title} ${o.fields.objeto?.evidence ?? ""}`.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const plain = `${o.title} ${o.fields.objeto?.evidence ?? ""}`.toLowerCase();
+  return TYPE_PATTERNS.filter(([, re]) => re.test(plain) || re.test(text)).map(([t]) => t);
+}
+
+function interest(profile: TeacherProfile, o: Opportunity): RecommendationResult["interest"] {
+  const types = inferOpportunityTypes(o);
+  const wanted = profile.opportunity_types ?? [];
+  const opportunity_type =
+    wanted.length === 0 || types.length === 0 ? "nao_informado" : types.some((t) => wanted.includes(t)) ? "corresponde" : "nao_corresponde";
+  const tokens = new Set(opportunityPassages(o).flatMap((p) => significantTokens(p.text)));
+  const temporary_matches = (profile.temporary_interests ?? []).filter((term) => {
+    const t = significantTokens(term);
+    return t.length > 0 && t.every((x) => tokens.has(x));
+  });
+  return { opportunity_type, temporary_matches };
+}
+
+const STATUS_WARNING: Partial<Record<Opportunity["status"], string>> = {
+  encerrada: "Prazo de submissão encerrado segundo a fonte.",
+  suspensa: "Edital suspenso segundo a fonte oficial.",
+  cancelada: "Edital cancelado segundo a fonte oficial.",
+  desconhecida: "Situação do prazo não confirmada na fonte.",
+};
+
 export function computeRecommendation(profile: TeacherProfile, o: Opportunity): RecommendationResult {
   const them = thematic(profile, o);
+  const inter = interest(profile, o);
   const requirementTexts = [...(o.fields.elegibilidade ?? []), ...(o.fields.requisitos ?? [])];
   const checks: EligibilityCheck[] = [];
   const seen = new Set<string>();
@@ -214,7 +261,8 @@ export function computeRecommendation(profile: TeacherProfile, o: Opportunity): 
   if (overall === "impedimento" && (them.level === "alta" || them.level === "media")) {
     warnings.push("Aderência temática " + them.level + ", mas há requisito eliminatório não atendido. Confira antes de investir na proposta.");
   }
-  if (o.status !== "aberta") warnings.push(o.status === "encerrada" ? "Prazo de submissão encerrado segundo a fonte." : "Situação do prazo não confirmada na fonte.");
+  if (STATUS_WARNING[o.status]) warnings.push(STATUS_WARNING[o.status] as string);
+  if ((profile.opportunity_types ?? []).length === 0) missing.push("Perfil: tipos de oportunidade desejados não informados.");
 
   const themText =
     them.level === "indeterminada"
@@ -229,8 +277,11 @@ export function computeRecommendation(profile: TeacherProfile, o: Opportunity): 
   return {
     thematic: them,
     eligibility: { overall, checks },
+    interest: inter,
     missing,
     warnings,
-    summary: `${themText} ${eligText}`,
+    summary: `${themText} ${eligText}${
+      inter.opportunity_type === "corresponde" ? " Tipo de oportunidade entre os que você procura." : ""
+    }${inter.temporary_matches.length ? ` Relacionado ao seu interesse atual: ${inter.temporary_matches.join(", ")}.` : ""}`,
   };
 }

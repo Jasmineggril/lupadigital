@@ -13,13 +13,17 @@ import { randomUUID } from "node:crypto";
 import getSupabaseAdmin from "../supabase";
 import type {
   CollectionRun,
+  NotificationItem,
   Opportunity,
   OpportunityDocument,
   OpportunityEvent,
   OpportunitySource,
   Recommendation,
+  SavedItem,
   TeacherProfile,
 } from "./types";
+
+export type NotificationDraft = Omit<NotificationItem, "id" | "read_at" | "created_at">;
 
 export type OpportunityUpsert = Omit<
   Opportunity,
@@ -63,7 +67,16 @@ export interface LupaStore {
   getFeedback(userId: string): Promise<Array<{ opportunity_id: string; relevant: boolean; comment: string | null }>>;
 
   listSaved(userId: string): Promise<string[]>;
+  listSavedItems(userId: string): Promise<SavedItem[]>;
   setSaved(userId: string, opportunityId: string, saved: boolean): Promise<void>;
+  /** Salva (se preciso) e marca/desmarca interesse; guarda a versão vista. */
+  setInterest(userId: string, opportunityId: string, interested: boolean, version: number): Promise<void>;
+  markSavedSeen(userId: string, opportunityId: string, version: number): Promise<void>;
+
+  /** Insere só os avisos novos (deduplicados por usuário/tipo/oportunidade/versão). Retorna quantos entraram. */
+  addNotifications(items: NotificationDraft[]): Promise<number>;
+  listNotifications(userId: string, limit?: number): Promise<NotificationItem[]>;
+  markNotificationsRead(userId: string, ids: string[] | "all"): Promise<number>;
 }
 
 /** Fonte FAPDF padrão (a URL inicial precisa ser confirmada no site real; ver docs). */
@@ -81,6 +94,8 @@ export function defaultSources(now = new Date().toISOString()): OpportunitySourc
       request_delay_ms: 1_500,
       frequency_minutes: 1_440,
       enabled: true,
+      institution: "Fundação de Apoio à Pesquisa do Distrito Federal",
+      source_type: "portal_editais",
       updated_at: now,
     },
   ];
@@ -106,7 +121,8 @@ export class MemoryStore implements LupaStore {
   runs: CollectionRun[] = [];
   recs = new Map<string, Recommendation>();
   feedback = new Map<string, { opportunity_id: string; relevant: boolean; comment: string | null }>();
-  saved = new Map<string, Set<string>>();
+  saved = new Map<string, Map<string, SavedItem>>();
+  notifications: NotificationItem[] = [];
 
   async getProfile(userId: string) {
     const p = this.profiles.get(userId);
@@ -232,13 +248,56 @@ export class MemoryStore implements LupaStore {
   }
 
   async listSaved(userId: string) {
-    return [...(this.saved.get(userId) ?? [])];
+    return [...(this.saved.get(userId)?.keys() ?? [])];
+  }
+  async listSavedItems(userId: string) {
+    return [...(this.saved.get(userId)?.values() ?? [])].map((i) => ({ ...i }));
   }
   async setSaved(userId: string, opportunityId: string, saved: boolean) {
-    const set = this.saved.get(userId) ?? new Set<string>();
-    if (saved) set.add(opportunityId);
-    else set.delete(opportunityId);
-    this.saved.set(userId, set);
+    const map = this.saved.get(userId) ?? new Map<string, SavedItem>();
+    if (saved) {
+      if (!map.has(opportunityId)) {
+        const o = this.opportunities.get(opportunityId);
+        map.set(opportunityId, { opportunity_id: opportunityId, interested: false, seen_version: o?.version ?? null });
+      }
+    } else map.delete(opportunityId);
+    this.saved.set(userId, map);
+  }
+  async setInterest(userId: string, opportunityId: string, interested: boolean, version: number) {
+    const map = this.saved.get(userId) ?? new Map<string, SavedItem>();
+    map.set(opportunityId, { opportunity_id: opportunityId, interested, seen_version: version });
+    this.saved.set(userId, map);
+  }
+  async markSavedSeen(userId: string, opportunityId: string, version: number) {
+    const item = this.saved.get(userId)?.get(opportunityId);
+    if (item) item.seen_version = version;
+  }
+
+  async addNotifications(items: NotificationDraft[]) {
+    let added = 0;
+    for (const n of items) {
+      const dup = this.notifications.some(
+        (x) => x.user_id === n.user_id && x.kind === n.kind && x.opportunity_id === n.opportunity_id && x.opportunity_version === n.opportunity_version,
+      );
+      if (dup) continue;
+      this.notifications.unshift({ ...n, id: randomUUID(), read_at: null, created_at: new Date().toISOString() });
+      added++;
+    }
+    return added;
+  }
+  async listNotifications(userId: string, limit = 50) {
+    return this.notifications.filter((n) => n.user_id === userId).slice(0, limit).map((n) => ({ ...n }));
+  }
+  async markNotificationsRead(userId: string, ids: string[] | "all") {
+    const now = new Date().toISOString();
+    let n = 0;
+    for (const x of this.notifications) {
+      if (x.user_id !== userId || x.read_at) continue;
+      if (ids !== "all" && !ids.includes(x.id)) continue;
+      x.read_at = now;
+      n++;
+    }
+    return n;
   }
 }
 
@@ -422,9 +481,52 @@ export class SupabaseStore implements LupaStore {
     }>;
     return rows.map((r) => r.opportunity_id);
   }
+  async listSavedItems(userId: string) {
+    return (check(
+      await this.db.from("saved_opportunities").select("opportunity_id,interested,seen_version").eq("user_id", userId),
+    ) ?? []) as SavedItem[];
+  }
+  async setInterest(userId: string, opportunityId: string, interested: boolean, version: number) {
+    check(
+      await this.db
+        .from("saved_opportunities")
+        .upsert({ user_id: userId, opportunity_id: opportunityId, interested, seen_version: version }, { onConflict: "user_id,opportunity_id" }),
+    );
+  }
+  async markSavedSeen(userId: string, opportunityId: string, version: number) {
+    check(await this.db.from("saved_opportunities").update({ seen_version: version }).eq("user_id", userId).eq("opportunity_id", opportunityId));
+  }
+
+  async addNotifications(items: NotificationDraft[]) {
+    if (items.length === 0) return 0;
+    const rows = (check(
+      await this.db
+        .from("notifications")
+        .upsert(items, { onConflict: "user_id,kind,opportunity_id,opportunity_version", ignoreDuplicates: true })
+        .select("id"),
+    ) ?? []) as Array<{ id: string }>;
+    return rows.length;
+  }
+  async listNotifications(userId: string, limit = 50) {
+    return (check(
+      await this.db.from("notifications").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(limit),
+    ) ?? []) as NotificationItem[];
+  }
+  async markNotificationsRead(userId: string, ids: string[] | "all") {
+    let q = this.db.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", userId).is("read_at", null);
+    if (ids !== "all") q = q.in("id", ids);
+    const rows = (check(await q.select("id")) ?? []) as Array<{ id: string }>;
+    return rows.length;
+  }
+
   async setSaved(userId: string, opportunityId: string, saved: boolean) {
     if (saved) {
-      check(await this.db.from("saved_opportunities").upsert({ user_id: userId, opportunity_id: opportunityId }, { onConflict: "user_id,opportunity_id" }));
+      const o = await this.getOpportunity(opportunityId);
+      check(
+        await this.db
+          .from("saved_opportunities")
+          .upsert({ user_id: userId, opportunity_id: opportunityId, seen_version: o?.version ?? null }, { onConflict: "user_id,opportunity_id", ignoreDuplicates: true }),
+      );
     } else {
       check(await this.db.from("saved_opportunities").delete().eq("user_id", userId).eq("opportunity_id", opportunityId));
     }

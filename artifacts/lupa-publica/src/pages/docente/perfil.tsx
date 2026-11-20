@@ -86,6 +86,9 @@ export default function Perfil() {
       current_projects: form.current_projects || null,
       lattes_id: form.lattes_id || null,
       lattes_url: form.lattes_url || null,
+      orcid: form.orcid || null,
+      temporary_interests: form.temporary_interests ?? [],
+      collaboration_role: form.collaboration_role || null,
     };
     try {
       const r = await apiFetch<{ profile: TeacherProfile }>("/profile", { method: "PUT", body: JSON.stringify(body) });
@@ -205,7 +208,34 @@ export default function Perfil() {
               </div>
             </Section>
 
-            <Section title="Oportunidades desejadas">
+            <Section
+              title="Oportunidades desejadas"
+              description="Usado na parte “Seu interesse” da recomendação. Não altera o índice de aderência nem a elegibilidade."
+            >
+              <TermsInput
+                label="Interesses do momento"
+                value={form!.temporary_interests ?? []}
+                onChange={(v) => set("temporary_interests", v)}
+                placeholder="ex.: evento internacional em 2027"
+              />
+              <SourceTag profile={data!.profile} field="temporary_interests" />
+              <div className="space-y-1.5">
+                <label htmlFor="collab" className="block text-sm font-semibold text-slate-900">
+                  Disponibilidade
+                </label>
+                <select
+                  id="collab"
+                  className={selectCls}
+                  value={form!.collaboration_role ?? ""}
+                  onChange={(e) => set("collaboration_role", (e.target.value || null) as Editable["collaboration_role"])}
+                >
+                  <option value="">Não informar</option>
+                  <option value="coordenar">Coordenar propostas</option>
+                  <option value="colaborar">Colaborar em propostas de outros</option>
+                  <option value="ambos">Coordenar ou colaborar</option>
+                </select>
+                <SourceTag profile={data!.profile} field="collaboration_role" />
+              </div>
               <fieldset>
                 <legend className="text-sm font-semibold text-slate-900">Tipos de oportunidade</legend>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -224,10 +254,11 @@ export default function Perfil() {
               </fieldset>
             </Section>
 
-            <Section title="Currículo Lattes" description="Informe o identificador (16 dígitos) ou o endereço do seu currículo.">
+            <Section title="Currículo Lattes e ORCID" description="Informe o identificador Lattes (16 dígitos) ou o endereço do seu currículo. ORCID é opcional.">
               <div className="grid gap-5 sm:grid-cols-2">
                 <TextField label="ID Lattes" inputMode="numeric" value={form!.lattes_id ?? ""} onChange={(e) => set("lattes_id", e.target.value.replace(/\D/g, ""))} hint={<SourceTag profile={data!.profile} field="lattes_id" />} error={err("lattes_id")} />
                 <TextField label="Endereço do Lattes" type="url" placeholder="http://lattes.cnpq.br/…" value={form!.lattes_url ?? ""} onChange={(e) => set("lattes_url", e.target.value)} hint={<SourceTag profile={data!.profile} field="lattes_url" />} error={err("lattes_url")} />
+                <TextField label="ORCID (opcional)" placeholder="0000-0000-0000-0000" value={form!.orcid ?? ""} onChange={(e) => set("orcid", e.target.value.trim())} hint={<SourceTag profile={data!.profile} field="orcid" />} error={err("orcid")} />
               </div>
               <details className="rounded-xl border bg-slate-50 p-4">
                 <summary className="cursor-pointer text-sm font-semibold text-slate-900">

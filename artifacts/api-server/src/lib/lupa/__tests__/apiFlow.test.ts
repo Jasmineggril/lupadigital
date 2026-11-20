@@ -7,7 +7,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { exportJWK, generateKeyPair, SignJWT, type KeyLike } from "jose";
 import { MemoryStore, setStoreForTests } from "../store";
-import { fixtureFetcher } from "./fixtures";
+import { FIXTURE_PAGES, fixtureFetcher } from "./fixtures";
 
 let key: KeyLike;
 let otherKey: KeyLike;
@@ -269,6 +269,130 @@ describe("recomendações explicadas", () => {
     expect(later.saved).toBe(true);
     // Outro usuário não vê os salvos de prof-d
     expect((await call("GET", "/saved-opportunities", await token("prof-e"))).body.opportunities).toEqual([]);
+  });
+});
+
+describe("catálogo: busca, filtros, ordenação e paginação", () => {
+  it("filtra por texto, situação e prazo; pagina; sem resultado → lista vazia", async () => {
+    await call("POST", "/admin/sources/fapdf/collect", await token("adm", { appRole: "admin" }));
+    const all = (await call("GET", "/opportunities")).body;
+    expect(all.total).toBe(3);
+    expect(all.facets.sources).toEqual(["fapdf"]);
+    expect(all.facets.areas).toContain("aprendizado de máquina");
+    expect((await call("GET", "/opportunities?q=inteligencia")).body.opportunities.map((o: any) => o.edital_number)).toEqual(["01/2026"]);
+    expect((await call("GET", "/opportunities?status=encerrada")).body.opportunities.map((o: any) => o.edital_number)).toEqual(["03/2026"]);
+    expect((await call("GET", "/opportunities?area=aprendizado")).body.total).toBe(1);
+    // Prazo confirmado até 30 dias: nenhum (o 01/2026 vence em 2099)
+    expect((await call("GET", "/opportunities?prazo_dias=30")).body.total).toBe(0);
+    const page = (await call("GET", "/opportunities?page_size=2&page=2&sort=titulo")).body;
+    expect(page.opportunities).toHaveLength(1);
+    expect(page.total).toBe(3);
+    expect((await call("GET", "/opportunities?q=nada-parecido")).body).toMatchObject({ total: 0, opportunities: [] });
+    expect((await call("GET", "/opportunities?status=inventada")).status).toBe(400);
+    const one = (await call("GET", "/opportunities?q=inteligencia")).body.opportunities[0];
+    expect(one.deadline).toBe("2099-06-30");
+    expect(one.types).toContain("auxilio_pesquisa");
+  });
+});
+
+describe("interesse e avisos internos", () => {
+  it("demonstrar interesse salva e marca; avisos não duplicam e respeitam isolamento", async () => {
+    const admin = await token("adm", { appRole: "admin" });
+    await call("POST", "/admin/sources/fapdf/collect", admin);
+    const u = await token("prof-n");
+    await call("PUT", "/profile", u, {
+      areas: ["Inteligência Artificial", "Educação"],
+      research_topics: ["aprendizado de máquina"],
+      declared_degree: "doutorado",
+      declared_bond: "efetivo",
+      institution: "UnDF",
+      opportunity_types: ["auxilio_pesquisa"],
+    });
+    const n1 = (await call("GET", "/notifications", u)).body;
+    expect(n1.notifications.filter((n: any) => n.kind === "recomendacao")).toHaveLength(1);
+    expect(n1.unread).toBe(1);
+    // Repetir não duplica
+    expect((await call("GET", "/notifications", u)).body.notifications).toHaveLength(1);
+    // Outro usuário não vê
+    expect((await call("GET", "/notifications", await token("prof-x"))).body.notifications).toEqual([]);
+
+    const id = n1.notifications[0].opportunity_id;
+    const rec = (await call("GET", "/recommendations", u)).body.recommendations.find((r: any) => r.opportunity_id === id);
+    expect(rec.result.interest.opportunity_type).toBe("corresponde");
+
+    expect((await call("PUT", `/saved-opportunities/${id}/interest`, u, { interested: true })).body).toEqual({ saved: true, interested: true });
+    const saved = (await call("GET", "/saved-opportunities", u)).body.opportunities;
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({ id, interested: true, changed_since_saved: false });
+
+    // Página oficial muda → nova versão → aviso de mudança no salvo (uma vez)
+    const pageUrl = store.opportunities.get(id)!.canonical_url;
+    const pages = { ...FIXTURE_PAGES, [pageUrl]: FIXTURE_PAGES[pageUrl].replace("até R$ 150.000,00", "até R$ 180.000,00") };
+    setFetcher(() => fixtureFetcher(pages).fetcher);
+    await call("POST", "/admin/sources/fapdf/collect", admin);
+    const n2 = (await call("GET", "/notifications", u)).body.notifications;
+    expect(n2.filter((n: any) => n.kind === "mudanca_salvo")).toHaveLength(1);
+    expect((await call("GET", "/saved-opportunities", u)).body.opportunities[0].changed_since_saved).toBe(true);
+    expect((await call("GET", "/notifications", u)).body.notifications.filter((n: any) => n.kind === "mudanca_salvo")).toHaveLength(1);
+
+    // Marcar como lida
+    expect((await call("POST", "/notifications/read", u, { all: true })).body.marked).toBeGreaterThan(0);
+    expect((await call("GET", "/notifications", u)).body.unread).toBe(0);
+    expect((await call("POST", "/notifications/read", u, { ids: ["x"] })).status).toBe(400);
+  });
+
+  it("preferência 'nunca' desliga avisos de recomendação", async () => {
+    await call("POST", "/admin/sources/fapdf/collect", await token("adm", { appRole: "admin" }));
+    const u = await token("prof-q");
+    await call("PUT", "/profile", u, { areas: ["Inteligência Artificial"], notification_prefs: { email: false, frequency: "nunca" } });
+    expect((await call("GET", "/notifications", u)).body.notifications).toEqual([]);
+  });
+});
+
+describe("importação institucional: relatório por registro", () => {
+  it("separa importados, atualizados, ignorados e rejeitados", async () => {
+    const admin = await token("adm", { appRole: "admin" });
+    const base = { nome: "Prof.", atualizado_em: "2026-09-01", areas: ["Física"] };
+    const r1 = await call("POST", "/admin/profiles/import", admin, [
+      { ...base, user_id: "d1", lattes_id: "1111222233334444" },
+      { ...base, user_id: "d2", lattes_id: "5555666677778888" },
+      { ...base, user_id: "d1", lattes_id: "1111222233334444" }, // repetido
+      { ...base, user_id: "d3", lattes_id: "123" }, // inválido
+      { ...base, user_id: "d4", lattes_id: "9999000011112222", papel: "admin" }, // campo indevido
+    ]);
+    expect(r1.status).toBe(200);
+    expect(r1.body).toMatchObject({ importados: 2, atualizados: 0, ignorados: 1, rejeitados: 2 });
+    expect(r1.body.registros[3]).toMatchObject({ indice: 3, situacao: "rejeitado" });
+    expect(r1.body.registros[3].detalhe).toMatch(/lattes_id/);
+
+    const r2 = await call("POST", "/admin/profiles/import", admin, [
+      { ...base, user_id: "d1", lattes_id: "1111222233334444" }, // sem mudança
+      { ...base, user_id: "d2", lattes_id: "5555666677778888", areas: ["Física", "Química"] }, // muda
+      { ...base, user_id: "d9", lattes_id: "1111222233334444" }, // lattes de outra conta
+    ]);
+    expect(r2.body).toMatchObject({ importados: 0, atualizados: 1, ignorados: 1, rejeitados: 1 });
+    expect(r2.body.registros[2].detalhe).toMatch(/outra conta/);
+    expect(store.profiles.has("d9")).toBe(false);
+    expect((await call("POST", "/admin/profiles/import", admin, { nao: "lista" })).status).toBe(400);
+  });
+});
+
+describe("inspeção de comparações (administração)", () => {
+  it("admin compara docente × edital sem gravar; usuário comum recebe 403", async () => {
+    const admin = await token("adm", { appRole: "admin" });
+    await call("POST", "/admin/sources/fapdf/collect", admin);
+    const u = await token("prof-z");
+    await call("PUT", "/profile", u, { areas: ["Inteligência Artificial"], declared_degree: "mestrado" });
+    const list = (await call("GET", "/admin/profiles", admin)).body.profiles;
+    expect(list.find((p: any) => p.user_id === "prof-z").terms).toBe(1);
+    const r = await call("POST", "/admin/compare", admin, { user_id: "prof-z" });
+    expect(r.status).toBe(200);
+    const e1 = r.body.results.find((x: any) => /Inteligência/.test(x.title));
+    expect(e1.result.eligibility.overall).toBe("impedimento");
+    expect(store.recs.size).toBe(0); // não grava
+    expect((await call("POST", "/admin/compare", u, { user_id: "prof-z" })).status).toBe(403);
+    expect((await call("GET", "/admin/profiles", u)).status).toBe(403);
+    expect((await call("POST", "/admin/compare", admin, { user_id: "ninguem" })).status).toBe(404);
   });
 });
 

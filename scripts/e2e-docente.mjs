@@ -149,6 +149,13 @@ await step("perfil: preencher, salvar, ver origem e versão", async () => {
     }
   }
   await page.getByLabel("Auxílio à pesquisa").check();
+  await page.getByLabel("Interesses do momento", { exact: true }).fill("saúde pública");
+  await page.getByLabel("Interesses do momento", { exact: true }).press("Enter");
+  await page.getByLabel("Disponibilidade").selectOption("coordenar");
+  await page.getByLabel("ORCID (opcional)").fill("0000-0002-1825-009");
+  await page.getByTestId("perfil-salvar").click();
+  await page.getByText(/ORCID tem o formato/).waitFor(); // validação do servidor associada ao campo
+  await page.getByLabel("ORCID (opcional)").fill("0000-0002-1825-0097");
   await page.getByTestId("perfil-salvar").click();
   await page.getByText(/Perfil salvo/).waitFor();
   await page.getByText("Versão do perfil: 1").waitFor();
@@ -230,6 +237,36 @@ await step("detalhe: edital estruturado com evidências, anexos e retificação 
   await page.screenshot({ path: `${SHOTS}/06-oportunidade.png`, fullPage: true });
 });
 
+await step("catálogo: busca, filtro por situação, sem resultado e limpar filtros", async () => {
+  await page.goto(`${WEB}/oportunidades`);
+  await page.getByText("3 editais").waitFor();
+  const list = page.getByTestId("catalogo-lista");
+  const settled = () => page.locator('[data-testid="catalogo-lista"][aria-busy="false"]').waitFor();
+  await page.getByLabel("Buscar").fill("inteligencia");
+  await page.getByText("1 edital com os filtros aplicados").waitFor();
+  await settled();
+  assert(/Edital nº 01\/2026/.test(await list.innerText()), "busca deveria achar o 01/2026");
+  await page.getByLabel("Buscar").fill("");
+  await page.getByLabel("Situação").selectOption("encerrada");
+  await list.getByText(/Edital nº 03\/2026/).waitFor();
+  await settled();
+  assert(!/Edital nº 01\/2026/.test(await list.innerText()), "filtro encerrada não deveria mostrar 01/2026");
+  await page.getByLabel("Buscar").fill("termo-que-nao-existe");
+  await page.getByText("Nenhum edital corresponde aos filtros").waitFor();
+  await page.getByRole("button", { name: "Limpar filtros" }).click();
+  await page.getByText("3 editais").waitFor();
+  await page.screenshot({ path: `${SHOTS}/10-catalogo-filtros.png`, fullPage: true });
+});
+
+await step("detalhe: demonstrar interesse → aparece em salvos com a marca", async () => {
+  await page.getByRole("link", { name: /Edital nº 01\/2026/ }).first().click();
+  await page.getByTestId(/^interest-/).click();
+  await page.getByRole("button", { name: "Tenho interesse" }).waitFor();
+  await page.goto(`${WEB}/salvos`);
+  const card = page.locator("article", { hasText: "Edital nº 01/2026" });
+  await card.getByText("Tenho interesse").waitFor();
+});
+
 await step("perfil atualizado → recomendação recalculada com nova versão", async () => {
   await page.goto(`${WEB}/perfil`);
   await page.getByLabel("Titulação (autodeclarada)").selectOption("doutorado");
@@ -238,6 +275,50 @@ await step("perfil atualizado → recomendação recalculada com nova versão", 
   await page.goto(`${WEB}/recomendacoes`);
   await page.getByRole("heading", { name: /Sem impedimento identificado ou com pendências \(2\)/ }).waitFor();
   assert((await page.getByRole("heading", { name: /eliminatório/ }).count()) === 0, "impedimento deveria sumir após mudar a titulação");
+});
+
+await step("avisos: novo edital compatível aparece uma vez e pode ser marcado como lido", async () => {
+  await page.goto(`${WEB}/avisos`);
+  await page.getByText(/Novo edital compatível: Edital nº 01\/2026/).waitFor();
+  assert((await page.getByText(/Novo edital compatível/).count()) === 1, "aviso duplicado");
+  const bell = page.getByTestId("nav-avisos");
+  assert(/não lido/.test((await bell.getAttribute("aria-label")) ?? ""), "sino deveria indicar não lidos");
+  await page.getByRole("button", { name: "Marcar todos como lidos" }).click();
+  await page.getByText("Todos os avisos foram lidos.").waitFor();
+  await page.waitForTimeout(300);
+  assert((await bell.getAttribute("aria-label")) === "Avisos", "contador deveria zerar");
+  await page.reload();
+  await page.getByText(/Novo edital compatível/).first().waitFor();
+  assert((await page.getByText(/Novo edital compatível/).count()) === 1, "aviso duplicado após recarregar");
+  await page.screenshot({ path: `${SHOTS}/11-avisos.png`, fullPage: true });
+});
+
+await step("admin: importação JSON com relatório por registro e inspeção de comparação", async () => {
+  const p = adm.page;
+  await p.goto(`${WEB}/admin`);
+  const base = { nome: "Docente Fictício", atualizado_em: "2026-09-01", areas: ["Física"] };
+  await p.getByLabel("JSON").fill(
+    JSON.stringify([
+      { ...base, user_id: "e2e-doc-1", lattes_id: "1111222233334444" },
+      { ...base, user_id: "e2e-doc-1", lattes_id: "1111222233334444" },
+      { ...base, user_id: "e2e-doc-2", lattes_id: "12" },
+    ]),
+  );
+  await p.getByRole("button", { name: "Importar perfis" }).click();
+  await p.getByText(/1 importado\(s\), 0 atualizado\(s\), 1 ignorado\(s\), 1 rejeitado\(s\)/).waitFor();
+  await p.getByText(/Registro 3: rejeitado — lattes_id/).waitFor();
+  await p.getByRole("button", { name: "Atualizar" }).click();
+  await p.reload();
+  const docente = p.getByLabel("Docente");
+  const value = await docente.evaluate((el) => [...el.options].find((o) => o.value && !o.value.startsWith("e2e-doc"))?.value);
+  assert(value, "perfil da professora não aparece na lista");
+  await docente.selectOption(value);
+  await p.getByRole("button", { name: "Comparar com o catálogo" }).click();
+  const sec = p.locator("section", { has: p.getByRole("heading", { name: "Inspecionar comparações" }) });
+  await sec.getByText(/edital v1 · perfil v/).first().waitFor();
+  await sec.getByRole("button", { name: "Ver explicação" }).first().click();
+  await sec.getByText(/não é\s+probabilidade de aprovação/).first().waitFor();
+  await p.screenshot({ path: `${SHOTS}/12-admin-importacao-comparacao.png`, fullPage: true });
 });
 
 await step("início: relevantes, prazos confirmados e pendências do perfil", async () => {

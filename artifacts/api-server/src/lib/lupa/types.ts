@@ -53,6 +53,15 @@ export const ProfileInputSchema = z
       .optional(),
     declared_degree: z.enum(["graduacao", "especializacao", "mestrado", "doutorado"]).nullable().optional(),
     declared_bond: z.enum(["efetivo", "temporario", "visitante", "aposentado", "sem_vinculo"]).nullable().optional(),
+    orcid: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/, "O ORCID tem o formato 0000-0000-0000-0000.")
+      .nullable()
+      .optional(),
+    /** Interesses do momento (ex.: "chamada para eventos em 2027"); pesam menos que áreas. */
+    temporary_interests: termList.optional(),
+    collaboration_role: z.enum(["coordenar", "colaborar", "ambos"]).nullable().optional(),
     notification_prefs: z
       .object({
         email: z.boolean(),
@@ -79,6 +88,9 @@ export interface TeacherProfile {
   lattes_url: string | null;
   declared_degree: string | null;
   declared_bond: string | null;
+  orcid: string | null;
+  temporary_interests: string[];
+  collaboration_role: "coordenar" | "colaborar" | "ambos" | null;
   notification_prefs: { email: boolean; frequency: "diaria" | "semanal" | "nunca" };
   field_sources: Record<string, { source: FieldSource; updated_at: string }>;
   version: number;
@@ -102,6 +114,9 @@ export function emptyProfile(userId: string, now = new Date().toISOString()): Te
     lattes_url: null,
     declared_degree: null,
     declared_bond: null,
+    orcid: null,
+    temporary_interests: [],
+    collaboration_role: null,
     notification_prefs: { email: false, frequency: "semanal" },
     field_sources: {},
     version: 0,
@@ -128,6 +143,10 @@ export interface OpportunityFields {
   documentos?: Evidenced[];
   datas?: Array<Evidenced & { label: string; iso: string | null }>;
   restricoes?: Evidenced[];
+  contrapartidas?: Evidenced[];
+  parcerias?: Evidenced[];
+  criterios_avaliacao?: Evidenced[];
+  canal_inscricao?: Evidenced[];
 }
 
 /** Campos que aparecem como "não encontrado / pendente de verificação" quando ausentes. */
@@ -140,7 +159,14 @@ export const EXTRACTED_FIELD_KEYS = [
   "documentos",
   "datas",
   "restricoes",
+  "contrapartidas",
+  "parcerias",
+  "criterios_avaliacao",
+  "canal_inscricao",
 ] as const;
+
+/** Campos opcionais por natureza: a ausência não indica falha de extração. */
+export const OPTIONAL_FIELD_KEYS = new Set<string>(["contrapartidas", "parcerias", "restricoes"]);
 
 export type DocumentKind = "edital" | "anexo" | "retificacao" | "resultado" | "outro";
 export type EventKind = "retificacao" | "prorrogacao" | "resultado";
@@ -159,13 +185,15 @@ export interface OpportunityEvent {
   evidence: string;
 }
 
+export type OpportunityStatus = "aberta" | "encerrada" | "suspensa" | "cancelada" | "desconhecida";
+
 export interface Opportunity {
   id: string;
   source_id: string;
   canonical_url: string;
   edital_number: string | null;
   title: string;
-  status: "aberta" | "encerrada" | "desconhecida";
+  status: OpportunityStatus;
   fields: OpportunityFields;
   missing_fields: string[];
   content_hash: string;
@@ -192,6 +220,8 @@ export interface OpportunitySource {
   request_delay_ms: number;
   frequency_minutes: number;
   enabled: boolean;
+  institution?: string | null;
+  source_type?: string;
   updated_at: string;
 }
 
@@ -243,9 +273,32 @@ export interface RecommendationResult {
     overall: "sem_impedimento_conhecido" | "impedimento" | "pendente";
     checks: EligibilityCheck[];
   };
+  /** Interesse declarado pelo usuário — separado da aderência temática e da elegibilidade. */
+  interest: {
+    opportunity_type: "corresponde" | "nao_corresponde" | "nao_informado";
+    temporary_matches: string[];
+  };
   missing: string[];
   warnings: string[];
   summary: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  user_id: string;
+  kind: "recomendacao" | "mudanca_salvo";
+  opportunity_id: string;
+  opportunity_version: number;
+  title: string;
+  body: string;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface SavedItem {
+  opportunity_id: string;
+  interested: boolean;
+  seen_version: number | null;
 }
 
 export interface Recommendation {

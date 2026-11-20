@@ -36,9 +36,10 @@ function RecItem({ r }: { r: Recommendation }) {
 export default function Recomendacoes() {
   const { data, error, loading, reload } = useAsync(() => apiFetch<{ recommendations: Recommendation[] }>("/recommendations"));
   const recs = data?.recommendations ?? [];
-  const ok = recs.filter((r) => r.result.eligibility.overall !== "impedimento" && r.opportunity.status !== "encerrada");
-  const blocked = recs.filter((r) => r.result.eligibility.overall === "impedimento" && r.opportunity.status !== "encerrada");
-  const closed = recs.filter((r) => r.opportunity.status === "encerrada");
+  const isClosed = (r: Recommendation) => ["encerrada", "cancelada", "suspensa"].includes(r.opportunity.status);
+  const ok = recs.filter((r) => r.result.eligibility.overall !== "impedimento" && !isClosed(r));
+  const blocked = recs.filter((r) => r.result.eligibility.overall === "impedimento" && !isClosed(r));
+  const closed = recs.filter(isClosed);
 
   return (
     <div className="min-h-[100dvh] bg-slate-50">
@@ -84,7 +85,7 @@ export default function Recomendacoes() {
             {closed.length > 0 && (
               <section aria-labelledby="sec-closed" className="space-y-4">
                 <h2 id="sec-closed" className="text-lg font-semibold text-slate-700">
-                  Encerrados ({closed.length})
+                  Encerrados, suspensos ou cancelados ({closed.length})
                 </h2>
                 <div className="grid gap-4 lg:grid-cols-2">{closed.map((r) => <RecItem key={r.opportunity_id} r={r} />)}</div>
               </section>

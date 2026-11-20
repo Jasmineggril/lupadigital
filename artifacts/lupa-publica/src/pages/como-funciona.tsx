@@ -91,7 +91,7 @@ export default function ComoFunciona() {
       <section id="compatibilidade" className="mt-20 scroll-mt-24 rounded-2xl border bg-white p-6 text-left shadow-sm">
         <h2 className="text-2xl font-bold">Como calculamos a compatibilidade edital × docente</h2>
         <p className="mt-2 text-muted-foreground">
-          A recomendação tem duas partes avaliadas separadamente. Uma nota alta de aderência nunca esconde um requisito eliminatório.
+          A recomendação tem partes avaliadas separadamente. Uma nota alta de aderência nunca esconde um requisito eliminatório.
         </p>
         <h3 className="mt-6 text-lg font-semibold">1. Aderência temática (0 a 100)</h3>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">
@@ -108,7 +108,18 @@ export default function ComoFunciona() {
           <li><strong>Pendente de comprovação</strong>: falta o dado no perfil ou o requisito não pode ser avaliado automaticamente.</li>
           <li>Hoje avaliamos automaticamente: titulação mínima, vínculo institucional, instituição sediada no DF e currículo Lattes. Os demais requisitos aparecem como pendentes, com o trecho do edital.</li>
         </ul>
-        <h3 className="mt-6 text-lg font-semibold">3. Rastreabilidade</h3>
+        <h3 className="mt-6 text-lg font-semibold">3. Seu interesse</h3>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">
+          <li>Comparamos o tipo do edital (bolsa, evento, auxílio à pesquisa…, identificado por palavras do título e do objeto) com os tipos que você marcou no perfil.</li>
+          <li>Mostramos quando um “interesse do momento” do seu perfil aparece no edital.</li>
+          <li>Essa parte não muda o índice de aderência nem a elegibilidade.</li>
+        </ul>
+        <h3 className="mt-6 text-lg font-semibold">4. Limites</h3>
+        <p className="mt-2 text-slate-700">
+          O cálculo compara palavras, não o sentido do texto. Por isso mostramos cada termo encontrado e o trecho do edital: você decide se faz sentido.
+          A sua resposta “relevante / não relevante” fica registrada, mas não muda os critérios.
+        </p>
+        <h3 className="mt-6 text-lg font-semibold">5. Rastreabilidade</h3>
         <p className="mt-2 text-slate-700">
           Cada recomendação registra a versão do edital e a versão do seu perfil usadas no cálculo, e é recalculada quando qualquer um dos dois muda.
           Toda informação do edital mostra o trecho e o link da fonte oficial; o que não foi encontrado aparece como pendente de verificação.

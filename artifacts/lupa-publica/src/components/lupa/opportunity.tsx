@@ -11,15 +11,17 @@
 
 import { useState } from "react";
 import { Link } from "wouter";
-import { AlertTriangle, Bookmark, BookmarkCheck, CheckCircle2, CircleHelp, ExternalLink, ThumbsDown, ThumbsUp, XCircle } from "lucide-react";
+import { AlertTriangle, Bookmark, BookmarkCheck, CheckCircle2, CircleHelp, ExternalLink, Hand, ThumbsDown, ThumbsUp, XCircle } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
-import { confirmedDeadline, formatDate, type EligibilityState, type Opportunity, type Recommendation } from "@/lib/lupa-types";
+import { confirmedDeadline, formatDate, OPPORTUNITY_TYPE_LABELS, type EligibilityState, type Opportunity, type Recommendation } from "@/lib/lupa-types";
 
 export function StatusBadge({ status }: { status: Opportunity["status"] }) {
   const map = {
     aberta: ["Aberta", "bg-emerald-100 text-emerald-900"],
     encerrada: ["Encerrada", "bg-slate-200 text-slate-800"],
+    suspensa: ["Suspensa", "bg-orange-100 text-orange-900"],
+    cancelada: ["Cancelada", "bg-red-100 text-red-900"],
     desconhecida: ["Situação não confirmada", "bg-amber-100 text-amber-900"],
   } as const;
   const [label, cls] = map[status];
@@ -108,6 +110,21 @@ export function RecommendationExplanation({ rec }: { rec: Recommendation }) {
           </ul>
         )}
       </section>
+      {r.interest && (
+        <section aria-label="Interesse">
+          <h4 className="font-semibold text-slate-900">Seu interesse</h4>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-700">
+            <li>
+              {r.interest.opportunity_type === "corresponde"
+                ? "O tipo deste edital está entre os que você procura."
+                : r.interest.opportunity_type === "nao_corresponde"
+                  ? "O tipo deste edital não está entre os que você marcou no perfil."
+                  : "Tipo de oportunidade não comparado (não informado no perfil ou não identificado no edital)."}
+            </li>
+            {r.interest.temporary_matches.length > 0 && <li>Relacionado ao seu interesse atual: {r.interest.temporary_matches.join(", ")}.</li>}
+          </ul>
+        </section>
+      )}
       {r.missing.length > 0 && (
         <section aria-label="Informações faltantes">
           <h4 className="font-semibold text-slate-900">Informações faltantes</h4>
@@ -154,6 +171,33 @@ export function SaveButton({ opportunityId, initial }: { opportunityId: string; 
   );
 }
 
+/** Demonstrar interesse: salva o edital e registra que você pretende participar. */
+export function InterestButton({ opportunityId, initial, onChange }: { opportunityId: string; initial: boolean; onChange?: (v: boolean) => void }) {
+  const [value, setValue] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  const toggle = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(false);
+    try {
+      await apiFetch(`/saved-opportunities/${opportunityId}/interest`, { method: "PUT", body: JSON.stringify({ interested: !value }) });
+      setValue(!value);
+      onChange?.(!value);
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Button variant={value ? "default" : "outline"} size="sm" onClick={toggle} disabled={busy} aria-pressed={value} data-testid={`interest-${opportunityId}`}>
+      <Hand className="mr-1.5 h-4 w-4" aria-hidden />
+      {error ? "Erro — tentar de novo" : value ? "Tenho interesse" : "Demonstrar interesse"}
+    </Button>
+  );
+}
+
 export function FeedbackButtons({ opportunityId, initial }: { opportunityId: string; initial: { relevant: boolean } | null }) {
   const [value, setValue] = useState<boolean | null>(initial?.relevant ?? null);
   const [busy, setBusy] = useState(false);
@@ -187,12 +231,15 @@ export function FeedbackButtons({ opportunityId, initial }: { opportunityId: str
 
 export function OpportunityCard({ o, children, saved }: { o: Opportunity; children?: React.ReactNode; saved?: boolean }) {
   const deadline = confirmedDeadline(o);
+  const types = (o.types ?? []).map((t) => OPPORTUNITY_TYPE_LABELS[t]).filter(Boolean);
   return (
     <article className="rounded-2xl border bg-white p-5 shadow-sm" aria-labelledby={`op-${o.id}`}>
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={o.status} />
         <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{o.source_id.toUpperCase()}</span>
         {o.review_status === "pendente" && <span className="text-xs text-slate-500">· aguardando revisão humana</span>}
+        {o.interested && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">Tenho interesse</span>}
+        {o.changed_since_saved && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-900">Alterado desde que você salvou</span>}
       </div>
       <h3 id={`op-${o.id}`} className="mt-2 text-lg font-semibold text-slate-900">
         <Link href={`/oportunidades/${o.id}`} className="hover:text-primary hover:underline">
@@ -204,6 +251,7 @@ export function OpportunityCard({ o, children, saved }: { o: Opportunity; childr
       ) : (
         <p className="mt-1 text-sm italic text-slate-500">Objeto não encontrado — pendente de verificação.</p>
       )}
+      {types.length > 0 && <p className="mt-2 text-xs text-slate-500">Tipo (identificado no título/objeto): {types.join(" · ")}</p>}
       <p className="mt-2 text-sm text-slate-700">
         <span className="font-semibold">Prazo:</span>{" "}
         {deadline ? (

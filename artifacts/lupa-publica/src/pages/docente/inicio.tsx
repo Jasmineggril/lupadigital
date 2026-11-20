@@ -36,7 +36,7 @@ export default function Inicio() {
     return { profile: prof.profile, recs: recs.recommendations };
   });
 
-  const relevant = (data?.recs ?? []).filter((r) => r.opportunity.status !== "encerrada" && r.result.thematic.level !== "indeterminada" && r.result.thematic.score > 0).slice(0, 4);
+  const relevant = (data?.recs ?? []).filter((r) => !["encerrada", "cancelada", "suspensa"].includes(r.opportunity.status) && r.result.thematic.level !== "indeterminada" && r.result.thematic.score > 0).slice(0, 4);
   const today = new Date().toISOString().slice(0, 10);
   const deadlines = (data?.recs ?? [])
     .map((r) => ({ r, d: confirmedDeadline(r.opportunity) }))

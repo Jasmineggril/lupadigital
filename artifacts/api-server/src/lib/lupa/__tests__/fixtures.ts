@@ -42,6 +42,9 @@ export const FIXTURE_PAGES: Record<string, string> = {
      <p>Valor: até R$ 150.000,00 por projeto.</p>
      <p>Inscrições de 01/02/2099 a 30/06/2099.</p>
      <p>É vedada a participação de servidores da FAPDF.</p>
+     <p>Critérios de avaliação: mérito científico, viabilidade e impacto social.</p>
+     <p>As propostas deverão ser submetidas por meio do sistema SEI da Fundação.</p>
+     <p>A contrapartida da instituição executora será de 10% do valor solicitado.</p>
      <p><a href="${BASE}/arquivos/edital-01-2026.pdf">Edital nº 01/2026 (PDF)</a>
         <a href="${BASE}/arquivos/anexo-i-plano-de-trabalho.docx">Anexo I – Plano de trabalho</a>
         <a href="${BASE}/arquivos/retificacao-01-edital-01-2026.pdf">1ª Retificação</a>

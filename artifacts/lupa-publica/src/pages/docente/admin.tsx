@@ -242,26 +242,89 @@ export default function Admin() {
     void sources.reload();
   };
 
-  const doImport = async () => {
+  const [validated, setValidated] = useState<string | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+
+  /** Valida (dryRun) ou importa. A importação só grava depois de confirmada. */
+  const doImport = async (dryRun: boolean) => {
+    if (importBusy) return;
     setImportMsg(null);
     let payload: unknown;
     try {
       payload = JSON.parse(importText);
-    } catch {
-      setImportMsg({ kind: "error", text: "JSON inválido." });
+    } catch (e) {
+      setImportReport(null);
+      setImportMsg({ kind: "error", text: `O conteúdo não é um JSON válido${e instanceof Error ? `: ${e.message}` : ""}. Use o modelo como ponto de partida.` });
       return;
     }
+    if (!Array.isArray(payload)) {
+      setImportMsg({ kind: "error", text: "O arquivo precisa ser uma lista: começa com [ e termina com ]." });
+      return;
+    }
+    if (!dryRun && !window.confirm(`Importar ${payload.length} registro(s)? Os perfis indicados serão criados ou atualizados.`)) return;
+    setImportBusy(true);
     try {
-      const r = await apiFetch<ImportReport>("/admin/profiles/import", { method: "POST", body: JSON.stringify(payload) });
+      const r = await apiFetch<ImportReport & { simulacao?: boolean }>(`/admin/profiles/import${dryRun ? "?validar=1" : ""}`, { method: "POST", body: JSON.stringify(payload) });
       setImportReport(r);
-      setImportMsg({
-        kind: r.rejeitados > 0 ? "error" : "success",
-        text: `${r.importados} importado(s), ${r.atualizados} atualizado(s), ${r.ignorados} ignorado(s), ${r.rejeitados} rejeitado(s). Origem registrada como importação institucional.`,
-      });
-      if (r.rejeitados === 0) setImportText("");
+      const counts = `${r.importados} novo(s), ${r.atualizados} atualizado(s), ${r.ignorados} ignorado(s), ${r.rejeitados} rejeitado(s)`;
+      if (dryRun) {
+        setValidated(r.rejeitados === 0 ? importText : null);
+        setImportMsg({
+          kind: r.rejeitados ? "error" : "success",
+          text: r.rejeitados ? `Validação: ${counts}. Corrija os registros rejeitados antes de importar.` : `Validação concluída, nada foi gravado: ${counts}. Pode importar.`,
+        });
+      } else {
+        setValidated(null);
+        setImportMsg({ kind: r.rejeitados ? "error" : "success", text: `Importação concluída: ${counts}. Origem registrada como importação institucional.` });
+        if (r.rejeitados === 0) setImportText("");
+      }
     } catch (err) {
       setImportMsg({ kind: "error", text: err instanceof Error ? err.message : "Falha na importação." });
+    } finally {
+      setImportBusy(false);
     }
+  };
+
+  /** Modelo com os docentes que já têm conta: o administrador não precisa descobrir IDs internos. */
+  const downloadTemplate = async () => {
+    try {
+      const { profiles } = await apiFetch<{ profiles: ProfileSummary[] }>("/admin/profiles");
+      const rows = (profiles.length ? profiles : [{ user_id: "ID-DA-CONTA", display_name: "Nome do docente" }]).map((p) => ({
+        user_id: p.user_id,
+        lattes_id: "",
+        nome: p.display_name ?? "",
+        instituicao: "UnDF",
+        unidade: "",
+        titulacao: "doutorado",
+        areas: [],
+        competencias: [],
+        temas: [],
+        palavras_chave: [],
+        evidencias: [],
+        atualizado_em: new Date().toISOString().slice(0, 10),
+      }));
+      const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "modelo-importacao-docentes.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setImportMsg({ kind: "error", text: err instanceof Error ? err.message : "Não foi possível gerar o modelo." });
+    }
+  };
+
+  const loadFile = async (f: File | undefined) => {
+    if (!f) return;
+    if (f.size > 2_000_000) {
+      setImportMsg({ kind: "error", text: "Arquivo maior que 2 MB. Divida a lista em partes." });
+      return;
+    }
+    setImportText(await f.text());
+    setValidated(null);
+    setImportReport(null);
+    setImportMsg({ kind: "info", text: `Arquivo “${f.name}” carregado. Clique em Validar.` } as never);
   };
 
   return (
@@ -382,15 +445,49 @@ export default function Admin() {
 
         <section aria-labelledby="importacao" className="rounded-xl border border-hairline bg-white p-5">
           <h2 id="importacao" className="text-lg font-semibold text-slate-900">
-            Importação institucional de perfis (provisória)
+            Importar perfis de docentes
           </h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Lista JSON de resumos Lattes com <code>user_id</code> de cada docente (formato em <code>docs/integracoes/elattes.md</code>). Restrito à administração.
+          <p className="mt-1 max-w-3xl text-sm text-slate-600">
+            Use quando a instituição tiver os resumos dos currículos (áreas, temas, titulação) e quiser preencher os perfis de vários docentes de uma
+            vez — por exemplo, enquanto a integração automática com o eLattes não existe. Os dados ficam marcados como “importação institucional” e o
+            docente pode revisar tudo em Meu perfil.
           </p>
+          <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+            <li>
+              <button type="button" onClick={downloadTemplate} className="font-semibold text-lens underline underline-offset-2">
+                Baixe o modelo
+              </button>{" "}
+              — ele já vem com os docentes que têm conta (o campo <code>user_id</code> identifica a conta; não altere).
+            </li>
+            <li>Preencha o ID Lattes (16 dígitos), áreas, temas e titulação de cada um.</li>
+            <li>Carregue o arquivo (ou cole o conteúdo) e clique em Validar: nada é gravado nesta etapa.</li>
+            <li>Sem rejeitados, clique em Importar.</li>
+          </ol>
+          <p className="mt-2 text-xs text-slate-600">
+            Só contas existentes podem receber dados; um ID Lattes que já pertence a outra conta é recusado. Perfis nunca são associados por semelhança de nome.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-field px-3 py-2 text-sm font-semibold text-ink hover:bg-paper focus-within:ring-2 focus-within:ring-lens">
+              Carregar arquivo .json
+              <input type="file" accept="application/json,.json" className="sr-only" onChange={(e) => void loadFile(e.target.files?.[0])} />
+            </label>
+            <span className="text-xs text-slate-600">ou cole abaixo</span>
+          </div>
           <label htmlFor="import-json" className="mt-3 block text-sm font-semibold text-slate-900">
-            JSON
+            Conteúdo da lista
           </label>
-          <textarea id="import-json" rows={6} value={importText} onChange={(e) => setImportText(e.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs" />
+          <textarea
+            id="import-json"
+            rows={6}
+            value={importText}
+            spellCheck={false}
+            onChange={(e) => {
+              setImportText(e.target.value);
+              setValidated(null);
+            }}
+            placeholder='[{"user_id": "…", "lattes_id": "0000000000000000", "nome": "…", "atualizado_em": "2026-11-01"}]'
+            className="w-full rounded-lg border border-field px-3 py-2 font-mono text-xs focus:outline-none focus-visible:border-lens focus-visible:ring-4 focus-visible:ring-lens/20"
+          />
           {importMsg && (
             <div className="mt-2">
               <FormAlert kind={importMsg.kind}>{importMsg.text}</FormAlert>
@@ -411,9 +508,15 @@ export default function Admin() {
               </ul>
             </details>
           )}
-          <Button className="mt-3" variant="outline" onClick={doImport} disabled={!importText.trim()}>
-            Importar perfis
-          </Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void doImport(true)} disabled={!importText.trim() || importBusy}>
+              {importBusy ? "Validando…" : "Validar (sem gravar)"}
+            </Button>
+            <Button onClick={() => void doImport(false)} disabled={!importText.trim() || importBusy || validated !== importText}>
+              Importar perfis
+            </Button>
+            {importText.trim() && validated !== importText && <span className="self-center text-xs text-slate-600">Valide antes de importar.</span>}
+          </div>
         </section>
 
         <CompareSection />
@@ -463,7 +566,7 @@ function CompareSection() {
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
           <label className="flex-1 space-y-1 text-sm">
             <span className="block font-semibold text-slate-900">Docente</span>
-            <select value={userId} onChange={(e) => setUserId(e.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2">
+            <select value={userId} onChange={(e) => setUserId(e.target.value)} className="h-10 w-full rounded-lg border border-field bg-white px-2" data-testid="compare-docente">
               <option value="">Escolha um perfil</option>
               {profiles.data!.profiles.map((p) => (
                 <option key={p.user_id} value={p.user_id}>

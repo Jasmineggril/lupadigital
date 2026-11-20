@@ -28,18 +28,46 @@ type CanonicalAnalysisLike = {
     orgao?: string;
   };
   alertas?: Array<string | { descricao?: string }>;
+  /** Base documental comum (servidor): igual para todos os agentes, com trechos */
+  base?: DocumentBase;
 };
+
+export interface DocumentBase {
+  versao: number;
+  documento_hash: string;
+  caracteres: number;
+  objeto: { texto: string; evidencia: string } | null;
+  datas: Array<{ rotulo: string; iso: string | null; texto: string; evidencia: string }>;
+  valores: Array<{ texto: string; evidencia: string }>;
+  documentos: Array<{ texto: string; evidencia: string }>;
+  requisitos: Array<{ texto: string; evidencia: string }>;
+  restricoes: Array<{ texto: string; evidencia: string }>;
+  criterios: Array<{ texto: string; evidencia: string }>;
+  canal_inscricao: Array<{ texto: string; evidencia: string }>;
+  ausentes: string[];
+  elegibilidade_perfil: Array<{ requisito: string; evidencia: string; estado: "atendido" | "nao_atendido" | "pendente"; motivo: string; base_perfil: string | null }> | null;
+}
+
+export function formatIsoDate(iso: string | null | undefined) {
+  if (!iso) return "data não informada";
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
 
 export type TimelineStep = {
   title: string;
   date: string;
   description: string;
+  /** Trecho do documento que sustenta a data (quando vem da base documental) */
+  evidence?: string;
+  iso?: string | null;
 };
 
 export type ChecklistItemSummary = {
   label: string;
   done: boolean;
   hint: string;
+  evidence?: string;
 };
 
 export type EligibilitySummary = {
@@ -83,6 +111,17 @@ export function buildTimelineSteps(
   canonical: CanonicalAnalysisLike | null | undefined,
   agentResult?: { type?: string; timeline?: Array<{ fase: string; periodo: string; descricao: string; status?: string }> | null } | null,
 ): TimelineStep[] {
+  // 1º: datas extraídas do próprio documento — iguais para qualquer agente
+  const baseDates = canonical?.base?.datas ?? [];
+  if (baseDates.length > 0) {
+    return baseDates.map((d) => ({
+      title: d.rotulo.charAt(0).toUpperCase() + d.rotulo.slice(1),
+      date: formatIsoDate(d.iso),
+      description: d.texto,
+      evidence: d.evidencia,
+      iso: d.iso,
+    }));
+  }
   const canonicalItems = canonical?.cronograma?.items ?? [];
   if (canonicalItems.length > 0) {
     return canonicalItems.map((item) => ({
@@ -140,6 +179,11 @@ export function buildChecklistItems(
       done: Boolean(item.checked),
       hint: resolveText(item.observacao) || "Documento listado no resultado da IA.",
     }));
+  }
+
+  const baseDocs = canonical?.base?.documentos ?? [];
+  if (baseDocs.length > 0) {
+    return baseDocs.map((d) => ({ label: d.texto, done: false, hint: "Identificado no texto do edital.", evidence: d.evidencia }));
   }
 
   const docs = getDocumentSummary(canonical);

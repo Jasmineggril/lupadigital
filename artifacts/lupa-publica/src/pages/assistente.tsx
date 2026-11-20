@@ -197,10 +197,13 @@ export default function Assistente() {
       setMessages((prev) => [...prev, assistantMsg]);
 
       // Persiste as mensagens no Supabase ou localStorage
-      await Promise.allSettled([
+      const persisted = await Promise.allSettled([
         saveChatMessage({ conversation_id: conversationId, role: "user", content: text }),
         saveChatMessage({ conversation_id: conversationId, role: "assistant", content: assistantMsg.content }),
       ]);
+      if (persisted.some((r) => r.status === "rejected")) {
+        toast({ title: "Conversa não foi salva", description: "A resposta está na tela, mas não foi gravada no histórico. Ela some ao sair da página.", variant: "destructive" });
+      }
     } catch (err) {
       const msg = getFriendlyErrorMessage(err);
       // Adiciona mensagem de erro como resposta do assistente
@@ -303,6 +306,10 @@ export default function Assistente() {
               <div>
                 <p className="text-sm font-semibold">Assistente IA NIASci</p>
                 <p className="text-xs text-muted-foreground">Pronto para responder suas perguntas científicas.</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Respostas geradas por IA, sem acesso à internet: podem conter erros e não substituem orientação acadêmica. Use o campo de contexto
+                  para enviar o trecho sobre o qual quer perguntar. Para editais, prefira Analisar um edital, que mostra o trecho de origem.
+                </p>
               </div>
             </div>
 

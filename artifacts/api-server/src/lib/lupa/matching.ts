@@ -116,7 +116,7 @@ const DEGREE_LABEL: Record<string, string> = {
 };
 const SELF_DECLARED = "Dado autodeclarado no perfil — precisa ser comprovado na submissão.";
 
-function evaluateRequirement(text: string, sourceUrl: string, p: TeacherProfile): EligibilityCheck | null {
+export function evaluateRequirement(text: string, sourceUrl: string, p: TeacherProfile): EligibilityCheck | null {
   const n = normalizeText(text);
   const base = { requirement: text, evidence: text, source_url: sourceUrl };
 

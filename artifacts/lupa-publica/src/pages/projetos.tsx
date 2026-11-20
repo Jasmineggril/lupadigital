@@ -112,7 +112,11 @@ function loadLocalProjects(): LocalProject[] {
 }
 
 function saveLocalProjects(projects: LocalProject[]) {
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(projects));
+  try {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(projects));
+  } catch {
+    // modo privado / armazenamento cheio: a tela avisa que os projetos manuais ficam só neste navegador
+  }
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
@@ -213,9 +217,13 @@ export default function Projetos() {
         description: data.resumo ?? "",
         team: (data.equipe ?? []) as any,
         timeline: (data.cronograma ?? []) as any,
+      }).catch((e: unknown) => {
+        // A análise está pronta; só a gravação falhou — dizer isso, sem marcar a análise como erro
+        toast({ title: "Resultado pronto, mas não foi salvo", description: e instanceof Error ? e.message : "Não foi possível salvar no histórico.", variant: "destructive" });
+        return null;
       });
 
-      setAiHistory((prev) => [saved as ResearchProject, ...prev].slice(0, 20));
+      if (saved) setAiHistory((prev) => [saved as ResearchProject, ...prev].slice(0, 20));
       toast({ title: "Plano gerado!", description: "O plano do projeto está pronto." });
     } catch (err) {
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
@@ -236,8 +244,14 @@ export default function Projetos() {
   };
 
   const handleHistoryDelete = async (id: string) => {
-    await deleteResearchProject(id);
-    setAiHistory((prev) => prev.filter((p) => p.id !== id));
+    if (!window.confirm("Excluir este item do histórico? Isso não pode ser desfeito.")) return;
+    try {
+      await deleteResearchProject(id);
+      setAiHistory((prev) => prev.filter((p) => p.id !== id));
+      toast({ title: "Removido do histórico" });
+    } catch (e) {
+      toast({ title: "Não foi possível excluir", description: e instanceof Error ? e.message : "Nada foi apagado; tente novamente.", variant: "destructive" });
+    }
   };
 
   const buildExportSections = () => {
@@ -690,6 +704,10 @@ export default function Projetos() {
           </div>
 
           {/* Formulário de novo projeto */}
+          <p role="note" className="mb-3 text-xs text-slate-600">
+            Projetos criados manualmente ficam guardados só neste navegador (não vão para a sua conta). Planos gerados com IA vão para o histórico
+            da conta quando você está logado.
+          </p>
           {newProjectForm && (
             <Card className="border-violet-500/30">
               <CardHeader><CardTitle className="text-sm">Novo projeto</CardTitle></CardHeader>

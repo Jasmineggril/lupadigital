@@ -38,6 +38,9 @@ import {
   deleteLattesProfile,
 } from "@/services/analisesService";
 import type { LattesProfile } from "@/lib/supabase-types";
+import { useAuth } from "@/lib/auth";
+import { apiFetch } from "@/lib/api";
+import type { TeacherProfile } from "@/lib/lupa-types";
 import {
   API_BASE,
   NiasciHeader,
@@ -215,10 +218,14 @@ export default function ELattes() {
         lattes_xml: text.slice(0, 2000),
         summary: data.resumo ?? "",
         metadata: { result: data } as any,
+      }).catch((e: unknown) => {
+        // A análise está pronta; só a gravação falhou — dizer isso, sem marcar a análise como erro
+        toast({ title: "Resultado pronto, mas não foi salvo", description: e instanceof Error ? e.message : "Não foi possível salvar no histórico.", variant: "destructive" });
+        return null;
       });
 
       // Atualiza o histórico com o novo item
-      setHistory((prev) => [saved as LattesProfile, ...prev].slice(0, 20));
+      if (saved) setHistory((prev) => [saved as LattesProfile, ...prev].slice(0, 20));
 
       toast({ title: "Análise concluída!", description: "O currículo foi analisado com sucesso." });
     } catch (err) {
@@ -247,8 +254,14 @@ export default function ELattes() {
    * Exclui um item do histórico pelo ID.
    */
   const handleHistoryDelete = async (id: string) => {
-    await deleteLattesProfile(id);
-    setHistory((prev) => prev.filter((p) => p.id !== id));
+    if (!window.confirm("Excluir este item do histórico? Isso não pode ser desfeito.")) return;
+    try {
+      await deleteLattesProfile(id);
+      setHistory((prev) => prev.filter((p) => p.id !== id));
+      toast({ title: "Removido do histórico" });
+    } catch (e) {
+      toast({ title: "Não foi possível excluir", description: e instanceof Error ? e.message : "Nada foi apagado; tente novamente.", variant: "destructive" });
+    }
   };
 
   /**
@@ -331,6 +344,7 @@ export default function ELattes() {
             />
           </div>
 
+          <AddToProfile areas={result.areas ?? []} competencias={result.competencias ?? []} />
           <Tabs defaultValue="resumo" className="space-y-4">
             <TabsList className="flex flex-wrap gap-1 h-auto">
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
@@ -448,8 +462,13 @@ export default function ELattes() {
             {/* Aba: Oportunidades */}
             <TabsContent value="oportunidades">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Lightbulb className="w-4 h-4 text-emerald-500" /> Oportunidades</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Lightbulb className="w-4 h-4 text-emerald-500" /> Ideias de oportunidades</CardTitle></CardHeader>
                 <CardContent>
+                  <p role="note" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    Sugestões geradas pela IA a partir do currículo: <strong>não são editais nem vagas reais</strong> e podem citar instituições de exemplo.
+                    Para editais reais e verificados, veja o{" "}
+                    <Link href="/oportunidades" className="font-semibold underline">catálogo de editais</Link>.
+                  </p>
                   <ul className="space-y-2">
                     {(result.oportunidades ?? []).map((o, i) => (
                       <li key={i} className="flex gap-2 text-sm">
@@ -601,6 +620,54 @@ export default function ELattes() {
             </Link>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+
+/**
+ * Vínculo com o perfil docente: leva áreas e competências extraídas do currículo para
+ * "Meu perfil" (somando ao que já existe, sem duplicar), com confirmação. Ficam como
+ * dado autodeclarado — o docente revisa em Meu perfil.
+ */
+function AddToProfile({ areas, competencias }: { areas: string[]; competencias: string[] }) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  if (!areas.length && !competencias.length) return null;
+  if (!user)
+    return (
+      <p className="mb-4 rounded-lg border border-hairline bg-white px-3 py-2 text-sm text-ink-2">
+        <Link href="/login?next=/niasci/elattes" className="font-semibold text-lens underline">Entre</Link> para levar estas áreas e competências para o seu perfil docente e receber recomendações de editais.
+      </p>
+    );
+  const add = async () => {
+    if (busy) return;
+    if (!window.confirm(`Adicionar ${areas.length} área(s) e ${competencias.length} competência(s) ao seu perfil docente? Você pode revisar tudo em Meu perfil.`)) return;
+    setBusy(true);
+    try {
+      const { profile } = await apiFetch<{ profile: TeacherProfile }>("/profile");
+      const merge = (a: string[], b: string[]) => Array.from(new Set([...a, ...b.map((x) => x.trim()).filter((x) => x.length >= 2 && x.length <= 120)])).slice(0, 40);
+      await apiFetch("/profile", { method: "PUT", body: JSON.stringify({ areas: merge(profile.areas, areas), competencies: merge(profile.competencies, competencias) }) });
+      setDone(true);
+      toast({ title: "Perfil atualizado", description: "Áreas e competências adicionadas. As recomendações serão recalculadas." });
+    } catch (e) {
+      toast({ title: "Não foi possível atualizar o perfil", description: e instanceof Error ? e.message : "Nada foi alterado.", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hairline bg-white px-4 py-3">
+      <p className="text-sm text-ink-2">
+        {done ? "Adicionado ao seu perfil docente." : `Usar ${areas.length} área(s) e ${competencias.length} competência(s) deste currículo nas suas recomendações de editais?`}
+      </p>
+      {done ? (
+        <Link href="/perfil" className="text-sm font-semibold text-lens underline">Revisar em Meu perfil</Link>
+      ) : (
+        <Button size="sm" onClick={add} disabled={busy} aria-busy={busy}>{busy ? "Adicionando…" : "Adicionar ao meu perfil docente"}</Button>
       )}
     </div>
   );

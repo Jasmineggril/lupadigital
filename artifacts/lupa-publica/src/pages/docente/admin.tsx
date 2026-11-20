@@ -566,7 +566,7 @@ function CompareSection() {
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
           <label className="flex-1 space-y-1 text-sm">
             <span className="block font-semibold text-slate-900">Docente</span>
-            <select value={userId} onChange={(e) => setUserId(e.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2">
+            <select value={userId} onChange={(e) => setUserId(e.target.value)} className="h-10 w-full rounded-lg border border-field bg-white px-2" data-testid="compare-docente">
               <option value="">Escolha um perfil</option>
               {profiles.data!.profiles.map((p) => (
                 <option key={p.user_id} value={p.user_id}>

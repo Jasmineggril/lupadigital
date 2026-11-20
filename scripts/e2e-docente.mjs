@@ -297,19 +297,28 @@ await step("admin: importação JSON com relatório por registro e inspeção de
   const p = adm.page;
   await p.goto(`${WEB}/admin`);
   const base = { nome: "Docente Fictício", atualizado_em: "2026-09-01", areas: ["Física"] };
-  await p.getByLabel("JSON").fill(
+  await p.getByLabel("Conteúdo da lista").fill(
     JSON.stringify([
       { ...base, user_id: "e2e-doc-1", lattes_id: "1111222233334444" },
       { ...base, user_id: "e2e-doc-1", lattes_id: "1111222233334444" },
       { ...base, user_id: "e2e-doc-2", lattes_id: "12" },
     ]),
   );
-  await p.getByRole("button", { name: "Importar perfis" }).click();
-  await p.getByText(/1 importado\(s\), 0 atualizado\(s\), 1 ignorado\(s\), 1 rejeitado\(s\)/).waitFor();
+  assert(await p.getByRole("button", { name: "Importar perfis" }).isDisabled(), "importar deveria exigir validação antes");
+  await p.getByRole("button", { name: "Validar (sem gravar)" }).click();
+  await p.getByText(/Validação: 1 novo\(s\), 0 atualizado\(s\), 1 ignorado\(s\), 1 rejeitado\(s\)/).waitFor();
   await p.getByText(/Registro 3: rejeitado — lattes_id/).waitFor();
+  assert(await p.getByRole("button", { name: "Importar perfis" }).isDisabled(), "com rejeitados, importar deve continuar bloqueado");
+  // Corrige o registro inválido, valida de novo e importa
+  await p.getByLabel("Conteúdo da lista").fill(JSON.stringify([{ ...base, user_id: "e2e-doc-1", lattes_id: "1111222233334444" }]));
+  await p.getByRole("button", { name: "Validar (sem gravar)" }).click();
+  await p.getByText(/Validação concluída, nada foi gravado/).waitFor();
+  p.once("dialog", (d) => d.accept());
+  await p.getByRole("button", { name: "Importar perfis" }).click();
+  await p.getByText(/Importação concluída: 1 novo\(s\)/).waitFor();
   await p.getByRole("button", { name: "Atualizar" }).click();
   await p.reload();
-  const docente = p.getByLabel("Docente");
+  const docente = p.getByTestId("compare-docente");
   const value = await docente.evaluate((el) => [...el.options].find((o) => o.value && !o.value.startsWith("e2e-doc"))?.value);
   assert(value, "perfil da professora não aparece na lista");
   await docente.selectOption(value);

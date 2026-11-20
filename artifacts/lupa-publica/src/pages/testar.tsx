@@ -542,59 +542,6 @@ type AnalysisStage =
   | "completed"
   | "error";
 
-const ANALYSIS_STAGES: AnalysisStage[] = [
-  "reading",
-  "extracting",
-  "requirements",
-  "summary",
-  "finalizing",
-];
-
-function getAnalysisStageMeta(stage: AnalysisStage) {
-  switch (stage) {
-    case "reading":
-      return {
-        title: "Preparando documento",
-        description: "Estamos normalizando o texto e organizando o processamento do edital.",
-      };
-    case "extracting":
-      return {
-        title: "Analisando parte 1",
-        description: "Os blocos do documento estão sendo processados para preservar todas as partes do conteúdo.",
-      };
-    case "requirements":
-      return {
-        title: "Consolidando informações",
-        description: "Estamos unindo os fatos extraídos, removendo duplicidades e validando as fontes.",
-      };
-    case "summary":
-      return {
-        title: "Validando datas e requisitos",
-        description: "A análise final está sendo organizada com rastreabilidade e consistência.",
-      };
-    case "finalizing":
-      return {
-        title: "Finalizando análise",
-        description: "Ajustando a apresentação e os próximos passos para você.",
-      };
-    case "completed":
-      return {
-        title: "Interpretação concluída",
-        description: "O resultado já está pronto para revisar e compartilhar.",
-      };
-    case "error":
-      return {
-        title: "Não foi possível concluir",
-        description: "Houve um problema ao processar o edital. Tente novamente.",
-      };
-    default:
-      return {
-        title: "Pronto para começar",
-        description: "Envie o edital para iniciar a interpretação.",
-      };
-  }
-}
-
 // ── Icon map ────────────────────────────────────────────────────
 const ICON_MAP: Record<string, ReactNode> = {
   Sparkles: <Sparkles className="w-5 h-5" />,
@@ -2394,7 +2341,7 @@ function HistoryPanel({
               const badge = AGENT_BADGE[item.data.agentId] ?? { label: item.data.agentId, color: "bg-muted text-muted-foreground" };
               return (
                 <div key={`local-${item.data.id}`} className="flex w-full items-start gap-2 rounded-xl border bg-card p-4">
-                  <button type="button" onClick={() => onSelectAgent(item.data)} className="min-w-0 flex-1 text-left">
+                  <button type="button" onClick={() => onSelectAgent(item.data)} className="min-w-0 flex-1 text-left" data-testid={`historico-local-${item.data.id}`}>
                     <span className="mb-1 flex items-center gap-2">
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.color}`}>{badge.label}</span>
                       <span className="text-[10px] text-muted-foreground">neste navegador</span>
@@ -3693,7 +3640,7 @@ export default function TestarIA() {
           </section>
 
           {/* ── Center Column: Results ── */}
-          <section className="relative min-h-[500px]">
+          <section className="relative min-h-[500px] space-y-4">
             {!agentResult && !isAnalyzing && !analysisError && (
               <div className="h-full flex flex-col items-center justify-center text-center p-12 border border-dashed border-border rounded-3xl bg-muted/20">
                 <div
@@ -3851,60 +3798,6 @@ export default function TestarIA() {
                 </span>
               </div>
             )}
-          </section>
-
-          {/* ── Center Column: Results ── */}
-          <section className="relative min-h-[500px]">
-            {!agentResult && !isAnalyzing && !analysisError && (
-              <div className="h-full flex flex-col items-center justify-center text-center p-12 border border-dashed border-border rounded-3xl bg-muted/20">
-                <div
-                  className={`w-16 h-16 mb-5 rounded-2xl ${assistantIdentity.color} ${assistantIdentity.textColor} flex items-center justify-center`}
-                >
-                  <span className="scale-150">
-                    {ICON_MAP[assistantIdentity.iconName]}
-                  </span>
-                </div>
-                <h3 className="text-lg font-semibold mb-2">{assistantIdentity.name}</h3>
-                <p className="text-sm text-muted-foreground max-w-[320px]">
-                  O conteúdo do edital define o foco da interpretação e a resposta chega já organizada para revisão.
-                </p>
-                <Badge variant="outline" className={`mt-4 ${assistantIdentity.textColor} border-current`}>
-                  Pronto para interpretar
-                </Badge>
-              </div>
-            )}
-
-            {isAnalyzing && (
-              <div className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                  <div>
-                    <p className="text-sm font-semibold">{currentAgentMeta.name}</p>
-                    <p className="text-sm text-muted-foreground">{getAnalysisStageMeta(analysisStage).title}</p>
-                  </div>
-                </div>
-                {text.length > 8000 && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                    Documento extenso detectado. A análise está sendo processada em partes — pode levar um pouco mais de tempo.
-                  </div>
-                )}
-                <div className="space-y-2">
-                  {ANALYSIS_STAGES.map((stage) => {
-                    const active = analysisStage === stage;
-                    const passed = ANALYSIS_STAGES.indexOf(analysisStage) > ANALYSIS_STAGES.indexOf(stage);
-                    return (
-                      <div key={stage} className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm ${active ? "border-primary/30 bg-primary/5" : passed ? "border-emerald-200 bg-emerald-50/70" : "border-border bg-background"}`}>
-                        <span className="font-medium">{getAnalysisStageMeta(stage).title}</span>
-                        <span className={`text-xs ${active ? "text-primary" : passed ? "text-emerald-700" : "text-muted-foreground"}`}>
-                          {getAnalysisStageMeta(stage).description}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {agentResult && !isAnalyzing && (
               <Tabs defaultValue="resumo" className="w-full">
                 <TabsList className="mb-4 grid h-auto grid-cols-3 gap-2 rounded-[32px] border border-slate-200 bg-slate-100 p-2 shadow-sm shadow-slate-200/20 sm:grid-cols-4">

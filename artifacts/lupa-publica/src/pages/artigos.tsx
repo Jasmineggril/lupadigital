@@ -188,9 +188,13 @@ export default function Artigos() {
         authors: [],
         summary: data.resumo ?? "",
         metadata: { result: data } as any,
+      }).catch((e: unknown) => {
+        // A análise está pronta; só a gravação falhou — dizer isso, sem marcar a análise como erro
+        toast({ title: "Resultado pronto, mas não foi salvo", description: e instanceof Error ? e.message : "Não foi possível salvar no histórico.", variant: "destructive" });
+        return null;
       });
 
-      setHistory((prev) => [saved as ArticleAnalysis, ...prev].slice(0, 20));
+      if (saved) setHistory((prev) => [saved as ArticleAnalysis, ...prev].slice(0, 20));
       toast({ title: "Artigo analisado!", description: "A análise completa está pronta." });
     } catch (err) {
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
@@ -214,8 +218,14 @@ export default function Artigos() {
   };
 
   const handleHistoryDelete = async (id: string) => {
-    await deleteArticleAnalysis(id);
-    setHistory((prev) => prev.filter((p) => p.id !== id));
+    if (!window.confirm("Excluir este item do histórico? Isso não pode ser desfeito.")) return;
+    try {
+      await deleteArticleAnalysis(id);
+      setHistory((prev) => prev.filter((p) => p.id !== id));
+      toast({ title: "Removido do histórico" });
+    } catch (e) {
+      toast({ title: "Não foi possível excluir", description: e instanceof Error ? e.message : "Nada foi apagado; tente novamente.", variant: "destructive" });
+    }
   };
 
   /**

@@ -24,12 +24,14 @@
  *   - Autoria verificada em delete/share para prevenir acesso cruzado
  */
 
+import { buildDocumentBase, normalizeEligibilityCriteria, verifyAgainstText } from "../lib/documentBase";
+import { getStore } from "../lib/lupa/store";
 import { Router, type IRouter } from "express";
 import * as cheerio from "cheerio";
 import { z } from "zod";
 import multer from "multer";
 import { randomUUID } from "crypto";
-import { httpSelect, httpSelectTwoFilters, httpInsert, httpDelete, httpCount, mapKeys } from "../lib/db-http";
+import { httpSelect, httpSelectTwoFilters, httpInsert, httpDelete, httpCount, httpUpdate, mapKeys } from "../lib/db-http";
 import {
   SimplifyEditalBody,
   SaveEditalBody,
@@ -75,6 +77,32 @@ function cleanEditalText(raw: string): string {
     .trim();
 }
 
+/** Limite de texto por análise (≈ 150 páginas de edital). */
+export const MAX_ANALYZE_CHARS = 450_000;
+
+/**
+ * Acrescenta à resposta da IA a base documental comum (igual para todos os agentes),
+ * a verificação de datas/valores contra o texto e a elegibilidade em 3 estados.
+ * Nunca altera o objeto em cache (trabalha numa cópia).
+ */
+async function withDocumentBase(result: unknown, text: string, userId: string | null) {
+  const out = { ...(result as Record<string, unknown>) };
+  let teacher = null;
+  if (userId) {
+    try {
+      teacher = await getStore().getProfile(userId);
+    } catch {
+      teacher = null; // sem perfil docente (ou banco indisponível): elegibilidade fica sem comparação
+    }
+  }
+  out.base = buildDocumentBase(text, teacher);
+  out.verificacao = verifyAgainstText(result, text);
+  if (Array.isArray(out.criterios)) out.criterios = normalizeEligibilityCriteria(out.criterios);
+  const agent = out.agentResult as Record<string, unknown> | undefined;
+  if (agent && Array.isArray(agent.criterios)) out.agentResult = { ...agent, criterios: normalizeEligibilityCriteria(agent.criterios) };
+  return out;
+}
+
 router.post("/edital/analyze", async (req, res): Promise<void> => {
   const parsed = AgentAnalyzeBodySchema.safeParse(req.body);
   if (!parsed.success) {
@@ -83,14 +111,25 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
   }
 
   const { agentId, text, profile } = parsed.data;
+  if (text.length > MAX_ANALYZE_CHARS) {
+    res.status(413).json({
+      error: `O texto tem ${text.length.toLocaleString("pt-BR")} caracteres; o limite é ${MAX_ANALYZE_CHARS.toLocaleString("pt-BR")} (cerca de 150 páginas). Envie só as partes do edital que interessam.`,
+    });
+    return;
+  }
 
   // Limpa o texto antes de processar — remove binário de PDF e ruído tipográfico.
   // Documentos extensos não são bloqueados; eles são analisados em partes e consolidados.
   const cleaned = cleanEditalText(text);
+  if (cleaned.trim().length < 20) {
+    res.status(422).json({ error: "Não há texto legível suficiente para analisar. Se for um PDF escaneado, use a leitura por OCR." });
+    return;
+  }
 
   try {
-    const result = await analyzeAgent(agentId, cleaned, profile, { userId: getReqUserId(req), documentId: null });
-    res.json(result);
+    const userId = getReqUserId(req);
+    const result = await analyzeAgent(agentId, cleaned, profile, { userId, documentId: null });
+    res.json(await withDocumentBase(result, cleaned, userId));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const classification = classifyAiError(message);
@@ -119,8 +158,14 @@ router.get("/edital/agent-history", async (req, res): Promise<void> => {
     return;
   }
 
-  const rows = await httpSelect("agent_results", { user_id: userId }, { order: "created_at", ascending: false });
-  res.json(rows);
+  try {
+    // Mais recentes primeiro; limite evita respostas enormes (a tela pagina localmente)
+    const rows = await httpSelect("agent_results", { user_id: userId }, { order: "created_at", ascending: false, limit: 200 });
+    res.json(rows);
+  } catch (err) {
+    req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:list");
+    res.status(503).json({ error: "Não foi possível carregar o histórico agora. Tente novamente." });
+  }
 });
 
 router.post("/edital/agent-history", async (req, res): Promise<void> => {
@@ -166,7 +211,13 @@ router.post("/edital/agent-history", async (req, res): Promise<void> => {
         
         // Para compatibilidade com o frontend, salvamos a análise CANÔNICA em `resultJson`.
         // Mantemos o resultado original do agente em `agentResult` para auditabilidade.
-        payload.resultJson = { ...canonical, agentResult: originalAgentResult } as any;
+        // Campos do servidor exibidos na tela (base documental, verificação, estado do
+        // processamento) são preservados como estavam: reabrir mostra o mesmo resultado.
+        const keep: Record<string, unknown> = {};
+        for (const k of ["base", "verificacao", "processing", "source", "analysisId", "schemaVersion"]) {
+          if (originalAgentResult[k] !== undefined) keep[k] = originalAgentResult[k];
+        }
+        payload.resultJson = { ...canonical, ...keep, agentResult: originalAgentResult } as any;
       } catch (err) {
         // Em caso de falha na construção canônica, logamos e prosseguimos salvando o resultado do agente.
         req.log?.warn({ err }, "Falha ao construir análise canônica; salvando resultado do agente sem canonical.");
@@ -175,8 +226,42 @@ router.post("/edital/agent-history", async (req, res): Promise<void> => {
   } catch (e) {
     req.log?.warn({ e }, "Erro não crítico preparando payload de agent-history");
   }
-  const saved = await httpInsert("agent_results", payload);
-  res.status(201).json(saved);
+  try {
+    const saved = await httpInsert("agent_results", payload);
+    res.status(201).json(saved);
+  } catch (err) {
+    req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:insert");
+    // Nunca responder "salvo" sem confirmação do banco
+    res.status(503).json({ error: "Não foi possível salvar no histórico. Nada foi gravado; tente novamente." });
+  }
+});
+
+const FavoriteBodySchema = z.object({ favorito: z.boolean() }).strict();
+
+/** Marca/desmarca favorito — só no registro do próprio usuário. */
+router.patch("/edital/agent-history/:id", async (req, res): Promise<void> => {
+  const params = DeleteAgentResultParamsSchema.safeParse(req.params);
+  const body = FavoriteBodySchema.safeParse(req.body ?? {});
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "Requisição inválida." });
+    return;
+  }
+  const userId = (req as any).user?.id ?? null;
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  try {
+    const updated = await httpUpdate("agent_results", { favorito: body.data.favorito }, "id", params.data.id, "user_id", userId);
+    if (!updated) {
+      res.status(404).json({ error: "Análise não encontrada." });
+      return;
+    }
+    res.json(updated);
+  } catch (err) {
+    req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:favorite");
+    res.status(503).json({ error: "Não foi possível atualizar o favorito. Tente novamente." });
+  }
 });
 
 router.delete("/edital/agent-history/:id", async (req, res): Promise<void> => {
@@ -192,14 +277,17 @@ router.delete("/edital/agent-history/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const deleted = await httpDelete("agent_results", "id", params.data.id, "user_id", userId);
-
-  if (!deleted) {
-    res.status(404).json({ error: "Análise não encontrada." });
-    return;
+  try {
+    const deleted = await httpDelete("agent_results", "id", params.data.id, "user_id", userId);
+    if (!deleted) {
+      res.status(404).json({ error: "Análise não encontrada." });
+      return;
+    }
+    res.sendStatus(204);
+  } catch (err) {
+    req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:delete");
+    res.status(503).json({ error: "Não foi possível excluir agora. Nada foi apagado; tente novamente." });
   }
-
-  res.sendStatus(204);
 });
 
 // ── SSRF guard: ver lib/safeFetch.ts (cada redirecionamento é verificado) ──

@@ -187,9 +187,13 @@ export default function Planetario() {
         content: data.introducao ?? "",
         audience,
         metadata: { result: data } as any,
+      }).catch((e: unknown) => {
+        // A análise está pronta; só a gravação falhou — dizer isso, sem marcar a análise como erro
+        toast({ title: "Resultado pronto, mas não foi salvo", description: e instanceof Error ? e.message : "Não foi possível salvar no histórico.", variant: "destructive" });
+        return null;
       });
 
-      setHistory((prev) => [saved as PlanetariumContent, ...prev].slice(0, 20));
+      if (saved) setHistory((prev) => [saved as PlanetariumContent, ...prev].slice(0, 20));
       toast({ title: "Conteúdo gerado!", description: `Roteiro sobre "${topic}" está pronto.` });
     } catch (err) {
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
@@ -212,8 +216,14 @@ export default function Planetario() {
   };
 
   const handleHistoryDelete = async (id: string) => {
-    await deletePlanetariumContent(id);
-    setHistory((prev) => prev.filter((p) => p.id !== id));
+    if (!window.confirm("Excluir este item do histórico? Isso não pode ser desfeito.")) return;
+    try {
+      await deletePlanetariumContent(id);
+      setHistory((prev) => prev.filter((p) => p.id !== id));
+      toast({ title: "Removido do histórico" });
+    } catch (e) {
+      toast({ title: "Não foi possível excluir", description: e instanceof Error ? e.message : "Nada foi apagado; tente novamente.", variant: "destructive" });
+    }
   };
 
   const buildExportSections = () => {
@@ -512,6 +522,9 @@ export default function Planetario() {
               <Card>
                 <CardHeader><CardTitle className="flex items-center gap-2"><Link2 className="w-4 h-4 text-violet-500" /> Fontes para aprofundamento</CardTitle></CardHeader>
                 <CardContent>
+                  <p role="note" className="mb-3 text-sm text-slate-600">
+                    Indicações geradas pela IA. Procure cada fonte pelo nome e confira o conteúdo antes de usá-lo em aula ou sessão.
+                  </p>
                   <ul className="space-y-2">
                     {(result.fontes ?? []).map((f, i) => (
                       <li key={i} className="flex gap-2 text-sm">

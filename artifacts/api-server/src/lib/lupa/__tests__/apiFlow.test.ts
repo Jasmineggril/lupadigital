@@ -374,6 +374,10 @@ describe("importação institucional: relatório por registro", () => {
     expect(r2.body.registros[2].detalhe).toMatch(/outra conta/);
     expect(store.profiles.has("d9")).toBe(false);
     expect((await call("POST", "/admin/profiles/import", admin, { nao: "lista" })).status).toBe(400);
+    // Validação sem gravar: mesmo relatório, nada muda no banco
+    const dry = await call("POST", "/admin/profiles/import?validar=1", admin, [{ ...base, user_id: "d7", lattes_id: "7777888899990000" }]);
+    expect(dry.body).toMatchObject({ importados: 1, simulacao: true });
+    expect(store.profiles.has("d7")).toBe(false);
   });
 });
 

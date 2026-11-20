@@ -104,7 +104,10 @@ import {
   type UserProfile,
   type ChecklistItem,
 } from "@/lib/agents";
-import { extractTextFromPdf, type PdfStructuredData } from "@/lib/pdf";
+import { extractTextFromPdf, PdfExtractError, type PdfStructuredData } from "@/lib/pdf";
+import { apiFetch } from "@/lib/api";
+import { deleteLocalHistory, listLocalHistory, saveLocalHistory, setLocalFavorite, type LocalAgentRecord } from "@/lib/localHistory";
+import { DocumentTimeline, QuickViewContent, ResultValidity, StageBanner, isPartialResult, type RealStage } from "@/components/testar/AnalysisPanels";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
 import {
   buildChecklistItems,
@@ -484,6 +487,23 @@ function getFriendlyErrorMessage(error: unknown) {
   }
 
   return "Não foi possível concluir a interpretação neste momento. Tente novamente.";
+}
+
+/** Sugestão automática de agente + o motivo, para a interface explicar a escolha. */
+export function suggestAgent(text: string, profile: UserProfile): { agent: AgentId; reason: string } {
+  const normalized = `${text} ${profile.atuacao} ${profile.municipio}`.toLowerCase();
+  const rules: Array<[RegExp, AgentId]> = [
+    [/elegibilidade|perfil|renda|escolaridade|candidatura|aderência/i, "elegibilidade"],
+    [/documento|comprovante|certidão|currículo|histórico|anexo/i, "documentacao"],
+    [/prazo|cronograma|inscrição|resultado|recurso|convocação/i, "acompanhamento"],
+    [/oportunidade|risco|vantagem|estratégia|recomendação/i, "estrategica"],
+    [/instituição|público|requisito|valor|benefício|licitação|concurso/i, "analista"],
+  ];
+  for (const [re, agent] of rules) {
+    const m = normalized.match(re);
+    if (m) return { agent, reason: `o texto menciona “${m[0]}”` };
+  }
+  return { agent: "simples", reason: "nenhum foco específico foi detectado no texto" };
 }
 
 function resolveAutoAgent(text: string, profile: UserProfile): AgentId {
@@ -919,6 +939,33 @@ async function exportToPDF(result: AgentResult, title: string, canonicalData?: C
 
   writeText(normalizedTitle || `Interpretação ${agentMeta.name}`, 14, { bold: true });
   writeText(agentMeta.description, 10.5, { color: [71, 85, 105] });
+  // Identificação do documento e estado da análise (mesma versão exibida na tela)
+  const extra = (canonicalData ?? {}) as {
+    base?: { caracteres?: number; documento_hash?: string; datas?: Array<{ rotulo: string; iso: string | null; evidencia: string }>; valores?: Array<{ texto: string }>; documentos?: Array<{ texto: string; evidencia: string }>; ausentes?: string[] };
+    verificacao?: Array<{ mensagem: string }>;
+    processing?: { mode?: string; complete?: boolean };
+    analysisId?: string;
+  };
+  writeText(
+    `Documento analisado: ${extra.base?.caracteres ? `${extra.base.caracteres.toLocaleString("pt-BR")} caracteres` : "texto informado"}${extra.base?.documento_hash ? ` · código ${extra.base.documento_hash.slice(0, 12)}` : ""}${extra.analysisId ? ` · análise ${String(extra.analysisId).slice(0, 18)}` : ""} · gerado em ${new Date().toLocaleString("pt-BR")}`,
+    9,
+    { color: [71, 85, 105] },
+  );
+  if (extra.processing?.mode === "fallback" || extra.processing?.complete === false) {
+    writeSectionTitle("ATENÇÃO: análise parcial", [180, 83, 9]);
+    writeText(
+      extra.processing?.mode === "fallback"
+        ? "A IA não respondeu. Este resultado foi montado por regras simples a partir do texto e pode estar incompleto. Não use como análise completa."
+        : "Parte do documento não foi processada. Não use este resultado como completo.",
+      10.5,
+      { color: [146, 64, 14], bold: true },
+    );
+  }
+  if (extra.verificacao?.length) {
+    writeSectionTitle("Conferir no documento", [180, 83, 9]);
+    writeBullets(extra.verificacao.map((v) => v.mensagem), [180, 83, 9]);
+  }
+  writeText("Confira sempre as informações no documento oficial: ele prevalece sobre esta interpretação.", 9.5, { color: [71, 85, 105] });
   cursorY += 1;
 
   if (result.type === "simples") {
@@ -1005,11 +1052,12 @@ async function exportToPDF(result: AgentResult, title: string, canonicalData?: C
     writeText(result.recomendacao, 11);
     writeSectionTitle("Critérios analisados", theme.accent);
     result.criterios.forEach((criterio, index) => {
+      const estado = (criterio as { estado?: string }).estado;
       const status =
-        criterio.atende === true
+        estado === "atendido" || criterio.atende === true
           ? "Atende"
-          : criterio.atende === "parcial"
-            ? "Parcial"
+          : estado === "pendente" || criterio.atende === "parcial"
+            ? "Pendente de comprovação"
             : "Não atende";
       writeCard(`${index + 1}. ${criterio.criterio}`, status, theme.accent);
       writeText(criterio.observacao, 10, { color: [71, 85, 105] });
@@ -1017,6 +1065,29 @@ async function exportToPDF(result: AgentResult, title: string, canonicalData?: C
     });
     writeSectionTitle("Próximos passos", theme.accent);
     writeBullets(result.proximosPassos, theme.accent);
+  }
+
+  // Base documental comum: as mesmas datas, valores e documentos para qualquer agente
+  if (extra.base) {
+    if (extra.base.datas?.length) {
+      writeSectionTitle("Datas encontradas no documento", theme.accent);
+      writeBullets(
+        extra.base.datas.map((d) => `${d.rotulo}: ${d.iso ? d.iso.split("-").reverse().join("/") : "sem data"} — "${d.evidencia.slice(0, 160)}"`),
+        theme.accent,
+      );
+    }
+    if (extra.base.valores?.length) {
+      writeSectionTitle("Valores encontrados no documento", theme.accent);
+      writeBullets(extra.base.valores.map((v) => v.texto.slice(0, 220)), theme.accent);
+    }
+    if (extra.base.documentos?.length) {
+      writeSectionTitle("Documentos exigidos (trechos do documento)", theme.accent);
+      writeBullets(extra.base.documentos.map((d) => d.texto.slice(0, 220)), theme.accent);
+    }
+    if (extra.base.ausentes?.length) {
+      writeSectionTitle("Não encontrado no documento", [180, 83, 9]);
+      writeText(extra.base.ausentes.join(", "), 10.5);
+    }
   }
 
   pdf.setPage(1);
@@ -1885,6 +1956,7 @@ type DateFilter = "todos" | "hoje" | "semana" | "mes";
 
 type UnifiedItem =
   | { kind: "agent"; data: AgentResultRecord }
+  | { kind: "local"; data: LocalAgentRecord }
   | { kind: "legacy"; data: SavedEdital }
   | { kind: "supabase"; data: AnaliseSalva };
 
@@ -1908,17 +1980,28 @@ function HistoryPanel({
   onSelectAgent,
   onSelectSupabase,
   onClose,
+  isLoggedIn,
 }: {
   onSelect: (item: SavedEdital) => void;
-  onSelectAgent: (item: AgentResultRecord) => void;
+  onSelectAgent: (item: AgentResultRecord | LocalAgentRecord) => void;
   onSelectSupabase: (item: AnaliseSalva) => void;
   onClose: () => void;
+  isLoggedIn: boolean;
 }) {
-  const { data: agentHistory, isLoading: agentLoading } = useListAgentHistory({
+  // Logado: histórico da conta (servidor). Sem login: histórico deste navegador.
+  const {
+    data: agentHistory,
+    isLoading: agentLoadingRaw,
+    isError: agentError,
+    refetch: refetchAgent,
+  } = useListAgentHistory({
+    query: { enabled: isLoggedIn } as never,
     request: { signal: AbortSignal.timeout(30_000) },
   });
-  const { data: legacyHistory, isLoading: legacyLoading } =
-    useListEditalHistory();
+  const agentLoading = isLoggedIn && agentLoadingRaw;
+  const [localItems, setLocalItems] = useState<LocalAgentRecord[]>(() => (isLoggedIn ? [] : listLocalHistory()));
+  const { data: legacyHistory, isLoading: legacyLoadingRaw } = useListEditalHistory({ query: { enabled: isLoggedIn } as never });
+  const legacyLoading = isLoggedIn && legacyLoadingRaw;
   const deleteAgentResult = useDeleteAgentResult();
   const deleteEdital = useDeleteEdital();
   const queryClient = useQueryClient();
@@ -2006,11 +2089,14 @@ function HistoryPanel({
       return q.length === 0 || normalizeSearch(item).includes(q);
     };
 
-    const agentItems: UnifiedItem[] = (agentHistory ?? [])
-      .filter(
-        (item: AgentResultRecord) => matchDate(item.createdAt) && matches(item),
-      )
-      .map((data: AgentResultRecord) => ({ kind: "agent", data }));
+    const agentItems: UnifiedItem[] = [
+      ...(agentHistory ?? [])
+        .filter((item: AgentResultRecord) => matchDate(item.createdAt) && matches(item))
+        .map((data: AgentResultRecord) => ({ kind: "agent" as const, data })),
+      ...localItems
+        .filter((item) => matchDate(item.createdAt) && matches(item as never))
+        .map((data) => ({ kind: "local" as const, data })),
+    ];
 
     const legacyItems: UnifiedItem[] = (legacyHistory ?? [])
       .filter((item: SavedEdital) => matchDate(item.createdAt) && matches(item))
@@ -2023,10 +2109,20 @@ function HistoryPanel({
     return [...agentItems, ...legacyItems, ...supabaseItemsUnified].sort(
       (a, b) => parseDate(b.data) - parseDate(a.data),
     );
-  }, [agentHistory, legacyHistory, supabaseItems, search, dateFilter]);
+  }, [agentHistory, legacyHistory, supabaseItems, localItems, search, dateFilter]);
+
+  const handleDeleteLocal = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm("Excluir esta análise do histórico deste navegador? Isso não pode ser desfeito.")) return;
+    if (deleteLocalHistory(id)) {
+      setLocalItems(listLocalHistory());
+      toast({ title: "Removido", description: "Análise removida do histórico deste navegador." });
+    } else toast({ title: "Não foi possível remover", description: "O navegador bloqueou a alteração.", variant: "destructive" });
+  };
 
   const handleDeleteAgent = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!window.confirm("Excluir esta análise do histórico da sua conta? Isso não pode ser desfeito.")) return;
     deleteAgentResult.mutate(
       { id },
       {
@@ -2051,6 +2147,7 @@ function HistoryPanel({
 
   const handleDeleteSupabase = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!window.confirm("Excluir este registro antigo? Isso não pode ser desfeito.")) return;
     try {
       await excluirAnalise(id);
       setSupabaseItems((prev) => prev.filter((item) => item.id !== id));
@@ -2069,6 +2166,7 @@ function HistoryPanel({
 
   const handleDeleteLegacy = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!window.confirm("Excluir este registro antigo? Isso não pode ser desfeito.")) return;
     deleteEdital.mutate(
       { id },
       {
@@ -2092,6 +2190,7 @@ function HistoryPanel({
   };
 
   const handleClearSupabaseHistory = async () => {
+    if (!window.confirm("Excluir TODOS os registros antigos (só texto) do histórico? As análises completas não são afetadas. Isso não pode ser desfeito.")) return;
     try {
       await limparAnalises();
       setSupabaseItems([]);
@@ -2209,9 +2308,10 @@ function HistoryPanel({
               className="h-8 gap-1.5 text-xs rounded-lg"
               onClick={handleClearSupabaseHistory}
               disabled={isLoading || supabaseItems.length === 0}
+              title="Exclui só os registros antigos (só texto)"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Limpar
+              Limpar antigos
             </Button>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="w-5 h-5" />
@@ -2276,48 +2376,61 @@ function HistoryPanel({
               </p>
             </div>
           )}
+          {isLoggedIn && agentError && (
+            <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+              Não foi possível carregar o histórico da sua conta.{" "}
+              <button type="button" className="font-semibold underline" onClick={() => void refetchAgent()}>
+                Tentar novamente
+              </button>
+            </div>
+          )}
+          {!isLoggedIn && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              Sem login, o histórico fica só neste navegador (até 30 análises). Entre na conta para guardá-lo no servidor.
+            </p>
+          )}
           {unified.map((item) => {
-            if (item.kind === "agent") {
-              const badge = AGENT_BADGE[item.data.agentId] ?? {
-                label: item.data.agentId,
-                color: "bg-muted text-muted-foreground",
-              };
+            if (item.kind === "local") {
+              const badge = AGENT_BADGE[item.data.agentId] ?? { label: item.data.agentId, color: "bg-muted text-muted-foreground" };
               return (
-                <button
-                  key={`agent-${item.data.id}`}
-                  onClick={() => onSelectAgent(item.data)}
-                  className="w-full text-left p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-primary/20 transition group"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badge.color}`}
-                        >
-                          {badge.label}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium truncate pr-2">
-                        {item.data.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground/60 mt-1.5 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatDate(item.data.createdAt)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10"
-                        onClick={(e) => handleDeleteAgent(item.data.id, e)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
-                    </div>
-                  </div>
-                </button>
+                <div key={`local-${item.data.id}`} className="flex w-full items-start gap-2 rounded-xl border bg-card p-4">
+                  <button type="button" onClick={() => onSelectAgent(item.data)} className="min-w-0 flex-1 text-left">
+                    <span className="mb-1 flex items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.color}`}>{badge.label}</span>
+                      <span className="text-[10px] text-muted-foreground">neste navegador</span>
+                    </span>
+                    <span className="block truncate text-sm font-medium">{item.data.title}</span>
+                    <span className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" aria-hidden /> {formatDate(item.data.createdAt)}
+                    </span>
+                  </button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10" aria-label="Excluir do histórico" onClick={(e) => handleDeleteLocal(item.data.id, e)}>
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  </Button>
+                </div>
+              );
+            }
+            if (item.kind === "agent") {
+              const badge = AGENT_BADGE[item.data.agentId] ?? { label: item.data.agentId, color: "bg-muted text-muted-foreground" };
+              const fav = Boolean((item.data as { favorito?: boolean }).favorito);
+              const partial = Boolean((item.data.resultJson as { processing?: { mode?: string; complete?: boolean } } | undefined)?.processing && ((item.data.resultJson as any).processing.mode === "fallback" || (item.data.resultJson as any).processing.complete === false));
+              return (
+                <div key={`agent-${item.data.id}`} className="flex w-full items-start gap-2 rounded-xl border bg-card p-4">
+                  <button type="button" onClick={() => onSelectAgent(item.data)} className="min-w-0 flex-1 text-left" data-testid={`historico-item-${item.data.id}`}>
+                    <span className="mb-1 flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.color}`}>{badge.label}</span>
+                      {fav && <span className="text-[10px] font-semibold text-amber-800">★ favorito</span>}
+                      {partial && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">parcial</span>}
+                    </span>
+                    <span className="block truncate text-sm font-medium">{item.data.title}</span>
+                    <span className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" aria-hidden /> {formatDate(item.data.createdAt)}
+                    </span>
+                  </button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10" aria-label="Excluir do histórico" onClick={(e) => handleDeleteAgent(item.data.id, e)}>
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  </Button>
+                </div>
               );
             }
             if (item.kind === "supabase") {
@@ -2329,8 +2442,8 @@ function HistoryPanel({
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                          Supabase
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                          Registro antigo · só o texto
                         </span>
                       </div>
                       <p className="text-sm font-medium truncate pr-2">
@@ -2356,7 +2469,7 @@ function HistoryPanel({
                           onSelectSupabase(item.data);
                         }}
                       >
-                        Visualizar
+                        Restaurar texto
                       </Button>
                       <Button
                         variant="ghost"
@@ -2374,42 +2487,19 @@ function HistoryPanel({
               );
             }
             return (
-              <button
-                key={`legacy-${item.data.id}`}
-                onClick={() => onSelect(item.data)}
-                className="w-full text-left p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-primary/20 transition group"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                        Simples (legado)
-                      </span>
-                    </div>
-                    <p className="text-sm font-medium truncate pr-2">
-                      {item.data.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                      {item.data.resumo}
-                    </p>
-                    <p className="text-xs text-muted-foreground/60 mt-1.5 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatDate(item.data.createdAt)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10"
-                      onClick={(e) => handleDeleteLegacy(item.data.id, e)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
-                  </div>
-                </div>
-              </button>
+              <div key={`legacy-${item.data.id}`} className="flex w-full items-start gap-2 rounded-xl border bg-card p-4">
+                <button type="button" onClick={() => onSelect(item.data)} className="min-w-0 flex-1 text-left">
+                  <span className="mb-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">Registro antigo · Simples</span>
+                  <span className="block truncate text-sm font-medium">{item.data.title}</span>
+                  <span className="mt-0.5 line-clamp-1 block text-xs text-muted-foreground">{item.data.resumo}</span>
+                  <span className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" aria-hidden /> {formatDate(item.data.createdAt)}
+                  </span>
+                </button>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10" aria-label="Excluir registro antigo" onClick={(e) => handleDeleteLegacy(item.data.id, e)}>
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                </Button>
+              </div>
             );
           })}
         </div>
@@ -2444,9 +2534,15 @@ export default function TestarIA() {
   const [showShareLink, setShowShareLink] = useState(false);
   const [shareOptionsOpen, setShareOptionsOpen] = useState(false);
   const [question, setQuestion] = useState("");
+  // Respostas do chat por documento: "ia" = respondida pelo modelo; "automatica" =
+  // montada por regras a partir da análise (sem IA), sempre identificada na tela.
   const [answerHistory, setAnswerHistory] = useState<
-    { question: string; answer: string }[]
+    { question: string; answer: string; source?: "ia" | "automatica" }[]
   >([]);
+  /** Texto exato que gerou o resultado na tela: liga resultado ↔ documento */
+  const [analyzedText, setAnalyzedText] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const analyzeSeq = useRef(0);
   const [isAnswering, setIsAnswering] = useState(false);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [isAnalyzePressed, setIsAnalyzePressed] = useState(false);
@@ -2510,29 +2606,55 @@ export default function TestarIA() {
     }
   }, [location]);
 
+  // Tempo decorrido REAL da requisição (sem etapas ou porcentagens fictícias)
   useEffect(() => {
-    if (!analyzeEditalMutation.isPending) {
-      if (analysisStage === "reading" || analysisStage === "extracting" || analysisStage === "requirements" || analysisStage === "summary" || analysisStage === "finalizing") {
-        setAnalysisStage("idle");
-      }
+    const busy = analyzeEditalMutation.isPending || isPdfLoading || extractUrlMutation.isPending;
+    if (!busy) {
+      setElapsedSeconds(0);
       return;
     }
-
-    const timer = window.setInterval(() => {
-      setAnalysisStage((current) => {
-        const currentIndex = ANALYSIS_STAGES.indexOf(current);
-        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % ANALYSIS_STAGES.length : 0;
-        return ANALYSIS_STAGES[nextIndex];
-      });
-    }, 900);
-
+    const started = Date.now();
+    const timer = window.setInterval(() => setElapsedSeconds(Math.round((Date.now() - started) / 1000)), 1000);
     return () => window.clearInterval(timer);
-  }, [analyzeEditalMutation.isPending, analysisStage]);
+  }, [analyzeEditalMutation.isPending, isPdfLoading, extractUrlMutation.isPending]);
 
   useEffect(() => {
     if (!text.trim() || agentResult || manualAgentSelection) return;
     setSelectedAgent(resolveAutoAgent(text, profile));
   }, [text, profile, agentResult, manualAgentSelection]);
+  const autoSuggestion = useMemo(() => (text.trim() ? suggestAgent(text, profile) : null), [text, profile]);
+
+  /** Limpa TUDO o que pertence ao documento atual (resultado, análise, chat, compartilhamento). Não toca no histórico salvo. */
+  const resetAnalysis = () => {
+    analyzeSeq.current++;
+    setAgentResult(null);
+    setCanonicalAnalysis(null);
+    setAnalyzedText(null);
+    setAnswerHistory([]);
+    setAnalysisError(null);
+    setShareToken(null);
+    setShowShareLink(false);
+    setShareOptionsOpen(false);
+    setIsAnalyzePressed(false);
+    setSavedThisResult(false);
+    setCurrentSavedId(null);
+    setIsFavorite(false);
+    setChecklistState([]);
+    setAnalysisStage("idle");
+  };
+
+  const realStage: RealStage =
+    isPdfLoading || extractUrlMutation.isPending
+      ? "extraindo"
+      : analyzeEditalMutation.isPending
+        ? "analisando"
+        : analysisStage === "error"
+          ? "falha"
+          : canonicalAnalysis
+            ? isPartialResult(canonicalAnalysis as never)
+              ? "parcial"
+              : "concluido"
+            : "aguardando";
 
   const currentAgentMeta = AGENTS.find((a) => a.id === selectedAgent)!;
   const assistantIdentity = {
@@ -2700,53 +2822,39 @@ export default function TestarIA() {
     };
   };
 
+  /**
+   * Salva a análise exibida. Logado: SÓ no histórico da conta (agent_results, resultado
+   * completo); se o servidor falhar, informa a falha — não há cópia silenciosa no
+   * navegador. Sem login: grava neste navegador e diz isso.
+   */
   const persistCurrentAnalysis = async (
     result: AgentResult | null,
     canonicalData: CanonicalAnalysisLike | null,
     agentIdOverride: AgentId = selectedAgent,
-  ) => {
-    if (canonicalData?.source?.agentId && canonicalData?.processing?.complete === false) {
-      return null;
-    }
-    try {
-      const payload = buildAnalysisPayload(result, canonicalData, isFavorite, agentIdOverride);
-      let saved;
-      if (currentSavedId) {
-        payload.id = currentSavedId;
-        saved = await atualizarAnalise(payload);
-      } else {
-        saved = await salvarAnalise(payload);
+    sourceText: string = text,
+  ): Promise<{ ok: boolean; where: "conta" | "navegador"; id: string | null; error?: string }> => {
+    const title = sourceText.trim().slice(0, 80).replace(/\n/g, " ") || `Interpretação ${AGENTS.find((a) => a.id === agentIdOverride)?.name ?? currentAgentMeta.name}`;
+    const resultJson = (canonicalData ? { ...canonicalData, type: agentIdOverride } : result ? { ...result } : { type: agentIdOverride }) as Record<string, unknown>;
+    if (user) {
+      try {
+        const savedAgent = await saveAgentResultMutation.mutateAsync({ data: { agentId: agentIdOverride, title, originalText: sourceText, resultJson } });
+        const id = savedAgent?.id != null ? String(savedAgent.id) : null;
+        if (savedAgent?.id && canonicalData) setCanonicalAnalysis((prev) => (prev ? { ...prev, historyId: savedAgent.id } : prev));
+        setSavedThisResult(Boolean(id));
+        setCurrentSavedId(id);
+        setIsFavorite(false);
+        queryClient.invalidateQueries({ queryKey: getListAgentHistoryQueryKey() });
+        return { ok: Boolean(id), where: "conta", id };
+      } catch (err) {
+        setSavedThisResult(false);
+        return { ok: false, where: "conta", id: null, error: err instanceof Error ? err.message : "Falha ao salvar." };
       }
-      setSavedThisResult(Boolean(saved));
-      setCurrentSavedId(saved?.id ?? null);
-      setIsFavorite(Boolean(saved?.favorito));
-
-      if (user) {
-        try {
-          const savedAgent = await saveAgentResultMutation.mutateAsync({
-            data: {
-              agentId: agentIdOverride,
-              title: payload.titulo ?? `Interpretação ${AGENTS.find((a) => a.id === agentIdOverride)?.name ?? currentAgentMeta.name}`,
-              originalText: payload.conteudo_original ?? text,
-              resultJson: (canonicalData
-                ? { ...canonicalData, type: agentIdOverride }
-                : (result ? { ...result } : { type: selectedAgent })) as Record<string, unknown>,
-            },
-          });
-          if (savedAgent?.id && canonicalData) {
-            setCanonicalAnalysis((prev) => prev ? { ...prev, historyId: savedAgent.id } : prev);
-          }
-          queryClient.invalidateQueries({
-            queryKey: getListAgentHistoryQueryKey(),
-          });
-        } catch {
-          // Fallback local persistence already applied above.
-        }
-      }
-      return saved;
-    } catch {
-      return null;
     }
+    const saved = saveLocalHistory({ agentId: agentIdOverride, title, originalText: sourceText, resultJson });
+    setSavedThisResult(Boolean(saved));
+    setCurrentSavedId(saved?.id ?? null);
+    setIsFavorite(false);
+    return saved ? { ok: true, where: "navegador", id: saved.id } : { ok: false, where: "navegador", id: null, error: "O navegador não permitiu guardar (armazenamento cheio ou bloqueado)." };
   };
 
   const handleAnalyze = () => {
@@ -2761,14 +2869,14 @@ export default function TestarIA() {
       return;
     }
 
+    if (analyzeEditalMutation.isPending) return; // cliques repetidos não duplicam análises
     const agentIdToUse = manualAgentSelection ? selectedAgent : resolveAutoAgent(text, profile);
+    resetAnalysis();
+    const seq = analyzeSeq.current;
+    const textAtStart = text;
     setSelectedAgent(agentIdToUse);
     setIsAnalyzePressed(true);
-    setAnalysisError(null);
     setAnalysisStage("reading");
-    setAgentResult(null);
-    setCanonicalAnalysis(null);
-    setSavedThisResult(false);
 
     analyzeEditalMutation.mutate(
       {
@@ -2780,19 +2888,37 @@ export default function TestarIA() {
       },
       {
         onSuccess: async (data) => {
+          // Outro documento entrou (ou a tela foi limpa) durante a análise: descarta este resultado
+          if (seq !== analyzeSeq.current) return;
           const canonicalPayload = data as unknown as CanonicalAnalysisLike;
           const result = canonicalToAgentResult(canonicalPayload) ?? (data as unknown as AgentResult);
           setCanonicalAnalysis(canonicalPayload);
+          setAnalyzedText(textAtStart);
           applyResult(result);
           setAnalysisStage("completed");
-          await persistCurrentAnalysis(result, canonicalPayload, agentIdToUse);
-          toast({
-            title: "Interpretação concluída",
-            description:
-              user
-                ? "A interpretação foi salva no histórico e está pronta para revisão."
-                : "A interpretação está pronta para revisão.",
-          });
+          const partial = isPartialResult(canonicalPayload as never);
+          if (partial) {
+            // Resultado de contingência/incompleto não é salvo automaticamente
+            toast({
+              title: "Análise parcialmente concluída",
+              description: "A IA não concluiu o processamento. O resultado é limitado e não foi salvo automaticamente; você pode salvar manualmente ou tentar de novo.",
+              variant: "destructive",
+            });
+            return;
+          }
+          const saved = await persistCurrentAnalysis(result, canonicalPayload, agentIdToUse, textAtStart);
+          toast(
+            saved.ok
+              ? {
+                  title: "Interpretação concluída",
+                  description: saved.where === "conta" ? "Salva no histórico da sua conta." : "Salva no histórico deste navegador (entre na conta para guardar no servidor).",
+                }
+              : {
+                  title: "Interpretação concluída, mas não foi salva",
+                  description: saved.error ?? "Não foi possível salvar no histórico. Use o botão Salvar para tentar de novo.",
+                  variant: "destructive",
+                },
+          );
         },
         onError: (error) => {
           setIsAnalyzePressed(false);
@@ -2810,41 +2936,29 @@ export default function TestarIA() {
 
   const handleToggleFavorite = async () => {
     if (!agentResult) {
-      toast({
-        title: "Sem interpretação ativa",
-        description: "Execute uma interpretação antes de favoritar.",
-        variant: "destructive",
-      });
+      toast({ title: "Sem interpretação ativa", description: "Execute uma interpretação antes de favoritar.", variant: "destructive" });
       return;
     }
-
-    const nextFavorite = !isFavorite;
-    setIsFavorite(nextFavorite);
-
-    if (currentSavedId) {
+    if (!currentSavedId) {
+      toast({ title: "Salve primeiro", description: "Salve a interpretação no histórico para poder marcá-la como favorita.", variant: "destructive" });
+      return;
+    }
+    const next = !isFavorite;
+    let ok = false;
+    if (currentSavedId.startsWith("local-")) ok = setLocalFavorite(currentSavedId, next);
+    else {
       try {
-        const payload = buildAnalysisPayload(agentResult, canonicalAnalysis, nextFavorite);
-        payload.id = currentSavedId;
-        const updated = await atualizarAnalise(payload);
-        setCurrentSavedId(updated.id ?? currentSavedId);
-        setIsFavorite(Boolean(updated.favorito));
-        toast({
-          title: nextFavorite ? "Favorito adicionado" : "Favorito removido",
-          description: "O histórico foi atualizado.",
-        });
+        const updated = await apiFetch<{ favorito: boolean }>(`/edital/agent-history/${currentSavedId}`, { method: "PATCH", body: JSON.stringify({ favorito: next }) });
+        ok = updated.favorito === next;
       } catch {
-        setIsFavorite(!nextFavorite);
-        toast({
-          title: "Erro",
-          description: "Não foi possível atualizar o favorito.",
-          variant: "destructive",
-        });
+        ok = false;
       }
+    }
+    if (ok) {
+      setIsFavorite(next);
+      toast({ title: next ? "Favorito adicionado" : "Favorito removido", description: "O histórico foi atualizado." });
     } else {
-      toast({
-        title: nextFavorite ? "Favorito marcado" : "Favorito desmarcado",
-        description: "Salve a interpretação para persistir este favorito.",
-      });
+      toast({ title: "Não foi possível atualizar o favorito", description: "Nada foi alterado. Tente novamente.", variant: "destructive" });
     }
   };
 
@@ -2883,31 +2997,26 @@ export default function TestarIA() {
     try {
       const { text: extracted, structured } = await extractTextFromPdf(file);
       if (!extracted?.trim())
-        throw new Error("Nenhum texto legível encontrado no PDF.");
+        throw new PdfExtractError("empty", "Nenhum texto legível encontrado no PDF.");
+      resetAnalysis();
       setText(extracted.trim());
       setPdfStructuredData(structured);
       setActiveTab("pdf");
-      setAgentResult(null);
-      setCanonicalAnalysis(null);
-      setAnalysisError(null);
-      setShareToken(null);
-      setShowShareLink(false);
       toast({
         title: "PDF processado com sucesso.",
         description: "O texto legível foi extraído e está pronto para interpretação.",
       });
     } catch (err) {
       setPdfStructuredData(null);
-      setAnalysisError(getFriendlyErrorMessage(err));
+      setAnalysisError(err instanceof PdfExtractError ? err.message : getFriendlyErrorMessage(err));
       setPdfError(
         err instanceof Error
           ? err.message
           : "Não foi possível extrair o texto deste PDF.",
       );
       toast({
-        title: "Não foi possível extrair o texto deste PDF.",
-        description:
-          "Verifique se o arquivo contém texto legível e tente novamente.",
+        title: "Não foi possível ler este PDF",
+        description: err instanceof PdfExtractError ? err.message : "Verifique se o arquivo contém texto legível e tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -2930,11 +3039,9 @@ export default function TestarIA() {
       { data: { url: urlInput } },
       {
         onSuccess: (data) => {
+          resetAnalysis();
           setText(data.text);
           setActiveTab("texto");
-          setAgentResult(null);
-          setCanonicalAnalysis(null);
-          setAnalysisError(null);
           toast({
             title: "Texto extraído",
             description: "Revise o texto e clique em Interpretar.",
@@ -2953,6 +3060,7 @@ export default function TestarIA() {
   };
 
   const handleHistorySelect = (item: SavedEdital) => {
+    resetAnalysis();
     setText(item.originalText);
     setSelectedAgent("simples");
     setAgentResult({
@@ -2971,8 +3079,12 @@ export default function TestarIA() {
     setShowHistory(false);
   };
 
-  const handleAgentHistorySelect = (item: AgentResultRecord) => {
+  const handleAgentHistorySelect = (item: AgentResultRecord | LocalAgentRecord) => {
+    resetAnalysis();
     setText(item.originalText);
+    setAnalyzedText(item.originalText);
+    setCurrentSavedId(String(item.id));
+    setIsFavorite(Boolean((item as { favorito?: boolean }).favorito));
     setSelectedAgent(item.agentId as AgentId);
     const parsedCanonical = item.resultJson as CanonicalAnalysisLike;
     const parsed = canonicalToAgentResult(parsedCanonical) ?? (item.resultJson as unknown as AgentResult);
@@ -3047,19 +3159,12 @@ export default function TestarIA() {
     setQuestion("");
 
     if (!user) {
+      // Sem login: resposta automática montada a partir da análise (sem IA) — identificada na tela
       const answer = getCanonicalAnswer(q, text, canonicalAnalysis, profile);
-      setAnswerHistory((prev) =>
-        [{ question: q, answer }, ...prev].slice(0, 5),
-      );
-      toast({
-        title: "Chat básico disponível",
-        description: "Faça login para obter respostas mais detalhadas e contexto ampliado.",
-      });
+      setAnswerHistory((prev) => [{ question: q, answer, source: "automatica" as const }, ...prev].slice(0, 8));
       setIsAnswering(false);
       return;
     }
-
-    const API = ((import.meta.env.BASE_URL as string) || "/").replace(/\/$/, "") + "/api";
 
     try {
       const ctx = [
@@ -3067,42 +3172,31 @@ export default function TestarIA() {
         `INTERPRETAÇÃO CANÔNICA:\n${JSON.stringify(canonicalAnalysis, null, 2).slice(0, 3000)}`,
       ].filter(Boolean).join("\n\n");
 
-      const res = await fetch(`${API}/niasci/chat`, {
+      // Conversa SÓ deste documento: as perguntas anteriores (deste edital) dão continuidade
+      const previous = [...answerHistory]
+        .reverse()
+        .slice(-3)
+        .flatMap((a) => [
+          { role: "user" as const, content: a.question },
+          { role: "assistant" as const, content: a.answer },
+        ]);
+      const data = await apiFetch<{ reply?: string }>("/niasci/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [{ role: "user", content: q }],
+          messages: [...previous, { role: "user", content: q }],
           context: ctx,
           historyId: canonicalAnalysis.historyId ?? undefined,
         }),
       });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (res.status === 429) {
-        setAnswerHistory((prev) =>
-          [{ question: q, answer: data.error ?? "Limite de uso atingido. Tente novamente mais tarde." }, ...prev].slice(0, 5),
-        );
-        return;
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || "Erro ao consultar o chat.");
-      }
-
-      const answer = data.reply ?? data.error ?? "Não consegui responder. Tente novamente.";
-      setAnswerHistory((prev) =>
-        [{ question: q, answer }, ...prev].slice(0, 5),
-      );
-    } catch {
+      if (!data.reply) throw new Error("Resposta vazia.");
+      setAnswerHistory((prev) => [{ question: q, answer: data.reply as string, source: "ia" as const }, ...prev].slice(0, 8));
+    } catch (err) {
       const fallbackAnswer = getCanonicalAnswer(q, text, canonicalAnalysis, profile);
-      setAnswerHistory((prev) =>
-        [{ question: q, answer: fallbackAnswer }, ...prev].slice(0, 5),
-      );
+      setAnswerHistory((prev) => [{ question: q, answer: fallbackAnswer, source: "automatica" as const }, ...prev].slice(0, 8));
       toast({
-        title: "Recurso de chat temporariamente indisponível",
-        description: "Use a resposta baseada na análise canônica enquanto o serviço não estiver disponível.",
-        variant: "default",
+        title: "A IA do chat não respondeu",
+        description: `${err instanceof Error && err.message ? `${err.message} ` : ""}Mostramos uma resposta automática montada a partir da análise, sem IA.`,
+        variant: "destructive",
       });
     } finally {
       setIsAnswering(false);
@@ -3130,7 +3224,9 @@ export default function TestarIA() {
             description: "Cole em qualquer lugar para compartilhar.",
           });
         })
-        .catch(() => {});
+        .catch(() => {
+          toast({ title: "Não foi possível copiar", description: `Copie o link manualmente: ${url}`, variant: "destructive" });
+        });
       return;
     }
 
@@ -3154,23 +3250,13 @@ export default function TestarIA() {
   };
 
   const handleSaveAgent = async () => {
-    if (!agentResult || !text.trim()) return;
-    try {
-      const saved = await persistCurrentAnalysis(agentResult, canonicalAnalysis);
-      setSavedThisResult(Boolean(saved));
-      setCurrentSavedId(saved?.id ?? null);
-      setIsFavorite(Boolean(saved?.favorito));
-      toast({
-        title: "Interpretação salva!",
-        description: "Disponível no Histórico de Interpretações.",
-      });
-    } catch {
-      toast({
-        title: "Erro",
-        description: "Não foi possível salvar a interpretação.",
-        variant: "destructive",
-      });
-    }
+    if (!agentResult || !text.trim() || savedThisResult) return;
+    const saved = await persistCurrentAnalysis(agentResult, canonicalAnalysis, selectedAgent, analyzedText ?? text);
+    toast(
+      saved.ok
+        ? { title: "Interpretação salva", description: saved.where === "conta" ? "Disponível no histórico da sua conta." : "Disponível no histórico deste navegador." }
+        : { title: "Não foi possível salvar", description: saved.error ?? "Nada foi gravado. Tente novamente.", variant: "destructive" },
+    );
   };
 
   const handleExportPDF = async () => {
@@ -3198,6 +3284,7 @@ export default function TestarIA() {
     <div className="flex flex-col min-h-[100dvh]">
       {showHistory && (
         <HistoryPanel
+          isLoggedIn={Boolean(user)}
           onSelect={handleHistorySelect}
           onSelectAgent={handleAgentHistorySelect}
           onSelectSupabase={(item) => {
@@ -3284,11 +3371,20 @@ export default function TestarIA() {
                 setManualAgentSelection(true);
               }}
             />
-            {!manualAgentSelection && (
-              <p className="text-xs text-muted-foreground mt-2">
-                O agente é sugerido automaticamente com base no conteúdo inserido. Você pode ajustar manualmente se quiser.
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground mt-2" aria-live="polite" data-testid="agente-escolha">
+              {manualAgentSelection ? (
+                <>
+                  Agente escolhido por você. A sugestão automática não vai substituir essa escolha.{" "}
+                  <button type="button" className="font-semibold text-lens underline underline-offset-2" onClick={() => setManualAgentSelection(false)}>
+                    Voltar à sugestão automática
+                  </button>
+                </>
+              ) : autoSuggestion ? (
+                <>Sugerido automaticamente: {AGENTS.find((a) => a.id === autoSuggestion.agent)?.name}, porque {autoSuggestion.reason}. Clique em outro agente para mudar.</>
+              ) : (
+                <>O agente é sugerido automaticamente quando você inserir o texto. Você também pode escolher um agora.</>
+              )}
+            </p>
           </div>
 
           <Tabs
@@ -3309,13 +3405,9 @@ export default function TestarIA() {
                     style={{ fontFamily: "inherit", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}
                     value={text}
                     onChange={(e) => {
+                      // Texto mudou: o resultado anterior deixa de valer para este documento
+                      if (agentResult || canonicalAnalysis) resetAnalysis();
                       setText(e.target.value);
-                      setAgentResult(null);
-                      setAnalysisError(null);
-                      setShareToken(null);
-                      setShowShareLink(false);
-                      setShareOptionsOpen(false);
-                      setIsAnalyzePressed(false);
                     }}
                     disabled={isAnalyzing}
                     data-testid="input-edital-text"
@@ -3323,9 +3415,10 @@ export default function TestarIA() {
                   {text && !isAnalyzing && (
                     <button
                       type="button"
-                      onClick={() => { setText(""); setAgentResult(null); setAnalysisError(null); }}
+                      onClick={() => { resetAnalysis(); setText(""); }}
                       className="absolute top-2.5 right-2.5 rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                      title="Limpar texto"
+                      title="Limpar texto e resultado (o histórico salvo não é apagado)"
+                      aria-label="Limpar texto e resultado (o histórico salvo não é apagado)"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                     </button>
@@ -3584,6 +3677,51 @@ export default function TestarIA() {
                     </Button>
                   </div>
                 )}
+              </div>
+            )}
+
+
+            {/* Agent description banner */}
+            {!agentResult && !isAnalyzing && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-xl p-3 border border-border/50">
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  Cole o edital e clique em <strong>Analisar Documento</strong> para ver a interpretação organizada.
+                </span>
+              </div>
+            )}
+          </section>
+
+          {/* ── Center Column: Results ── */}
+          <section className="relative min-h-[500px]">
+            {!agentResult && !isAnalyzing && !analysisError && (
+              <div className="h-full flex flex-col items-center justify-center text-center p-12 border border-dashed border-border rounded-3xl bg-muted/20">
+                <div
+                  className={`w-16 h-16 mb-5 rounded-2xl ${assistantIdentity.color} ${assistantIdentity.textColor} flex items-center justify-center`}
+                >
+                  <span className="scale-150">
+                    {ICON_MAP[assistantIdentity.iconName]}
+                  </span>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">{assistantIdentity.name}</h3>
+                <p className="text-sm text-muted-foreground max-w-[320px]">
+                  O conteúdo do edital define o foco da interpretação e a resposta chega já organizada para revisão.
+                </p>
+                <Badge variant="outline" className={`mt-4 ${assistantIdentity.textColor} border-current`}>
+                  Pronto para interpretar
+                </Badge>
+              </div>
+            )}
+
+            {(isAnalyzing || isPdfLoading || extractUrlMutation.isPending || realStage === "falha" || realStage === "parcial" || realStage === "concluido") && (
+              <div className="space-y-3">
+                <StageBanner stage={realStage} elapsedSeconds={elapsedSeconds} agentName={currentAgentMeta.name} />
+                {isAnalyzing && text.length > 8000 && (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    Documento extenso ({text.length.toLocaleString("pt-BR")} caracteres): a análise é feita em partes e pode demorar mais.
+                  </p>
+                )}
+                {!isAnalyzing && <ResultValidity analysis={canonicalAnalysis as never} />}
               </div>
             )}
 
@@ -3948,7 +4086,10 @@ export default function TestarIA() {
                     </CardHeader>
                     <CardContent className="space-y-4 p-4">
                       <LearnBox section="chat" />
-                      <p className="text-sm text-muted-foreground">Pergunte sobre o edital interpretado e receba respostas claras baseadas na análise.</p>
+                      <p className="text-sm text-muted-foreground">
+                        Pergunte sobre <strong>este</strong> edital. As respostas usam só a análise e o texto dele; se algo não estiver no documento, a resposta deve dizer isso.
+                        {!user && " Sem login, as respostas são automáticas (sem IA)."}
+                      </p>
                       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                         <Input placeholder="Ex: Qual é o prazo final?" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={isAnswering} />
                         <Button size="sm" className="rounded-xl" onClick={handleAskQuestion} disabled={!question.trim() || isAnswering || !canonicalAnalysis}>{isAnswering ? "Respondendo…" : "Perguntar"}</Button>
@@ -3959,8 +4100,13 @@ export default function TestarIA() {
                             <div key={`${index}-${item.question}`} className="rounded-3xl border border-border bg-slate-50 p-4">
                               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Pergunta</p>
                               <p className="mt-2 text-sm font-semibold text-slate-900">{item.question}</p>
-                              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-3">Resposta</p>
-                              <p className="mt-2 text-sm text-slate-700">{item.answer}</p>
+                              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-3">
+                                Resposta{" "}
+                                <span className={`ml-1 rounded-full px-2 py-0.5 normal-case tracking-normal ${item.source === "ia" ? "bg-lens-tint text-lens-deep" : "bg-amber-50 text-amber-800"}`}>
+                                  {item.source === "ia" ? "IA, com base nesta análise" : "automática, sem IA — confira no documento"}
+                                </span>
+                              </p>
+                              <p className="mt-2 whitespace-pre-line text-sm text-slate-700">{item.answer}</p>
                             </div>
                           ))}
                         </div>
@@ -4057,7 +4203,7 @@ export default function TestarIA() {
                   </div>
                   <div className="rounded-2xl border border-border/60 bg-background p-3">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Status</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">{isAnalyzing ? "Analisando" : agentResult ? "Concluído" : "Pronto"}</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{realStage === "analisando" ? "Analisando" : realStage === "extraindo" ? "Extraindo" : realStage === "concluido" ? "Concluído" : realStage === "parcial" ? "Parcial" : realStage === "falha" ? "Falha" : "Aguardando"}</p>
                   </div>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-background p-3 space-y-2">
@@ -4067,38 +4213,19 @@ export default function TestarIA() {
                       <Button
                         variant="outline"
                         className="w-full justify-start rounded-xl"
+                        disabled={!canonicalAnalysis}
                       >
                         <Clock className="mr-2 h-4 w-4" />
                         Abrir visão rápida
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-xl">
+                    <DialogContent className="max-h-[85vh] max-w-xl overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Visão rápida</DialogTitle>
-                        <DialogDescription>
-                          Resumo do status atual e contexto da análise.
-                        </DialogDescription>
+                        <DialogDescription>Síntese da análise exibida, a partir do mesmo resultado do resumo, das datas e do checklist.</DialogDescription>
                       </DialogHeader>
-                      <div className="grid gap-3 mt-4">
-                        <div className="rounded-3xl border border-border bg-slate-50 p-4">
-                          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Agente atual</p>
-                          <p className="mt-2 text-sm font-semibold text-slate-900">{currentAgentMeta?.name ?? "Assistente"}</p>
-                          <p className="text-sm text-muted-foreground mt-1">{currentAgentMeta?.description}</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="rounded-3xl border border-border bg-white p-4">
-                            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Entrada</p>
-                            <p className="mt-2 text-sm font-semibold text-slate-900">{activeTab === "texto" ? "Texto" : activeTab === "url" ? "URL" : "PDF"}</p>
-                          </div>
-                          <div className="rounded-3xl border border-border bg-white p-4">
-                            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Status</p>
-                            <p className="mt-2 text-sm font-semibold text-slate-900">{isAnalyzing ? "Analisando" : agentResult ? "Concluído" : "Pronto"}</p>
-                          </div>
-                        </div>
-                        <div className="rounded-3xl border border-border bg-white p-4">
-                          <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Ação rápida</p>
-                          <p className="mt-2 text-sm text-slate-900">Use os botões de controle para limpar ou abrir o histórico sem perder o contexto atual.</p>
-                        </div>
+                      <div className="mt-2" data-testid="visao-rapida">
+                        <QuickViewContent analysis={canonicalAnalysis as never} agentName={currentAgentMeta.name} timeline={timelineSteps} checklistCount={checklistItems.length} />
                       </div>
                       <DialogClose asChild>
                         <Button variant="outline" className="mt-6 w-full rounded-xl">Fechar</Button>
@@ -4108,18 +4235,20 @@ export default function TestarIA() {
                   <Button
                     variant="ghost"
                     className="w-full justify-start rounded-xl"
+                    disabled={!text && !agentResult && !urlInput}
                     onClick={() => {
+                      resetAnalysis();
                       setText("");
-                      setAgentResult(null);
-                      setAnalysisError(null);
-                      setShareToken(null);
-                      setShowShareLink(false);
-                      setShareOptionsOpen(false);
+                      setUrlInput("");
+                      setPdfStructuredData(null);
+                      setPdfError(null);
+                      toast({ title: "Entrada limpa", description: "Texto, link e resultado da tela foram limpos. O histórico salvo continua disponível." });
                     }}
                   >
                     <X className="mr-2 h-4 w-4" />
                     Limpar entrada
                   </Button>
+                  <p className="px-1 text-[0.75rem] text-muted-foreground">Limpa texto, link e resultado da tela. Não apaga o histórico salvo.</p>
                 </div>
                 <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-3">
                   <p className="text-xs leading-relaxed text-muted-foreground">
@@ -4137,35 +4266,22 @@ export default function TestarIA() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
+                <p className="text-xs text-muted-foreground">
+                  {timelineSteps.length ? `${timelineSteps.length} data(s) encontrada(s) neste edital.` : canonicalAnalysis ? "Nenhuma data encontrada neste edital." : "Aparece depois da análise."}
+                </p>
                 <Dialog open={showTimelinePopup} onOpenChange={setShowTimelinePopup}>
                   <DialogTrigger asChild>
-                    <Button size="sm" variant="outline" className="w-full rounded-xl">
+                    <Button size="sm" variant="outline" className="w-full rounded-xl" disabled={!canonicalAnalysis}>
                       Ver linha do tempo completa
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
+                  <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Linha do tempo de análise</DialogTitle>
-                      <DialogDescription>Veja cada etapa do processo de interpretação em um painel claro e organizado.</DialogDescription>
+                      <DialogTitle>Datas do edital</DialogTitle>
+                      <DialogDescription>Cada data com o trecho do documento de onde ela saiu. Confira sempre no edital oficial.</DialogDescription>
                     </DialogHeader>
-                    <div className="mt-4 space-y-3">
-                      {ANALYSIS_STAGES.map((stage) => {
-                        const active = analysisStage === stage;
-                        const passed = ANALYSIS_STAGES.indexOf(analysisStage) > ANALYSIS_STAGES.indexOf(stage);
-                        return (
-                          <div key={stage} className={`rounded-3xl border p-4 ${active ? "border-primary/30 bg-primary/5" : passed ? "border-emerald-200 bg-emerald-50/80" : "border-border bg-background"}`}>
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="font-semibold text-slate-900">{getAnalysisStageMeta(stage).title}</p>
-                                <p className="text-sm text-muted-foreground mt-1">{getAnalysisStageMeta(stage).description}</p>
-                              </div>
-                              <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${active ? "bg-primary/10 text-primary" : passed ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"}`}>
-                                {active ? "Atual" : passed ? "Feito" : "Aguardando"}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="mt-4">
+                      <DocumentTimeline steps={timelineSteps} />
                     </div>
                     <DialogClose asChild>
                       <Button variant="outline" className="mt-6 w-full rounded-xl">Fechar</Button>

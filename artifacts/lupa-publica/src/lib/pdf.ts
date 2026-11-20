@@ -254,23 +254,51 @@ async function ocrPdfWithFallback(
     return await ocrPdfViaServer(pages);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `OCR não pôde ser concluído. Verifique a configuração de OPENAI_API_KEY no backend ou use a aba 'Colar Texto'. Detalhes: ${message}`,
+    // Mensagem para o usuário (detalhe técnico só no console)
+    console.warn("OCR falhou:", message);
+    throw new PdfExtractError(
+      "scanned",
+      "Este PDF parece ser escaneado (imagem) e a leitura por OCR não está disponível agora. Copie o texto do documento e cole na aba “Colar texto”, ou tente mais tarde.",
     );
   }
 }
+
+export type PdfErrorKind = "too_large" | "not_pdf" | "protected" | "invalid" | "empty" | "scanned";
+
+/** Erro de leitura de PDF com motivo e mensagem para o usuário. */
+export class PdfExtractError extends Error {
+  constructor(public kind: PdfErrorKind, message: string) {
+    super(message);
+  }
+}
+
+export const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
 // ── Main export ─────────────────────────────────────────────────────
 export async function extractTextFromPdf(
   file: File,
   onStatus?: (msg: string) => void,
 ): Promise<ExtractedPdfResult> {
+  if (file.size === 0) throw new PdfExtractError("empty", "O arquivo está vazio.");
+  if (file.size > MAX_PDF_BYTES) {
+    throw new PdfExtractError("too_large", `O PDF tem ${(file.size / 1024 / 1024).toFixed(1)} MB; o limite é 20 MB. Envie só as páginas do edital que interessam.`);
+  }
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({
-    data: arrayBuffer,
-    useWorkerFetch: false,
-    disableFontFace: true,
-  }).promise;
+  const head = new TextDecoder("latin1").decode(new Uint8Array(arrayBuffer.slice(0, 1024)));
+  if (!head.includes("%PDF-")) throw new PdfExtractError("not_pdf", "Este arquivo não é um PDF. Envie um arquivo .pdf ou cole o texto na aba “Colar texto”.");
+  let pdf: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>;
+  try {
+    pdf = await pdfjsLib.getDocument({
+      data: arrayBuffer,
+      useWorkerFetch: false,
+      disableFontFace: true,
+    }).promise;
+  } catch (err) {
+    const name = (err as { name?: string })?.name ?? "";
+    if (name === "PasswordException") throw new PdfExtractError("protected", "Este PDF é protegido por senha. Remova a proteção ou cole o texto na aba “Colar texto”.");
+    throw new PdfExtractError("invalid", "Não foi possível abrir este PDF: o arquivo parece corrompido ou incompleto.");
+  }
+  if (pdf.numPages === 0) throw new PdfExtractError("empty", "O PDF não tem páginas.");
 
   // ── Fast path: text layer extraction ──────────────────────────────
   onStatus?.("Extraindo texto do PDF…");

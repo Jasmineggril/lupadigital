@@ -584,8 +584,10 @@ router.post("/admin/profiles/import", requireAdmin(), async (req, res) => {
     return;
   }
   try {
-    const report = await importInstitutionalProfiles(body);
-    res.json({ ...report, provisional: true });
+    // ?validar=1 → só valida e informa o que aconteceria; nada é gravado
+    const dryRun = req.query.validar === "1";
+    const report = await importInstitutionalProfiles(body, { dryRun });
+    res.json({ ...report, provisional: true, simulacao: dryRun });
   } catch (err) {
     fail(req, res, err, "admin:import");
   }
@@ -597,7 +599,7 @@ router.post("/admin/profiles/import", requireAdmin(), async (req, res) => {
  * instituição (nunca por semelhança de nome). Registros repetidos no mesmo envio
  * (mesmo user_id ou mesmo lattes_id) são ignorados após o primeiro.
  */
-export async function importInstitutionalProfiles(items: unknown[]) {
+export async function importInstitutionalProfiles(items: unknown[], opts: { dryRun?: boolean } = {}) {
   const store = getStore();
   const itemSchema = InstitutionalImportSchema.element;
   const result = { importados: 0, atualizados: 0, ignorados: 0, rejeitados: 0, registros: [] as Array<{ indice: number; situacao: string; detalhe?: string }> };
@@ -634,7 +636,7 @@ export async function importInstitutionalProfiles(items: unknown[]) {
       result.registros.push({ indice, situacao: "ignorado", detalhe: "Sem alterações." });
       continue;
     }
-    await store.saveProfile(next);
+    if (!opts.dryRun) await store.saveProfile(next);
     if (current) {
       result.atualizados++;
       result.registros.push({ indice, situacao: "atualizado" });

@@ -2,14 +2,11 @@
  * @file analisesService.ts
  * @description Camada de serviço para persistência de análises do usuário.
  *
- * Implementa o padrão Dual-Storage com fallback automático:
- *   1. Backend (preferido): API Express autenticada via JWT Supabase
- *   2. localStorage (fallback): usado quando o usuário não está autenticado
- *      ou quando a chamada à API falha
- *
- * A função `useBackend()` decide qual caminho usar em cada operação.
- * Se o JWT estiver presente (usuário logado), usa a API. Caso contrário,
- * cai para localStorage sem expor o erro ao usuário.
+ * Dois caminhos, escolhidos por `useBackend()`:
+ *   1. Logado (JWT presente): API Express → Supabase. Se a API falhar, a função
+ *      lança PersistError — a interface mostra a falha. Não há cópia silenciosa
+ *      no navegador.
+ *   2. Sem login: localStorage deste navegador (a interface deve dizer isso).
  *
  * Funções exportadas:
  *   - salvarAnalise(analise)     → salva edital analisado
@@ -161,6 +158,18 @@ async function useBackend(): Promise<boolean> {
  * @param analise - Dados da análise a salvar
  * @returns O objeto salvo com id e created_at preenchidos
  */
+/**
+ * Erro de persistência com mensagem clara para a interface. Usuário logado: os dados
+ * vão para o servidor; se ele falhar, a operação FALHA (nada de guardar no navegador
+ * sem avisar e mostrar "salvo"). Sem login, o armazenamento local é o caminho normal.
+ */
+export class PersistError extends Error {}
+function persistError(err: unknown): PersistError {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (raw.startsWith("RATE_LIMIT:")) return new PersistError(raw.replace("RATE_LIMIT: ", ""));
+  return new PersistError("Não foi possível salvar no servidor. Nada foi gravado; tente novamente.");
+}
+
 export async function salvarAnalise(analise: AnaliseSalva) {
   if (!(await useBackend())) {
     const items = readLocalAnalises();
@@ -192,16 +201,9 @@ export async function salvarAnalise(analise: AnaliseSalva) {
         }),
       },
     );
-  } catch {
-    const items = readLocalAnalises();
-    const next = [{
-      ...analise,
-      id: crypto.randomUUID(),
-      created_at: new Date().toISOString(),
-      favorito: analise.favorito ?? false,
-    }, ...items].slice(0, 50);
-    writeLocalAnalises(next);
-    return next[0];
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -212,8 +214,9 @@ export async function listarAnalises() {
 
   try {
     return await apiRequest<AnaliseSalva[]>("/resources/edital_analyses");
-  } catch {
-    return readLocalAnalises();
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -246,12 +249,9 @@ export async function atualizarAnalise(analise: AnaliseSalva) {
         }),
       },
     );
-  } catch {
-    const items = readLocalAnalises().map((item) =>
-      item.id === analise.id ? { ...item, ...analise, favorito: analise.favorito ?? item.favorito ?? false } : item
-    );
-    writeLocalAnalises(items);
-    return items.find((item) => item.id === analise.id) ?? analise;
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -267,10 +267,9 @@ export async function excluirAnalise(id: string) {
       method: "DELETE",
     });
     return true;
-  } catch {
-    const items = readLocalAnalises().filter((item) => item.id !== id);
-    writeLocalAnalises(items);
-    return true;
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -288,9 +287,9 @@ export async function limparAnalises() {
         .map((item: AnaliseSalva) => apiRequest<void>(`/resources/edital_analyses/${item.id}`, { method: "DELETE" })),
     );
     return true;
-  } catch {
-    writeLocalAnalises([]);
-    return true;
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -317,11 +316,9 @@ export async function uploadDocument(doc: { filename: string; mime_type: string;
         }),
       },
     );
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-documents") || "[]");
-    const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...doc }, ...items].slice(0, 50);
-    window.localStorage.setItem("lupa-publica-documents", JSON.stringify(next));
-    return next[0];
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -332,8 +329,9 @@ export async function listDocuments() {
 
   try {
     return await apiRequest<DocType[]>("/resources/documents");
-  } catch {
-    return JSON.parse(window.localStorage.getItem("lupa-publica-documents") || "[]");
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -347,10 +345,9 @@ export async function deleteDocument(id: string) {
   try {
     await apiRequest<void>(`/resources/documents/${id}`, { method: "DELETE" });
     return true;
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-documents") || "[]").filter((d: any) => d.id !== id);
-    window.localStorage.setItem("lupa-publica-documents", JSON.stringify(items));
-    return true;
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -368,11 +365,9 @@ export async function saveAiAnalysis(a: AIAnalysis) {
       method: "POST",
       body: JSON.stringify(a),
     });
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-ai-analyses") || "[]");
-    const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...a }, ...items].slice(0, 100);
-    window.localStorage.setItem("lupa-publica-ai-analyses", JSON.stringify(next));
-    return next[0];
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -381,8 +376,9 @@ export async function listAiAnalyses() {
 
   try {
     return await apiRequest<AIAnalysis[]>("/resources/ai_analyses");
-  } catch {
-    return JSON.parse(window.localStorage.getItem("lupa-publica-ai-analyses") || "[]");
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -400,11 +396,9 @@ export async function saveLattesProfile(p: LattesProfile) {
       method: "POST",
       body: JSON.stringify(p),
     });
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]");
-    const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...p }, ...items].slice(0, 50);
-    window.localStorage.setItem("lupa-publica-lattes", JSON.stringify(next));
-    return next[0];
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -413,8 +407,9 @@ export async function getLattesProfiles() {
 
   try {
     return await apiRequest<LattesProfile[]>("/resources/lattes_profiles");
-  } catch {
-    return JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]");
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -432,11 +427,9 @@ export async function saveArticleAnalysis(a: ArticleAnalysis) {
       method: "POST",
       body: JSON.stringify(a),
     });
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-article-analyses") || "[]");
-    const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...a }, ...items].slice(0, 100);
-    window.localStorage.setItem("lupa-publica-article-analyses", JSON.stringify(next));
-    return next[0];
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -453,11 +446,9 @@ export async function saveResearchProject(p: ResearchProject) {
       method: "POST",
       body: JSON.stringify(p),
     });
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]");
-    const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...p }, ...items].slice(0, 100);
-    window.localStorage.setItem("lupa-publica-research-projects", JSON.stringify(next));
-    return next[0];
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -474,11 +465,9 @@ export async function savePlanetariumContent(c: PlanetariumContent) {
       method: "POST",
       body: JSON.stringify(c),
     });
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-planetarium") || "[]");
-    const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...c }, ...items].slice(0, 100);
-    window.localStorage.setItem("lupa-publica-planetarium", JSON.stringify(next));
-    return next[0];
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -495,8 +484,9 @@ export async function listArticleAnalyses(): Promise<ArticleAnalysis[]> {
   }
   try {
     return await apiRequest<ArticleAnalysis[]>("/resources/article_analyses");
-  } catch {
-    return JSON.parse(window.localStorage.getItem("lupa-publica-article-analyses") || "[]");
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -513,11 +503,9 @@ export async function deleteArticleAnalysis(id: string): Promise<boolean> {
   try {
     await apiRequest<void>(`/resources/article_analyses/${id}`, { method: "DELETE" });
     return true;
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-article-analyses") || "[]")
-      .filter((a: ArticleAnalysis) => a.id !== id);
-    window.localStorage.setItem("lupa-publica-article-analyses", JSON.stringify(items));
-    return true;
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -530,8 +518,9 @@ export async function listResearchProjects(): Promise<ResearchProject[]> {
   }
   try {
     return await apiRequest<ResearchProject[]>("/resources/research_projects");
-  } catch {
-    return JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]");
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -548,11 +537,9 @@ export async function deleteResearchProject(id: string): Promise<boolean> {
   try {
     await apiRequest<void>(`/resources/research_projects/${id}`, { method: "DELETE" });
     return true;
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]")
-      .filter((p: ResearchProject) => p.id !== id);
-    window.localStorage.setItem("lupa-publica-research-projects", JSON.stringify(items));
-    return true;
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -565,8 +552,9 @@ export async function listPlanetariumContents(): Promise<PlanetariumContent[]> {
   }
   try {
     return await apiRequest<PlanetariumContent[]>("/resources/planetarium_contents");
-  } catch {
-    return JSON.parse(window.localStorage.getItem("lupa-publica-planetarium") || "[]");
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -583,11 +571,9 @@ export async function deletePlanetariumContent(id: string): Promise<boolean> {
   try {
     await apiRequest<void>(`/resources/planetarium_contents/${id}`, { method: "DELETE" });
     return true;
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-planetarium") || "[]")
-      .filter((c: PlanetariumContent) => c.id !== id);
-    window.localStorage.setItem("lupa-publica-planetarium", JSON.stringify(items));
-    return true;
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -601,9 +587,9 @@ export async function listChatMessages(conversationId?: string): Promise<ChatMes
   }
   try {
     return await apiRequest<ChatMessage[]>("/resources/chat_messages");
-  } catch {
-    const all = JSON.parse(window.localStorage.getItem("lupa-publica-chat-messages") || "[]") as ChatMessage[];
-    return conversationId ? all.filter((m) => m.conversation_id === conversationId) : all;
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -620,11 +606,9 @@ export async function deleteLattesProfile(id: string): Promise<boolean> {
   try {
     await apiRequest<void>(`/resources/lattes_profiles/${id}`, { method: "DELETE" });
     return true;
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]")
-      .filter((p: LattesProfile) => p.id !== id);
-    window.localStorage.setItem("lupa-publica-lattes", JSON.stringify(items));
-    return true;
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }
 
@@ -641,10 +625,8 @@ export async function saveChatMessage(m: ChatMessage) {
       method: "POST",
       body: JSON.stringify(m),
     });
-  } catch {
-    const items = JSON.parse(window.localStorage.getItem("lupa-publica-chat-messages") || "[]");
-    const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...m }, ...items].slice(0, 500);
-    window.localStorage.setItem("lupa-publica-chat-messages", JSON.stringify(next));
-    return next[0];
+  } catch (err) {
+    // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
+    throw persistError(err);
   }
 }

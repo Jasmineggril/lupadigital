@@ -19,7 +19,7 @@
  */
 
 import { Link } from "wouter";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -212,45 +212,37 @@ export function AnalysisProgress({
             </div>
           </div>
         ) : (
-          // Indicador de progresso com estágios
-          <div className="space-y-3">
-            {stages.map((s, i) => {
-              const isActive = s.key === stage;
-              const isCompleted = activeIndex > i;
-
-              return (
-                <div key={s.key} className="flex items-center gap-3">
-                  {/* Ícone do estágio */}
-                  <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition
-                    ${isCompleted ? "bg-emerald-500/10 text-emerald-500" : isActive ? "bg-primary/10" : "bg-muted/20 text-muted-foreground/30"}`}
-                  >
-                    {isCompleted ? (
-                      <CheckCircle2 className="w-4 h-4" />
-                    ) : isActive ? (
-                      <Loader2 className={`w-4 h-4 animate-spin ${accentColor}`} />
-                    ) : (
-                      <Circle className="w-3 h-3" />
-                    )}
-                  </div>
-
-                  {/* Label e descrição */}
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium transition-colors
-                      ${isActive ? "text-foreground" : isCompleted ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/50"}`}
-                    >
-                      {s.label}
-                    </p>
-                    {isActive && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{s.description}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          // Estado REAL: a requisição está em andamento. As etapas listadas descrevem o que o
+          // serviço faz; não indicam progresso (o servidor não informa etapas intermediárias).
+          <ProcessingStatus stages={stages} accentColor={accentColor} />
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function ProcessingStatus({ stages, accentColor }: { stages: { key: string; label: string; description: string }[]; accentColor: string }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const started = Date.now();
+    const t = window.setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  return (
+    <div className="space-y-3" role="status" aria-live="polite" aria-busy="true">
+      <div className="flex items-center gap-3">
+        <Loader2 className={`h-5 w-5 animate-spin motion-reduce:animate-none ${accentColor}`} aria-hidden />
+        <p className="text-sm font-semibold text-foreground">
+          Processando com IA… <span className="font-mono text-xs font-normal tabular">{elapsed}s</span>
+        </p>
+      </div>
+      <p className="text-xs text-muted-foreground">Pode levar até cerca de 1 minuto. O que o serviço faz com o seu material:</p>
+      <ul className="list-disc space-y-0.5 pl-9 text-xs text-muted-foreground">
+        {stages.map((s) => (
+          <li key={s.key}>{s.label}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

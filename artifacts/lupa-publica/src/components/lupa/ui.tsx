@@ -11,12 +11,12 @@ import { Button } from "@/components/ui/button";
 
 export function PageHeader({ title, description, actions, eyebrow }: { title: string; description?: ReactNode; actions?: ReactNode; eyebrow?: string }) {
   return (
-    <header className="border-b bg-white">
-      <div className="container mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 md:flex-row md:items-end md:justify-between">
-        <div>
-          {eyebrow && <p className="text-xs font-semibold uppercase tracking-wide text-primary">{eyebrow}</p>}
-          <h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">{title}</h1>
-          {description && <div className="mt-2 max-w-3xl text-slate-600">{description}</div>}
+    <header className="border-b border-hairline bg-white">
+      <div className="container mx-auto flex max-w-6xl flex-col gap-4 px-4 py-7 sm:px-6 md:flex-row md:items-end md:justify-between md:py-9 lg:px-8">
+        <div className="min-w-0">
+          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+          <h1 className="font-display mt-2 text-[1.75rem] font-bold leading-[1.1] text-ink md:text-4xl">{title}</h1>
+          {description && <div className="mt-3 max-w-[68ch] text-[0.9375rem] leading-relaxed text-ink-2">{description}</div>}
         </div>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
@@ -24,10 +24,37 @@ export function PageHeader({ title, description, actions, eyebrow }: { title: st
   );
 }
 
+/** Assinatura da LUPA: trecho oficial grifado, com a fonte em mono (DESIGN.md §4). */
+export function Evidence({ text, url, label = "Trecho do edital", max = 260 }: { text: string; url?: string | null; label?: string; max?: number }) {
+  const short = text.length > max ? `${text.slice(0, max)}…` : text;
+  let host = "";
+  try {
+    host = url ? new URL(url).hostname.replace(/^www\./, "") : "";
+  } catch {
+    host = "";
+  }
+  return (
+    <figure className="evidence mt-1.5 text-[0.8125rem] leading-relaxed">
+      <blockquote>
+        <span className="sr-only">{label}: </span>“{short}”
+      </blockquote>
+      {url && (
+        <figcaption className="evidence-source mt-1">
+          Fonte ·{" "}
+          <a href={url} target="_blank" rel="noopener noreferrer" className="font-medium text-lens underline underline-offset-2">
+            {host || "documento oficial"}
+            <span className="sr-only"> (abre em nova aba)</span>
+          </a>
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
 export function LoadingState({ label = "Carregando…" }: { label?: string }) {
   return (
-    <div role="status" aria-live="polite" className="flex items-center justify-center gap-2 py-16 text-slate-600">
-      <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
+    <div role="status" aria-live="polite" aria-busy="true" className="flex items-center justify-center gap-2 py-16 text-sm text-slate-600">
+      <Loader2 className="h-5 w-5 animate-spin text-lens motion-reduce:animate-none" aria-hidden />
       {label}
     </div>
   );
@@ -35,9 +62,9 @@ export function LoadingState({ label = "Carregando…" }: { label?: string }) {
 
 export function EmptyState({ title, description, action }: { title: string; description?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed bg-white px-6 py-12 text-center">
-      <Inbox className="mx-auto h-8 w-8 text-slate-400" aria-hidden />
-      <p className="mt-3 font-semibold text-slate-900">{title}</p>
+    <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+      <Inbox className="mx-auto h-8 w-8 text-slate-500" aria-hidden />
+      <p className="mt-3 font-semibold text-ink">{title}</p>
       {description && <div className="mx-auto mt-1 max-w-md text-sm text-slate-600">{description}</div>}
       {action && <div className="mt-4">{action}</div>}
     </div>
@@ -46,7 +73,7 @@ export function EmptyState({ title, description, action }: { title: string; desc
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div role="alert" className="flex flex-col items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-900 sm:flex-row sm:items-center sm:justify-between">
+    <div role="alert" className="flex flex-col items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-5 text-red-900 sm:flex-row sm:items-center sm:justify-between">
       <p className="flex items-start gap-2 text-sm">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         {message}
@@ -64,14 +91,15 @@ export function FormAlert({ kind = "error", children }: { kind?: "error" | "succ
   const tone =
     kind === "error" ? "border-red-200 bg-red-50 text-red-800" : kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-sky-200 bg-sky-50 text-sky-900";
   return (
-    <div role={kind === "error" ? "alert" : "status"} aria-live="polite" className={`rounded-xl border px-4 py-3 text-sm ${tone}`}>
+    <div role={kind === "error" ? "alert" : "status"} aria-live="polite" className={`rounded-lg border px-4 py-3 text-sm ${tone}`}>
       {children}
     </div>
   );
 }
 
-const inputClass =
-  "w-full h-11 rounded-xl border bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:bg-slate-50 aria-[invalid=true]:border-red-400";
+/** DESIGN.md §4 — campo: 44 px, raio 8, borda field (≥ 3:1), foco lens, erro danger. */
+export const inputClass =
+  "w-full h-11 rounded-lg border border-field bg-white px-3 text-[0.9375rem] text-ink placeholder:text-slate-500 focus:outline-none focus-visible:border-lens focus-visible:ring-4 focus-visible:ring-lens/20 disabled:bg-paper disabled:text-slate-500 aria-[invalid=true]:border-red-600 aria-[invalid=true]:ring-red-600/15";
 
 interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
   label: string;
@@ -86,7 +114,7 @@ export function TextField({ label, hint, error, className, ...props }: FieldProp
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline gap-1">
-        <label htmlFor={id} className="block text-sm font-semibold text-slate-900">
+        <label htmlFor={id} className="block text-sm font-semibold text-ink">
           {label}
         </label>
         {/* Fora do <label>: o asterisco não entra no nome acessível; "required" já informa a obrigatoriedade */}
@@ -100,16 +128,17 @@ export function TextField({ label, hint, error, className, ...props }: FieldProp
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={[hintId, errId].filter(Boolean).join(" ") || undefined}
-        className={`${inputClass} border-slate-300 ${className ?? ""}`}
+        className={`${inputClass} ${className ?? ""}`}
         {...props}
       />
       {hint && (
-        <p id={hintId} className="text-xs text-slate-600">
+        <p id={hintId} className="text-[0.8125rem] text-slate-600">
           {hint}
         </p>
       )}
       {error && (
-        <p id={errId} className="text-xs font-medium text-red-700">
+        <p id={errId} className="flex items-start gap-1.5 text-[0.8125rem] font-medium text-red-700">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           {error}
         </p>
       )}
@@ -125,7 +154,7 @@ export function PasswordField({ label, hint, error, ...props }: FieldProps) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline gap-1">
-        <label htmlFor={id} className="block text-sm font-semibold text-slate-900">
+        <label htmlFor={id} className="block text-sm font-semibold text-ink">
           {label}
         </label>
         {/* Fora do <label>: o asterisco não entra no nome acessível; "required" já informa a obrigatoriedade */}
@@ -141,13 +170,13 @@ export function PasswordField({ label, hint, error, ...props }: FieldProps) {
           type={visible ? "text" : "password"}
           aria-invalid={error ? true : undefined}
           aria-describedby={[hintId, errId].filter(Boolean).join(" ") || undefined}
-          className={`${inputClass} border-slate-300 pr-12`}
+          className={`${inputClass} pr-12`}
           {...props}
         />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
-          className="absolute right-1 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-600 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-slate-600 hover:bg-paper hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-lens"
           aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
           aria-pressed={visible}
           aria-controls={id}
@@ -156,12 +185,13 @@ export function PasswordField({ label, hint, error, ...props }: FieldProps) {
         </button>
       </div>
       {hint && (
-        <p id={hintId} className="text-xs text-slate-600">
+        <p id={hintId} className="text-[0.8125rem] text-slate-600">
           {hint}
         </p>
       )}
       {error && (
-        <p id={errId} className="text-xs font-medium text-red-700">
+        <p id={errId} className="flex items-start gap-1.5 text-[0.8125rem] font-medium text-red-700">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           {error}
         </p>
       )}

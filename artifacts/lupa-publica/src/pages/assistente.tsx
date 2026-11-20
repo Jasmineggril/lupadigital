@@ -280,9 +280,9 @@ export default function Assistente() {
             <textarea
               value={context}
               onChange={(e) => setContext(e.target.value)}
-              placeholder="Cole aqui um trecho do seu currículo Lattes, um artigo, descrição de projeto ou qualquer texto que queira usar como referência na conversa..."
+              placeholder="Cole aqui um trecho do seu currículo Lattes, um artigo, descrição de projeto ou qualquer texto que queira usar como referência na conversa…"
               rows={4}
-              className="w-full px-3 py-2 rounded-lg border border-border/60 bg-card text-sm resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50"
+              className="w-full px-3 py-2 rounded-lg border border-field bg-card text-sm resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50"
             />
             {context && (
               <p className="text-xs text-muted-foreground/40 mt-1">{context.length} / 4000 caracteres</p>
@@ -314,7 +314,7 @@ export default function Assistente() {
                 <button
                   key={i}
                   onClick={() => sendMessage(s)}
-                  className="text-left text-sm px-3 py-2.5 rounded-xl border border-border/60 hover:border-cyan-500/40 hover:bg-cyan-500/5 transition-all"
+                  className="text-left text-sm px-3 py-2.5 rounded-xl border border-border/60 hover:border-cyan-500/40 hover:bg-cyan-500/5 transition"
                 >
                   {s}
                 </button>
@@ -384,7 +384,7 @@ export default function Assistente() {
           placeholder="Digite sua pergunta científica… (Enter para enviar, Shift+Enter para nova linha)"
           rows={3}
           disabled={isLoading}
-          className="w-full px-4 py-3 pr-14 rounded-2xl border border-border/60 bg-card text-sm resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all disabled:opacity-50"
+          className="w-full px-4 py-3 pr-14 rounded-2xl border border-field bg-card text-sm resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition disabled:opacity-50"
         />
         <Button
           onClick={() => sendMessage()}

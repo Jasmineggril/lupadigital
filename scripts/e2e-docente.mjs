@@ -233,7 +233,7 @@ await step("detalhe: edital estruturado com evidências, anexos e retificação 
   const t = await page.locator("main").innerText();
   assert(/Retificação/.test(t) && /Anexo/.test(t), "faltam anexo/retificação");
   assert(/30\/06\/2099/.test(t), "prazo não exibido");
-  assert(/Trecho:/.test(t), "faltam evidências");
+  assert(/Trecho do edital/.test(t) && /Fonte ·/.test(t), "faltam evidências");
   await page.screenshot({ path: `${SHOTS}/06-oportunidade.png`, fullPage: true });
 });
 

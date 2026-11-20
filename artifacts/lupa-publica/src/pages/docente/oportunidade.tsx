@@ -12,7 +12,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { FIELD_LABELS, formatDate, formatDateTime, type Opportunity, type Recommendation } from "@/lib/lupa-types";
-import { EmptyState, ErrorState, LoadingState, useAsync } from "@/components/lupa/ui";
+import { EmptyState, ErrorState, Evidence, LoadingState, useAsync } from "@/components/lupa/ui";
 import { EligibilityBadge, FeedbackButtons, InterestButton, RecommendationExplanation, SaveButton, StatusBadge, ThematicBadge } from "@/components/lupa/opportunity";
 
 const FIELD_ORDER = [
@@ -35,16 +35,6 @@ const OPTIONAL = new Set(["contrapartidas", "parcerias", "restricoes"]);
 const DOC_LABEL = { edital: "Edital", anexo: "Anexo", retificacao: "Retificação", resultado: "Resultado", outro: "Documento" } as const;
 const EVENT_LABEL = { retificacao: "Retificação", prorrogacao: "Prorrogação", resultado: "Resultado" } as const;
 
-function Evidence({ text, url }: { text: string; url: string }) {
-  return (
-    <p className="mt-1 text-xs text-slate-500">
-      Trecho: <q>{text.length > 260 ? `${text.slice(0, 260)}…` : text}</q>{" "}
-      <a href={url} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline">
-        fonte
-      </a>
-    </p>
-  );
-}
 
 export default function OportunidadeDetalhe() {
   const [, params] = useRoute("/oportunidades/:id");
@@ -81,21 +71,23 @@ export default function OportunidadeDetalhe() {
 
   return (
     <div className="min-h-[100dvh] bg-slate-50">
-      <header className="border-b bg-white">
-        <div className="container mx-auto max-w-5xl px-4 py-8">
-          <Link href="/oportunidades" className="text-sm font-semibold text-primary hover:underline">
+      <header className="border-b border-hairline bg-white">
+        <div className="container mx-auto max-w-6xl px-4 py-7 sm:px-6 md:py-9 lg:px-8">
+          <Link href="/oportunidades" className="text-sm font-semibold text-lens underline-offset-2 hover:underline">
             ← Oportunidades
           </Link>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <p className="font-mono text-[0.75rem] font-medium uppercase tracking-[0.06em] text-slate-600">
+              {o.edital_number && !o.title.includes(o.edital_number) ? `Edital nº ${o.edital_number} · ` : ""}<span translate="no">{o.source_id.toUpperCase()}</span>
+            </p>
             <StatusBadge status={o.status} />
-            <span className="text-xs uppercase tracking-wide text-slate-500">Fonte: {o.source_id.toUpperCase()}</span>
           </div>
-          <h1 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">{o.title}</h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <h1 className="font-display mt-2 max-w-4xl text-[1.75rem] font-bold leading-[1.15] text-ink md:text-4xl">{o.title}</h1>
+          <p className="mt-3 text-sm text-slate-600">
             Última consulta à página oficial: {formatDateTime(o.last_seen_at)} ·{" "}
             {o.review_status === "revisado" ? "revisado pela administração" : "aguardando revisão humana"}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 font-mono text-[0.75rem] text-slate-600 tabular">
             Histórico: encontrado em {formatDateTime(o.first_seen_at)} · conteúdo capturado em {formatDateTime(o.captured_at)} · versão {o.version}
             {o.version > 1 ? ` (a página oficial mudou ${o.version - 1} ${o.version - 1 === 1 ? "vez" : "vezes"} desde a primeira captura)` : ""}
           </p>
@@ -110,23 +102,23 @@ export default function OportunidadeDetalhe() {
         </div>
       </header>
 
-      <div className="container mx-auto grid max-w-5xl gap-6 px-4 py-8 lg:grid-cols-[1.5fr_1fr]">
+      <div className="container mx-auto grid max-w-6xl items-start gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:px-8">
         <div className="space-y-6">
-          <section className="rounded-2xl border bg-white p-5 shadow-sm" aria-labelledby="estruturado">
+          <section className="rounded-xl border border-hairline bg-white p-5" aria-labelledby="estruturado">
             <h2 id="estruturado" className="text-lg font-semibold text-slate-900">
               Edital estruturado
             </h2>
             <p className="mt-1 text-xs text-slate-500">Extraído automaticamente do texto oficial. O documento oficial prevalece.</p>
-            <dl className="mt-4 space-y-4">
+            <dl className="mt-4 divide-y divide-hairline [&>div]:py-4 first:[&>div]:pt-0">
               {FIELD_ORDER.map((key) => {
                 const value = f[key];
                 if (!value && OPTIONAL.has(key)) return null;
                 return (
                   <div key={key}>
-                    <dt className="text-sm font-semibold text-slate-900">{FIELD_LABELS[key]}</dt>
-                    <dd className="mt-1 text-sm text-slate-700">
+                    <dt className="eyebrow text-slate-600">{FIELD_LABELS[key]}</dt>
+                    <dd className="mt-1.5 text-[0.9375rem] leading-relaxed text-ink">
                       {!value ? (
-                        <span className="italic text-amber-800">Não encontrado — pendente de verificação no documento oficial.</span>
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm text-amber-800">Não encontrado — confira no documento oficial.</span>
                       ) : key === "objeto" ? (
                         <>
                           {(value as { value: string }).value}
@@ -141,7 +133,7 @@ export default function OportunidadeDetalhe() {
                         <ul className="space-y-2">
                           {f.datas!.map((d) => (
                             <li key={d.evidence}>
-                              <span className="font-semibold">{d.iso ? formatDate(d.iso) : "data"}</span> ({d.label})
+                              <span className="font-mono font-medium tabular">{d.iso ? formatDate(d.iso) : "data"}</span> <span className="text-slate-600">· {d.label}</span>
                               <Evidence text={d.evidence} url={d.source_url} />
                             </li>
                           ))}
@@ -160,7 +152,7 @@ export default function OportunidadeDetalhe() {
             </dl>
           </section>
 
-          <section className="rounded-2xl border bg-white p-5 shadow-sm" aria-labelledby="documentos">
+          <section className="rounded-xl border border-hairline bg-white p-5" aria-labelledby="documentos">
             <h2 id="documentos" className="text-lg font-semibold text-slate-900">
               Documentos oficiais
             </h2>
@@ -205,8 +197,8 @@ export default function OportunidadeDetalhe() {
         </div>
 
         <aside className="space-y-4">
-          <section className="rounded-2xl border bg-white p-5 shadow-sm" aria-labelledby="compat">
-            <h2 id="compat" className="text-lg font-semibold text-slate-900">
+          <section className="rounded-xl border border-hairline bg-white p-5" aria-labelledby="compat">
+            <h2 id="compat" className="text-lg font-semibold text-ink">
               Compatibilidade com você
             </h2>
             {!user ? (

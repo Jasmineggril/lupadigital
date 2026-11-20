@@ -72,7 +72,7 @@ export default function Configuracoes() {
     <div className="min-h-[100dvh] bg-slate-50">
       <PageHeader eyebrow="Configurações" title="Configurações da conta" description={user ? `Conectado como ${user.email}` : undefined} />
       <div className="container mx-auto max-w-3xl space-y-6 px-4 py-8">
-        <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6" aria-labelledby="notif">
+        <section className="rounded-xl border border-hairline bg-white p-5 sm:p-6" aria-labelledby="notif">
           <h2 id="notif" className="text-lg font-semibold text-slate-900">
             Notificações
           </h2>
@@ -113,7 +113,7 @@ export default function Configuracoes() {
           ) : null}
         </section>
 
-        <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6" aria-labelledby="senha">
+        <section className="rounded-xl border border-hairline bg-white p-5 sm:p-6" aria-labelledby="senha">
           <h2 id="senha" className="text-lg font-semibold text-slate-900">
             Alterar senha
           </h2>
@@ -127,7 +127,7 @@ export default function Configuracoes() {
           </form>
         </section>
 
-        <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6" aria-labelledby="sair">
+        <section className="rounded-xl border border-hairline bg-white p-5 sm:p-6" aria-labelledby="sair">
           <h2 id="sair" className="text-lg font-semibold text-slate-900">
             Sessão
           </h2>

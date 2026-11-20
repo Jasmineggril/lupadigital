@@ -1102,7 +1102,7 @@ function ScoreGauge({ score }: { score: number }) {
         <p className="text-xs text-white/55 mt-1 leading-relaxed">{desc}</p>
         <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
           <div
-            className="h-full rounded-full transition-all duration-1000"
+            className="h-full rounded-full transition duration-1000"
             style={{ width: `${score}%`, backgroundColor: color }}
           />
         </div>
@@ -1137,14 +1137,14 @@ function AgentSelector({
               key={agent.id}
               onClick={() => onSelect(agent.id)}
               data-testid={`agent-${agent.id}`}
-              className={`relative text-left p-3 rounded-xl border transition-all duration-200 group ${
+              className={`relative text-left p-3 rounded-xl border transition duration-200 group ${
                 isSelected
                   ? `${agent.color} border-transparent shadow-md ring-2 ring-offset-1 ${agent.borderColor.replace("border-", "ring-")}`
                   : "bg-card border-border/70 hover:border-primary/30 hover:shadow-sm"
               }`}
             >
               <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 transition-all ${
+                className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 transition ${
                   isSelected
                     ? `bg-white/20 ${agent.textColor}`
                     : "bg-muted/70 text-muted-foreground group-hover:bg-primary/5 group-hover:text-primary"
@@ -1210,7 +1210,7 @@ function ProfileForm({
             onChange={(e) =>
               onChange({ ...profile, escolaridade: e.target.value })
             }
-            className="w-full text-xs rounded-lg border border-teal-300 bg-white px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-teal-400"
+            className="w-full text-xs rounded-lg border border-teal-300 bg-white px-2 py-1.5 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-1 focus:ring-teal-400"
           >
             <option value="fundamental">Ensino Fundamental</option>
             <option value="medio">Ensino Médio</option>
@@ -1226,7 +1226,7 @@ function ProfileForm({
           <Input
             value={profile.atuacao}
             onChange={(e) => onChange({ ...profile, atuacao: e.target.value })}
-            placeholder="Ex: Estudante de Pedagogia, Agricultor..."
+            placeholder="Ex: Estudante de Pedagogia, Agricultor…"
             className="text-xs h-8 border-teal-300 focus:ring-teal-400"
           />
         </div>
@@ -1253,7 +1253,7 @@ function ProfileForm({
               onChange={(e) =>
                 onChange({ ...profile, rendaFamiliar: e.target.value })
               }
-              className="w-full text-xs rounded-lg border border-teal-300 bg-white px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="w-full text-xs rounded-lg border border-teal-300 bg-white px-2 py-1.5 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-1 focus:ring-teal-400"
             >
               <option value="ate1">Até 1 salário mínimo</option>
               <option value="1a3">1 a 3 salários mínimos</option>
@@ -1663,7 +1663,7 @@ function DocumentacaoPanel({
           <div className="flex-1">
             <div className="w-full bg-rose-200 rounded-full h-2 mb-1">
               <div
-                className="bg-rose-500 h-2 rounded-full transition-all"
+                className="bg-rose-500 h-2 rounded-full transition"
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -1777,7 +1777,7 @@ function ElegibilidadePanel({ result }: { result: ElegibilidadeResult }) {
             <div className="flex-1">
               <div className="w-full bg-teal-200 rounded-full h-3 mb-2">
                 <div
-                  className={`${barColor} h-3 rounded-full transition-all`}
+                  className={`${barColor} h-3 rounded-full transition`}
                   style={{ width: `${result.score}%` }}
                 />
               </div>
@@ -2187,7 +2187,7 @@ function HistoryPanel({
               <h2 className="text-lg font-semibold">Histórico de Interpretações</h2>
               <p className="text-xs text-muted-foreground">
                 {isLoading
-                  ? "Carregando..."
+                  ? "Carregando…"
                   : `${totalCount} interpretação(ões) salva(s)`}
               </p>
             </div>
@@ -2223,7 +2223,7 @@ function HistoryPanel({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Buscar por título..."
+              placeholder="Buscar por título…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 rounded-xl"
@@ -2242,7 +2242,7 @@ function HistoryPanel({
               <button
                 key={f}
                 onClick={() => setDateFilter(f)}
-                className={`text-xs px-3 py-1 rounded-full border transition-all ${dateFilter === f ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}
+                className={`text-xs px-3 py-1 rounded-full border transition ${dateFilter === f ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}
               >
                 {
                   {
@@ -2286,7 +2286,7 @@ function HistoryPanel({
                 <button
                   key={`agent-${item.data.id}`}
                   onClick={() => onSelectAgent(item.data)}
-                  className="w-full text-left p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-primary/20 transition-all group"
+                  className="w-full text-left p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-primary/20 transition group"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
@@ -2324,7 +2324,7 @@ function HistoryPanel({
               return (
                 <div
                   key={`supabase-${item.data.id}`}
-                  className="w-full p-4 rounded-xl border bg-card hover:bg-accent/5 transition-all group"
+                  className="w-full p-4 rounded-xl border bg-card hover:bg-accent/5 transition group"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
@@ -2377,7 +2377,7 @@ function HistoryPanel({
               <button
                 key={`legacy-${item.data.id}`}
                 onClick={() => onSelect(item.data)}
-                className="w-full text-left p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-primary/20 transition-all group"
+                className="w-full text-left p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-primary/20 transition group"
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
@@ -2460,7 +2460,7 @@ export default function TestarIA() {
     message: string;
   }>({
     state: "checking",
-    message: "Verificando Supabase...",
+    message: "Verificando Supabase…",
   });
 
   const printRef = useRef<HTMLDivElement | null>(null);
@@ -3304,7 +3304,7 @@ export default function TestarIA() {
             <TabsContent value="texto">
                 <div className="relative">
                   <Textarea
-                    placeholder="Cole aqui o texto do edital que deseja interpretar..."
+                    placeholder="Cole aqui o texto do edital que deseja interpretar…"
                     className="min-h-[280px] resize-y text-sm leading-relaxed p-4 rounded-2xl border-border/60 bg-card/80 shadow-sm focus-visible:ring-primary/30 focus-visible:border-primary/40 font-[inherit] tracking-normal"
                     style={{ fontFamily: "inherit", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}
                     value={text}
@@ -3355,7 +3355,7 @@ export default function TestarIA() {
                       <div className="flex gap-2">
                         <Input
                           id="url-input"
-                          placeholder="https://exemplo.gov.br/edital..."
+                          placeholder="https://exemplo.gov.br/edital…"
                           value={urlInput}
                           onChange={(e) => setUrlInput(e.target.value)}
                           className="flex-1"
@@ -3419,7 +3419,7 @@ export default function TestarIA() {
                           <>
                             <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-3" />
                             <p className="text-sm text-muted-foreground">
-                              Extraindo texto do PDF...
+                              Extraindo texto do PDF…
                             </p>
                           </>
                         ) : (
@@ -3539,7 +3539,7 @@ export default function TestarIA() {
                 {isAnalyzing ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                    {"Interpretando..."}
+                    {"Interpretando…"}
                   </>
                 ) : (
                   <>{analyzeButtonLabel}</>
@@ -3600,7 +3600,7 @@ export default function TestarIA() {
                     {isExporting ? (
                       <>
                         <div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
-                        Gerando PDF...
+                        Gerando PDF…
                       </>
                     ) : (
                       <>
@@ -3630,7 +3630,7 @@ export default function TestarIA() {
                     {saveAgentResultMutation.isPending ? (
                       <>
                         <div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
-                        Salvando...
+                        Salvando…
                       </>
                     ) : savedThisResult ? (
                       <>
@@ -3658,7 +3658,7 @@ export default function TestarIA() {
                     {isSharing ? (
                       <>
                         <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                        Gerando...
+                        Gerando…
                       </>
                     ) : (
                       <>
@@ -3951,7 +3951,7 @@ export default function TestarIA() {
                       <p className="text-sm text-muted-foreground">Pergunte sobre o edital interpretado e receba respostas claras baseadas na análise.</p>
                       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                         <Input placeholder="Ex: Qual é o prazo final?" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={isAnswering} />
-                        <Button size="sm" className="rounded-xl" onClick={handleAskQuestion} disabled={!question.trim() || isAnswering || !canonicalAnalysis}>{isAnswering ? "Respondendo..." : "Perguntar"}</Button>
+                        <Button size="sm" className="rounded-xl" onClick={handleAskQuestion} disabled={!question.trim() || isAnswering || !canonicalAnalysis}>{isAnswering ? "Respondendo…" : "Perguntar"}</Button>
                       </div>
                       {answerHistory.length > 0 && (
                         <div className="space-y-3">
@@ -4021,8 +4021,8 @@ export default function TestarIA() {
                         <p className="text-sm text-muted-foreground mt-1">A exportação mantém a estrutura do resultado e o conteúdo do edital em um relatório pronto para uso.</p>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                        <Button onClick={handleExportPDF} disabled={isExporting || (!agentResult && !canonicalAnalysis)} className="rounded-xl h-12 px-6 text-sm font-semibold">{isExporting ? "Gerando PDF..." : "Exportar PDF"}</Button>
-                        <Button size="sm" variant="outline" className="rounded-xl h-12 px-5" onClick={handleShare} disabled={isSharing}>{isSharing ? "Gerando link..." : "Compartilhar"}</Button>
+                        <Button onClick={handleExportPDF} disabled={isExporting || (!agentResult && !canonicalAnalysis)} className="rounded-xl h-12 px-6 text-sm font-semibold">{isExporting ? "Gerando PDF…" : "Exportar PDF"}</Button>
+                        <Button size="sm" variant="outline" className="rounded-xl h-12 px-5" onClick={handleShare} disabled={isSharing}>{isSharing ? "Gerando link…" : "Compartilhar"}</Button>
                       </div>
                       <div className="rounded-3xl border border-border bg-slate-50 p-4">
                         <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Dica</p>

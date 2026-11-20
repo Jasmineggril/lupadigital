@@ -5,27 +5,27 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0" +
-" hover-elevate active-elevate-2",
+  // DESIGN.md §4: raio 8 px, foco = anel lens com afastamento, só cores em transição
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-           "bg-primary text-primary-foreground border border-primary border-opacity-90 shadow-sm",
+          "border border-transparent bg-lens text-white hover:bg-lens-deep active:bg-lens-deep",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm border-destructive-border",
+          "border border-transparent bg-destructive text-destructive-foreground hover:bg-red-700",
         outline:
-          "border border-border bg-background text-foreground shadow-xs hover:bg-primary/10 active:bg-primary/20",
+          "border border-field bg-white text-ink hover:border-ink-2 hover:bg-paper active:bg-slate-100",
         secondary:
-          "border bg-secondary text-secondary-foreground border-secondary-border shadow-xs hover:bg-secondary/90",
-        ghost: "border border-transparent text-foreground hover:bg-muted/60",
+          "border border-transparent bg-secondary text-secondary-foreground hover:bg-slate-200",
+        ghost: "border border-transparent text-lens hover:bg-lens-tint",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "min-h-10 px-5 py-2.5",
-        sm: "min-h-9 rounded-md px-3 text-xs",
-        lg: "min-h-12 rounded-md px-8 text-base",
-        icon: "h-10 w-10",
+        default: "min-h-11 px-5 py-2.5",
+        sm: "min-h-9 px-3 text-[0.8125rem]",
+        lg: "min-h-12 px-7 text-base",
+        icon: "h-11 w-11",
       },
     },
     defaultVariants: {

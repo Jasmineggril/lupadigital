@@ -9,13 +9,13 @@
  * - O usuário só edita o próprio perfil (o backend usa o id do token).
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearch } from "wouter";
 import { Info, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, ApiError } from "@/lib/api";
 import { OPPORTUNITY_TYPE_LABELS, SOURCE_LABELS, formatDateTime, type TeacherProfile } from "@/lib/lupa-types";
-import { ErrorState, FormAlert, LoadingState, PageHeader, TextField, useAsync } from "@/components/lupa/ui";
+import { ErrorState, FormAlert, LoadingState, PageHeader, TextField, inputClass, useAsync } from "@/components/lupa/ui";
 import { TermsInput } from "@/components/lupa/TermsInput";
 
 type Editable = Omit<TeacherProfile, "user_id" | "field_sources" | "version" | "updated_at"> & { created_at?: string };
@@ -32,15 +32,15 @@ function SourceTag({ profile, field }: { profile: TeacherProfile; field: string 
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-      {description && <p className="mt-1 text-sm text-slate-600">{description}</p>}
+    <section className="rounded-xl border border-hairline bg-white p-5 sm:p-6">
+      <h2 className="font-display text-xl font-bold text-ink">{title}</h2>
+      {description && <p className="mt-1 max-w-[65ch] text-sm leading-relaxed text-ink-2">{description}</p>}
       <div className="mt-4 space-y-5">{children}</div>
     </section>
   );
 }
 
-const selectCls = "h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+const selectCls = inputClass;
 
 export default function Perfil() {
   const search = useSearch();
@@ -62,6 +62,23 @@ export default function Perfil() {
   }, [data]);
 
   const set = <K extends keyof Editable>(k: K, v: Editable[K]) => setForm((f) => (f ? { ...f, [k]: v } : f));
+
+  // Alterações não salvas: avisa antes de sair da página (Web Interface Guidelines)
+  const baseline = useMemo(() => {
+    if (!data?.profile) return null;
+    const { user_id: _u, field_sources: _f, version: _v, updated_at: _a, ...rest } = data.profile;
+    return JSON.stringify(rest);
+  }, [data]);
+  const dirty = Boolean(form && baseline && JSON.stringify(form) !== baseline);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,7 +203,7 @@ export default function Perfil() {
               </div>
             </Section>
 
-            <Section title="Atuação e pesquisa" description="Use termos curtos, como aparecem em editais. Enter ou vírgula adicionam um termo.">
+            <Section title="Atuação e pesquisa" description="É o que mais pesa na aderência temática: áreas e temas valem 3 pontos, palavras-chave e competências valem 2. Use termos curtos, como aparecem em editais; Enter ou vírgula adicionam um termo.">
               <TermsInput label="Áreas de atuação" value={form!.areas} onChange={(v) => set("areas", v)} placeholder="ex.: Ciência da Computação" />
               <SourceTag profile={data!.profile} field="areas" />
               <TermsInput label="Competências" value={form!.competencies} onChange={(v) => set("competencies", v)} placeholder="ex.: análise de dados" />
@@ -202,7 +219,7 @@ export default function Perfil() {
                   maxLength={4000}
                   value={form!.current_projects ?? ""}
                   onChange={(e) => set("current_projects", e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  className="w-full rounded-lg border border-field bg-white px-3 py-2 text-[0.9375rem] focus:outline-none focus-visible:border-lens focus-visible:ring-4 focus-visible:ring-lens/20"
                 />
                 <SourceTag profile={data!.profile} field="current_projects" />
               </div>
@@ -288,14 +305,17 @@ export default function Perfil() {
               </details>
             </Section>
 
-            <div className="sticky bottom-0 z-10 -mx-4 border-t bg-white/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border">
+            <div className="sticky bottom-0 z-10 -mx-4 border-t border-hairline bg-white px-4 py-3 sm:mx-0 sm:rounded-xl sm:border">
               {msg && (
                 <div className="mb-2">
                   <FormAlert kind={msg.kind}>{msg.text}</FormAlert>
                 </div>
               )}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs text-slate-500">Versão do perfil: {data!.profile.version}</span>
+                <span className="text-xs text-slate-600" aria-live="polite">
+                  Versão do perfil: {data!.profile.version}
+                  {dirty && <span className="ml-2 font-semibold text-amber-800">· alterações não salvas</span>}
+                </span>
                 <Button type="submit" disabled={saving} aria-busy={saving} data-testid="perfil-salvar">
                   {saving ? "Salvando…" : "Salvar perfil"}
                 </Button>

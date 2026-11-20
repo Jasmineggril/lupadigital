@@ -33,7 +33,7 @@ export default function Salvos() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {data!.opportunities.map((o) => (
-              <OpportunityCard key={o.id} o={o} saved />
+              <OpportunityCard key={o.id} o={o} saved headingLevel={2} />
             ))}
           </div>
         )}

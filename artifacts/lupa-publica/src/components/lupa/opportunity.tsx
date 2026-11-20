@@ -14,18 +14,20 @@ import { Link } from "wouter";
 import { AlertTriangle, Bookmark, BookmarkCheck, CheckCircle2, CircleHelp, ExternalLink, Hand, ThumbsDown, ThumbsUp, XCircle } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { highlightTerms } from "@/lib/highlight";
+import { Evidence } from "@/components/lupa/ui";
 import { confirmedDeadline, formatDate, OPPORTUNITY_TYPE_LABELS, type EligibilityState, type Opportunity, type Recommendation } from "@/lib/lupa-types";
 
 export function StatusBadge({ status }: { status: Opportunity["status"] }) {
   const map = {
-    aberta: ["Aberta", "bg-emerald-100 text-emerald-900"],
-    encerrada: ["Encerrada", "bg-slate-200 text-slate-800"],
-    suspensa: ["Suspensa", "bg-orange-100 text-orange-900"],
-    cancelada: ["Cancelada", "bg-red-100 text-red-900"],
-    desconhecida: ["Situação não confirmada", "bg-amber-100 text-amber-900"],
+    aberta: ["Aberta", "border-emerald-200 bg-emerald-50 text-emerald-800"],
+    encerrada: ["Encerrada", "border-slate-200 bg-slate-100 text-slate-700"],
+    suspensa: ["Suspensa", "border-red-200 bg-red-50 text-red-800"],
+    cancelada: ["Cancelada", "border-red-200 bg-red-50 text-red-800"],
+    desconhecida: ["Situação não confirmada", "border-amber-200 bg-amber-50 text-amber-800"],
   } as const;
   const [label, cls] = map[status];
-  return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>;
+  return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>;
 }
 
 const ELIG = {
@@ -58,52 +60,54 @@ const STATE_UI: Record<EligibilityState, { label: string; cls: string; Icon: typ
 
 export function RecommendationExplanation({ rec }: { rec: Recommendation }) {
   const r = rec.result;
+  const clip = (t: string) => (t.length > 240 ? `${t.slice(0, 240)}…` : t);
   return (
-    <div className="space-y-4 text-sm">
+    <div className="space-y-5 text-sm">
       {r.warnings.length > 0 && (
-        <ul className="space-y-1">
+        <ul className="space-y-1.5" aria-label="Avisos">
           {r.warnings.map((w) => (
-            <li key={w} className="flex gap-2 rounded-lg bg-red-50 px-3 py-2 text-red-900">
+            <li key={w} className="flex gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-900">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {w}
             </li>
           ))}
         </ul>
       )}
-      <section aria-label="Aderência temática">
-        <h4 className="font-semibold text-slate-900">Por que combina com seu perfil</h4>
+      <section aria-labelledby={`th-${rec.opportunity_id}`}>
+        <h3 id={`th-${rec.opportunity_id}`} className="eyebrow text-slate-600">
+          Aderência temática
+        </h3>
         {r.thematic.matches.length === 0 ? (
-          <p className="mt-1 text-slate-600">Nenhum termo do seu perfil foi encontrado no texto extraído do edital.</p>
+          <p className="mt-1.5 text-ink-2">Nenhum termo do seu perfil foi encontrado no texto extraído do edital.</p>
         ) : (
-          <ul className="mt-1 space-y-1.5">
+          <ul className="mt-2 space-y-3">
             {r.thematic.matches.map((m) => (
-              <li key={m.term} className="text-slate-700">
-                <span className="font-semibold">“{m.term}”</span> <span className="text-slate-500">({m.profile_field})</span> aparece em:{" "}
-                <q className="text-slate-600">{m.evidence.length > 220 ? `${m.evidence.slice(0, 220)}…` : m.evidence}</q>
+              <li key={m.term}>
+                <p className="text-ink">
+                  <span className="font-semibold">“{m.term}”</span> <span className="text-slate-600">· {m.profile_field} do seu perfil</span>
+                </p>
+                <blockquote className="evidence mt-1 text-[0.8125rem] leading-relaxed">“{highlightTerms(clip(m.evidence), [m.term])}”</blockquote>
               </li>
             ))}
           </ul>
         )}
       </section>
-      <section aria-label="Elegibilidade">
-        <h4 className="font-semibold text-slate-900">Elegibilidade (avaliada separadamente)</h4>
+      <section aria-labelledby={`el-${rec.opportunity_id}`}>
+        <h3 id={`el-${rec.opportunity_id}`} className="eyebrow text-slate-600">
+          Elegibilidade · requisito a requisito
+        </h3>
         {r.eligibility.checks.length === 0 ? (
-          <p className="mt-1 text-slate-600">Nenhum critério de elegibilidade foi identificado no edital. Confira o documento oficial.</p>
+          <p className="mt-1.5 text-ink-2">Nenhum critério de elegibilidade foi identificado no edital. Confira o documento oficial.</p>
         ) : (
-          <ul className="mt-1 space-y-2">
+          <ul className="mt-2 space-y-2">
             {r.eligibility.checks.map((c) => {
               const ui = STATE_UI[c.state];
               return (
-                <li key={c.requirement} className="rounded-lg border bg-white p-3">
+                <li key={c.requirement} className="rounded-lg border border-hairline bg-white p-3">
                   <p className={`flex items-center gap-1.5 font-semibold ${ui.cls}`}>
-                    <ui.Icon className="h-4 w-4" aria-hidden /> {ui.label}
+                    <ui.Icon className="h-4 w-4 shrink-0" aria-hidden /> {ui.label}
                   </p>
-                  <p className="mt-1 text-slate-700">{c.reason}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Trecho do edital: <q>{c.evidence.length > 220 ? `${c.evidence.slice(0, 220)}…` : c.evidence}</q>{" "}
-                    <a href={c.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline">
-                      fonte
-                    </a>
-                  </p>
+                  <p className="mt-1 text-ink-2">{c.reason}</p>
+                  <Evidence text={c.evidence} url={c.source_url} max={240} />
                 </li>
               );
             })}
@@ -111,9 +115,11 @@ export function RecommendationExplanation({ rec }: { rec: Recommendation }) {
         )}
       </section>
       {r.interest && (
-        <section aria-label="Interesse">
-          <h4 className="font-semibold text-slate-900">Seu interesse</h4>
-          <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-700">
+        <section aria-labelledby={`in-${rec.opportunity_id}`}>
+          <h3 id={`in-${rec.opportunity_id}`} className="eyebrow text-slate-600">
+            Seu interesse
+          </h3>
+          <ul className="mt-1.5 list-disc space-y-1 pl-5 text-ink-2">
             <li>
               {r.interest.opportunity_type === "corresponde"
                 ? "O tipo deste edital está entre os que você procura."
@@ -126,16 +132,18 @@ export function RecommendationExplanation({ rec }: { rec: Recommendation }) {
         </section>
       )}
       {r.missing.length > 0 && (
-        <section aria-label="Informações faltantes">
-          <h4 className="font-semibold text-slate-900">Informações faltantes</h4>
-          <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-600">
+        <section aria-labelledby={`mi-${rec.opportunity_id}`}>
+          <h3 id={`mi-${rec.opportunity_id}`} className="eyebrow text-slate-600">
+            Pendências
+          </h3>
+          <ul className="mt-1.5 list-disc space-y-1 pl-5 text-ink-2">
             {r.missing.map((m) => (
               <li key={m}>{m}</li>
             ))}
           </ul>
         </section>
       )}
-      <p className="text-xs text-slate-500">
+      <p className="border-t border-hairline pt-3 text-xs text-slate-600">
         Calculado com a versão {rec.opportunity_version} do edital e a versão {rec.profile_version} do seu perfil. O índice de aderência não é
         probabilidade de aprovação.{" "}
         <Link href="/como-funciona#compatibilidade" className="font-semibold text-primary underline">
@@ -229,46 +237,56 @@ export function FeedbackButtons({ opportunityId, initial }: { opportunityId: str
   );
 }
 
-export function OpportunityCard({ o, children, saved }: { o: Opportunity; children?: React.ReactNode; saved?: boolean }) {
+export function OpportunityCard({ o, children, saved, headingLevel = 3 }: { o: Opportunity; children?: React.ReactNode; saved?: boolean; headingLevel?: 2 | 3 }) {
+  const Title = headingLevel === 2 ? "h2" : "h3";
   const deadline = confirmedDeadline(o);
   const types = (o.types ?? []).map((t) => OPPORTUNITY_TYPE_LABELS[t]).filter(Boolean);
   return (
-    <article className="rounded-2xl border bg-white p-5 shadow-sm" aria-labelledby={`op-${o.id}`}>
-      <div className="flex flex-wrap items-center gap-2">
+    <article className="flex flex-col rounded-xl border border-hairline bg-white p-5" aria-labelledby={`op-${o.id}`}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-mono text-[0.75rem] font-medium uppercase tracking-[0.06em] text-slate-600">
+          {o.edital_number && !o.title.includes(o.edital_number) ? `Edital nº ${o.edital_number} · ` : ""}<span translate="no">{o.source_id.toUpperCase()}</span>
+        </p>
         <StatusBadge status={o.status} />
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{o.source_id.toUpperCase()}</span>
-        {o.review_status === "pendente" && <span className="text-xs text-slate-500">· aguardando revisão humana</span>}
-        {o.interested && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">Tenho interesse</span>}
-        {o.changed_since_saved && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-900">Alterado desde que você salvou</span>}
       </div>
-      <h3 id={`op-${o.id}`} className="mt-2 text-lg font-semibold text-slate-900">
-        <Link href={`/oportunidades/${o.id}`} className="hover:text-primary hover:underline">
+      <Title id={`op-${o.id}`} className="mt-2 text-[1.0625rem] font-semibold leading-snug text-ink">
+        <Link href={`/oportunidades/${o.id}`} className="underline-offset-2 hover:text-lens hover:underline">
           {o.title}
         </Link>
-      </h3>
+      </Title>
       {o.fields.objeto ? (
-        <p className="mt-1 line-clamp-3 text-sm text-slate-700">{o.fields.objeto.value}</p>
+        <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-ink-2">{o.fields.objeto.value}</p>
       ) : (
-        <p className="mt-1 text-sm italic text-slate-500">Objeto não encontrado — pendente de verificação.</p>
+        <p className="mt-1.5 text-sm italic text-slate-600">Objeto não encontrado — confira no documento oficial.</p>
       )}
-      {types.length > 0 && <p className="mt-2 text-xs text-slate-500">Tipo (identificado no título/objeto): {types.join(" · ")}</p>}
-      <p className="mt-2 text-sm text-slate-700">
-        <span className="font-semibold">Prazo:</span>{" "}
-        {deadline ? (
-          <>
-            {formatDate(deadline.iso)} <span className="text-xs text-slate-500">(confirmado na fonte)</span>
-          </>
-        ) : (
-          <span className="text-slate-500">não confirmado na fonte</span>
-        )}
-      </p>
+      <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-hairline pt-3 text-[0.8125rem]">
+        <div>
+          <dt className="text-slate-600">Prazo de submissão</dt>
+          <dd className="mt-0.5 font-mono font-medium text-ink tabular">
+            {deadline ? formatDate(deadline.iso) : <span className="font-sans font-normal text-slate-600">não confirmado na fonte</span>}
+          </dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-slate-600">Tipo</dt>
+          <dd className="mt-0.5 truncate text-ink">{types.length ? types.join(" · ") : "não identificado"}</dd>
+        </div>
+      </dl>
+      {(o.review_status === "pendente" || o.interested || o.changed_since_saved) && (
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          {o.review_status === "pendente" && <span className="rounded-full border border-slate-200 px-2 py-0.5 text-slate-600">Aguardando revisão humana</span>}
+          {o.interested && <span className="rounded-full bg-lens-tint px-2 py-0.5 font-semibold text-lens-deep">Tenho interesse</span>}
+          {o.changed_since_saved && (
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">Alterado desde que você salvou</span>
+          )}
+        </div>
+      )}
       {children && <div className="mt-4 space-y-3">{children}</div>}
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-auto flex flex-wrap gap-2 pt-4">
         <Link href={`/oportunidades/${o.id}`} className={buttonVariants({ size: "sm" })}>
-          Ver detalhes
+          Ver edital
         </Link>
         <a href={o.canonical_url} target="_blank" rel="noopener noreferrer" className={buttonVariants({ size: "sm", variant: "ghost" })}>
-          Página oficial <ExternalLink className="ml-1 h-3.5 w-3.5" aria-hidden />
+          Página oficial <ExternalLink className="h-3.5 w-3.5" aria-hidden />
           <span className="sr-only">(abre em nova aba)</span>
         </a>
         {saved !== undefined && <SaveButton opportunityId={o.id} initial={saved} />}

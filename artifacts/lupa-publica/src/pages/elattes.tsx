@@ -299,7 +299,7 @@ export default function ELattes() {
         onSubmit={handleAnalyze}
         isLoading={isLoading}
         submitLabel="Analisar currículo"
-        placeholder="Cole aqui o texto do seu currículo Lattes (Plataforma Lattes → Imprimir CV → copiar texto)..."
+        placeholder="Cole aqui o texto do seu currículo Lattes (Plataforma Lattes → Imprimir CV → copiar texto)…"
         accentColor="emerald"
       />
 
@@ -482,7 +482,7 @@ export default function ELattes() {
                         <div className="flex-1">
                           <div className="w-full bg-muted rounded-full h-3">
                             <div
-                              className={`h-3 rounded-full transition-all ${(result.maturidadeCientifica.score ?? 0) >= 70 ? "bg-emerald-500" : (result.maturidadeCientifica.score ?? 0) >= 40 ? "bg-amber-400" : "bg-red-400"}`}
+                              className={`h-3 rounded-full transition ${(result.maturidadeCientifica.score ?? 0) >= 70 ? "bg-emerald-500" : (result.maturidadeCientifica.score ?? 0) >= 40 ? "bg-amber-400" : "bg-red-400"}`}
                               style={{ width: `${result.maturidadeCientifica.score ?? 0}%` }}
                             />
                           </div>

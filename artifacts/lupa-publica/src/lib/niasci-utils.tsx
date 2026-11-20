@@ -221,7 +221,7 @@ export function AnalysisProgress({
               return (
                 <div key={s.key} className="flex items-center gap-3">
                   {/* Ícone do estágio */}
-                  <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all
+                  <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition
                     ${isCompleted ? "bg-emerald-500/10 text-emerald-500" : isActive ? "bg-primary/10" : "bg-muted/20 text-muted-foreground/30"}`}
                   >
                     {isCompleted ? (
@@ -339,7 +339,7 @@ export function HistoryPanel<T extends { id?: string; created_at?: string }>({
                     {onDelete && item.id && (
                       <button
                         onClick={() => onDelete(item.id!)}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive transition-all rounded"
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive transition rounded"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -379,7 +379,7 @@ export function InputSection({
   onSubmit,
   isLoading,
   submitLabel = "Analisar",
-  placeholder = "Cole o texto aqui...",
+  placeholder = "Cole o texto aqui…",
   accentColor = "emerald",
   showFileUpload = true,
   children,
@@ -501,7 +501,7 @@ export function InputSection({
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
             onClick={() => fileRef.current?.click()}
-            className={`flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed cursor-pointer transition-all duration-200 min-h-[180px] p-6 text-center ${accent.dragBorder} ${accent.border}`}
+            className={`flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed cursor-pointer transition duration-200 min-h-[180px] p-6 text-center ${accent.dragBorder} ${accent.border}`}
           >
             <input
               ref={fileRef}
@@ -542,7 +542,7 @@ export function InputSection({
               value={text}
               onChange={(e) => onTextChange(e.target.value)}
               placeholder={placeholder}
-              className={`w-full h-full min-h-[180px] px-4 py-3 rounded-2xl border border-border/60 bg-card text-sm resize-none focus:outline-none focus:ring-2 transition-all ${accent.ring}`}
+              className={`w-full h-full min-h-[180px] px-4 py-3 rounded-2xl border border-field bg-card text-sm resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 transition ${accent.ring}`}
             />
             {text && (
               <span className="absolute bottom-3 right-3 text-xs text-muted-foreground/40">

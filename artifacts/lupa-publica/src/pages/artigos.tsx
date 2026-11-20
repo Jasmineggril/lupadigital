@@ -265,7 +265,7 @@ export default function Artigos() {
         onSubmit={handleAnalyze}
         isLoading={isLoading}
         submitLabel="Analisar artigo"
-        placeholder="Cole aqui o texto completo do artigo científico (título, resumo, introdução, métodos, resultados, conclusão, referências)..."
+        placeholder="Cole aqui o texto completo do artigo científico (título, resumo, introdução, métodos, resultados, conclusão, referências)…"
         accentColor="amber"
       />
 

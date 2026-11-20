@@ -81,7 +81,7 @@ function TimelineCard({ record }: { record: AgentResultRecord }) {
                       <StatusIcon status={item.status} />
                     </div>
                     <div
-                      className={`flex-1 rounded-xl p-3 border transition-all ${
+                      className={`flex-1 rounded-xl p-3 border transition ${
                         item.status === "ativo"
                           ? "bg-amber-50 border-amber-200"
                           : item.status === "passado"

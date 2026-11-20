@@ -129,13 +129,13 @@ export default function NiasciHub() {
                   <DialogClose asChild key={module.title}>
                     <Link href={module.href}>
                       <div
-                        className={`group relative flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-4 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${module.border}`}
+                        className={`group relative flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-4 cursor-pointer transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${module.border}`}
                       >
                         <div className="flex items-start justify-between">
                           <div className={`inline-flex items-center justify-center w-9 h-9 rounded-lg ${module.color}`}>
                             <Icon className="w-4.5 h-4.5" />
                           </div>
-                          <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground group-hover:translate-x-0.5 transition-all duration-200" />
+                          <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground group-hover:translate-x-0.5 transition duration-200" />
                         </div>
                         <div>
                           <div className="font-semibold text-sm text-foreground leading-tight">{module.title}</div>
@@ -155,7 +155,7 @@ export default function NiasciHub() {
         {modules.map((module) => {
           const Icon = module.icon;
           return (
-            <Card key={module.title} className="group border-border shadow-sm hover:-translate-y-1 transition-all duration-200 hover:shadow-md">
+            <Card key={module.title} className="group border-border shadow-sm hover:-translate-y-1 transition duration-200 hover:shadow-md">
               <CardContent className="space-y-4">
                 <div className={`inline-flex items-center justify-center w-12 h-12 rounded-2xl ${module.color}`}>
                   <Icon className="w-6 h-6" />

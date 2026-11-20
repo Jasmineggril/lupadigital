@@ -11,10 +11,33 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { MailCheck, UserPlus } from "lucide-react";
+import { Check, Circle, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { EMAIL_RE, FormAlert, PasswordField, TextField, passwordProblems } from "@/components/lupa/ui";
+import { AuthLayout, focusFirstInvalid } from "@/components/lupa/AuthLayout";
+
+/** Requisitos de senha conferidos enquanto a pessoa digita (mesmas regras do envio). */
+function PasswordRules({ password }: { password: string }) {
+  const rules = [
+    { ok: password.length >= 8, text: "8 caracteres ou mais" },
+    { ok: /[A-Za-z]/.test(password), text: "pelo menos uma letra" },
+    { ok: /\d/.test(password), text: "pelo menos um número" },
+  ];
+  return (
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[0.8125rem]" aria-label="Requisitos da senha">
+      {rules.map((r) => (
+        <li key={r.text} className={`flex items-center gap-1.5 whitespace-nowrap ${r.ok ? "text-emerald-700" : "text-slate-600"}`}>
+          {r.ok ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Circle className="h-3 w-3" aria-hidden />}
+          <span>
+            {r.text}
+            <span className="sr-only">{r.ok ? " — atendido" : " — pendente"}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 const RESEND_COOLDOWN_S = 60;
 
@@ -50,14 +73,14 @@ export function VerifyEmailNotice({ email }: { email: string }) {
   };
 
   return (
-    <div className="space-y-4 text-center" data-testid="verify-email-notice">
-      <MailCheck className="mx-auto h-12 w-12 text-emerald-600" aria-hidden />
-      <h1 className="text-xl font-bold text-slate-900">Confirme seu e-mail</h1>
-      <p className="text-sm text-slate-700">
+    <div className="space-y-4" data-testid="verify-email-notice">
+      <MailCheck className="h-10 w-10 text-emerald-700" aria-hidden />
+      <h2 className="font-display text-2xl font-bold text-ink">Confirme seu e-mail</h2>
+      <p className="text-sm leading-relaxed text-ink-2">
         Enviamos um link de confirmação para <strong className="break-all">{email}</strong>. Abra o e-mail e clique no link para
         ativar a conta. Depois disso você vai direto para a configuração do seu perfil.
       </p>
-      <ul className="mx-auto max-w-sm list-disc space-y-1 pl-5 text-left text-sm text-slate-600">
+      <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600">
         <li>O e-mail pode levar alguns minutos para chegar.</li>
         <li>Confira as pastas de spam e lixo eletrônico.</li>
         <li>O link vale por tempo limitado; se expirar, peça um novo abaixo.</li>
@@ -66,7 +89,7 @@ export function VerifyEmailNotice({ email }: { email: string }) {
       <Button type="button" variant="outline" onClick={resend} disabled={sending || left > 0} className="w-full" data-testid="resend-confirmation">
         {sending ? "Enviando…" : left > 0 ? `Reenviar e-mail em ${left}s` : "Reenviar e-mail de confirmação"}
       </Button>
-      <Link href="/login" className="block text-sm font-semibold text-primary hover:underline">
+      <Link href="/login" className="block text-center text-sm font-semibold text-lens underline-offset-2 hover:underline">
         Já confirmei — entrar
       </Link>
     </div>
@@ -86,6 +109,7 @@ export default function Cadastro() {
   const [submitting, setSubmitting] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const inFlight = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const problems = passwordProblems(password);
   const errors = {
@@ -101,7 +125,11 @@ export default function Cadastro() {
     e.preventDefault();
     setTouched(true);
     setError("");
-    if (!valid || inFlight.current) return;
+    if (!valid) {
+      focusFirstInvalid(formRef.current);
+      return;
+    }
+    if (inFlight.current) return;
     inFlight.current = true;
     setSubmitting(true);
     const r = await register({ name, email, password });
@@ -117,84 +145,82 @@ export default function Cadastro() {
 
   const show = (k: keyof typeof errors) => (touched ? errors[k] : null);
 
+  if (pendingEmail)
+    return (
+      <AuthLayout eyebrow="Passo 1 de 2 · concluído" title="Falta só confirmar o e-mail">
+        <VerifyEmailNotice email={pendingEmail} />
+      </AuthLayout>
+    );
+
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
-        {pendingEmail ? (
-          <VerifyEmailNotice email={pendingEmail} />
-        ) : (
-          <>
-            <div className="mb-6 text-center">
-              <UserPlus className="mx-auto h-10 w-10 text-primary" aria-hidden />
-              <h1 className="mt-2 text-2xl font-bold text-slate-900">Criar conta</h1>
-              <p className="mt-1 text-sm text-slate-600">
-                Passo 1 de 2: seus dados de acesso. No passo 2 você monta o perfil docente — não é preciso enviar currículo agora.
-              </p>
-            </div>
-            <form onSubmit={onSubmit} noValidate className="space-y-4" aria-describedby={error ? "cadastro-erro" : undefined}>
-              {error && (
-                <div id="cadastro-erro">
-                  <FormAlert>{error}</FormAlert>
-                </div>
-              )}
-              <TextField label="Nome completo" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} error={show("name")} />
-              <TextField
-                label="E-mail"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                error={show("email")}
-                hint="Preferencialmente o institucional (@undf.edu.br ou equivalente)."
-              />
-              <PasswordField
-                label="Senha"
-                autoComplete="new-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                error={show("password")}
-                hint="Mínimo de 8 caracteres, com letras e números."
-              />
-              <PasswordField label="Confirme a senha" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} error={show("confirm")} />
-              <div className="space-y-1">
-                <label className="flex items-start gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={accept}
-                    onChange={(e) => setAccept(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 focus-visible:ring-2 focus-visible:ring-primary/40"
-                    aria-invalid={show("accept") ? true : undefined}
-                    aria-describedby={show("accept") ? "accept-err" : undefined}
-                  />
-                  <span>
-                    Li e aceito a{" "}
-                    <Link href="/privacidade" className="font-semibold text-primary underline">
-                      política de privacidade
-                    </Link>
-                    .
-                  </span>
-                </label>
-                {show("accept") && (
-                  <p id="accept-err" className="text-xs font-medium text-red-700">
-                    {errors.accept}
-                  </p>
-                )}
-              </div>
-              <Button type="submit" className="h-11 w-full" disabled={submitting} aria-busy={submitting} data-testid="cadastro-submit">
-                {submitting ? "Criando conta…" : "Criar conta"}
-              </Button>
-            </form>
-            <p className="mt-6 text-center text-sm text-slate-600">
-              Já tem conta?{" "}
-              <Link href="/login" className="font-semibold text-primary hover:underline">
-                Entrar
-              </Link>
-            </p>
-          </>
+    <AuthLayout
+      eyebrow="Passo 1 de 2 · dados de acesso"
+      title="Criar conta docente"
+      description="No passo 2 você conta suas áreas e temas de pesquisa. Não é preciso enviar currículo agora."
+      footer={
+        <>
+          Já tem conta?{" "}
+          <Link href="/login" className="font-semibold text-lens underline-offset-2 hover:underline">
+            Entrar
+          </Link>
+        </>
+      }
+    >
+      <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-5" aria-describedby={error ? "cadastro-erro" : undefined}>
+        {error && (
+          <div id="cadastro-erro">
+            <FormAlert>{error}</FormAlert>
+          </div>
         )}
-      </div>
-    </div>
+        <TextField label="Nome completo" name="name" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} error={show("name")} placeholder="Ex.: Maria da Silva…" />
+        <TextField
+          label="E-mail"
+          name="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          spellCheck={false}
+          autoCapitalize="none"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={show("email")}
+          placeholder="nome@undf.edu.br…"
+          hint="Use de preferência o e-mail institucional."
+        />
+        <div className="space-y-2">
+          <PasswordField label="Senha" name="new-password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} error={show("password")} />
+          <PasswordRules password={password} />
+        </div>
+        <PasswordField label="Confirme a senha" name="confirm-password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} error={show("confirm")} />
+        <div className="space-y-1">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg py-1 text-sm text-ink-2">
+            <input
+              type="checkbox"
+              checked={accept}
+              onChange={(e) => setAccept(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 rounded border-field accent-[#0B6E78]"
+              aria-invalid={show("accept") ? true : undefined}
+              aria-describedby={show("accept") ? "accept-err" : undefined}
+            />
+            <span>
+              Li e aceito a{" "}
+              <Link href="/privacidade" className="font-semibold text-lens underline underline-offset-2">
+                política de privacidade
+              </Link>
+              .
+            </span>
+          </label>
+          {show("accept") && (
+            <p id="accept-err" className="text-[0.8125rem] font-medium text-red-700">
+              {errors.accept}
+            </p>
+          )}
+        </div>
+        <Button type="submit" className="w-full" disabled={submitting} aria-busy={submitting} data-testid="cadastro-submit">
+          {submitting ? "Criando conta…" : "Criar conta"}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

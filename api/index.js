@@ -160946,8 +160946,24 @@ function cleanEditalText(raw) {
   return raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").split("\n").filter((l) => l.trim().length > 2 || l.trim() === "").join("\n").trim();
 }
 var MAX_ANALYZE_CHARS = 45e4;
+function groundDocumentMeta(out, text4) {
+  const fix = (doc) => {
+    if (!doc || typeof doc !== "object") return doc;
+    const d = { ...doc };
+    if (typeof d.anoPublicacao === "number" && !new RegExp(`\\b${d.anoPublicacao}\\b`).test(text4)) delete d.anoPublicacao;
+    delete d.totalPaginas;
+    return d;
+  };
+  const o = out;
+  if (o.documento) o.documento = fix(o.documento);
+  const agent = o.agentResult;
+  if (agent?.documento) o.agentResult = { ...agent, documento: fix(agent.documento) };
+  if (typeof o.anoPublicacao === "number" && !new RegExp(`\\b${o.anoPublicacao}\\b`).test(text4)) delete o.anoPublicacao;
+  delete o.totalPaginas;
+  return out;
+}
 async function withDocumentBase(result, text4, userId) {
-  const out = { ...result };
+  const out = groundDocumentMeta({ ...result }, text4);
   let teacher = null;
   if (userId) {
     try {
@@ -161167,7 +161183,11 @@ router2.post("/edital/extract-url", async (req, res) => {
     }
     const message2 = err instanceof Error ? err.message : String(err);
     req.log?.warn({ url: fetchedUrl, message: message2 }, "Failed to fetch URL");
-    res.status(422).json({ error: "N\xE3o foi poss\xEDvel acessar a URL. Verifique se ela est\xE1 correta e dispon\xEDvel." });
+    const blocked = /timeout|aborted|ECONNRESET|socket hang up|ETIMEDOUT|ECONNREFUSED|UND_ERR/i.test(message2) || err?.name === "TimeoutError";
+    res.status(422).json({
+      error: blocked ? "O site n\xE3o respondeu ao LUPA (alguns sites oficiais recusam leitura autom\xE1tica). Baixe o PDF do edital e use \u201CLer PDF\u201D, ou copie o texto e use \u201CColar texto\u201D." : "N\xE3o foi poss\xEDvel acessar a URL. Verifique se ela est\xE1 correta e dispon\xEDvel.",
+      code: blocked ? "SITE_NAO_RESPONDEU" : "URL_INACESSIVEL"
+    });
     return;
   }
   const $2 = load(html3);

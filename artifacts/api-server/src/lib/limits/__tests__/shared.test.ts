@@ -60,7 +60,7 @@ describe("costGuard (lógica)", () => {
     const r = await post(a.url);
     expect(r.status).toBe(429);
     expect(Number(r.headers.get("retry-after"))).toBeGreaterThan(0);
-    const body = await r.json();
+    const body = (await r.json()) as Record<string, unknown>;
     expect(body).toMatchObject({ code: "LIMIT", scope: "hora", loginHint: true });
     expect(body.error).toMatch(/Tente de novo em/);
     await a.close();
@@ -89,7 +89,7 @@ describe("costGuard (lógica)", () => {
     await new Promise((r) => setTimeout(r, 80));
     const third = await post(a.url);
     expect(third.status).toBe(429);
-    expect((await third.json()).scope).toBe("simultaneo");
+    expect(((await third.json()) as { scope: string }).scope).toBe("simultaneo");
     expect((await Promise.all(slow)).map((r) => r.status)).toEqual([200, 200]);
     expect((await post(a.url)).status).toBe(200);
     await a.close();
@@ -103,7 +103,7 @@ describe("costGuard (lógica)", () => {
     const a = await serve(appWith("usuario-ficticio-3"));
     const r = await post(a.url);
     expect(r.status).toBe(429);
-    expect((await r.json()).scope).toBe("orcamento");
+    expect(((await r.json()) as { scope: string }).scope).toBe("orcamento");
     await a.close();
   });
 
@@ -119,7 +119,7 @@ describe("costGuard (lógica)", () => {
     const a = await serve(appWith());
     const r = await post(a.url);
     expect(r.status).toBe(503);
-    expect((await r.json()).code).toBe("LIMIT_STORE_UNAVAILABLE");
+    expect(((await r.json()) as { code: string }).code).toBe("LIMIT_STORE_UNAVAILABLE");
     process.env.LIMITS_FAIL_OPEN = "true";
     expect((await post(a.url)).status).toBe(200);
     await a.close();

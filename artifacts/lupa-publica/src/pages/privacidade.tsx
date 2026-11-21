@@ -92,6 +92,13 @@ export default function Privacidade() {
               páginas.
             </li>
             <li>
+              Leitura de PDF escaneado <strong>no seu aparelho</strong> (Tesseract): o documento não sai do navegador; o programa de leitura é baixado de um
+              repositório público de arquivos (jsDelivr), que recebe o pedido de download como qualquer site.
+            </li>
+            <li>
+              Leitura de PDF com texto: feita no seu navegador (análise pelo /testar) ou no servidor do LUPA (documentos oficiais da coleta), sem fornecedor externo.
+            </li>
+            <li>
               <strong>Supabase</strong> (conta e banco de dados, região São Paulo) e <strong>Vercel</strong> (hospedagem).
             </li>
             <li>

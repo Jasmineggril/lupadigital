@@ -85,8 +85,31 @@ export const MAX_ANALYZE_CHARS = 450_000;
  * a verificação de datas/valores contra o texto e a elegibilidade em 3 estados.
  * Nunca altera o objeto em cache (trabalha numa cópia).
  */
+/**
+ * Metadados do documento só com o que o TEXTO sustenta (achado em produção, 21/11/2026: a IA
+ * devolveu "anoPublicacao: 2024" e "totalPaginas: 45" para um texto colado de 3 linhas, sem ano
+ * de publicação nem paginação). Ano só fica se aparecer no texto; número de páginas nunca vem da
+ * IA (com texto colado ela não tem como saber).
+ */
+export function groundDocumentMeta<T extends Record<string, unknown>>(out: T, text: string): T {
+  const fix = (doc: unknown) => {
+    if (!doc || typeof doc !== "object") return doc;
+    const d = { ...(doc as Record<string, unknown>) };
+    if (typeof d.anoPublicacao === "number" && !new RegExp(`\\b${d.anoPublicacao}\\b`).test(text)) delete d.anoPublicacao;
+    delete d.totalPaginas;
+    return d;
+  };
+  const o = out as Record<string, unknown>;
+  if (o.documento) o.documento = fix(o.documento);
+  const agent = o.agentResult as Record<string, unknown> | undefined;
+  if (agent?.documento) o.agentResult = { ...agent, documento: fix(agent.documento) };
+  if (typeof o.anoPublicacao === "number" && !new RegExp(`\\b${o.anoPublicacao}\\b`).test(text)) delete o.anoPublicacao;
+  delete o.totalPaginas;
+  return out;
+}
+
 async function withDocumentBase(result: unknown, text: string, userId: string | null) {
-  const out = { ...(result as Record<string, unknown>) };
+  const out = groundDocumentMeta({ ...(result as Record<string, unknown>) }, text);
   let teacher = null;
   if (userId) {
     try {
@@ -362,7 +385,15 @@ router.post("/edital/extract-url", async (req, res): Promise<void> => {
     }
     const message = err instanceof Error ? err.message : String(err);
     req.log?.warn({ url: fetchedUrl, message }, "Failed to fetch URL");
-    res.status(422).json({ error: "Não foi possível acessar a URL. Verifique se ela está correta e disponível." });
+    // Tempo esgotado ou conexão cortada: o endereço pode estar certo — alguns sites oficiais
+    // recusam acessos automáticos ou de fora do Brasil. Dizer isso e oferecer o caminho que funciona.
+    const blocked = /timeout|aborted|ECONNRESET|socket hang up|ETIMEDOUT|ECONNREFUSED|UND_ERR/i.test(message) || (err as { name?: string })?.name === "TimeoutError";
+    res.status(422).json({
+      error: blocked
+        ? "O site não respondeu ao LUPA (alguns sites oficiais recusam leitura automática). Baixe o PDF do edital e use “Ler PDF”, ou copie o texto e use “Colar texto”."
+        : "Não foi possível acessar a URL. Verifique se ela está correta e disponível.",
+      code: blocked ? "SITE_NAO_RESPONDEU" : "URL_INACESSIVEL",
+    });
     return;
   }
 

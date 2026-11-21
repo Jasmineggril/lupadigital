@@ -50,5 +50,8 @@
       "path": "/api/cron/collect",
       "schedule": "17 9 * * *"
     }
+  ],
+  "regions": [
+    "gru1"
   ]
 }

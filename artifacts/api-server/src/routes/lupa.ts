@@ -45,6 +45,8 @@ import {
   fromOpportunity,
 } from "../lib/lupa/participations";
 import { httpSelectTwoFilters } from "../lib/db-http";
+import { officialSubmissionDeadline } from "../lib/lupa/deadlines";
+import { datesAsCandidates } from "../lib/lupa/collector/parse";
 import { deleteUserData, exportUserData } from "../lib/userData";
 
 const router = Router();
@@ -188,12 +190,9 @@ router.post("/profile/lattes-import", requireAuth(), async (req, res) => {
 
 // ── Catálogo ─────────────────────────────────────────────────────────────────
 
-const SUBMISSION_LABEL = /^(inscri|submiss|propostas|envio|prazo|encerramento)/;
-
-/** Último prazo de submissão confirmado no texto oficial (ISO), se houver. */
-export function submissionDeadline(o: Opportunity): string | null {
-  const ds = (o.fields.datas ?? []).filter((d) => d.iso && SUBMISSION_LABEL.test(d.label)).map((d) => d.iso as string);
-  return ds.length ? (ds.sort().at(-1) as string) : null;
+/** Prazo oficial de inscrição (regra única de deadlines.ts), em ISO, se confirmado no texto. */
+export function submissionDeadline(o: Opportunity, today?: string): string | null {
+  return officialSubmissionDeadline(datesAsCandidates(o.fields), today)?.iso ?? null;
 }
 
 function publicOpportunity(o: Opportunity) {

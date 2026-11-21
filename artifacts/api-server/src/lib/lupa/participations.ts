@@ -15,6 +15,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Opportunity, OpportunityFields } from "./types";
+import { formatDeadline, officialSubmissionDeadline } from "./deadlines";
 
 export const PARTICIPATION_STATUS = ["interesse", "preparando", "pronta_para_enviar", "enviada", "desisti"] as const;
 export const PARTICIPATION_KIND = ["edital_pesquisa", "hackathon", "bolsa", "concurso", "evento", "outro"] as const;
@@ -34,6 +35,9 @@ export interface DeadlineItem {
   id: string;
   rotulo: string;
   data: string | null; // ISO yyyy-mm-dd quando confirmada
+  /** Só quando o edital informa; nunca inventado */
+  hora?: string | null;
+  fuso?: string | null;
   origem: Origin;
   evidencia: string | null;
 }
@@ -119,7 +123,6 @@ export const UpdateParticipationSchema = z
 
 export type UpdateParticipationInput = z.infer<typeof UpdateParticipationSchema>;
 
-const SUBMISSION = /(inscri|submiss|propost|envio|prazo|encerramento)/i;
 
 function guessKind(o: Pick<Opportunity, "title"> & { fields?: OpportunityFields }): Participation["tipo"] {
   const t = `${o.title} ${o.fields?.objeto?.value ?? ""}`.toLowerCase();
@@ -167,7 +170,7 @@ export function fromOpportunity(userId: string, o: Opportunity, now = new Date()
     opportunity_version: o.version,
     fields_snapshot: structuredClone(o.fields),
     checklist: (o.fields.documentos ?? []).map((d) => ({ id: randomUUID(), item: d.value, origem: "edital" as const, evidencia: d.evidence, feito: false })),
-    prazos: (o.fields.datas ?? []).map((d) => ({ id: randomUUID(), rotulo: d.label, data: d.iso, origem: "edital" as const, evidencia: d.evidence })),
+    prazos: (o.fields.datas ?? []).map((d) => ({ id: randomUUID(), rotulo: d.label, data: d.iso, hora: d.hora ?? null, fuso: d.fuso ?? null, origem: "edital" as const, evidencia: d.evidence })),
   };
 }
 
@@ -247,10 +250,9 @@ export interface CheckResult {
   evidencia?: string | null;
 }
 
-/** Último prazo de inscrição/submissão conhecido. */
-export function submissionDate(p: Participation): string | null {
-  const ds = p.prazos.filter((d) => d.data && SUBMISSION.test(d.rotulo)).map((d) => d.data as string).sort();
-  return ds.at(-1) ?? null;
+/** Prazo OFICIAL de inscrição (regra única de deadlines.ts). Tarefas pessoais não contam. */
+export function submissionDate(p: Participation, today?: string): string | null {
+  return officialSubmissionDeadline(p.prazos, today)?.iso ?? null;
 }
 
 /**
@@ -265,13 +267,20 @@ export function deterministicCheck(p: Participation, currentOpportunityVersion: 
   else if (pend.length) out.push({ id: "documentos", nivel: "atencao", mensagem: `${pend.length} de ${p.checklist.length} documento(s) ainda não marcado(s) como prontos.` });
   else out.push({ id: "documentos", nivel: "ok", mensagem: "Todos os documentos da lista estão marcados como prontos." });
 
-  const deadline = submissionDate(p);
-  if (!deadline) out.push({ id: "prazo", nivel: "desconhecido", mensagem: "Prazo de inscrição não confirmado no texto. Confira no edital oficial." });
+  const official = officialSubmissionDeadline(p.prazos, today);
+  if (!official) out.push({ id: "prazo", nivel: "desconhecido", mensagem: "Prazo oficial de inscrição não confirmado no texto. Confira no edital oficial." });
   else {
-    const days = Math.round((Date.parse(deadline) - Date.parse(today)) / 86_400_000);
-    if (days < 0) out.push({ id: "prazo", nivel: "impeditivo", mensagem: `O prazo de inscrição encontrado (${deadline}) já passou.` });
-    else if (days <= 7) out.push({ id: "prazo", nivel: "atencao", mensagem: `Faltam ${days} dia(s) para o prazo de inscrição (${deadline}).` });
-    else out.push({ id: "prazo", nivel: "ok", mensagem: `Prazo de inscrição: ${deadline} (faltam ${days} dias).` });
+    const days = Math.round((Date.parse(official.iso) - Date.parse(today)) / 86_400_000);
+    const quando = formatDeadline(official);
+    const extra = `${official.prorrogado ? " Prazo prorrogado pelo edital." : ""}${official.fases.length > 1 && !official.prorrogado ? ` O edital tem ${official.fases.length} datas de inscrição (fases); esta é a próxima.` : ""}`;
+    if (days < 0) out.push({ id: "prazo", nivel: "impeditivo", mensagem: `O prazo oficial de inscrição (${quando}) já passou.${extra}`, evidencia: official.evidencia });
+    else if (days <= 7) out.push({ id: "prazo", nivel: "atencao", mensagem: `Faltam ${days} dia(s) para o prazo oficial de inscrição (${quando}).${extra}`, evidencia: official.evidencia });
+    else out.push({ id: "prazo", nivel: "ok", mensagem: `Prazo oficial de inscrição: ${quando} (faltam ${days} dias).${extra}`, evidencia: official.evidencia });
+    // Tarefas pessoais nunca mudam o prazo oficial; avisamos se estão depois dele
+    const late = p.prazos.filter((d) => d.origem === "usuario" && d.data && d.data > official.iso);
+    if (late.length) {
+      out.push({ id: "tarefas", nivel: "atencao", mensagem: `${late.length} tarefa(s) sua(s) com data depois do prazo oficial (${late.map((d) => d.rotulo).join(", ")}). Elas não mudam o prazo do edital.` });
+    }
   }
 
   if (p.exige_projeto) {

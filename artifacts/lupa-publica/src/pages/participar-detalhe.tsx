@@ -296,7 +296,11 @@ export default function ParticipacaoDetalhe() {
                     <span className="font-medium text-ink">
                       {d.rotulo} <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-normal text-slate-700">{ORIGIN_LABEL[d.origem]}</span>
                     </span>
-                    <span className="font-mono tabular text-ink">{formatDate(d.data)}</span>
+                    <span className="font-mono tabular text-ink">
+                      {formatDate(d.data)}
+                      {d.hora ? `, até ${d.hora}` : ""}
+                      {d.fuso ? ` (${d.fuso})` : ""}
+                    </span>
                     {d.evidencia && <span className="w-full text-xs text-slate-600">“{d.evidencia.slice(0, 220)}”</span>}
                     {d.origem === "usuario" && (
                       <button type="button" className="text-xs text-red-700 underline" onClick={() => edit({ prazos: draft.prazos.filter((x) => x.id !== d.id) })}>

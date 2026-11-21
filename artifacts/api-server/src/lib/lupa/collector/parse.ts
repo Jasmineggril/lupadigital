@@ -14,6 +14,7 @@
  * O que não for encontrado entra em missing_fields ("não encontrado / pendente de verificação").
  */
 
+import { officialSubmissionDeadline, parseDateMentions, type DeadlineCandidate } from "../deadlines";
 import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
 import type { DocumentKind, EventKind, Evidenced, OpportunityFields, OpportunityStatus } from "../types";
@@ -116,37 +117,23 @@ function grab(lines: string[], re: RegExp, url: string, limit = 6): Evidenced[] 
   return out;
 }
 
-const MONTHS: Record<string, string> = {
-  janeiro: "01", fevereiro: "02", marco: "03", "março": "03", abril: "04", maio: "05", junho: "06",
-  julho: "07", agosto: "08", setembro: "09", outubro: "10", novembro: "11", dezembro: "12",
-};
-
-function toIso(day: string, month: string, year: string): string | null {
-  const d = Number(day);
-  const m = Number(month);
-  if (!(d >= 1 && d <= 31 && m >= 1 && m <= 12)) return null;
-  return `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
 
 function extractDates(lines: string[], url: string) {
+  // Regra única (deadlines.ts): só datas reais; rótulo do trecho anterior; horário/fuso só se informados
   const out: NonNullable<OpportunityFields["datas"]> = [];
   for (const s of lines) {
-    const numeric = [...s.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)].map((m) => toIso(m[1], m[2], m[3]));
-    const written = [...s.matchAll(/\b(\d{1,2})\s+de\s+([a-zç]+)\s+de\s+(\d{4})\b/gi)].map((m) =>
-      MONTHS[m[2].toLowerCase()] ? toIso(m[1], MONTHS[m[2].toLowerCase()], m[3]) : null,
-    );
-    const isos = [...numeric, ...written].filter((x): x is string => Boolean(x));
-    if (isos.length === 0) continue;
-    const labelMatch = /(inscri[cç][õo]es|submiss[aã]o|propostas|resultado|recurso|in[ií]cio|prazo|publica[cç][aã]o|envio|encerramento)/i.exec(s);
-    const label = labelMatch ? labelMatch[1].toLowerCase() : "data";
-    // Última data da frase costuma ser o limite ("de 02/03 a 31/03")
-    out.push({ label, value: s, evidence: s, source_url: url, iso: isos[isos.length - 1] });
-    if (out.length >= 10) break;
+    for (const d of parseDateMentions(s)) {
+      out.push({ label: d.rotulo, value: s, evidence: s, source_url: url, iso: d.iso, ...(d.hora ? { hora: d.hora } : {}), ...(d.fuso ? { fuso: d.fuso } : {}) });
+      if (out.length >= 16) return out;
+    }
   }
   return out;
 }
 
-const SUBMISSION_LABEL = /^(inscri|submiss|propostas|envio|prazo|encerramento)/;
+/** Datas do edital no formato da regra única de prazos. */
+export function datesAsCandidates(fields: OpportunityFields): DeadlineCandidate[] {
+  return (fields.datas ?? []).map((d) => ({ rotulo: d.label, data: d.iso, hora: d.hora ?? null, fuso: d.fuso ?? null, origem: "edital" as const, evidencia: d.evidence }));
+}
 
 /**
  * Situação da chamada. Só usa o texto da PRÓPRIA página da oportunidade (o crawler
@@ -158,10 +145,9 @@ export function inferStatus(fields: OpportunityFields, text: string, now = new D
   if (/\b(edital|chamada|processo seletivo)\b[^.\n]{0,40}\b(cancelad[oa]|revogad[oa]|anulad[oa])\b|\b(cancelamento|revoga[cç][aã]o|anula[cç][aã]o)\s+d[oa]\s+(edital|chamada)\b/i.test(text)) return "cancelada";
   if (/\b(edital|chamada|processo seletivo)\b[^.\n]{0,40}\bsuspens[oa]\b|\bsuspens[aã]o\s+d[oa]\s+(edital|chamada)\b/i.test(text)) return "suspensa";
   if (/\b(edital|chamada)\s+(encerrad[oa]|finalizad[oa])\b|inscri[cç][õo]es\s+encerradas/i.test(text)) return "encerrada";
-  const deadlines = (fields.datas ?? []).filter((d) => d.iso && SUBMISSION_LABEL.test(d.label)).map((d) => d.iso as string);
-  if (deadlines.length === 0) return "desconhecida";
-  const last = deadlines.sort().at(-1) as string;
-  return last >= now.toISOString().slice(0, 10) ? "aberta" : "encerrada";
+  const official = officialSubmissionDeadline(datesAsCandidates(fields), now.toISOString().slice(0, 10));
+  if (!official) return "desconhecida";
+  return official.situacao;
 }
 
 export function extractFields(page: ParsedPage): { fields: OpportunityFields; missing: string[] } {

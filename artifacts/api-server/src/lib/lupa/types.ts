@@ -173,7 +173,8 @@ export interface OpportunityFields {
   requisitos?: Evidenced[];
   valores?: Evidenced[];
   documentos?: Evidenced[];
-  datas?: Array<Evidenced & { label: string; iso: string | null }>;
+  /** hora/fuso só quando o texto oficial informa (nunca inventados) */
+  datas?: Array<Evidenced & { label: string; iso: string | null; hora?: string; fuso?: string }>;
   restricoes?: Evidenced[];
   contrapartidas?: Evidenced[];
   parcerias?: Evidenced[];

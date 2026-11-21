@@ -17,6 +17,9 @@ export interface DeadlineItem {
   id: string;
   rotulo: string;
   data: string | null;
+  /** Só quando o edital informa */
+  hora?: string | null;
+  fuso?: string | null;
   origem: Origin;
   evidencia: string | null;
 }

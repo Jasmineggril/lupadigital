@@ -22,6 +22,7 @@
 import { createHash } from "node:crypto";
 import { extractFields, type ParsedPage } from "./lupa/collector/parse";
 import { evaluateRequirement } from "./lupa/matching";
+import { validDate } from "./lupa/deadlines";
 import type { EligibilityState, TeacherProfile } from "./lupa/types";
 
 export const DOCUMENT_BASE_VERSION = 1;
@@ -177,7 +178,8 @@ const DATE_LABELS: Array<[RegExp, string]> = [
 
 function toIso(d: string, m: string, y: string): string | null {
   const dd = Number(d), mm = Number(m);
-  if (!(dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12)) return null;
+  // Mesma validação da regra única de prazos (31/02 e 29/02 fora de ano bissexto são recusados)
+  if (!validDate(Number(y), mm, dd)) return null;
   return `${y}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
 }
 

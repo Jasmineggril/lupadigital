@@ -157985,7 +157985,7 @@ function classifyAiError(message2) {
       logMessage: "AI provider key not configured"
     };
   }
-  if (normalized.includes("503") || normalized.includes("temporariamente indispon") || normalized.includes("fetch failed") || normalized.includes("network") || normalized.includes("econnrefused") || normalized.includes("enotfound") || normalized.includes("econnreset")) {
+  if (normalized.includes("503") || normalized.includes("temporariamente indispon") || normalized.includes("provider unavailable") || normalized.includes("fetch failed") || normalized.includes("network") || normalized.includes("econnrefused") || normalized.includes("enotfound") || normalized.includes("econnreset")) {
     return {
       status: 503,
       retryable: true,
@@ -158863,12 +158863,24 @@ async function processDocumentInChunks(agentId, text4, profile, opts) {
     results.push(...batchResults);
   }
   const failedCount = results.filter((result) => !result.ok).length;
+  const firstFailedChunk = results.find((result) => !result.ok);
+  const stoppedByTime = results.some((r) => !r.ok && /^Orçamento de tempo insuficiente/.test(r.error ?? ""));
+  const failureClassification = stoppedByTime ? {
+    reason: "time_budget",
+    userMessage: "O edital \xE9 longo e passou do tempo m\xE1ximo de uma an\xE1lise.",
+    retryable: false
+  } : firstFailedChunk ? classifyAiError(firstFailedChunk.error ?? "unknown") : null;
   const processing = {
     mode: "chunked",
     totalChunks: chunks.length,
     processedChunks: results.filter((result) => result.ok).length,
     failedChunks: failedCount,
-    complete: failedCount === 0
+    complete: failedCount === 0,
+    ...failureClassification ? {
+      reason: failureClassification.reason,
+      userMessage: failureClassification.userMessage,
+      retryable: failureClassification.retryable
+    } : {}
   };
   logger.info({
     step: "chunking_completed",
@@ -160350,7 +160362,13 @@ async function analyzeAgent(agentId, text4, profile, opts) {
     if (shouldPropagate) {
       throw err;
     }
-    const fallbackAnalysis = buildHeuristicCanonicalAnalysis(agentId, normalizedText, parsedProfile.success ? parsedProfile.data : void 0);
+    const fallbackAnalysis = buildHeuristicCanonicalAnalysis(agentId, normalizedText, parsedProfile.success ? parsedProfile.data : void 0, classification.reason);
+    fallbackAnalysis.processing = {
+      ...fallbackAnalysis.processing,
+      reason: classification.reason,
+      userMessage: classification.userMessage,
+      retryable: classification.retryable
+    };
     logger.warn({
       requestId,
       step: currentStep,

@@ -184,6 +184,9 @@ interface CanonicalAnalysisLike {
     processedChunks?: number;
     failedChunks?: number;
     complete?: boolean;
+    reason?: string;
+    userMessage?: string;
+    retryable?: boolean;
   };
 }
 
@@ -2873,11 +2876,13 @@ export default function TestarIA() {
           const partial = isPartialResult(canonicalPayload as never);
           if (partial) {
             // Resultado de contingência/incompleto não é salvo automaticamente
-            const proc = (canonicalPayload as { processing?: { totalChunks?: number; processedChunks?: number } }).processing;
-            const lidas = proc?.totalChunks && proc.totalChunks > 1 ? ` Foram lidas ${proc.processedChunks ?? 0} de ${proc.totalChunks} partes do edital (o restante passou do tempo máximo de uma análise).` : "";
+            // Motivo real (vindo do servidor) + quanto do edital foi lido
+            const proc = canonicalPayload.processing as { userMessage?: string; totalChunks?: number; processedChunks?: number } | undefined;
+            const partialReason = proc?.userMessage ?? "A IA não concluiu o processamento.";
+            const lidas = proc?.totalChunks && proc.totalChunks > 1 ? ` Foram lidas ${proc.processedChunks ?? 0} de ${proc.totalChunks} partes do edital.` : "";
             toast({
               title: "Análise parcialmente concluída",
-              description: `O resultado é limitado e não foi salvo automaticamente.${lidas} Você pode salvar manualmente, ou analisar o restante colando só a parte que faltou.`,
+              description: `${partialReason}${lidas} O resultado é limitado e não foi salvo automaticamente; você pode salvar manualmente, tentar de novo ou analisar só a parte que faltou.`,
               variant: "destructive",
             });
             return;

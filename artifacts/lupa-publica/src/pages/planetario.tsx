@@ -23,6 +23,7 @@
  *   - listPlanetariumContents(): carrega histórico
  */
 
+import { apiFetch } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -164,18 +165,8 @@ export default function Planetario() {
     startStageAnimation();
 
     try {
-      const response = await fetch(`${API_BASE}/niasci/planetario/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, audience }),
-      });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `Erro ${response.status}`);
-      }
-
-      const data: PlanetarioResult = await response.json();
+      // Chamada autenticada: a sessão vai junto (limite de uso da conta, não de visitante)
+      const data = await apiFetch<PlanetarioResult>("/niasci/planetario/generate", { method: "POST", body: JSON.stringify({ topic, audience }) });
 
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
       setStage("completed");

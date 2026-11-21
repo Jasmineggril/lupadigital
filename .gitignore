@@ -68,3 +68,7 @@ test-generate-*
 edital-teste.txt
 load-test/scripts/
 package-lock.json
+
+# Saídas das jornadas E2E
+e2e-out/
+e2e-shots*/

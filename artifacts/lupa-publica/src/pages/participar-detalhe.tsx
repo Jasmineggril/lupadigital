@@ -296,7 +296,11 @@ export default function ParticipacaoDetalhe() {
                     <span className="font-medium text-ink">
                       {d.rotulo} <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-normal text-slate-700">{ORIGIN_LABEL[d.origem]}</span>
                     </span>
-                    <span className="font-mono tabular text-ink">{formatDate(d.data)}</span>
+                    <span className="font-mono tabular text-ink">
+                      {formatDate(d.data)}
+                      {d.hora ? `, até ${d.hora}` : ""}
+                      {d.fuso ? ` (${d.fuso})` : ""}
+                    </span>
                     {d.evidencia && <span className="w-full text-xs text-slate-600">“{d.evidencia.slice(0, 220)}”</span>}
                     {d.origem === "usuario" && (
                       <button type="button" className="text-xs text-red-700 underline" onClick={() => edit({ prazos: draft.prazos.filter((x) => x.id !== d.id) })}>
@@ -475,10 +479,11 @@ export default function ParticipacaoDetalhe() {
               </li>
               {draft.exige_projeto && (
                 <li>
-                  <Link href="/niasci/projetos" className="font-medium text-lens underline">
-                    Estruturar o projeto
+                  {/* Só o id da participação vai no endereço; o contexto é buscado no servidor */}
+                  <Link href={`/niasci/projetos?participacao=${draft.id}`} className="font-medium text-lens underline" data-testid="participar-projeto">
+                    {draft.project_id ? "Continuar o projeto" : "Preparar o projeto com este edital"}
                   </Link>{" "}
-                  — plano de pesquisa com etapas.
+                  — usa as exigências do edital e o que você já escreveu.
                 </li>
               )}
               <li>

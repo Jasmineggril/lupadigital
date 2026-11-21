@@ -8,6 +8,7 @@ import type { AddressInfo } from "node:net";
 import { exportJWK, generateKeyPair, SignJWT, type KeyLike } from "jose";
 import { MemoryStore, setStoreForTests } from "../store";
 import { FIXTURE_PAGES, fixtureFetcher } from "./fixtures";
+import { fixtureDocumentFetcher } from "./pdfFixtures";
 
 let key: KeyLike;
 let otherKey: KeyLike;
@@ -67,7 +68,10 @@ beforeAll(async () => {
   process.env.RATE_LIMIT_DEFAULT_MAX = "10000";
 
   const { default: app } = await import("../../../app");
-  ({ setFetcherFactoryForTests: setFetcher } = await import("../../../routes/lupa"));
+  const lupaRoutes = await import("../../../routes/lupa");
+  setFetcher = lupaRoutes.setFetcherFactoryForTests;
+  // Sem rede: documentos oficiais respondem 404 (a leitura de PDF tem testes próprios)
+  lupaRoutes.setDocumentFetcherFactoryForTests(() => fixtureDocumentFetcher({}).fetcher);
   apiServer = app.listen(0, "127.0.0.1");
   await new Promise<void>((r) => apiServer.once("listening", () => r()));
   api = `http://127.0.0.1:${(apiServer.address() as AddressInfo).port}/api`;

@@ -20,8 +20,11 @@
  *   - listResearchProjects(): carrega histórico de projetos
  */
 
+import { apiFetch } from "@/lib/api";
+import { planFromRecord, recordFromPlan, type ProjectPlan, type ProjectOrigin, type ResearchProjectRecord } from "@workspace/project-contract";
 import { useState, useRef, useEffect } from "react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
+import type { ProjectContext } from "@/lib/participacao";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,7 +35,6 @@ import {
   listResearchProjects,
   deleteResearchProject,
 } from "@/services/analisesService";
-import type { ResearchProject } from "@/lib/supabase-types";
 import {
   API_BASE,
   NiasciHeader,
@@ -55,19 +57,8 @@ import {
  * Plano de projeto gerado pela IA.
  * Cobre todos os componentes de gestão de projetos científicos.
  */
-interface ProjetoResult {
-  titulo?: string;
-  resumo?: string;
-  objetivos?: string[];
-  equipe?: { papel: string; responsabilidades: string }[];
-  cronograma?: { fase: string; duracao: string; descricao: string }[];
-  etapas?: { nome: string; descricao: string; entregavel: string }[];
-  indicadores?: { nome: string; meta: string; metodologia: string }[];
-  riscos?: { risco: string; probabilidade: string; mitigacao: string }[];
-  pendencias?: string[];
-  proximasAcoes?: string[];
-  alertas?: string[];
-}
+/** Plano de projeto: mesmo contrato da API e do banco (@workspace/project-contract). */
+type ProjetoResult = ProjectPlan;
 
 /**
  * Projeto salvo pelo usuário no gerenciador local.
@@ -104,20 +95,29 @@ const STAGES = [
 ];
 
 // ── Chave localStorage para projetos manuais ──────────────────────────────────
-const LOCAL_KEY = "niasci-projetos-v1";
+// Chave ANTIGA, global (sem dono): só lida para oferecer importação explícita. Projetos manuais
+// agora ficam na conta (research_projects, source "manual").
+const LEGACY_LOCAL_KEY = "niasci-projetos-v1";
 
-function loadLocalProjects(): LocalProject[] {
-  try { return JSON.parse(localStorage.getItem(LOCAL_KEY) ?? "[]"); }
-  catch { return []; }
-}
-
-function saveLocalProjects(projects: LocalProject[]) {
+function readLegacyDrafts(): LocalProject[] {
   try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(projects));
+    const v = JSON.parse(localStorage.getItem(LEGACY_LOCAL_KEY) ?? "[]");
+    return Array.isArray(v) ? v : [];
   } catch {
-    // modo privado / armazenamento cheio: a tela avisa que os projetos manuais ficam só neste navegador
+    return [];
   }
 }
+
+function clearLegacyDrafts(): boolean {
+  try {
+    localStorage.removeItem(LEGACY_LOCAL_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const manualBody = (p: LocalProject) => ({ title: p.title, description: p.description, source: "manual" as const, manual: p });
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function Projetos() {
@@ -130,11 +130,102 @@ export default function Projetos() {
   const [result, setResult] = useState<ProjetoResult | null>(null);
 
   // Histórico de projetos gerados por IA (Supabase/localStorage)
-  const [aiHistory, setAiHistory] = useState<ResearchProject[]>([]);
+  const [aiHistory, setAiHistory] = useState<ResearchProjectRecord[]>([]);
+  // Registro antigo reaberto: só parte do plano existia
+  const [partialRecord, setPartialRecord] = useState(false);
+  // Vínculo com a participação (preenchido quando a página abre a partir de "Quero participar")
+  const [origin, setOrigin] = useState<ProjectOrigin | null>(null);
+  // ── Vindo de "Quero participar": ?participacao=<id> (só o id; contexto vem do servidor) ──
+  const participationId = new URLSearchParams(useSearch()).get("participacao");
+  const [ctx, setCtx] = useState<ProjectContext | null>(null);
+  const [ctxError, setCtxError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!participationId) return;
+    let alive = true;
+    apiFetch<ProjectContext>(`/participations/${participationId}/projeto-contexto`)
+      .then(async (c) => {
+        if (!alive) return;
+        setCtx(c);
+        setOrigin({ participation_id: c.participacao.id, opportunity_id: c.edital?.id ?? null, opportunity_version: c.edital?.versao ?? null });
+        const problema = c.proposta.find((x) => x.secao === "problema")?.texto;
+        if (problema) setDescription((d) => d || problema);
+        // Já existe projeto vinculado: reabre no mesmo ponto
+        if (c.participacao.project_id) {
+          const rec = await apiFetch<ResearchProjectRecord>(`/resources/research_projects/${c.participacao.project_id}`).catch(() => null);
+          if (alive && rec) {
+            const { plan, parcial } = planFromRecord(rec);
+            setResult(plan);
+            setPartialRecord(parcial);
+            setStage("completed");
+          }
+        }
+      })
+      .catch((e) => alive && setCtxError(e instanceof Error ? e.message : "Não foi possível carregar a participação."));
+    return () => {
+      alive = false;
+    };
+  }, [participationId]);
+
+  /** Depois de salvar, vincula o projeto à participação (sem criar outra entidade). */
+  const onSaved = async (rec: ResearchProjectRecord) => {
+    if (!ctx) return;
+    try {
+      await apiFetch(`/participations/${ctx.participacao.id}/vincular-projeto`, { method: "POST", body: JSON.stringify({ project_id: rec.id }) });
+      setCtx({ ...ctx, participacao: { ...ctx.participacao, project_id: rec.id } });
+    } catch (e) {
+      toast({ title: "Projeto salvo, mas não foi vinculado à participação", description: e instanceof Error ? e.message : "Tente vincular de novo.", variant: "destructive" });
+    }
+  };
   const [historyLoading, setHistoryLoading] = useState(true);
 
   // Gerenciador local de projetos
   const [localProjects, setLocalProjects] = useState<LocalProject[]>([]);
+  const [legacyDrafts, setLegacyDrafts] = useState<LocalProject[]>([]);
+  const [manualLoadError, setManualLoadError] = useState<string | null>(null);
+
+  /**
+   * Grava na conta o que mudou entre `prev` e `next` (criar, alterar, excluir). Em falha, a tela
+   * volta ao estado anterior e diz que não salvou — nunca simula gravação.
+   */
+  const saveLocalProjects = async (next: LocalProject[], prev: LocalProject[] = localProjects) => {
+    const before = new Map(prev.map((p) => [p.id, p]));
+    const after = new Map(next.map((p) => [p.id, p]));
+    try {
+      let result = next;
+      for (const p of next) {
+        const old = before.get(p.id);
+        if (!old) {
+          const rec = await apiFetch<ResearchProjectRecord>("/resources/research_projects", { method: "POST", body: JSON.stringify(manualBody(p)) });
+          result = result.map((x) => (x.id === p.id ? { ...x, id: rec.id } : x));
+        } else if (JSON.stringify(old) !== JSON.stringify(p)) {
+          await apiFetch(`/resources/research_projects/${p.id}`, { method: "PUT", body: JSON.stringify(manualBody(p)) });
+        }
+      }
+      for (const id of before.keys()) if (!after.has(id)) await apiFetch(`/resources/research_projects/${id}`, { method: "DELETE" });
+      setLocalProjects(result);
+    } catch (e) {
+      setLocalProjects(prev);
+      toast({ title: "Não foi salvo", description: e instanceof Error ? e.message : "A alteração não foi gravada na sua conta. Tente novamente.", variant: "destructive" });
+    }
+  };
+
+  const importLegacy = async () => {
+    const created: LocalProject[] = [];
+    try {
+      for (const d of legacyDrafts) {
+        const rec = await apiFetch<ResearchProjectRecord>("/resources/research_projects", { method: "POST", body: JSON.stringify(manualBody(d)) });
+        created.push({ ...d, id: rec.id });
+      }
+      clearLegacyDrafts();
+      setLegacyDrafts([]);
+      setLocalProjects((cur) => [...created, ...cur]);
+      toast({ title: "Rascunhos importados", description: `${created.length} projeto(s) agora estão na sua conta.` });
+    } catch (e) {
+      setLocalProjects((cur) => [...created, ...cur]);
+      setLegacyDrafts((cur) => cur.slice(created.length));
+      toast({ title: "Importação incompleta", description: `${created.length} importado(s). ${e instanceof Error ? e.message : "Tente de novo."}`, variant: "destructive" });
+    }
+  };
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
 
   // Formulário de novo projeto local
@@ -148,14 +239,21 @@ export default function Projetos() {
   const stageTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    // Carrega histórico de projetos gerados por IA
+    // Projetos da CONTA: gerados com IA (histórico) e manuais (gerenciador)
     listResearchProjects()
-      .then((items) => setAiHistory(items))
-      .catch(() => setAiHistory([]))
+      .then((items) => {
+        setAiHistory(items.filter((i) => i.source !== "manual"));
+        setLocalProjects(items.filter((i) => i.source === "manual" && i.manual).map((i) => ({ ...(i.manual as LocalProject), id: i.id })));
+        setManualLoadError(null);
+      })
+      .catch((e: unknown) => {
+        setAiHistory([]);
+        setManualLoadError(e instanceof Error ? e.message : "Não foi possível carregar seus projetos.");
+      })
       .finally(() => setHistoryLoading(false));
 
-    // Carrega projetos do gerenciador local
-    setLocalProjects(loadLocalProjects());
+    // Rascunhos antigos deste navegador: só mostrados para importar ou descartar
+    setLegacyDrafts(readLegacyDrafts());
   }, []);
 
   useEffect(() => {
@@ -194,37 +292,29 @@ export default function Projetos() {
     startStageAnimation();
 
     try {
-      const response = await fetch(`${API_BASE}/niasci/projetos/analyze`, {
+      // Chamada autenticada: a sessão vai junto (limite de uso da conta, não de visitante)
+      const data = await apiFetch<ProjetoResult>("/niasci/projetos/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description }),
+        body: JSON.stringify({ description, ...(ctx ? { participation_id: ctx.participacao.id } : {}) }),
       });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `Erro ${response.status}`);
-      }
-
-      const data: ProjetoResult = await response.json();
 
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
       setStage("completed");
       setResult(data);
 
-      // Persiste no Supabase ou localStorage
-      const saved = await saveResearchProject({
-        title: data.titulo ?? "Projeto sem título",
-        description: data.resumo ?? "",
-        team: (data.equipe ?? []) as any,
-        timeline: (data.cronograma ?? []) as any,
-      }).catch((e: unknown) => {
-        // A análise está pronta; só a gravação falhou — dizer isso, sem marcar a análise como erro
-        toast({ title: "Resultado pronto, mas não foi salvo", description: e instanceof Error ? e.message : "Não foi possível salvar no histórico.", variant: "destructive" });
+      setPartialRecord(false);
+      // Grava o plano INTEIRO (o mesmo que aparece na tela e no PDF)
+      const saved = await saveResearchProject(recordFromPlan(data, origin)).catch((e: unknown) => {
+        // A análise está pronta; só a gravação falhou — o resultado continua na tela
+        toast({ title: "Plano pronto, mas não foi salvo", description: e instanceof Error ? e.message : "Não foi possível salvar no histórico. O plano continua na tela.", variant: "destructive" });
         return null;
       });
 
-      if (saved) setAiHistory((prev) => [saved as ResearchProject, ...prev].slice(0, 20));
-      toast({ title: "Plano gerado!", description: "O plano do projeto está pronto." });
+      if (saved) {
+        setAiHistory((prev) => [saved, ...prev].slice(0, 20));
+        await onSaved(saved);
+        toast({ title: "Plano gerado e salvo", description: "Ele está no seu histórico de projetos." });
+      }
     } catch (err) {
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
       const msg = getFriendlyErrorMessage(err);
@@ -234,13 +324,16 @@ export default function Projetos() {
     }
   };
 
-  const handleHistorySelect = (item: ResearchProject) => {
-    const r = (item as any)?.metadata?.result ?? item;
-    if (r.objetivos || r.cronograma) {
-      setResult(r as ProjetoResult);
-      setStage("completed");
-      toast({ title: "Plano restaurado", description: "Resultado carregado do histórico." });
-    }
+  const handleHistorySelect = (item: ResearchProjectRecord) => {
+    // Reabre EXATAMENTE o que foi salvo; registros antigos mostram só o que existia
+    const { plan, parcial } = planFromRecord(item);
+    setResult(plan);
+    setPartialRecord(parcial);
+    setStage("completed");
+    toast({
+      title: "Plano reaberto",
+      description: parcial ? "Registro antigo: na época só título, resumo, equipe e cronograma eram salvos." : "Todas as seções foram restauradas.",
+    });
   };
 
   const handleHistoryDelete = async (id: string) => {
@@ -288,7 +381,7 @@ export default function Projetos() {
     };
     const updated = [project, ...localProjects];
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
     setNewTitle("");
     setNewObjective("");
     setNewProjectForm(false);
@@ -300,7 +393,7 @@ export default function Projetos() {
   const deleteLocalProject = (id: string) => {
     const updated = localProjects.filter((p) => p.id !== id);
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
     if (expandedProject === id) setExpandedProject(null);
   };
 
@@ -320,7 +413,7 @@ export default function Projetos() {
       };
     });
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
   };
 
   /** Avança o status de uma etapa no ciclo: pendente → em andamento → concluída → pendente. */
@@ -338,7 +431,7 @@ export default function Projetos() {
       };
     });
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
   };
 
   /** Atualiza o nome de uma etapa. */
@@ -348,7 +441,7 @@ export default function Projetos() {
       return { ...p, stages: p.stages.map((s) => s.id === stageId ? { ...s, name } : s) };
     });
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
   };
 
   /** Remove uma etapa do projeto. */
@@ -358,7 +451,7 @@ export default function Projetos() {
       return { ...p, stages: p.stages.filter((s) => s.id !== stageId) };
     });
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
   };
 
   /** Calcula o percentual de progresso de um projeto com base nas etapas concluídas. */
@@ -422,6 +515,88 @@ export default function Projetos() {
             accentBg="bg-lens-tint"
           />
 
+          {participationId && (
+            <section aria-labelledby="ctx-titulo" className="mb-6 rounded-xl border border-hairline bg-white p-4" data-testid="projeto-contexto">
+              {ctxError ? (
+                <p role="alert" className="text-sm text-red-800">{ctxError}</p>
+              ) : !ctx ? (
+                <p role="status" className="text-sm text-slate-700">Carregando a participação…</p>
+              ) : (
+                <>
+                  <h2 id="ctx-titulo" className="font-semibold text-ink">
+                    Preparando o projeto para: {ctx.edital?.titulo ?? ctx.participacao.titulo}
+                    {ctx.edital?.versao ? <span className="ml-1 text-xs font-normal text-slate-600">(versão {ctx.edital.versao} do edital)</span> : null}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-700">Estas informações vão junto para a IA. O que é do edital é exigência; o plano gerado é sugestão e você decide o que manter.</p>
+                  <details className="mt-3" open>
+                    <summary className="cursor-pointer text-sm font-semibold text-ink">Do edital ({ctx.exigencias.length})</summary>
+                    <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto pl-1 text-sm text-ink-2">
+                      {ctx.exigencias.map((e, i) => (
+                        <li key={i}>
+                          <span className="mr-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">{e.tipo}</span>
+                          {e.texto.slice(0, 220)}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-sm font-semibold text-ink">Do seu perfil ({ctx.perfil.length})</summary>
+                    <ul className="mt-2 space-y-1 text-sm text-ink-2">
+                      {ctx.perfil.map((x) => (
+                        <li key={x.campo}>
+                          <strong className="font-semibold">{x.campo}:</strong> {x.valor}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                  {ctx.proposta.length > 0 && (
+                    <p className="mt-2 text-sm text-ink-2">Também vai o que você já escreveu na proposta: {ctx.proposta.map((x) => x.secao).join(", ")}.</p>
+                  )}
+                  {ctx.faltando.length > 0 && (
+                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                      <p className="font-semibold">Falta só isto:</p>
+                      <ul className="list-disc pl-5">
+                        {ctx.faltando.map((f) => (
+                          <li key={f}>{f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {!ctx.participacao.project_id && aiHistory.length > 0 && (
+                    <div className="mt-3 flex flex-wrap items-end gap-2">
+                      <label className="text-sm">
+                        <span className="block font-semibold text-ink">Ou vincule um projeto que você já tem</span>
+                        <select id="vincular-projeto" className="mt-1 h-10 rounded-lg border border-field bg-white px-2 text-sm" defaultValue="">
+                          <option value="" disabled>Escolha um projeto</option>
+                          {aiHistory.map((h) => (
+                            <option key={h.id} value={h.id}>{h.title ?? "Projeto sem título"}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const id = (document.getElementById("vincular-projeto") as HTMLSelectElement | null)?.value;
+                          const rec = aiHistory.find((h) => h.id === id);
+                          if (!rec) return;
+                          await onSaved(rec);
+                          handleHistorySelect(rec);
+                        }}
+                      >
+                        Vincular
+                      </Button>
+                    </div>
+                  )}
+                  <Link href={`/participar/${ctx.participacao.id}`} className="mt-3 inline-block text-sm font-semibold text-lens underline">
+                    Voltar à participação
+                  </Link>
+                </>
+              )}
+            </section>
+          )}
+
           {/* Textarea de descrição do projeto */}
           <div className="mb-6">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
@@ -459,6 +634,11 @@ export default function Projetos() {
           {/* Resultados do plano gerado */}
           {result && stage === "completed" && (
             <div>
+            {partialRecord && (
+              <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" data-testid="projeto-parcial">
+                Registro antigo: na época só título, resumo, equipe e cronograma eram salvos. As demais seções não existem neste registro.
+              </p>
+            )}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-lens" />
@@ -665,7 +845,7 @@ export default function Projetos() {
                     };
                     const updated = [project, ...localProjects];
                     setLocalProjects(updated);
-                    saveLocalProjects(updated);
+                    void saveLocalProjects(updated);
                     setPageTab("projetos");
                     setExpandedProject(project.id);
                     toast({ title: "Projeto salvo!", description: "Acesse a aba Meus Projetos para acompanhar." });
@@ -707,9 +887,47 @@ export default function Projetos() {
 
           {/* Formulário de novo projeto */}
           <p role="note" className="mb-3 text-xs text-slate-600">
-            Projetos criados manualmente ficam guardados só neste navegador (não vão para a sua conta). Planos gerados com IA vão para o histórico
-            da conta quando você está logado.
+            Seus projetos ficam na sua conta: aparecem em qualquer aparelho em que você entrar e entram em “Baixar meus dados” e “Excluir meus dados”.
           </p>
+          {manualLoadError && (
+            <p role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+              {manualLoadError} Nada foi alterado.
+            </p>
+          )}
+          {legacyDrafts.length > 0 && (
+            <section aria-labelledby="rascunhos-titulo" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4" data-testid="rascunhos-locais">
+              <h3 id="rascunhos-titulo" className="font-semibold text-amber-950">
+                Rascunhos antigos neste navegador ({legacyDrafts.length})
+              </h3>
+              <p className="mt-1 text-sm text-amber-950">
+                Antes, projetos manuais ficavam só no navegador, sem ligação com uma conta. Eles podem ter sido criados por outra pessoa que usou este
+                aparelho. Nada foi associado à sua conta: confira e escolha.
+              </p>
+              <ul className="mt-2 list-disc pl-5 text-sm text-amber-950">
+                {legacyDrafts.slice(0, 10).map((d) => (
+                  <li key={d.id}>
+                    {d.title || "Sem título"} — {d.stages?.length ?? 0} etapa(s){d.createdAt ? `, criado em ${new Date(d.createdAt).toLocaleDateString("pt-BR")}` : ""}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" onClick={importLegacy}>
+                  Importar para a minha conta
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (!window.confirm("Descartar os rascunhos deste navegador? Eles não estão em nenhuma conta e serão apagados.")) return;
+                    if (clearLegacyDrafts()) setLegacyDrafts([]);
+                    else toast({ title: "Não foi possível descartar", description: "O navegador não permitiu apagar.", variant: "destructive" });
+                  }}
+                >
+                  Descartar
+                </Button>
+              </div>
+            </section>
+          )}
           {newProjectForm && (
             <Card className="border-lens/30">
               <CardHeader><CardTitle className="text-sm">Novo projeto</CardTitle></CardHeader>

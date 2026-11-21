@@ -19,6 +19,10 @@ export const OPPORTUNITY_TYPES = [
   "publicacao",
   "infraestrutura",
   "formacao",
+  // Públicos além do docente (perfil progressivo): só interesse, nunca requisito
+  "extensao",
+  "hackathon",
+  "concurso",
 ] as const;
 
 const termList = z
@@ -173,7 +177,8 @@ export interface OpportunityFields {
   requisitos?: Evidenced[];
   valores?: Evidenced[];
   documentos?: Evidenced[];
-  datas?: Array<Evidenced & { label: string; iso: string | null }>;
+  /** hora/fuso só quando o texto oficial informa (nunca inventados) */
+  datas?: Array<Evidenced & { label: string; iso: string | null; hora?: string; fuso?: string }>;
   restricoes?: Evidenced[];
   contrapartidas?: Evidenced[];
   parcerias?: Evidenced[];
@@ -207,6 +212,18 @@ export interface OpportunityDocument {
   url: string;
   kind: DocumentKind;
   title: string;
+  // ── Leitura do documento (coleta de PDFs) — ausentes quando não foi baixado ──
+  /** SHA-256 do conteúdo efetivo (detecta troca do PDF na mesma URL) */
+  content_hash?: string | null;
+  size_bytes?: number | null;
+  page_count?: number | null;
+  text_status?: "extraido" | "parcial" | "sem_texto" | "invalido" | "erro" | null;
+  error?: string | null;
+  fetched_at?: string | null;
+  /** Texto por página (evidência com página) */
+  pages?: Array<{ page: number; text: string }> | null;
+  /** Leitura reaproveitada porque o hash não mudou */
+  reused?: boolean;
 }
 
 export interface OpportunityEvent {
@@ -285,6 +302,8 @@ export interface CollectionRun {
 
 export type EligibilityState = "atendida" | "nao_atendida" | "pendente_comprovacao";
 
+export type EligibilityNature = "obrigatorio" | "desejavel" | "descritivo";
+
 export interface EligibilityCheck {
   requirement: string;
   evidence: string;
@@ -293,6 +312,12 @@ export interface EligibilityCheck {
   reason: string;
   /** Dado do perfil usado (sempre autodeclarado ou importado — nunca prova). */
   profile_basis: string | null;
+  /** Obrigatório, desejável ou só descritivo (ex.: "não é necessário doutorado"). */
+  nature?: EligibilityNature;
+  /** true só quando um requisito obrigatório e aplicável é contrariado pelo perfil. */
+  eliminatory?: boolean;
+  /** Condições avaliadas separadamente (requisitos compostos). */
+  parts?: Array<{ condicao: string; state: EligibilityState; reason: string; nature: EligibilityNature; applies_to: string }>;
 }
 
 export interface RecommendationResult {
@@ -309,7 +334,11 @@ export interface RecommendationResult {
   interest: {
     opportunity_type: "corresponde" | "nao_corresponde" | "nao_informado";
     temporary_matches: string[];
+    /** Preferências do perfil comparadas só quando o edital informa; nunca eliminam. */
+    preferences?: Array<{ campo: "objetivos" | "modalidade" | "localizacao" | "formacao"; situacao: "corresponde" | "diverge" | "edital_nao_informa" | "perfil_nao_informa"; motivo: string }>;
   };
+  /** Versão da regra usada (recomendações antigas são recalculadas) */
+  rule_version?: number;
   missing: string[];
   warnings: string[];
   summary: string;

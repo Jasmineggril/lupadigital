@@ -12,6 +12,7 @@
     "test:watch": "vitest --reporter=verbose"
   },
   "dependencies": {
+    "@workspace/project-contract": "workspace:*",
     "@workspace/feature-catalog": "workspace:*",
     "@sentry/node": "^10.70.0",
     "@supabase/supabase-js": "^2.0.0",

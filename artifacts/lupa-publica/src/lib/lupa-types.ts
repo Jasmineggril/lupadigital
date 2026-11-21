@@ -79,7 +79,12 @@ export interface RecommendationResult {
     overall: "sem_impedimento_conhecido" | "impedimento" | "pendente";
     checks: Array<{ requirement: string; evidence: string; source_url: string; state: EligibilityState; reason: string; profile_basis: string | null }>;
   };
-  interest?: { opportunity_type: "corresponde" | "nao_corresponde" | "nao_informado"; temporary_matches: string[] };
+  interest?: {
+    opportunity_type: "corresponde" | "nao_corresponde" | "nao_informado";
+    temporary_matches: string[];
+    /** Preferências do perfil, comparadas só quando o edital informa; nunca eliminam */
+    preferences?: Array<{ campo: "objetivos" | "modalidade" | "localizacao" | "formacao"; situacao: "corresponde" | "diverge" | "edital_nao_informa" | "perfil_nao_informa"; motivo: string }>;
+  };
   missing: string[];
   warnings: string[];
   summary: string;
@@ -145,6 +150,9 @@ export const OPPORTUNITY_TYPE_LABELS: Record<string, string> = {
   publicacao: "Publicação",
   infraestrutura: "Infraestrutura e equipamentos",
   formacao: "Formação e capacitação",
+  extensao: "Extensão",
+  hackathon: "Hackathons",
+  concurso: "Concursos e seleções",
 };
 
 export const FIELD_LABELS: Record<string, string> = {

@@ -22,6 +22,7 @@
  */
 
 import { supabase, isSupabaseConfigured, getSupabaseSessionToken } from "@/lib/supabase";
+import type { ResearchProjectRecord, ResearchProjectWrite } from "@workspace/project-contract";
 import type {
   AIAnalysis,
   LattesProfile,
@@ -433,7 +434,7 @@ export async function saveArticleAnalysis(a: ArticleAnalysis) {
   }
 }
 
-export async function saveResearchProject(p: ResearchProject) {
+export async function saveResearchProject(p: ResearchProjectWrite): Promise<ResearchProjectRecord> {
   if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...p }, ...items].slice(0, 100);
@@ -442,7 +443,7 @@ export async function saveResearchProject(p: ResearchProject) {
   }
 
   try {
-    return await apiRequest<ResearchProject>("/resources/research_projects", {
+    return await apiRequest<ResearchProjectRecord>("/resources/research_projects", {
       method: "POST",
       body: JSON.stringify(p),
     });
@@ -512,12 +513,12 @@ export async function deleteArticleAnalysis(id: string): Promise<boolean> {
 /**
  * Lista projetos de pesquisa salvos (módulo Projetos).
  */
-export async function listResearchProjects(): Promise<ResearchProject[]> {
+export async function listResearchProjects(): Promise<ResearchProjectRecord[]> {
   if (!(await useBackend())) {
     return JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]");
   }
   try {
-    return await apiRequest<ResearchProject[]>("/resources/research_projects");
+    return await apiRequest<ResearchProjectRecord[]>("/resources/research_projects");
   } catch (err) {
     // Logado: falha do servidor é falha (sem cópia silenciosa no navegador)
     throw persistError(err);
@@ -530,7 +531,7 @@ export async function listResearchProjects(): Promise<ResearchProject[]> {
 export async function deleteResearchProject(id: string): Promise<boolean> {
   if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-research-projects") || "[]")
-      .filter((p: ResearchProject) => p.id !== id);
+      .filter((p: ResearchProjectRecord) => p.id !== id);
     window.localStorage.setItem("lupa-publica-research-projects", JSON.stringify(items));
     return true;
   }

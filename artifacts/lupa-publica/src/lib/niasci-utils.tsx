@@ -285,8 +285,11 @@ export function HistoryPanel<T extends { id?: string; created_at?: string }>({
     <div className="mb-6">
       {/* Botão toggle do painel */}
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+        aria-expanded={open}
+        className="flex min-h-11 items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+        data-testid="historico-niasci"
       >
         <History className="w-4 h-4" />
         <span>Histórico de análises {items.length > 0 ? `(${items.length})` : ""}</span>
@@ -310,6 +313,7 @@ export function HistoryPanel<T extends { id?: string; created_at?: string }>({
                   <div key={item.id ?? i} className="flex items-center gap-2 group">
                     {/* Item clicável */}
                     <button
+                      type="button"
                       onClick={() => onSelect(item)}
                       className={`flex-1 text-left px-3 py-2 rounded-lg text-xs hover:${accentBg} transition-colors`}
                     >
@@ -330,8 +334,11 @@ export function HistoryPanel<T extends { id?: string; created_at?: string }>({
                     {/* Botão de excluir */}
                     {onDelete && item.id && (
                       <button
+                        type="button"
                         onClick={() => onDelete(item.id!)}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive transition rounded"
+                        aria-label={`Excluir do histórico: ${getLabel(item)}`}
+                        // Visível no toque e no foco do teclado; some só com mouse fora do item (telas grandes)
+                        className="p-2 text-muted-foreground hover:text-destructive transition rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>

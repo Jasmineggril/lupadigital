@@ -24,6 +24,7 @@
  *   - listArticleAnalyses(): carrega histórico
  */
 
+import { apiFetch } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -165,18 +166,8 @@ export default function Artigos() {
     startStageAnimation();
 
     try {
-      const response = await fetch(`${API_BASE}/niasci/artigos/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `Erro ${response.status}`);
-      }
-
-      const data: ArtigoResult = await response.json();
+      // Chamada autenticada: a sessão vai junto (limite de uso da conta, não de visitante)
+      const data = await apiFetch<ArtigoResult>("/niasci/artigos/analyze", { method: "POST", body: JSON.stringify({ text }) });
 
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
       setStage("completed");

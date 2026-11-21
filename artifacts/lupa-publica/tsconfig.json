@@ -16,6 +16,9 @@
   },
   "references": [
     {
+      "path": "../../lib/project-contract"
+    },
+    {
       "path": "../../lib/feature-catalog"
     },
     {

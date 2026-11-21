@@ -22,6 +22,7 @@
 import { createHash } from "node:crypto";
 import { extractFields, type ParsedPage } from "./lupa/collector/parse";
 import { evaluateRequirement } from "./lupa/matching";
+import { validDate } from "./lupa/deadlines";
 import type { EligibilityState, TeacherProfile } from "./lupa/types";
 
 export const DOCUMENT_BASE_VERSION = 1;
@@ -98,15 +99,13 @@ export function buildDocumentBase(text: string, teacher?: TeacherProfile | null)
   if (teacher) {
     elegibilidade_perfil = [];
     for (const r of requirementTexts) {
-      // Uma frase pode reunir várias condições ("título de doutor E vínculo efetivo…"):
-      // cada condição é avaliada separadamente, com a frase inteira como evidência.
-      const clauses = splitConditions(r.evidence);
+      // A frase inteira vai ao avaliador (mesma regra das recomendações): ele separa as
+      // condições, entende alternativas, dispensas e a quem se aplica, e devolve cada parte.
       let evaluated = 0;
-      for (const clause of clauses) {
-        const c = evaluateRequirement(clause, "", teacher);
-        if (!c) continue;
+      const c = evaluateRequirement(r.evidence, "", teacher);
+      for (const part of c?.parts ?? []) {
         evaluated++;
-        elegibilidade_perfil.push({ requisito: clause, evidencia: r.evidence, estado: STATE_MAP[c.state], motivo: c.reason, base_perfil: c.profile_basis });
+        elegibilidade_perfil.push({ requisito: part.condicao, evidencia: r.evidence, estado: STATE_MAP[part.state], motivo: part.reason, base_perfil: c?.profile_basis ?? null });
       }
       if (evaluated === 0) {
         elegibilidade_perfil.push({
@@ -179,7 +178,8 @@ const DATE_LABELS: Array<[RegExp, string]> = [
 
 function toIso(d: string, m: string, y: string): string | null {
   const dd = Number(d), mm = Number(m);
-  if (!(dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12)) return null;
+  // Mesma validação da regra única de prazos (31/02 e 29/02 fora de ano bissexto são recusados)
+  if (!validDate(Number(y), mm, dd)) return null;
   return `${y}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
 }
 

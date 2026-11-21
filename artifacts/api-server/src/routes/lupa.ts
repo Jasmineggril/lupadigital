@@ -28,9 +28,10 @@ import {
   type Recommendation,
   type TeacherProfile,
 } from "../lib/lupa/types";
-import { computeRecommendation, inferOpportunityTypes, normalizeText } from "../lib/lupa/matching";
+import { RECOMMENDATION_RULE_VERSION, computeRecommendation, inferOpportunityTypes, normalizeText } from "../lib/lupa/matching";
 import type { NotificationDraft } from "../lib/lupa/store";
-import { createSafeFetcher, runCollection, type PageFetcher } from "../lib/lupa/collector/crawler";
+import { createSafeDocumentFetcher, createSafeFetcher, runCollection, type PageFetcher } from "../lib/lupa/collector/crawler";
+import type { DocumentFetcher } from "../lib/lupa/collector/documents";
 import { InstitutionalImportSchema, LattesSummarySchema, getLattesProvider, type LattesSummary } from "../lib/lupa/integrations/lattes";
 import { HERMES_STATUS, hermesConfigured, verifyHermesSecret } from "../lib/lupa/integrations/hermes";
 import {
@@ -43,8 +44,12 @@ import {
   deterministicCheck,
   fromAnalysis,
   fromOpportunity,
+  projectContext,
 } from "../lib/lupa/participations";
+import { ownsResource } from "./resources";
 import { httpSelectTwoFilters } from "../lib/db-http";
+import { officialSubmissionDeadline } from "../lib/lupa/deadlines";
+import { datesAsCandidates } from "../lib/lupa/collector/parse";
 import { deleteUserData, exportUserData } from "../lib/userData";
 
 const router = Router();
@@ -56,6 +61,10 @@ function fail(req: Request, res: Response, err: unknown, context: string) {
 
 /** Permite trocar o fetcher da coleta em testes (sem rede). */
 let fetcherFactory: (allowedHosts: string[]) => PageFetcher = createSafeFetcher;
+let documentFetcherFactory: (allowedHosts: string[]) => DocumentFetcher = createSafeDocumentFetcher;
+export function setDocumentFetcherFactoryForTests(f: ((allowedHosts: string[]) => DocumentFetcher) | null) {
+  documentFetcherFactory = f ?? createSafeDocumentFetcher;
+}
 export function setFetcherFactoryForTests(f: ((allowedHosts: string[]) => PageFetcher) | null) {
   fetcherFactory = f ?? createSafeFetcher;
 }
@@ -188,17 +197,16 @@ router.post("/profile/lattes-import", requireAuth(), async (req, res) => {
 
 // ── Catálogo ─────────────────────────────────────────────────────────────────
 
-const SUBMISSION_LABEL = /^(inscri|submiss|propostas|envio|prazo|encerramento)/;
-
-/** Último prazo de submissão confirmado no texto oficial (ISO), se houver. */
-export function submissionDeadline(o: Opportunity): string | null {
-  const ds = (o.fields.datas ?? []).filter((d) => d.iso && SUBMISSION_LABEL.test(d.label)).map((d) => d.iso as string);
-  return ds.length ? (ds.sort().at(-1) as string) : null;
+/** Prazo oficial de inscrição (regra única de deadlines.ts), em ISO, se confirmado no texto. */
+export function submissionDeadline(o: Opportunity, today?: string): string | null {
+  return officialSubmissionDeadline(datesAsCandidates(o.fields), today)?.iso ?? null;
 }
 
 function publicOpportunity(o: Opportunity) {
   const { reviewed_by: _r, ...rest } = o;
-  return { ...rest, deadline: submissionDeadline(o), types: inferOpportunityTypes(o) };
+  // Texto por página fica no servidor (pesado); a resposta diz se foi lido e quantas páginas
+  const documents = o.documents.map(({ pages: _p, ...d }) => d);
+  return { ...rest, documents, deadline: submissionDeadline(o), types: inferOpportunityTypes(o) };
 }
 
 const CatalogQuerySchema = z.object({
@@ -300,7 +308,8 @@ export async function refreshRecommendations(userId: string) {
   for (const o of opportunities) {
     let rec = byOpp.get(o.id);
     let recomputed = false;
-    if (!rec || rec.opportunity_version !== o.version || rec.profile_version !== profile.version) {
+    // Também recalcula quando a REGRA mudou (recomendações antigas não ficam com critérios velhos)
+    if (!rec || rec.opportunity_version !== o.version || rec.profile_version !== profile.version || rec.result.rule_version !== RECOMMENDATION_RULE_VERSION) {
       rec = {
         user_id: userId,
         opportunity_id: o.id,
@@ -673,6 +682,52 @@ router.post("/participations/:id/aceitar-versao", requireAuth(), async (req, res
   }
 });
 
+/** Contexto para preparar o projeto: o que vem do edital, do perfil e da proposta, e o que falta. */
+router.get("/participations/:id/projeto-contexto", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  try {
+    const store = getStore();
+    const p = await store.getParticipation(userId, req.params.id as string);
+    if (!p) {
+      res.status(404).json({ error: "Participação não encontrada." });
+      return;
+    }
+    const o = p.opportunity_id ? await store.getOpportunity(p.opportunity_id) : null;
+    const profile = await store.getProfile(userId);
+    res.json(projectContext(p, o, profile));
+  } catch (err) {
+    fail(req, res, err, "participations:project-context");
+  }
+});
+
+const LinkProjectSchema = z.object({ project_id: z.string().uuid() }).strict();
+
+/** Vincula um projeto (do MESMO usuário) à participação. */
+router.post("/participations/:id/vincular-projeto", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  const parsed = LinkProjectSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Informe o projeto." });
+    return;
+  }
+  try {
+    const store = getStore();
+    const p = await store.getParticipation(userId, req.params.id as string);
+    if (!p || !(await ownsResource("research_projects", parsed.data.project_id, userId))) {
+      res.status(404).json({ error: "Participação ou projeto não encontrado." });
+      return;
+    }
+    const saved = await store.updateParticipation(userId, { ...p, project_id: parsed.data.project_id, version: p.version + 1, updated_at: new Date().toISOString() }, p.version);
+    if (!saved) {
+      res.status(409).json({ error: "A participação mudou ao mesmo tempo em outro lugar. Recarregue e tente de novo." });
+      return;
+    }
+    res.json({ participation: saved });
+  } catch (err) {
+    fail(req, res, err, "participations:link-project");
+  }
+});
+
 router.delete("/participations/:id", requireAuth(), async (req, res) => {
   const userId = getUserId(req) as string;
   try {
@@ -787,7 +842,7 @@ async function triggerRun(req: Request, res: Response, sourceId: string, trigger
       res.status(404).json({ error: "Fonte não encontrada." });
       return;
     }
-    const run = await runCollection(store, sourceId, { trigger, triggeredBy, fetcher: fetcherFactory(source.allowed_hosts) });
+    const run = await runCollection(store, sourceId, { trigger, triggeredBy, fetcher: fetcherFactory(source.allowed_hosts), documentFetcher: documentFetcherFactory(source.allowed_hosts) });
     res.status(trigger === "hermes" ? 202 : 200).json({ run });
   } catch (err) {
     if (err instanceof ConcurrentRunError) {

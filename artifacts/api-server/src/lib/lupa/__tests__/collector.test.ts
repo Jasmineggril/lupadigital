@@ -45,6 +45,8 @@ describe("extração", () => {
     expect(fields.restricoes?.[0].evidence).toMatch(/vedada/);
     expect(fields.datas?.some((d) => d.iso === "2099-06-30" && d.label === "inscrições")).toBe(true);
     expect(fields.documentos?.[0].evidence).toMatch(/currículo Lattes/);
+    // Lista de links (anexos, "Voltar") não vira documento exigido
+    expect(fields.documentos?.some((d) => /Voltar|Retificação/.test(d.evidence))).toBe(false);
     expect(fields.criterios_avaliacao?.[0].evidence).toMatch(/mérito científico/);
     expect(fields.canal_inscricao?.[0].evidence).toMatch(/sistema SEI/);
     expect(fields.contrapartidas?.[0].evidence).toMatch(/10%/);

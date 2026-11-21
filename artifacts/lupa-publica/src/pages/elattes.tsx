@@ -24,6 +24,7 @@
  *   - getLattesProfiles(): carrega histórico de análises anteriores
  */
 
+import { apiFetch } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -39,7 +40,6 @@ import {
 } from "@/services/analisesService";
 import type { LattesProfile } from "@/lib/supabase-types";
 import { useAuth } from "@/lib/auth";
-import { apiFetch } from "@/lib/api";
 import type { TeacherProfile } from "@/lib/lupa-types";
 import {
   API_BASE,
@@ -194,18 +194,8 @@ export default function ELattes() {
     startStageAnimation();
 
     try {
-      const response = await fetch(`${API_BASE}/niasci/elattes/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `Erro ${response.status}`);
-      }
-
-      const data: LattesResult = await response.json();
+      // Chamada autenticada: a sessão vai junto (limite de uso da conta, não de visitante)
+      const data = await apiFetch<LattesResult>("/niasci/elattes/analyze", { method: "POST", body: JSON.stringify({ text }) });
 
       // Para a animação e marca como concluído
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);

@@ -1,0 +1,13 @@
+{
+  "titulo": "Triagem de retinopatia diabética com IA em UBS do DF (projeto fictício de teste)",
+  "resumo": "Projeto fictício para teste: avaliar um modelo de classificação de imagens de fundo de olho em unidades básicas de saúde.",
+  "objetivos": ["Montar base de imagens anonimizadas", "Validar sensibilidade do modelo", "Propor fluxo de encaminhamento"],
+  "equipe": [{ "papel": "Coordenação", "responsabilidades": "Gestão do projeto e relatórios" }, { "papel": "Cientista de dados", "responsabilidades": "Treino e validação do modelo" }],
+  "cronograma": [{ "fase": "Preparação", "duracao": "3 meses", "descricao": "Aprovação ética e coleta" }, { "fase": "Validação", "duracao": "6 meses", "descricao": "Testes em campo" }],
+  "etapas": [{ "nome": "Coleta", "descricao": "Imagens de 3 UBS", "entregavel": "Base anonimizada" }],
+  "indicadores": [{ "nome": "Sensibilidade", "meta": "≥ 85% (estimativa)", "metodologia": "Comparação com laudo oftalmológico" }],
+  "riscos": [{ "risco": "Baixa adesão das unidades", "probabilidade": "média", "mitigacao": "Acordo prévio com a gestão" }],
+  "pendencias": ["Confirmar parceria com a Secretaria de Saúde"],
+  "proximasAcoes": ["Submeter ao comitê de ética"],
+  "alertas": ["Valores e metas são estimativas a confirmar"]
+}

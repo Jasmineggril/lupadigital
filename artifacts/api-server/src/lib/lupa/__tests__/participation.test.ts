@@ -271,6 +271,37 @@ describe("meus dados", () => {
   });
 });
 
+describe("participação → projeto", () => {
+  it("contexto vem do servidor (edital + perfil + proposta), só para o dono; vínculo só com projeto próprio", async () => {
+    (await import("../../../routes/resources")).resetResourceMemory();
+    const { opportunity } = await store.upsertOpportunity(edital());
+    await call("PUT", "/profile", A, { areas: ["Saúde digital"], declared_degree: "mestrado" });
+    const p = (await call("POST", "/participations", A, { opportunity_id: opportunity.id })).body.participation;
+    await call("PATCH", `/participations/${p.id}`, A, { expected_version: 1, exige_projeto: true, proposta: { problema: "Filas de regulação (fictício)" } });
+
+    const ctx = await call("GET", `/participations/${p.id}/projeto-contexto`, A);
+    expect(ctx.status).toBe(200);
+    expect(ctx.body.edital.versao).toBe(1);
+    expect(ctx.body.exigencias.some((e: any) => e.tipo === "Documento exigido" && e.texto.includes("5.2"))).toBe(true);
+    expect(ctx.body.perfil).toEqual(expect.arrayContaining([{ campo: "Áreas", valor: "Saúde digital" }]));
+    expect(ctx.body.proposta[0]).toEqual({ secao: "problema", texto: "Filas de regulação (fictício)" });
+    expect(ctx.body.faltando).toEqual([]);
+    expect((await call("GET", `/participations/${p.id}/projeto-contexto`, B)).status).toBe(404);
+
+    // gerador com participação de outra pessoa → 404 antes de chamar a IA
+    expect((await call("POST", "/niasci/projetos/analyze", B, { description: "x".repeat(40), participation_id: p.id })).status).toBe(404);
+    expect((await call("POST", "/niasci/projetos/analyze", undefined, { description: "x".repeat(40), participation_id: p.id })).status).toBe(401);
+
+    const projA = (await call("POST", "/resources/research_projects", A, { title: "Projeto A", origin: { participation_id: p.id } })).body;
+    const projB = (await call("POST", "/resources/research_projects", B, { title: "Projeto B" })).body;
+    expect((await call("POST", `/participations/${p.id}/vincular-projeto`, A, { project_id: projB.id })).status).toBe(404);
+    expect((await call("POST", `/participations/${p.id}/vincular-projeto`, B, { project_id: projA.id })).status).toBe(404);
+    const linked = await call("POST", `/participations/${p.id}/vincular-projeto`, A, { project_id: projA.id });
+    expect(linked.status).toBe(200);
+    expect((await call("GET", `/participations/${p.id}`, A)).body.participation.project_id).toBe(projA.id);
+  });
+});
+
 describe("ferramentas NIASci (recursos)", () => {
   it("cada pessoa vê, altera e apaga só os próprios projetos", async () => {
     (await import("../../../routes/resources")).resetResourceMemory();
@@ -284,6 +315,65 @@ describe("ferramentas NIASci (recursos)", () => {
     await call("DELETE", `/resources/research_projects/${id}`, B);
     expect((await call("GET", `/resources/research_projects/${id}`, A)).body.title).toBe("Projeto da A");
     expect((await call("POST", "/resources/research_projects", A, { title: "x", user_id: "usuario-b" })).status).toBe(400);
+  });
+});
+
+describe("exportação completa (paginada) e exclusão", () => {
+  it("lê além de uma página, inclui mensagens das conversas e recursos NIASci; não mistura usuários", async () => {
+    const db = await import("../../db-http");
+    (await import("../../../routes/resources")).resetResourceMemory();
+    db.setExportTestOptions({ pageSize: 2 });
+    try {
+      for (let i = 0; i < 5; i++) await db.httpInsert("agent_results", { user_id: "usuaria-a", agent_id: "simples", title: `a${i}`, original_text: "t", result_json: {} });
+      await db.httpInsert("agent_results", { user_id: "usuario-b", agent_id: "simples", title: "b", original_text: "t", result_json: {} });
+      const conv = await db.httpInsert<Record<string, unknown>>("conversations", { user_id: "usuaria-a", title: "conversa A" });
+      await db.httpInsert("messages", { conversation_id: conv.id, role: "user", content: "pergunta da A" });
+      const convB = await db.httpInsert<Record<string, unknown>>("conversations", { user_id: "usuario-b", title: "conversa B" });
+      await db.httpInsert("messages", { conversation_id: convB.id, role: "user", content: "pergunta do B" });
+      await call("POST", "/resources/research_projects", A, { title: "Projeto NIASci da A" });
+
+      const ex = (await call("GET", "/me/export", A)).body;
+      expect(ex.completo).toBe(true);
+      expect(ex.dados.agent_results).toHaveLength(5);
+      expect(ex.dados.messages.map((m: any) => m.content)).toEqual(["pergunta da A"]);
+      expect(ex.dados.research_projects.map((p: any) => p.title)).toEqual(["Projeto NIASci da A"]);
+      expect(JSON.stringify(ex)).not.toContain("pergunta do B");
+
+      const del = (await call("DELETE", "/me/data", A, { confirmacao: "EXCLUIR MEUS DADOS" })).body;
+      expect(del.concluido).toBe(true);
+      const after = (await call("GET", "/me/export", A)).body;
+      expect(after.dados.agent_results).toHaveLength(0);
+      expect(after.dados.messages).toHaveLength(0);
+      expect(after.dados.research_projects).toHaveLength(0);
+      // B intacto
+      const exB = (await call("GET", "/me/export", B)).body;
+      expect(exB.dados.agent_results).toHaveLength(1);
+      expect(exB.dados.messages.map((m: any) => m.content)).toEqual(["pergunta do B"]);
+    } finally {
+      db.setExportTestOptions(null);
+    }
+  });
+
+  it("falha no meio da leitura → exportação marcada como incompleta, com o que foi lido", async () => {
+    const db = await import("../../db-http");
+    db.setExportTestOptions({ pageSize: 2, failTable: "agent_results", failAfterPages: 1 });
+    try {
+      for (let i = 0; i < 5; i++) await db.httpInsert("agent_results", { user_id: "usuaria-a", agent_id: "simples", title: `x${i}`, original_text: "t", result_json: {} });
+      const ex = (await call("GET", "/me/export", A)).body;
+      expect(ex.completo).toBe(false);
+      const sec = ex.secoes.find((x: any) => x.table === "agent_results");
+      expect(sec.ok).toBe(false);
+      expect(sec.erro).toContain("interrompida");
+      expect(ex.dados.agent_results).toHaveLength(2);
+    } finally {
+      db.setExportTestOptions(null);
+    }
+  });
+
+  it("sem dados não é falha", async () => {
+    const ex = (await call("GET", "/me/export", B)).body;
+    expect(ex.completo).toBe(true);
+    expect(ex.secoes.find((x: any) => x.table === "agent_results")).toMatchObject({ ok: true, linhas: 0 });
   });
 });
 

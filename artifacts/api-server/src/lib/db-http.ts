@@ -250,3 +250,80 @@ export async function httpDetachUser(table: string, userId: string): Promise<num
   if (error) throw new Error(error.message);
   return data?.length ?? 0;
 }
+
+
+// ── Leitura paginada (exportação de dados) ──────────────────────────────────
+
+/** Limite efetivo de linhas por requisição no PostgREST/Supabase (padrão do provedor: 1000). */
+export const PROVIDER_PAGE_SIZE = 1000;
+
+/** Só para testes: tamanho de página menor e falha simulada a partir de uma página. */
+let pageSizeForTests: number | null = null;
+let failAfterPagesForTests: { table: string; pages: number } | null = null;
+export function setExportTestOptions(o: { pageSize?: number | null; failTable?: string; failAfterPages?: number } | null) {
+  pageSizeForTests = o?.pageSize ?? null;
+  failAfterPagesForTests = o?.failTable ? { table: o.failTable, pages: o.failAfterPages ?? 0 } : null;
+}
+
+export interface PagedResult<T> {
+  rows: T[];
+  /** true só se TODAS as páginas foram lidas */
+  complete: boolean;
+  pages: number;
+  error?: string;
+}
+
+/**
+ * Lê TODAS as linhas que casam com o filtro, página por página (ordem estável por `orderBy`).
+ * Em falha no meio, devolve o que leu com complete=false (nunca finge que terminou).
+ * Linhas em snake_case (formato do banco), como na exportação.
+ */
+export async function httpSelectAllPaged<T = Record<string, unknown>>(
+  table: string,
+  filter: { col: string; values: unknown[] } | Record<string, unknown>,
+  opts: { orderBy?: string; maxRows?: number } = {},
+): Promise<PagedResult<T>> {
+  const size = pageSizeForTests ?? PROVIDER_PAGE_SIZE;
+  const maxRows = opts.maxRows ?? 100_000;
+  const orderBy = opts.orderBy ?? "id";
+  const rows: T[] = [];
+  let pages = 0;
+  const isIn = "col" in filter && Array.isArray((filter as { values?: unknown[] }).values);
+  try {
+    if (memoryMode()) {
+      const all = memTable(table)
+        .filter((r) => (isIn ? (filter as { col: string; values: unknown[] }).values.includes(r[(filter as { col: string }).col]) : memMatch(r, filter as Record<string, unknown>)))
+        .sort((a, b) => String(a[orderBy] ?? "").localeCompare(String(b[orderBy] ?? ""), undefined, { numeric: true }));
+      for (let from = 0; from < all.length && rows.length < maxRows; from += size) {
+        if (failAfterPagesForTests?.table === table && pages >= failAfterPagesForTests.pages) throw new Error("falha simulada de leitura");
+        rows.push(...(structuredClone(all.slice(from, from + size)) as T[]));
+        pages += 1;
+      }
+      return { rows, complete: rows.length === all.length, pages };
+    }
+    const supabase = getSupabaseAdmin();
+    for (let from = 0; rows.length < maxRows; from += size) {
+      let q = supabase.from(table).select("*");
+      if (isIn) {
+        const f = filter as { col: string; values: unknown[] };
+        if (f.values.length === 0) break;
+        q = q.in(f.col, f.values as string[]);
+      } else for (const [c, v] of Object.entries(filter)) q = q.eq(c, v as string);
+      const { data, error } = await q.order(orderBy, { ascending: true }).range(from, from + size - 1);
+      if (error) throw new Error(error.message);
+      pages += 1;
+      rows.push(...((data ?? []) as T[]));
+      if (!data || data.length < size) return { rows, complete: true, pages };
+    }
+    return { rows, complete: false, pages, error: `limite de ${maxRows} linhas atingido` };
+  } catch (err) {
+    return { rows, complete: false, pages, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Acesso às tabelas em memória (somente testes) — usado pelos recursos genéricos para
+ *  compartilhar o MESMO armazenamento da exportação/exclusão. */
+export function memoryTableForTests(table: string): Row[] | null {
+  return memoryMode() ? memTable(table) : null;
+}
+export { memoryMode as isMemoryMode };

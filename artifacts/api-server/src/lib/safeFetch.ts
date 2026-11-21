@@ -32,41 +32,79 @@ export const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MB
 /** Erro com mensagem segura para mostrar ao usuário. */
 export class UnsafeUrlError extends Error {}
 
-export function isPrivateIp(ip: string): boolean {
+/**
+ * Classificação de destino por LISTA DO QUE É PERMITIDO, com o parser de endereços do próprio
+ * Node (net.isIP + net.BlockList), sem parser caseiro.
+ *
+ * Falha corrigida (reproduzida em 2026-11-21): a versão anterior só reconhecia o IPv4 mapeado
+ * na forma "::ffff:a.b.c.d". A forma hexadecimal equivalente "::ffff:7f00:1" (= 127.0.0.1) — que
+ * é exatamente como o parser de URL normaliza "http://[::ffff:127.0.0.1]/" — era classificada
+ * como pública. O mesmo valia para "::ffff:a9fe:a9fe" (169.254.169.254, metadados da nuvem),
+ * "::7f00:1" (IPv4 compatível), 6to4 (2002::/16), fec0::/10 e 100::/64.
+ *
+ * Regras:
+ *  - IPv4: bloqueia as faixas de uso especial da IANA (loopback, privadas, CGNAT, link-local,
+ *    documentação, benchmarking, 6to4 relay, multicast, reservadas, broadcast);
+ *  - IPv6: só a faixa global 2000::/3 é aceita, menos as de uso especial dentro dela
+ *    (Teredo/protocolos IETF 2001::/23, documentação, 6to4, ORCHID); tudo o mais — ::, ::1,
+ *    IPv4 mapeado/compatível/traduzido, NAT64, link-local, ULA, site-local, multicast — é recusado;
+ *  - IPv4 mapeado em IPv6 (::ffff:0:0/96, em qualquer grafia equivalente) é sempre recusado;
+ *  - texto que não é um IP válido é tratado como proibido.
+ */
+const BLOCKED = new net.BlockList();
+for (const [addr, prefix] of [
+  ["0.0.0.0", 8], // "esta rede"
+  ["10.0.0.0", 8],
+  ["100.64.0.0", 10], // CGNAT
+  ["127.0.0.0", 8],
+  ["169.254.0.0", 16], // link-local / metadados da nuvem
+  ["172.16.0.0", 12],
+  ["192.0.0.0", 24], // atribuições IETF
+  ["192.0.2.0", 24], // documentação
+  ["192.88.99.0", 24], // 6to4 relay
+  ["192.168.0.0", 16],
+  ["198.18.0.0", 15], // benchmarking
+  ["198.51.100.0", 24], // documentação
+  ["203.0.113.0", 24], // documentação
+  ["224.0.0.0", 4], // multicast
+  ["240.0.0.0", 4], // reservado + broadcast
+] as const) {
+  BLOCKED.addSubnet(addr, prefix, "ipv4");
+}
+for (const [addr, prefix] of [
+  ["2001::", 23], // protocolos IETF (inclui Teredo 2001::/32)
+  ["2001:db8::", 32], // documentação
+  ["2002::", 16], // 6to4 (embute IPv4)
+  ["3fff::", 20], // documentação
+] as const) {
+  BLOCKED.addSubnet(addr, prefix, "ipv6");
+}
+const IPV6_GLOBAL = new net.BlockList();
+IPV6_GLOBAL.addSubnet("2000::", 3, "ipv6");
+const IPV4_MAPPED = new net.BlockList();
+IPV4_MAPPED.addSubnet("::ffff:0:0", 96, "ipv6");
+
+/** Remove colchetes e identificador de zona ("fe80::1%eth0"). */
+function bareIp(ip: string): string {
   let addr = ip.trim().toLowerCase();
   if (addr.startsWith("[") && addr.endsWith("]")) addr = addr.slice(1, -1);
-  // IPv6 com IPv4 embutido (::ffff:a.b.c.d)
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(addr);
-  if (mapped) addr = mapped[1];
+  return addr;
+}
 
-  if (net.isIPv4(addr)) {
-    const [a, b] = addr.split(".").map(Number);
-    return (
-      a === 0 || // 0.0.0.0/8
-      a === 10 ||
-      a === 127 ||
-      (a === 100 && b >= 64 && b <= 127) || // CGNAT
-      (a === 169 && b === 254) || // link-local / metadados da nuvem
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 0) || // 192.0.0.0/24 e 192.0.2.0/24
-      (a === 192 && b === 168) ||
-      (a === 198 && (b === 18 || b === 19)) || // benchmarking
-      a >= 224 // multicast e reservado
-    );
+/** true = destino proibido (ou não é um IP válido). */
+export function isPrivateIp(ip: string): boolean {
+  const addr = bareIp(ip);
+  if (addr.includes("%")) return true; // zona de interface: só existe para endereços locais
+  const family = net.isIP(addr);
+  if (family === 4) return BLOCKED.check(addr, "ipv4");
+  if (family === 6) {
+    // IPv4 mapeado (qualquer grafia): sempre recusado. O DNS (lookup verbatim) devolve IPv4 como
+    // IPv4; um endereço mapeado só aparece quando escrito à mão na URL — e é a forma usada para
+    // disfarçar 127.0.0.1 / 169.254.169.254. Quem quiser um IPv4 público usa a forma IPv4.
+    if (IPV4_MAPPED.check(addr, "ipv6")) return true;
+    if (!IPV6_GLOBAL.check(addr, "ipv6")) return true;
+    return BLOCKED.check(addr, "ipv6");
   }
-
-  if (net.isIPv6(addr)) {
-    return (
-      addr === "::" ||
-      addr === "::1" ||
-      addr.startsWith("fe8") || addr.startsWith("fe9") || addr.startsWith("fea") || addr.startsWith("feb") || // fe80::/10
-      addr.startsWith("fc") || addr.startsWith("fd") || // fc00::/7
-      addr.startsWith("ff") || // multicast
-      addr.startsWith("64:ff9b:") // NAT64
-    );
-  }
-
-  // Não é IP válido: trate como inseguro
   return true;
 }
 
@@ -152,6 +190,11 @@ export function createPinnedFetch(
   const lookup = createSafeLookup(resolve, isBlocked);
   return (async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url);
+    // IP literal na URL não passa pela função lookup do http.request: confere aqui também
+    const literal = url.hostname.replace(/^\[|\]$/g, "");
+    if (net.isIP(literal) && isBlocked(literal)) {
+      throw new UnsafeUrlError("A URL aponta para um endereço de rede privada ou local, o que não é permitido.");
+    }
     const mod = url.protocol === "https:" ? https : http;
     const headers: Record<string, string> = { "accept-encoding": "gzip, deflate, br" };
     for (const [k, v] of Object.entries((init?.headers as Record<string, string> | undefined) ?? {})) {

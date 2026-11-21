@@ -479,10 +479,11 @@ export default function ParticipacaoDetalhe() {
               </li>
               {draft.exige_projeto && (
                 <li>
-                  <Link href="/niasci/projetos" className="font-medium text-lens underline">
-                    Estruturar o projeto
+                  {/* Só o id da participação vai no endereço; o contexto é buscado no servidor */}
+                  <Link href={`/niasci/projetos?participacao=${draft.id}`} className="font-medium text-lens underline" data-testid="participar-projeto">
+                    {draft.project_id ? "Continuar o projeto" : "Preparar o projeto com este edital"}
                   </Link>{" "}
-                  — plano de pesquisa com etapas.
+                  — usa as exigências do edital e o que você já escreveu.
                 </li>
               )}
               <li>

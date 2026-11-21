@@ -60,6 +60,8 @@ export interface Participation {
   opportunity_id: string | null;
   opportunity_version: number | null;
   agent_result_id: number | null;
+  /** Projeto (Projetos/NIASci) vinculado a esta participação — um só, sem duplicar */
+  project_id?: string | null;
   /** Retrato dos campos do edital na versão usada (para comparar com retificações). */
   fields_snapshot: OpportunityFields | null;
   exige_projeto: boolean;
@@ -146,6 +148,7 @@ function base(userId: string, now: string): Omit<Participation, "titulo" | "tipo
     opportunity_id: null,
     opportunity_version: null,
     agent_result_id: null,
+    project_id: null,
     fields_snapshot: null,
     checklist: [],
     prazos: [],
@@ -345,4 +348,94 @@ export function compareFields(before: OpportunityFields | null, after: Opportuni
     if (JSON.stringify(a) !== JSON.stringify(b)) out.push({ campo, rotulo: meta.rotulo, antes: a, depois: b, afeta: meta.afeta });
   }
   return out;
+}
+
+
+// ── Contexto para preparar o projeto (Projetos) ─────────────────────────────
+
+export interface ProjectContext {
+  participacao: { id: string; titulo: string; tipo: string; project_id: string | null };
+  edital: { id: string | null; titulo: string; versao: number | null } | null;
+  /** O que o EDITAL exige/informa — texto oficial, com o trecho. Nunca é sugestão do LUPA. */
+  exigencias: Array<{ tipo: string; texto: string }>;
+  /** Seções da proposta que a pessoa já escreveu */
+  proposta: Array<{ secao: string; texto: string }>;
+  /** Dados confirmados no perfil (autodeclarados) que serão usados */
+  perfil: Array<{ campo: string; valor: string }>;
+  /** O que falta e será perguntado */
+  faltando: string[];
+}
+
+const PROFILE_FIELDS: Array<[keyof TeacherProfileLike, string]> = [
+  ["areas", "Áreas"],
+  ["research_topics", "Temas de pesquisa"],
+  ["competencies", "Competências"],
+  ["institution", "Instituição"],
+  ["declared_degree", "Titulação (autodeclarada)"],
+  ["collaboration_role", "Papel desejado"],
+];
+interface TeacherProfileLike {
+  areas?: string[];
+  research_topics?: string[];
+  competencies?: string[];
+  institution?: string | null;
+  declared_degree?: string | null;
+  collaboration_role?: string | null;
+}
+
+export function projectContext(p: Participation, o: Opportunity | null, profile: TeacherProfileLike | null): ProjectContext {
+  const fields = (o?.fields ?? p.fields_snapshot ?? {}) as OpportunityFields;
+  const exig: ProjectContext["exigencias"] = [];
+  const push = (tipo: string, list?: Array<{ evidence: string }>) => list?.forEach((x) => exig.push({ tipo, texto: x.evidence }));
+  if (fields.objeto) exig.push({ tipo: "Objeto", texto: fields.objeto.evidence });
+  push("Quem pode participar", fields.elegibilidade);
+  push("Requisito", fields.requisitos);
+  push("Critério de avaliação", fields.criterios_avaliacao);
+  push("Valor", fields.valores);
+  push("Documento exigido", fields.documentos);
+  push("Vedação", fields.restricoes);
+  for (const d of p.prazos.filter((x) => x.origem !== "usuario" && x.data)) exig.push({ tipo: `Prazo (${d.rotulo})`, texto: d.evidencia ?? d.data! });
+  const proposta = Object.entries(p.proposta)
+    .filter(([, v]) => typeof v === "string" && v.trim())
+    .map(([secao, texto]) => ({ secao, texto: String(texto) }));
+  const perfil: ProjectContext["perfil"] = [];
+  for (const [k, label] of PROFILE_FIELDS) {
+    const v = profile?.[k];
+    const txt = Array.isArray(v) ? v.join(", ") : v ?? "";
+    if (txt) perfil.push({ campo: label, valor: String(txt) });
+  }
+  const faltando: string[] = [];
+  if (!p.proposta.problema?.trim()) faltando.push("Qual problema o projeto quer resolver (com suas palavras)");
+  if (!perfil.some((x) => x.campo === "Áreas" || x.campo === "Temas de pesquisa")) faltando.push("Sua área ou tema de pesquisa");
+  if (exig.length === 0) faltando.push("O edital não trouxe exigências legíveis: confira o documento oficial");
+  return {
+    participacao: { id: p.id, titulo: p.titulo, tipo: p.tipo, project_id: p.project_id ?? null },
+    edital: o ? { id: o.id, titulo: o.title, versao: o.version } : p.opportunity_id ? { id: p.opportunity_id, titulo: p.titulo, versao: p.opportunity_version } : null,
+    exigencias: exig.slice(0, 40),
+    proposta,
+    perfil,
+    faltando,
+  };
+}
+
+/** Texto do contexto para o gerador de projeto — exigências separadas do que é sugestão. */
+export function projectContextPrompt(c: ProjectContext): string {
+  const lines: string[] = [];
+  if (c.edital) lines.push(`EDITAL: ${c.edital.titulo}${c.edital.versao ? ` (versão ${c.edital.versao})` : ""}`);
+  if (c.exigencias.length) {
+    lines.push("EXIGÊNCIAS E INFORMAÇÕES DO EDITAL (texto oficial — respeite; não altere nem invente outras):");
+    for (const e of c.exigencias) lines.push(`- [${e.tipo}] ${e.texto.slice(0, 500)}`);
+  }
+  if (c.perfil.length) {
+    lines.push("PERFIL CONFIRMADO PELA PESSOA (autodeclarado):");
+    for (const x of c.perfil) lines.push(`- ${x.campo}: ${x.valor}`);
+  }
+  if (c.proposta.length) {
+    lines.push("O QUE A PESSOA JÁ ESCREVEU NA PROPOSTA (preserve as decisões dela):");
+    for (const x of c.proposta) lines.push(`- ${x.secao}: ${x.texto.slice(0, 1500)}`);
+  }
+  lines.push(
+    "REGRAS: não invente integrantes, experiências, resultados, referências ou valores. Na equipe, descreva PAPÉIS necessários, não pessoas. Estimativas devem ser marcadas como estimativas. Em 'alertas', diga o que é exigência do edital e o que é sugestão sua, e o que falta confirmar.",
+  );
+  return lines.join("\n");
 }

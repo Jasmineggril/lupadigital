@@ -82,6 +82,15 @@ export function resetResourceMemory() {
   memRows.clear();
 }
 
+/** O registro existe e pertence a este usuário? (usado para vincular projeto à participação) */
+export async function ownsResource(table: string, id: string, userId: string): Promise<boolean> {
+  if (!tableNameIsAllowed(table)) return false;
+  if (memoryMode()) return memTable(table).some((r) => r.id === id && r.user_id === userId);
+  const { data, error } = await getSupabaseAdmin().from(table).select("id").eq("id", id).eq("user_id", userId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}
+
 /** Resposta padrão quando o banco não responde: nada foi alterado. */
 function unavailable(res: Response, action: string) {
   res.status(503).json({ error: `Não foi possível ${action} agora. Nada foi alterado; tente novamente em instantes.` });

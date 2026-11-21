@@ -271,6 +271,37 @@ describe("meus dados", () => {
   });
 });
 
+describe("participação → projeto", () => {
+  it("contexto vem do servidor (edital + perfil + proposta), só para o dono; vínculo só com projeto próprio", async () => {
+    (await import("../../../routes/resources")).resetResourceMemory();
+    const { opportunity } = await store.upsertOpportunity(edital());
+    await call("PUT", "/profile", A, { areas: ["Saúde digital"], declared_degree: "mestrado" });
+    const p = (await call("POST", "/participations", A, { opportunity_id: opportunity.id })).body.participation;
+    await call("PATCH", `/participations/${p.id}`, A, { expected_version: 1, exige_projeto: true, proposta: { problema: "Filas de regulação (fictício)" } });
+
+    const ctx = await call("GET", `/participations/${p.id}/projeto-contexto`, A);
+    expect(ctx.status).toBe(200);
+    expect(ctx.body.edital.versao).toBe(1);
+    expect(ctx.body.exigencias.some((e: any) => e.tipo === "Documento exigido" && e.texto.includes("5.2"))).toBe(true);
+    expect(ctx.body.perfil).toEqual(expect.arrayContaining([{ campo: "Áreas", valor: "Saúde digital" }]));
+    expect(ctx.body.proposta[0]).toEqual({ secao: "problema", texto: "Filas de regulação (fictício)" });
+    expect(ctx.body.faltando).toEqual([]);
+    expect((await call("GET", `/participations/${p.id}/projeto-contexto`, B)).status).toBe(404);
+
+    // gerador com participação de outra pessoa → 404 antes de chamar a IA
+    expect((await call("POST", "/niasci/projetos/analyze", B, { description: "x".repeat(40), participation_id: p.id })).status).toBe(404);
+    expect((await call("POST", "/niasci/projetos/analyze", undefined, { description: "x".repeat(40), participation_id: p.id })).status).toBe(401);
+
+    const projA = (await call("POST", "/resources/research_projects", A, { title: "Projeto A", origin: { participation_id: p.id } })).body;
+    const projB = (await call("POST", "/resources/research_projects", B, { title: "Projeto B" })).body;
+    expect((await call("POST", `/participations/${p.id}/vincular-projeto`, A, { project_id: projB.id })).status).toBe(404);
+    expect((await call("POST", `/participations/${p.id}/vincular-projeto`, B, { project_id: projA.id })).status).toBe(404);
+    const linked = await call("POST", `/participations/${p.id}/vincular-projeto`, A, { project_id: projA.id });
+    expect(linked.status).toBe(200);
+    expect((await call("GET", `/participations/${p.id}`, A)).body.participation.project_id).toBe(projA.id);
+  });
+});
+
 describe("ferramentas NIASci (recursos)", () => {
   it("cada pessoa vê, altera e apaga só os próprios projetos", async () => {
     (await import("../../../routes/resources")).resetResourceMemory();

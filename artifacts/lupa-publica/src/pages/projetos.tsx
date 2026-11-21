@@ -23,7 +23,8 @@
 import { apiFetch } from "@/lib/api";
 import { planFromRecord, recordFromPlan, type ProjectPlan, type ProjectOrigin, type ResearchProjectRecord } from "@workspace/project-contract";
 import { useState, useRef, useEffect } from "react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
+import type { ProjectContext } from "@/lib/participacao";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -125,7 +126,47 @@ export default function Projetos() {
   const [partialRecord, setPartialRecord] = useState(false);
   // Vínculo com a participação (preenchido quando a página abre a partir de "Quero participar")
   const [origin, setOrigin] = useState<ProjectOrigin | null>(null);
-  const onSaved = useRef<((r: ResearchProjectRecord) => void) | null>(null).current;
+  // ── Vindo de "Quero participar": ?participacao=<id> (só o id; contexto vem do servidor) ──
+  const participationId = new URLSearchParams(useSearch()).get("participacao");
+  const [ctx, setCtx] = useState<ProjectContext | null>(null);
+  const [ctxError, setCtxError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!participationId) return;
+    let alive = true;
+    apiFetch<ProjectContext>(`/participations/${participationId}/projeto-contexto`)
+      .then(async (c) => {
+        if (!alive) return;
+        setCtx(c);
+        setOrigin({ participation_id: c.participacao.id, opportunity_id: c.edital?.id ?? null, opportunity_version: c.edital?.versao ?? null });
+        const problema = c.proposta.find((x) => x.secao === "problema")?.texto;
+        if (problema) setDescription((d) => d || problema);
+        // Já existe projeto vinculado: reabre no mesmo ponto
+        if (c.participacao.project_id) {
+          const rec = await apiFetch<ResearchProjectRecord>(`/resources/research_projects/${c.participacao.project_id}`).catch(() => null);
+          if (alive && rec) {
+            const { plan, parcial } = planFromRecord(rec);
+            setResult(plan);
+            setPartialRecord(parcial);
+            setStage("completed");
+          }
+        }
+      })
+      .catch((e) => alive && setCtxError(e instanceof Error ? e.message : "Não foi possível carregar a participação."));
+    return () => {
+      alive = false;
+    };
+  }, [participationId]);
+
+  /** Depois de salvar, vincula o projeto à participação (sem criar outra entidade). */
+  const onSaved = async (rec: ResearchProjectRecord) => {
+    if (!ctx) return;
+    try {
+      await apiFetch(`/participations/${ctx.participacao.id}/vincular-projeto`, { method: "POST", body: JSON.stringify({ project_id: rec.id }) });
+      setCtx({ ...ctx, participacao: { ...ctx.participacao, project_id: rec.id } });
+    } catch (e) {
+      toast({ title: "Projeto salvo, mas não foi vinculado à participação", description: e instanceof Error ? e.message : "Tente vincular de novo.", variant: "destructive" });
+    }
+  };
   const [historyLoading, setHistoryLoading] = useState(true);
 
   // Gerenciador local de projetos
@@ -190,7 +231,10 @@ export default function Projetos() {
 
     try {
       // Chamada autenticada: a sessão vai junto (limite de uso da conta, não de visitante)
-      const data = await apiFetch<ProjetoResult>("/niasci/projetos/analyze", { method: "POST", body: JSON.stringify({ description }) });
+      const data = await apiFetch<ProjetoResult>("/niasci/projetos/analyze", {
+        method: "POST",
+        body: JSON.stringify({ description, ...(ctx ? { participation_id: ctx.participacao.id } : {}) }),
+      });
 
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
       setStage("completed");
@@ -206,7 +250,7 @@ export default function Projetos() {
 
       if (saved) {
         setAiHistory((prev) => [saved, ...prev].slice(0, 20));
-        onSaved?.(saved);
+        await onSaved(saved);
         toast({ title: "Plano gerado e salvo", description: "Ele está no seu histórico de projetos." });
       }
     } catch (err) {
@@ -408,6 +452,88 @@ export default function Projetos() {
             isLoading={historyLoading}
             accentBg="bg-lens-tint"
           />
+
+          {participationId && (
+            <section aria-labelledby="ctx-titulo" className="mb-6 rounded-xl border border-hairline bg-white p-4" data-testid="projeto-contexto">
+              {ctxError ? (
+                <p role="alert" className="text-sm text-red-800">{ctxError}</p>
+              ) : !ctx ? (
+                <p role="status" className="text-sm text-slate-700">Carregando a participação…</p>
+              ) : (
+                <>
+                  <h2 id="ctx-titulo" className="font-semibold text-ink">
+                    Preparando o projeto para: {ctx.edital?.titulo ?? ctx.participacao.titulo}
+                    {ctx.edital?.versao ? <span className="ml-1 text-xs font-normal text-slate-600">(versão {ctx.edital.versao} do edital)</span> : null}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-700">Estas informações vão junto para a IA. O que é do edital é exigência; o plano gerado é sugestão e você decide o que manter.</p>
+                  <details className="mt-3" open>
+                    <summary className="cursor-pointer text-sm font-semibold text-ink">Do edital ({ctx.exigencias.length})</summary>
+                    <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto pl-1 text-sm text-ink-2">
+                      {ctx.exigencias.map((e, i) => (
+                        <li key={i}>
+                          <span className="mr-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">{e.tipo}</span>
+                          {e.texto.slice(0, 220)}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-sm font-semibold text-ink">Do seu perfil ({ctx.perfil.length})</summary>
+                    <ul className="mt-2 space-y-1 text-sm text-ink-2">
+                      {ctx.perfil.map((x) => (
+                        <li key={x.campo}>
+                          <strong className="font-semibold">{x.campo}:</strong> {x.valor}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                  {ctx.proposta.length > 0 && (
+                    <p className="mt-2 text-sm text-ink-2">Também vai o que você já escreveu na proposta: {ctx.proposta.map((x) => x.secao).join(", ")}.</p>
+                  )}
+                  {ctx.faltando.length > 0 && (
+                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                      <p className="font-semibold">Falta só isto:</p>
+                      <ul className="list-disc pl-5">
+                        {ctx.faltando.map((f) => (
+                          <li key={f}>{f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {!ctx.participacao.project_id && aiHistory.length > 0 && (
+                    <div className="mt-3 flex flex-wrap items-end gap-2">
+                      <label className="text-sm">
+                        <span className="block font-semibold text-ink">Ou vincule um projeto que você já tem</span>
+                        <select id="vincular-projeto" className="mt-1 h-10 rounded-lg border border-field bg-white px-2 text-sm" defaultValue="">
+                          <option value="" disabled>Escolha um projeto</option>
+                          {aiHistory.map((h) => (
+                            <option key={h.id} value={h.id}>{h.title ?? "Projeto sem título"}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const id = (document.getElementById("vincular-projeto") as HTMLSelectElement | null)?.value;
+                          const rec = aiHistory.find((h) => h.id === id);
+                          if (!rec) return;
+                          await onSaved(rec);
+                          handleHistorySelect(rec);
+                        }}
+                      >
+                        Vincular
+                      </Button>
+                    </div>
+                  )}
+                  <Link href={`/participar/${ctx.participacao.id}`} className="mt-3 inline-block text-sm font-semibold text-lens underline">
+                    Voltar à participação
+                  </Link>
+                </>
+              )}
+            </section>
+          )}
 
           {/* Textarea de descrição do projeto */}
           <div className="mb-6">

@@ -3514,8 +3514,10 @@ Retorne APENAS o JSON válido.`;
  * @param opts - Opções: userId para logging
  * @returns Plano de projeto completo com todos os componentes de gestão
  */
-export async function analyzeProject(description: string, opts?: { userId?: string | null }) {
-  const truncated = description.length > 8000 ? description.slice(0, 8000) + "\n[Truncado]" : description;
+export async function analyzeProject(description: string, opts?: { userId?: string | null; context?: string }) {
+  const base = description.length > 8000 ? description.slice(0, 8000) + "\n[Truncado]" : description;
+  // Contexto vindo da participação (montado no servidor, com dono verificado)
+  const truncated = opts?.context ? `${base}\n\n--- CONTEXTO DO EDITAL E DO PERFIL ---\n${opts.context.slice(0, 12000)}` : base;
 
   const system = [
     "Você é um consultor especializado em gestão de projetos de pesquisa científica e inovação no Brasil.",

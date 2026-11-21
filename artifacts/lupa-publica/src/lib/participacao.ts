@@ -45,6 +45,7 @@ export interface Participation {
   opportunity_id: string | null;
   opportunity_version: number | null;
   agent_result_id: number | null;
+  project_id?: string | null;
   exige_projeto: boolean;
   checklist: ChecklistItem[];
   prazos: DeadlineItem[];
@@ -107,3 +108,12 @@ export const LEVEL_LABEL: Record<CheckResult["nivel"], string> = {
   impeditivo: "Impede",
   desconhecido: "Não confirmado",
 };
+
+export interface ProjectContext {
+  participacao: { id: string; titulo: string; tipo: string; project_id: string | null };
+  edital: { id: string | null; titulo: string; versao: number | null } | null;
+  exigencias: Array<{ tipo: string; texto: string }>;
+  proposta: Array<{ secao: string; texto: string }>;
+  perfil: Array<{ campo: string; valor: string }>;
+  faltando: string[];
+}

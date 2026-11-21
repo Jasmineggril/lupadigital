@@ -43,7 +43,9 @@ import {
   deterministicCheck,
   fromAnalysis,
   fromOpportunity,
+  projectContext,
 } from "../lib/lupa/participations";
+import { ownsResource } from "./resources";
 import { httpSelectTwoFilters } from "../lib/db-http";
 import { officialSubmissionDeadline } from "../lib/lupa/deadlines";
 import { datesAsCandidates } from "../lib/lupa/collector/parse";
@@ -669,6 +671,52 @@ router.post("/participations/:id/aceitar-versao", requireAuth(), async (req, res
     res.json({ participation: saved });
   } catch (err) {
     fail(req, res, err, "participations:accept-version");
+  }
+});
+
+/** Contexto para preparar o projeto: o que vem do edital, do perfil e da proposta, e o que falta. */
+router.get("/participations/:id/projeto-contexto", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  try {
+    const store = getStore();
+    const p = await store.getParticipation(userId, req.params.id as string);
+    if (!p) {
+      res.status(404).json({ error: "Participação não encontrada." });
+      return;
+    }
+    const o = p.opportunity_id ? await store.getOpportunity(p.opportunity_id) : null;
+    const profile = await store.getProfile(userId);
+    res.json(projectContext(p, o, profile));
+  } catch (err) {
+    fail(req, res, err, "participations:project-context");
+  }
+});
+
+const LinkProjectSchema = z.object({ project_id: z.string().uuid() }).strict();
+
+/** Vincula um projeto (do MESMO usuário) à participação. */
+router.post("/participations/:id/vincular-projeto", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  const parsed = LinkProjectSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Informe o projeto." });
+    return;
+  }
+  try {
+    const store = getStore();
+    const p = await store.getParticipation(userId, req.params.id as string);
+    if (!p || !(await ownsResource("research_projects", parsed.data.project_id, userId))) {
+      res.status(404).json({ error: "Participação ou projeto não encontrado." });
+      return;
+    }
+    const saved = await store.updateParticipation(userId, { ...p, project_id: parsed.data.project_id, version: p.version + 1, updated_at: new Date().toISOString() }, p.version);
+    if (!saved) {
+      res.status(409).json({ error: "A participação mudou ao mesmo tempo em outro lugar. Recarregue e tente de novo." });
+      return;
+    }
+    res.json({ participation: saved });
+  } catch (err) {
+    fail(req, res, err, "participations:link-project");
   }
 });
 

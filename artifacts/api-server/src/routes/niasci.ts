@@ -20,6 +20,8 @@
  */
 
 import { Router, type IRouter } from "express";
+import { getStore } from "../lib/lupa/store";
+import { projectContext, projectContextPrompt } from "../lib/lupa/participations";
 import { z } from "zod";
 import {
   analyzeLattes,
@@ -110,6 +112,8 @@ router.post("/niasci/artigos/analyze", async (req, res): Promise<void> => {
  */
 const ProjetoAnalyzeSchema = z.object({
   description: z.string().min(30, "Descreva o projeto com pelo menos 30 caracteres.").max(8000),
+  /** Participação de origem: o servidor busca edital, exigências e perfil (com dono verificado). */
+  participation_id: z.string().uuid().optional(),
 });
 
 /**
@@ -126,8 +130,31 @@ router.post("/niasci/projetos/analyze", async (req, res): Promise<void> => {
     return;
   }
 
+  const userId = getReqUserId(req);
+  let context: string | undefined;
+  if (parsed.data.participation_id) {
+    if (!userId) {
+      res.status(401).json({ error: "Entre na sua conta para usar o contexto da participação." });
+      return;
+    }
+    try {
+      const store = getStore();
+      const p = await store.getParticipation(String(userId), parsed.data.participation_id);
+      if (!p) {
+        res.status(404).json({ error: "Participação não encontrada." });
+        return;
+      }
+      const o = p.opportunity_id ? await store.getOpportunity(p.opportunity_id) : null;
+      context = projectContextPrompt(projectContext(p, o, await store.getProfile(String(userId))));
+    } catch (err) {
+      req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "projeto:context failed");
+      res.status(503).json({ error: "Não foi possível carregar o contexto da participação agora. Tente novamente." });
+      return;
+    }
+  }
+
   try {
-    const result = await analyzeProject(parsed.data.description, { userId: getReqUserId(req) });
+    const result = await analyzeProject(parsed.data.description, { userId, context });
     res.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

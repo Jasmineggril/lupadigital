@@ -11,8 +11,8 @@
  *   → 202 { run_id, status } | 409 coleta já em andamento | 401 segredo inválido
  *   | 503 integração não configurada (sem HERMES_TRIGGER_SECRET)
  *
- * Enquanto o Hermes não estiver integrado e verificado, a busca periódica NÃO está
- * ativa: só existe a execução manual pela administração.
+ * Enquanto o Hermes não estiver integrado, a busca periódica é feita pelo agendador da
+ * Vercel (integrations/cron.ts, GET /api/cron/collect), além da execução manual.
  */
 
 import { timingSafeEqual } from "node:crypto";

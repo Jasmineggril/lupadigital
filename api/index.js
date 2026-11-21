@@ -205079,6 +205079,34 @@ var HERMES_STATUS = {
   note: "Contrato preparado (POST /api/integrations/hermes/collect). Aguardando a interface real do Hermes para configurar e verificar a busca peri\xF3dica."
 };
 
+// src/lib/lupa/integrations/cron.ts
+import { timingSafeEqual as timingSafeEqual4 } from "node:crypto";
+var CRON_MIN_SECRET = 32;
+var STALE_RUN_MS = 30 * 6e4;
+var SLACK_MS = 10 * 6e4;
+function cronConfigured() {
+  return Boolean(process.env.CRON_SECRET && process.env.CRON_SECRET.length >= CRON_MIN_SECRET);
+}
+function verifyCronSecret(authorization) {
+  const expected = process.env.CRON_SECRET;
+  if (!expected || expected.length < CRON_MIN_SECRET || !authorization?.startsWith("Bearer ")) return false;
+  const a = Buffer.from(authorization.slice(7));
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual4(a, b);
+}
+function dueSources(sources, runs, now = /* @__PURE__ */ new Date()) {
+  return sources.map((s) => {
+    if (!s.enabled) return { source_id: s.id, action: "pular", motivo: "fonte desativada" };
+    const last2 = runs.filter((r) => r.source_id === s.id && r.status !== "failed").sort((a, b) => b.started_at.localeCompare(a.started_at))[0];
+    if (!last2) return { source_id: s.id, action: "coletar", motivo: "nenhuma coleta anterior" };
+    const age = now.getTime() - new Date(last2.started_at).getTime();
+    if (last2.status === "running" && age < STALE_RUN_MS) return { source_id: s.id, action: "pular", motivo: "coleta em andamento" };
+    const freq = (s.frequency_minutes ?? 1440) * 6e4;
+    if (last2.status !== "running" && age < freq - SLACK_MS) return { source_id: s.id, action: "pular", motivo: `\xFAltima coleta h\xE1 ${Math.round(age / 6e4)} min` };
+    return { source_id: s.id, action: "coletar", motivo: last2.status === "running" ? "execu\xE7\xE3o anterior presa" : "frequ\xEAncia atingida" };
+  });
+}
+
 // src/lib/userData.ts
 var STORE_LABELS = {
   participations: "Participa\xE7\xF5es (Quero participar)",
@@ -205813,6 +205841,7 @@ router6.get("/admin/status", requireAdmin(), (_req, res) => {
   res.json({
     store: getStore().kind,
     hermes: { ...HERMES_STATUS, trigger_configured: hermesConfigured() },
+    coleta_agendada: { configurada: cronConfigured(), horario: "di\xE1ria, 06:17 (hor\xE1rio de Bras\xEDlia)" },
     elattes: { configured: getLattesProvider().configured, fallback: "importa\xE7\xE3o JSON provis\xF3ria" }
   });
 });
@@ -206025,6 +206054,49 @@ router6.post("/integrations/hermes/collect", async (req, res) => {
     return;
   }
   await triggerRun(req, res, parsed.data.source_id, "hermes", parsed.data.request_id ? `hermes:${parsed.data.request_id}` : "hermes");
+});
+router6.get("/cron/collect", async (req, res) => {
+  if (!cronConfigured()) {
+    res.status(503).json({ error: "Coleta agendada n\xE3o configurada (CRON_SECRET ausente)." });
+    return;
+  }
+  if (!verifyCronSecret(req.headers.authorization)) {
+    res.status(401).json({ error: "Credencial do agendador inv\xE1lida." });
+    return;
+  }
+  try {
+    const store = getStore();
+    const now = /* @__PURE__ */ new Date();
+    const [sources, runs] = await Promise.all([store.listSources(), store.listRuns(100)]);
+    const decisions = dueSources(sources, runs, now);
+    const results = [];
+    for (const d of decisions) {
+      if (d.action === "pular") {
+        results.push({ ...d });
+        continue;
+      }
+      const source = sources.find((s) => s.id === d.source_id);
+      for (const stuck of runs.filter((r) => r.source_id === source.id && r.status === "running" && now.getTime() - new Date(r.started_at).getTime() >= STALE_RUN_MS)) {
+        await store.finishRun(stuck.id, { status: "failed", stats: {}, errors: [{ url: source.base_url, message: "Execu\xE7\xE3o interrompida (sem t\xE9rmino registrado); encerrada pela coleta agendada." }] });
+      }
+      try {
+        const run = await runCollection(store, source.id, {
+          trigger: "agendada",
+          triggeredBy: "vercel-cron",
+          fetcher: fetcherFactory(source.allowed_hosts),
+          documentFetcher: documentFetcherFactory(source.allowed_hosts)
+        });
+        results.push({ ...d, run_id: run.id, status: run.status, stats: run.stats, erros: run.errors.length });
+      } catch (err) {
+        if (err instanceof ConcurrentRunError) results.push({ ...d, action: "pular", motivo: "coleta em andamento" });
+        else results.push({ ...d, status: "failed", erro: err instanceof Error ? err.message.slice(0, 200) : "erro" });
+      }
+    }
+    logger.info({ cron: results.map((r) => ({ source_id: r.source_id, action: r.action, status: r.status })) }, "coleta agendada");
+    res.json({ executado_em: now.toISOString(), resultados: results });
+  } catch (err) {
+    fail(req, res, err, "cron:collect");
+  }
 });
 var lupa_default = router6;
 

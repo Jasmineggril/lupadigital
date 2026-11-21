@@ -54,7 +54,7 @@ interface CompareResult {
 interface Run {
   id: string;
   source_id: string;
-  trigger: "manual" | "hermes";
+  trigger: "manual" | "hermes" | "agendada";
   triggered_by: string | null;
   status: "running" | "succeeded" | "partial" | "failed";
   started_at: string;
@@ -65,6 +65,7 @@ interface Run {
 interface Status {
   store: "supabase" | "memory";
   hermes: { integrated: boolean; note: string; trigger_configured: boolean };
+  coleta_agendada?: { configurada: boolean; horario: string };
   elattes: { configured: boolean; fallback: string };
 }
 
@@ -357,6 +358,12 @@ export default function Admin() {
                 {status.data!.hermes.trigger_configured ? "configurado" : "sem segredo configurado"}.
               </li>
               <li>
+                <strong>Coleta automática:</strong>{" "}
+                {status.data!.coleta_agendada?.configurada
+                  ? `ativa — ${status.data!.coleta_agendada.horario}, nas fontes ativas cuja frequência já passou.`
+                  : "desligada — falta configurar o segredo CRON_SECRET no projeto da Vercel."}
+              </li>
+              <li>
                 <strong>eLattes:</strong> {status.data!.elattes.configured ? "integrado" : `não integrado — alternativa: ${status.data!.elattes.fallback}`}.
               </li>
             </ul>
@@ -398,7 +405,7 @@ export default function Admin() {
                     <tr key={r.id} className="border-t align-top">
                       <td className="py-2">{formatDateTime(r.started_at)}</td>
                       <td>{formatDateTime(r.finished_at)}</td>
-                      <td>{r.trigger === "manual" ? "manual" : "Hermes"}</td>
+                      <td>{r.trigger === "manual" ? "manual" : r.trigger === "agendada" ? "automática" : "Hermes"}</td>
                       <td>{RUN_LABEL[r.status]}</td>
                       <td>
                         {r.stats.paginas ?? 0} pág. · {r.stats.oportunidades ?? 0} editais · {r.stats.criadas ?? 0} novos · {r.stats.atualizadas ?? 0} atualizados

@@ -65,6 +65,7 @@ beforeAll(async () => {
   process.env.SUPABASE_JWKS_URL = `http://127.0.0.1:${(jwksServer.address() as AddressInfo).port}/jwks.json`;
   process.env.LUPA_ADMIN_USER_IDS = "admin-por-env";
   process.env.HERMES_TRIGGER_SECRET = "h".repeat(40);
+  process.env.CRON_SECRET = "c".repeat(40);
   process.env.RATE_LIMIT_DEFAULT_MAX = "10000";
 
   const { default: app } = await import("../../../app");
@@ -412,5 +413,35 @@ describe("Hermes (contrato)", () => {
     expect(ok.status).toBe(202);
     expect(ok.body.run.trigger).toBe("hermes");
     expect(ok.body.run.triggered_by).toBe("hermes:job-1");
+  });
+});
+
+describe("Coleta automática diária (Vercel Cron)", () => {
+  it("sem segredo configurado não coleta (503); segredo errado 401", async () => {
+    const saved = process.env.CRON_SECRET;
+    delete process.env.CRON_SECRET;
+    expect((await call("GET", "/cron/collect", "c".repeat(40))).status).toBe(503);
+    process.env.CRON_SECRET = "curto";
+    expect((await call("GET", "/cron/collect", "curto")).status).toBe(503);
+    process.env.CRON_SECRET = saved;
+    expect((await call("GET", "/cron/collect")).status).toBe(401);
+    expect((await call("GET", "/cron/collect", "x".repeat(40))).status).toBe(401);
+    expect((await call("GET", "/cron/collect", "h".repeat(40))).status).toBe(401); // segredo do Hermes não serve
+  });
+  it("coleta com origem 'agendada' e não repete antes da frequência", async () => {
+    // Usa a loja do beforeEach (fonte com intervalo zerado entre requisições)
+    const first = await call("GET", "/cron/collect", "c".repeat(40));
+    expect(first.status).toBe(200);
+    const r = first.body.resultados.find((x: any) => x.source_id === "fapdf");
+    expect(r.action).toBe("coletar");
+    expect(r.status).toBe("succeeded");
+    const runs = await store.listRuns(10);
+    expect(runs[0].trigger).toBe("agendada");
+    expect(runs[0].triggered_by).toBe("vercel-cron");
+    expect((await store.listOpportunities({})).length).toBeGreaterThan(0);
+    // Segunda chamada no mesmo dia: pula
+    const again = await call("GET", "/cron/collect", "c".repeat(40));
+    expect(again.body.resultados.find((x: any) => x.source_id === "fapdf").action).toBe("pular");
+    expect((await store.listRuns(10)).length).toBe(1);
   });
 });

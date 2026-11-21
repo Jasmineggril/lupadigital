@@ -1,0 +1,44 @@
+# LUPA Digital no servidor da CIIA. Uso (na raiz do repositório):
+#   cp deploy/ciia/.env.example deploy/ciia/.env   # preencher
+#   docker compose -f deploy/ciia/docker-compose.yml --env-file deploy/ciia/.env up -d --build
+name: lupa
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/ciia/Dockerfile
+      target: api
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    env_file: .env
+    restart: unless-stopped          # reinício supervisionado (erro fatal → sai com código 1 → volta)
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+    expose: ["3001"]
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/ciia/Dockerfile
+      target: web
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+    environment:
+      DOMAIN: ${DOMAIN}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  caddy_data:
+  caddy_config:

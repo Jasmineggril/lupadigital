@@ -164018,7 +164018,7 @@ function createAnonHourlyLimiter(max, message2) {
 
 // src/app.ts
 var app = (0, import_express10.default)();
-app.set("trust proxy", 1);
+app.set("trust proxy", Math.max(0, Math.min(5, Number(process.env.LUPA_TRUST_PROXY_HOPS ?? 1) || 0)));
 var ALLOWED_ORIGINS = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
 var corsDelegate = (req, callback) => {
   const allowed = isOriginAllowed({

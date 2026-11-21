@@ -46,8 +46,11 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// Run migrations before starting the server
-runMigrations()
+// Migrações no início: DESLIGADO por padrão. Em produção quem aplica as migrações é a integração
+// GitHub → Supabase ao mesclar na main. Um servidor extra (ex.: CIIA) apontando para o MESMO banco
+// não pode alterar o esquema por conta própria. Ligue só num banco exclusivo deste servidor.
+const migrate = process.env.LUPA_RUN_MIGRATIONS_ON_START === "true" ? runMigrations : async () => logger.info("Migrações no início desligadas (LUPA_RUN_MIGRATIONS_ON_START != true)");
+migrate()
   .then(() => {
     const server = app.listen(port, (err) => {
       if (err) {

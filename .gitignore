@@ -72,3 +72,6 @@ package-lock.json
 # Saídas das jornadas E2E
 e2e-out/
 e2e-shots*/
+deploy/ciia/.env
+deploy/ciia/.ca-teste.crt
+!deploy/ciia/.env.example

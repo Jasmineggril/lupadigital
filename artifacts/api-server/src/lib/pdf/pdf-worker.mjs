@@ -13,11 +13,17 @@
  * Saída: { ok: true, pages: [{page, text}], total, truncated } | { ok: false, kind, message }
  */
 import { parentPort } from "node:worker_threads";
-import * as worker from "pdfjs-dist/legacy/build/pdf.worker.mjs";
 
+// O pdf.js avisa, ao carregar, que não há "canvas" (só serve para DESENHAR páginas; aqui só se
+// extrai texto). Silencia apenas esses avisos conhecidos; qualquer outro continua aparecendo.
+const KNOWN = /@napi-rs\/canvas|Cannot polyfill `(DOMMatrix|Path2D|ImageData)`/;
+const warn = console.warn;
+console.warn = (...a) => (KNOWN.test(String(a[0])) ? undefined : warn(...a));
+const worker = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
 // Usa o "worker" do pdf.js no mesmo thread deste worker (sem abrir outro)
 globalThis.pdfjsWorker = worker;
 const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+console.warn = warn;
 
 parentPort.on("message", async ({ bytes, maxPages, maxCharsPerPage }) => {
   let task;

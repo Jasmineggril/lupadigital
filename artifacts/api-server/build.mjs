@@ -66,7 +66,8 @@ async function buildAll() {
       "@swc/*",
       "@aws-sdk/*",
       "@azure/*",
-      "@opentelemetry/*",
+      // "@opentelemetry/*" NÃO é externo: o @sentry/node depende dele e o servidor (Docker/CIIA)
+      // roda só com dist/, sem node_modules (mesmo motivo do bundle da Vercel abaixo).
       "@google-cloud/*",
       "@google/*",
       "googleapis",

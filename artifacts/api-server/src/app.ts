@@ -47,7 +47,9 @@ const app: Express = express();
 
 // Confia no proxy reverso (Vercel, Replit, etc.) para X-Forwarded-For.
 // Necessário para que express-rate-limit identifique IPs corretamente em produção.
-app.set("trust proxy", 1);
+// Quantos proxies à frente são confiáveis para o IP real (X-Forwarded-For).
+// Vercel: 1. Servidor CIIA com Caddy: 1; com outro proxy da instituição na frente do Caddy: 2.
+app.set("trust proxy", Math.max(0, Math.min(5, Number(process.env.LUPA_TRUST_PROXY_HOPS ?? 1) || 0)));
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 // Regras em lib/accessPolicy.ts: sem Origin, desenvolvimento, mesma origem do

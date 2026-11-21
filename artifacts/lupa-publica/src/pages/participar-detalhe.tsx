@@ -434,7 +434,8 @@ export default function ParticipacaoDetalhe() {
                 </option>
               ))}
             </select>
-            <Button className="mt-3 w-full" onClick={() => save()} disabled={busy || !dirty} data-testid="participar-salvar">
+            {/* aria-disabled em vez de disabled: o foco do teclado não se perde depois de salvar */}
+            <Button className="mt-3 w-full" onClick={() => dirty && save()} aria-disabled={busy || !dirty} data-testid="participar-salvar">
               {busy ? "Salvando…" : dirty ? "Salvar alterações" : "Tudo salvo"}
             </Button>
             {dirty && <p className="mt-2 text-xs text-amber-800">Há alterações ainda não salvas.</p>}

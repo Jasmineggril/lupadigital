@@ -17,7 +17,7 @@ import { formatIsoDate } from "@/lib/analysisViewModel";
 export type RealStage = "aguardando" | "extraindo" | "analisando" | "concluido" | "parcial" | "falha";
 
 export interface AnalysisLike {
-  processing?: { mode?: string; complete?: boolean; failedChunks?: number; totalChunks?: number };
+  processing?: { mode?: string; complete?: boolean; failedChunks?: number; totalChunks?: number; reason?: string; userMessage?: string; retryable?: boolean };
   base?: DocumentBase;
   verificacao?: Array<{ tipo: string; valor: string; mensagem: string }>;
   interpretation?: { summary?: string; objective?: string; deadlines?: string };
@@ -74,21 +74,28 @@ export function ResultValidity({ analysis }: { analysis: AnalysisLike | null }) 
   const partial = isPartialResult(analysis);
   const issues = analysis.verificacao ?? [];
   if (!partial && issues.length === 0) return null;
+  const processing = analysis.processing;
+  const reason = processing?.userMessage;
+  const retryHint =
+    processing?.retryable === false
+      ? "Se o problema persistir, entre em contato com o administrador."
+      : "Tente novamente em instantes para obter a análise completa.";
   return (
     <div className="space-y-2" data-testid="testar-validade">
       {partial && (
         <div role="alert" className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>
-            {analysis.processing?.mode === "fallback" ? (
+            {processing?.mode === "fallback" ? (
               <>
-                <strong>Resultado de contingência, sem IA.</strong> A IA não respondeu; este resultado foi montado por regras simples a partir do texto e
-                pode estar incompleto. Tente novamente em instantes para obter a análise completa.
+                <strong>Resultado de contingência, sem IA.</strong>{" "}
+                {reason ? `Motivo: ${reason} ` : "A IA não respondeu. "}
+                Este resultado foi montado por regras simples a partir do texto e pode estar incompleto. {retryHint}
               </>
             ) : (
               <>
-                <strong>Análise incompleta.</strong> {analysis.processing?.failedChunks ?? "Algumas"} de {analysis.processing?.totalChunks ?? "várias"} partes do
-                documento não foram processadas. Não use este resultado como completo.
+                <strong>Análise incompleta.</strong> {processing?.failedChunks ?? "Algumas"} de {processing?.totalChunks ?? "várias"} partes do
+                documento não foram processadas. {reason ? `Motivo: ${reason} ` : ""}Não use este resultado como completo. {retryHint}
               </>
             )}
           </span>

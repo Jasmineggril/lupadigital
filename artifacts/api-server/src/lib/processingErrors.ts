@@ -181,6 +181,7 @@ export function classifyAiError(message: string): ProcessErrorClassification {
   if (
     normalized.includes("503") ||
     normalized.includes("temporariamente indispon") ||
+    normalized.includes("provider unavailable") ||
     normalized.includes("fetch failed") ||
     normalized.includes("network") ||
     normalized.includes("econnrefused") ||

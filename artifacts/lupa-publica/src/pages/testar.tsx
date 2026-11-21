@@ -184,6 +184,9 @@ interface CanonicalAnalysisLike {
     processedChunks?: number;
     failedChunks?: number;
     complete?: boolean;
+    reason?: string;
+    userMessage?: string;
+    retryable?: boolean;
   };
 }
 
@@ -2851,9 +2854,10 @@ export default function TestarIA() {
           const partial = isPartialResult(canonicalPayload as never);
           if (partial) {
             // Resultado de contingência/incompleto não é salvo automaticamente
+            const partialReason = canonicalPayload.processing?.userMessage ?? "A IA não concluiu o processamento.";
             toast({
               title: "Análise parcialmente concluída",
-              description: "A IA não concluiu o processamento. O resultado é limitado e não foi salvo automaticamente; você pode salvar manualmente ou tentar de novo.",
+              description: `${partialReason} O resultado é limitado e não foi salvo automaticamente; você pode salvar manualmente ou tentar de novo.`,
               variant: "destructive",
             });
             return;

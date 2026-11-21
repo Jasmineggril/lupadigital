@@ -1053,12 +1053,24 @@ async function processDocumentInChunks(agentId: AgentId, text: string, profile?:
   }
 
   const failedCount = results.filter((result) => !result.ok).length;
+  const firstFailedChunk = results.find((result) => !result.ok);
+  // A classificação do primeiro erro viaja com o resultado parcial para que a
+  // interface mostre o motivo real (cota, chave, indisponibilidade), e não só
+  // "análise incompleta".
+  const failureClassification = firstFailedChunk ? classifyAiError(firstFailedChunk.error ?? "unknown") : null;
   const processing = {
     mode: "chunked" as const,
     totalChunks: chunks.length,
     processedChunks: results.filter((result) => result.ok).length,
     failedChunks: failedCount,
     complete: failedCount === 0,
+    ...(failureClassification
+      ? {
+          reason: failureClassification.reason,
+          userMessage: failureClassification.userMessage,
+          retryable: failureClassification.retryable,
+        }
+      : {}),
   };
 
   logger.info({
@@ -1420,11 +1432,15 @@ export interface CanonicalAnalysis {
   analysisId: string;
   schemaVersion: "1.0.1";
   processing?: {
-    mode: "single" | "chunked";
+    mode: "single" | "chunked" | "fallback";
     totalChunks: number;
     processedChunks: number;
     failedChunks: number;
     complete: boolean;
+    /** Motivo legível da contingência/parcialidade — nunca a mensagem técnica bruta do provedor. */
+    reason?: string;
+    userMessage?: string;
+    retryable?: boolean;
   };
   source: {
     agentId: AgentId;
@@ -3222,7 +3238,16 @@ export async function analyzeAgent(
 
     // O motivo técnico (ex.: "401 Invalid API Key") fica só no log; o alerta
     // mostrado ao usuário usa o texto genérico.
-    const fallbackAnalysis = buildHeuristicCanonicalAnalysis(agentId, normalizedText, parsedProfile.success ? parsedProfile.data : undefined);
+    const fallbackAnalysis = buildHeuristicCanonicalAnalysis(agentId, normalizedText, parsedProfile.success ? parsedProfile.data : undefined, classification.reason);
+    // O motivo classificado acompanha o resultado: a tela mostra a causa real
+    // (chave inválida, cota/rate limit, provedor indisponível) em vez de um
+    // aviso genérico. A mensagem técnica bruta continua apenas nos logs.
+    fallbackAnalysis.processing = {
+      ...(fallbackAnalysis.processing as Record<string, unknown>),
+      reason: classification.reason,
+      userMessage: classification.userMessage,
+      retryable: classification.retryable,
+    };
     logger.warn({
       requestId,
       step: currentStep,

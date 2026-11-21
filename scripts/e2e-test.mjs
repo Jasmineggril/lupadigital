@@ -125,12 +125,19 @@ async function testResourcesCRUD() {
 async function testShare() {
   console.log("\n── Share Flow ──");
 
+  if (!AUTH_TOKEN) {
+    skip("No AUTH_TOKEN — skipping share creation (requires login); public retrieval is still tested below if a token is provided");
+    return;
+  }
+
+  const authHeaders = { Authorization: `Bearer ${AUTH_TOKEN}` };
+
   // POST — create share
   const createRes = await request("POST", "/api/edital/share", {
     agentId: "simplificar",
     title: "E2E Share Test",
     resultJson: { resumo: "Teste de compartilhamento" },
-  });
+  }, authHeaders);
   assert(createRes.status === 201, `POST /api/edital/share → 201 (got ${createRes.status})`);
   const token = createRes.json?.token;
 

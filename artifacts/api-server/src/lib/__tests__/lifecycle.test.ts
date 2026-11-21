@@ -81,8 +81,7 @@ describe("lifecycle: erro fatal × recuperável", () => {
 describe("lifecycle: processo real", () => {
   it("exceção não capturada encerra o processo com código 1 (e não fica vivo em estado incerto)", async () => {
     const { spawn } = await import("node:child_process");
-    const { fileURLToPath } = await import("node:url");
-    const mod = fileURLToPath(new URL("../lifecycle.ts", import.meta.url));
+    const mod = new URL("../lifecycle.ts", import.meta.url).href;
     const script = `
       import http from "node:http";
       const { createLifecycle, installProcessHandlers } = await import(${JSON.stringify(mod)});

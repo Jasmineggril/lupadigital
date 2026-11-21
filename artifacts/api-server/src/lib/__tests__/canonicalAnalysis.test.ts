@@ -120,6 +120,10 @@ describe("buildCanonicalAnalysis", () => {
       }),
       alertas: expect.arrayContaining([expect.objectContaining({ categoria: "fallback" })]),
     }));
+
+    expect((result as any).processing?.reason).toBe("provider_unavailable");
+    expect((result as any).processing?.userMessage).toMatch(/temporariamente indisponível/);
+    expect((result as any).processing?.retryable).toBe(true);
   });
 
   it("retorna fallback quando a IA falha por rate limit", async () => {
@@ -132,6 +136,9 @@ describe("buildCanonicalAnalysis", () => {
       type: "analista",
       alertas: expect.arrayContaining([expect.objectContaining({ categoria: "fallback" })]),
     }));
+    expect((result as any).processing?.reason).toBe("rate_limit");
+    expect((result as any).processing?.userMessage).toMatch(/limite temporário/);
+    expect((result as any).processing?.retryable).toBe(true);
   });
 
   it("retorna uma resposta de fallback quando o chat da IA é rate-limited", async () => {

@@ -79,6 +79,8 @@ await step("IA indisponível: etapa 'parcial' e aviso de contingência; não sal
   await analyze(page);
   assert((await stage(page)) === "parcial", `etapa esperada parcial, veio ${await stage(page)}`);
   await page.getByText(/Resultado de contingência, sem IA/).waitFor();
+  await toastText(page, /Análise parcialmente concluída/);
+  await page.getByText(/Motivo: O serviço de IA está temporariamente indisponível/).waitFor();
   await page.getByRole("button", { name: "Salvar interpretação" }).waitFor();
   await page.screenshot({ path: `${SHOTS}/01-parcial.png`, fullPage: true });
 });

@@ -36,6 +36,9 @@ describe("/edital/analyze — base documental comum", () => {
     expect(res.status).toBe(200);
     const r = (await res.json()) as any;
     expect(r.processing.mode).toBe("fallback");
+    expect(r.processing.reason).toBe("provider_unavailable");
+    expect(r.processing.userMessage).toMatch(/temporariamente indisponível/);
+    expect(r.processing.retryable).toBe(false);
     expect(r.base.datas.map((d: any) => d.iso)).toEqual(["2027-01-05", "2027-02-28", "2027-04-15", "2027-04-30"]);
     expect(Array.isArray(r.verificacao)).toBe(true);
   }, 60_000);

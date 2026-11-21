@@ -359,7 +359,29 @@ function getCanonicalAnswer(question: string, text: string, canonical: Canonical
   return `Pergunta recebida. Baseado na análise canônica atual: ${summary}`;
 }
 
+/**
+ * Mensagem que o PRÓPRIO servidor do LUPA já mandou pronta para a pessoa (campo "error" da resposta).
+ * Falha corrigida (21/11/2026): o tradutor abaixo só conhece mensagens técnicas de provedores de IA;
+ * respostas do LUPA como "Você atingiu o limite de uso por hora. Tente de novo em 34 min." caíam
+ * no genérico "Não foi possível concluir a interpretação", e qualquer 401 (sessão expirada) virava
+ * "a chave de API é inválida".
+ */
+function serverMessage(error: unknown): string | null {
+  const e = error as { status?: unknown; data?: unknown } | null;
+  const status = typeof e?.status === "number" ? e.status : null;
+  if (status === 401) return "Sua sessão expirou. Entre novamente e tente de novo.";
+  if (status === 504) return "A análise passou do tempo máximo do servidor. Tente com o edital dividido em partes menores, ou de novo em instantes.";
+  const data = e?.data as { error?: unknown; code?: unknown } | null | undefined;
+  if (data && typeof data === "object" && typeof data.error === "string" && data.error.trim()) {
+    // Mensagens do LUPA são escritas para a pessoa; erros crus do provedor continuam no tradutor
+    if (typeof data.code === "string" || status === 429 || status === 413 || status === 422 || status === 503) return data.error;
+  }
+  return null;
+}
+
 function getFriendlyErrorMessage(error: unknown) {
+  const fromServer = serverMessage(error);
+  if (fromServer) return fromServer;
   const normalize = (value: string) => value.toLowerCase();
 
   const render = (message: string) => {
@@ -2851,9 +2873,11 @@ export default function TestarIA() {
           const partial = isPartialResult(canonicalPayload as never);
           if (partial) {
             // Resultado de contingência/incompleto não é salvo automaticamente
+            const proc = (canonicalPayload as { processing?: { totalChunks?: number; processedChunks?: number } }).processing;
+            const lidas = proc?.totalChunks && proc.totalChunks > 1 ? ` Foram lidas ${proc.processedChunks ?? 0} de ${proc.totalChunks} partes do edital (o restante passou do tempo máximo de uma análise).` : "";
             toast({
               title: "Análise parcialmente concluída",
-              description: "A IA não concluiu o processamento. O resultado é limitado e não foi salvo automaticamente; você pode salvar manualmente ou tentar de novo.",
+              description: `O resultado é limitado e não foi salvo automaticamente.${lidas} Você pode salvar manualmente, ou analisar o restante colando só a parte que faltou.`,
               variant: "destructive",
             });
             return;

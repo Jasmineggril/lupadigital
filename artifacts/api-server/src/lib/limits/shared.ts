@@ -122,7 +122,8 @@ export function costPolicy(kind: CostKind) {
     tokensGlobalPerDay: kind === "ai" ? n("AI_TOKENS_GLOBAL_PER_DAY", 5_000_000) : Infinity,
     concurrentPerKey: n(`${P}_CONCURRENT_PER_KEY`, 2),
     concurrentGlobal: n(`${P}_CONCURRENT_GLOBAL`, kind === "ai" ? 20 : 10),
-    concurrentTtlSeconds: n(`${P}_CONCURRENT_TTL_SECONDS`, 180),
+    // Prazo da vaga cobre a análise mais longa permitida (orçamento de 250 s na Vercel + margem)
+    concurrentTtlSeconds: n(`${P}_CONCURRENT_TTL_SECONDS`, 330),
   };
 }
 
@@ -195,14 +196,18 @@ export function costGuard(kind: CostKind): RequestHandler {
         }
         leases.push(lease);
       }
-      let released = false;
-      const release = () => {
-        if (released) return;
-        released = true;
-        for (const l of leases) void b.release(l).catch(() => {});
+      // Devolve a vaga ANTES de a resposta sair. Falha corrigida (produção, 21/11/2026): na Vercel a
+      // função é congelada logo após enviar a resposta, então a devolução feita depois ("finish")
+      // não acontecia — a vaga ficava presa até expirar e a próxima análise da pessoa recebia 429
+      // "já há análises suas em andamento".
+      let released: Promise<void> | null = null;
+      const release = () => (released ??= Promise.all(leases.map((l) => b.release(l).catch(() => {}))).then(() => undefined));
+      const originalEnd = res.end.bind(res) as (...a: unknown[]) => typeof res;
+      (res as unknown as { end: (...a: unknown[]) => typeof res }).end = (...args: unknown[]) => {
+        void release().finally(() => originalEnd(...args));
+        return res;
       };
-      res.on("finish", release);
-      res.on("close", release);
+      res.on("close", () => void release()); // conexão caiu antes do fim
       next();
     } catch {
       await Promise.all(leases.map((l) => backend().release(l).catch(() => {})));

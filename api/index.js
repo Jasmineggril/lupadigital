@@ -100913,7 +100913,8 @@ function costPolicy(kind) {
     tokensGlobalPerDay: kind === "ai" ? n("AI_TOKENS_GLOBAL_PER_DAY", 5e6) : Infinity,
     concurrentPerKey: n(`${P}_CONCURRENT_PER_KEY`, 2),
     concurrentGlobal: n(`${P}_CONCURRENT_GLOBAL`, kind === "ai" ? 20 : 10),
-    concurrentTtlSeconds: n(`${P}_CONCURRENT_TTL_SECONDS`, 180)
+    // Prazo da vaga cobre a análise mais longa permitida (orçamento de 250 s na Vercel + margem)
+    concurrentTtlSeconds: n(`${P}_CONCURRENT_TTL_SECONDS`, 330)
   };
 }
 var hashId = (s) => createHash2("sha256").update(s).digest("hex").slice(0, 24);
@@ -100980,15 +100981,15 @@ function costGuard(kind) {
         }
         leases.push(lease);
       }
-      let released = false;
-      const release = () => {
-        if (released) return;
-        released = true;
-        for (const l of leases) void b.release(l).catch(() => {
-        });
+      let released = null;
+      const release = () => released ??= Promise.all(leases.map((l) => b.release(l).catch(() => {
+      }))).then(() => void 0);
+      const originalEnd = res.end.bind(res);
+      res.end = (...args) => {
+        void release().finally(() => originalEnd(...args));
+        return res;
       };
-      res.on("finish", release);
-      res.on("close", release);
+      res.on("close", () => void release());
       next2();
     } catch {
       await Promise.all(leases.map((l) => backend().release(l).catch(() => {
@@ -158139,6 +158140,20 @@ function isMockAiEnvironment() {
   const key = process.env.GROQ_API_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
   return !key || /^test[-_]/i.test(key) || key.length < 10;
 }
+function estimateTpmWaitMs(reservationTokens, now = Date.now()) {
+  if (isMockAiEnvironment()) return 0;
+  const tpm = getTpmLimit();
+  if (tpm <= 0) return 0;
+  const used = tpmUsedInWindow(now);
+  const overflow = used + reservationTokens - tpm;
+  if (overflow <= 0) return 0;
+  let accrued = 0;
+  for (const entry of tpmWindow) {
+    accrued += entry.tokens;
+    if (accrued >= overflow) return Math.max(0, entry.at + TPM_WINDOW_MS - now);
+  }
+  return Math.ceil(overflow / tpm * TPM_WINDOW_MS);
+}
 async function waitForTpmBudget(reservationTokens) {
   if (isMockAiEnvironment()) return;
   const tpm = getTpmLimit();
@@ -158225,6 +158240,11 @@ function normalizeDocumentText(raw) {
   return { text: collapsed, pages };
 }
 var MAX_CHUNKING_BUDGET_MS = 9e5;
+function platformBudgetMs() {
+  const fromEnv = Number.parseInt(process.env.AI_REQUEST_BUDGET_MS ?? "", 10);
+  if (fromEnv > 0) return fromEnv;
+  return process.env.VERCEL ? 25e4 : MAX_CHUNKING_BUDGET_MS;
+}
 function computeChunkingBudgetMs(chunks) {
   if (isMockAiEnvironment() || chunks.length <= 1) return GLOBAL_BUDGET_MS;
   const tpm = getTpmLimit();
@@ -158235,7 +158255,7 @@ function computeChunkingBudgetMs(chunks) {
   const throughputMs = (totalPromptTokens + totalOutputTokens) / tpm * TPM_WINDOW_MS;
   const perChunkOverheadMs = chunks.length * 15e3;
   const estimatedMs = throughputMs + perChunkOverheadMs + RESERVE_MS;
-  return Math.max(GLOBAL_BUDGET_MS, Math.min(estimatedMs, MAX_CHUNKING_BUDGET_MS));
+  return Math.min(platformBudgetMs(), Math.max(GLOBAL_BUDGET_MS, Math.min(estimatedMs, MAX_CHUNKING_BUDGET_MS)));
 }
 function getSectionTitles(text4) {
   const lines = text4.split(/\n/).map((line) => line.trim()).filter(Boolean);
@@ -158801,7 +158821,10 @@ async function processDocumentInChunks(agentId, text4, profile, opts) {
   }, `Time budget: ${budget.globalBudgetMs / 1e3}s total, ${budget.reserveMs / 1e3}s reserved for consolidation`);
   for (let index2 = 0; index2 < chunks.length; index2 += concurrency) {
     const processedCount = results.length;
-    if (!budget.canStartChunk(chunks.length, processedCount)) {
+    const nextChunk = chunks[index2];
+    const expectedMs = estimateTpmWaitMs(Math.ceil((nextChunk.estimatedTokens || 0) * PROMPT_BUDGET_SAFETY) + CHUNK_FACT_MAX_OUTPUT) + MIN_CHUNK_TIMEOUT_MS;
+    const fitsTpmWait = budget.getRemainingMs() - budget.reserveMs >= expectedMs;
+    if (!budget.canStartChunk(chunks.length, processedCount) || !fitsTpmWait) {
       logger.error({
         step: "budget_exhausted_skip",
         agentId,

@@ -133,6 +133,22 @@ function isMockAiEnvironment(): boolean {
   return !key || /^test[-_]/i.test(key) || key.length < 10;
 }
 
+/** Quanto tempo a próxima chamada teria de esperar pelo limite de tokens por minuto (sem esperar). */
+export function estimateTpmWaitMs(reservationTokens: number, now = Date.now()): number {
+  if (isMockAiEnvironment()) return 0;
+  const tpm = getTpmLimit();
+  if (tpm <= 0) return 0;
+  const used = tpmUsedInWindow(now);
+  const overflow = used + reservationTokens - tpm;
+  if (overflow <= 0) return 0;
+  let accrued = 0;
+  for (const entry of tpmWindow) {
+    accrued += entry.tokens;
+    if (accrued >= overflow) return Math.max(0, entry.at + TPM_WINDOW_MS - now);
+  }
+  return Math.ceil((overflow / tpm) * TPM_WINDOW_MS);
+}
+
 async function waitForTpmBudget(reservationTokens: number): Promise<void> {
   if (isMockAiEnvironment()) return;
   const tpm = getTpmLimit();
@@ -265,6 +281,18 @@ export interface DocumentChunk {
 // é grande demais para a janela diária/por-minuto do provedor e o fluxo
 // degrada para "processamento parcial", devolvendo os chunks concluídos.
 const MAX_CHUNKING_BUDGET_MS = 900_000;
+/**
+ * Teto de tempo de UMA requisição de análise, imposto pela plataforma.
+ * Falha encontrada em produção (21/11/2026): o orçamento podia crescer até 900 s, mas a função da
+ * Vercel é encerrada em 300 s (vercel.json → maxDuration). Editais longos eram cortados no meio e a
+ * pessoa via só "Não foi possível concluir a interpretação". Agora: na Vercel o orçamento para em
+ * 250 s e o que foi lido volta como resultado PARCIAL; num servidor próprio (CIIA) vale o teto maior.
+ */
+export function platformBudgetMs(): number {
+  const fromEnv = Number.parseInt(process.env.AI_REQUEST_BUDGET_MS ?? "", 10);
+  if (fromEnv > 0) return fromEnv;
+  return process.env.VERCEL ? 250_000 : MAX_CHUNKING_BUDGET_MS;
+}
 
 // O orçamento global fixo (240s) cabe em TPM alto, mas a 6.000 TPM cada chunk
 // leva ~60s só de pacing (janela deslizante de 60s) — um edital grande com 6+
@@ -281,7 +309,7 @@ function computeChunkingBudgetMs(chunks: DocumentChunk[]): number {
   const throughputMs = ((totalPromptTokens + totalOutputTokens) / tpm) * TPM_WINDOW_MS;
   const perChunkOverheadMs = chunks.length * 15_000;
   const estimatedMs = throughputMs + perChunkOverheadMs + RESERVE_MS;
-  return Math.max(GLOBAL_BUDGET_MS, Math.min(estimatedMs, MAX_CHUNKING_BUDGET_MS));
+  return Math.min(platformBudgetMs(), Math.max(GLOBAL_BUDGET_MS, Math.min(estimatedMs, MAX_CHUNKING_BUDGET_MS)));
 }
 
 export interface ChunkAnalysisFacts {
@@ -1008,7 +1036,12 @@ async function processDocumentInChunks(agentId: AgentId, text: string, profile?:
   for (let index = 0; index < chunks.length; index += concurrency) {
     const processedCount = results.length;
 
-    if (!budget.canStartChunk(chunks.length, processedCount)) {
+    // Antes de começar: cabe a espera do limite por minuto do provedor + a própria chamada?
+    // Se não couber, para aqui e devolve o que já foi lido (parcial) — melhor do que ser cortado.
+    const nextChunk = chunks[index];
+    const expectedMs = estimateTpmWaitMs(Math.ceil((nextChunk.estimatedTokens || 0) * PROMPT_BUDGET_SAFETY) + CHUNK_FACT_MAX_OUTPUT) + MIN_CHUNK_TIMEOUT_MS;
+    const fitsTpmWait = budget.getRemainingMs() - budget.reserveMs >= expectedMs;
+    if (!budget.canStartChunk(chunks.length, processedCount) || !fitsTpmWait) {
       logger.error({
         step: "budget_exhausted_skip",
         agentId,

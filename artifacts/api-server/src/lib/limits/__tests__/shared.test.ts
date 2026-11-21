@@ -224,3 +224,44 @@ describe.skipIf(!PG)("rate_hit / limit_acquire no Postgres (duas instâncias, co
     }
   });
 });
+
+describe("costGuard: devolução da vaga antes da resposta (regressão de produção)", () => {
+  it("a vaga já foi devolvida quando a resposta chega ao cliente", async () => {
+    process.env.AI_CONCURRENT_PER_KEY = "1";
+    process.env.AI_USER_PER_HOUR = "100";
+    const mem = memoryBackend();
+    const releasedBeforeEnd: boolean[] = [];
+    let open = 0;
+    const tracked: LimitBackend = {
+      ...mem,
+      kind: "rastreado",
+      acquire: async (...a) => {
+        const ok = await mem.acquire(...a);
+        if (ok) open++;
+        return ok;
+      },
+      release: async (id) => {
+        await mem.release(id);
+        open--;
+      },
+    };
+    setLimitBackendForTests(tracked);
+    const app = express();
+    app.use((req, _res, next) => {
+      (req as unknown as { user: { id: string } }).user = { id: "usuario-vaga" };
+      next();
+    });
+    app.post("/ia", costGuard("ai"), (_req, res) => {
+      res.on("finish", () => releasedBeforeEnd.push(open === 0));
+      res.json({ ok: true });
+    });
+    const s = await serve(app);
+    // Em sequência rápida, com limite de 1 simultânea: nenhuma pode receber 429
+    const codes = [];
+    for (let i = 0; i < 5; i++) codes.push((await post(s.url)).status);
+    expect(codes).toEqual([200, 200, 200, 200, 200]);
+    expect(releasedBeforeEnd.every(Boolean)).toBe(true);
+    expect(open).toBe(0);
+    await s.close();
+  });
+});

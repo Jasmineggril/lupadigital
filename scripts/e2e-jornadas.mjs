@@ -312,9 +312,43 @@ await step("responsividade: sem rolagem horizontal em início, perfil, participa
       await p.waitForLoadState("networkidle");
       await noOverflow(p, `${label} ${path}`);
     }
-    if (w === 360 || w === 1440) await p.goto(`${WEB}/participar/${id}`).then(() => p.screenshot({ path: `${SHOTS}/04-participacao-${w}.png`, fullPage: true }));
+    if (w === 360 || w === 1440) {
+      await p.goto(`${WEB}/participar/${id}`);
+      await p.getByTestId("participar-conferencia").waitFor();
+      await p.screenshot({ path: `${SHOTS}/04-participacao-${w}.png`, fullPage: true });
+    }
+    if (w === 360) {
+      await p.goto(`${WEB}/perfil`);
+      await p.getByTestId("perfil-salvar").waitFor();
+      await p.screenshot({ path: `${SHOTS}/09-perfil-360.png` });
+    }
   }
   await ctx.close();
+});
+
+await step("acessibilidade automática (axe) e capturas: demais páginas tocadas nesta etapa", async () => {
+  const { page: p, ctx } = await newPage();
+  await login(p, B, "/inicio");
+  for (const [path, shot] of [
+    ["/inicio", "05-inicio"],
+    ["/participar", null],
+    ["/testar", null],
+    ["/privacidade", "06-privacidade"],
+    ["/contato", null],
+    ["/configuracoes", "07-configuracoes"],
+    ["/oportunidades", null],
+  ]) {
+    await p.goto(`${WEB}${path}`);
+    await p.waitForLoadState("networkidle");
+    await axe(p, path);
+    if (shot) await p.screenshot({ path: `${SHOTS}/${shot}.png`, fullPage: true });
+  }
+  await ctx.close();
+  const pub = await newPage({ width: 390, height: 844 });
+  await pub.page.goto(`${WEB}/`);
+  await pub.page.getByTestId("goal-picker").scrollIntoViewIfNeeded();
+  await pub.page.screenshot({ path: `${SHOTS}/08-inicio-publico-celular.png` });
+  await pub.ctx.close();
 });
 
 await browser.close();

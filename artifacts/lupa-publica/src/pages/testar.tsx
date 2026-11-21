@@ -2263,7 +2263,7 @@ function HistoryPanel({
               <Trash2 className="w-3.5 h-3.5" />
               Limpar antigos
             </Button>
-            <Button variant="ghost" size="icon" onClick={onClose}>
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar histórico">
               <X className="w-5 h-5" />
             </Button>
           </div>
@@ -2425,6 +2425,7 @@ function HistoryPanel({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                        aria-label="Excluir do histórico"
                         onClick={(e) =>
                           handleDeleteSupabase(item.data.id ?? "", e)
                         }

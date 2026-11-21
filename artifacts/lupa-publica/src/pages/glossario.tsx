@@ -111,10 +111,11 @@ export default function Glossario() {
                 className="scroll-mt-24 rounded-2xl border bg-white p-5 shadow-sm transition-shadow"
                 data-testid={`glossary-entry-${t.slug}`}
               >
-                <div className="flex flex-wrap items-center gap-2">
-                  <dt className="text-lg font-semibold text-slate-900">{t.term}</dt>
+                {/* dt e dd filhos diretos do div (HTML válido para listas de definição) */}
+                <dt className="flex flex-wrap items-center gap-2">
+                  <span className="text-lg font-semibold text-slate-900">{t.term}</span>
                   <Badge variant="secondary">{CATEGORY_LABELS[t.category]}</Badge>
-                </div>
+                </dt>
                 <dd className="mt-2 space-y-3 text-slate-700">
                   <p className="font-medium text-slate-800">{t.short}</p>
                   <p className="leading-relaxed">{t.long}</p>

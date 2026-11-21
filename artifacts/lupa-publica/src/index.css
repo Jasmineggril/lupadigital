@@ -484,10 +484,10 @@
     }
   }
 
-  /* Reduce visual noise for muted text */
+  /* Texto auxiliar: cor do token (#5A6B7B, 5,5:1). Sem opacidade — a opacidade 0.95
+     anterior derrubava o contraste para 4,3–4,46:1 (abaixo de 4,5:1, WCAG 1.4.3). */
   .text-muted-foreground {
     color: hsl(var(--muted-foreground));
-    opacity: 0.95;
   }
 }
 

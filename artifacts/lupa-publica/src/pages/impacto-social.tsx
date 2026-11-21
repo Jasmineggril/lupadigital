@@ -62,7 +62,7 @@ export default function ImpactoSocial() {
 
       <div className="bg-primary/10 rounded-3xl p-8 text-center">
         <h3 className="text-2xl font-bold mb-4">Faça parte dessa mudança</h3>
-        <p className="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
+        <p className="text-lg text-slate-700 mb-6 max-w-2xl mx-auto">
           Você tem um edital complexo que precisa entender? Teste nossa ferramenta gratuitamente e veja a diferença.
         </p>
         <Link href="/testar">

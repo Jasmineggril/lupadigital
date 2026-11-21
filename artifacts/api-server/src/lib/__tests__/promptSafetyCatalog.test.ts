@@ -34,3 +34,12 @@ describe("catálogo de funcionalidades", () => {
     expect(catalogForPrompt()).toContain("/testar");
   });
 });
+
+describe("logs", () => {
+  it("não registram o token de links públicos nem a query string", async () => {
+    const { maskLogUrl } = await import("../../app");
+    expect(maskLogUrl("/api/edital/share/2b0c9f1e-aaaa-bbbb-cccc-1234567890ab?x=1")).toBe("/api/edital/share/[token]");
+    expect(maskLogUrl("/api/edital/shares")).toBe("/api/edital/shares");
+    expect(maskLogUrl("/api/profile?email=a@b.c")).toBe("/api/profile");
+  });
+});

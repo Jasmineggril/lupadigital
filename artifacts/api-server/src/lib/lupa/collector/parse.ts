@@ -150,8 +150,22 @@ export function inferStatus(fields: OpportunityFields, text: string, now = new D
   return official.situacao;
 }
 
+/**
+ * Linha feita só de textos de link (lista de anexos, "Voltar"…): é navegação, não regra.
+ * Antes, "Edital (PDF) Anexo I – Plano de trabalho 1ª Retificação Voltar" virava um
+ * "documento exigido" só por conter "plano de trabalho".
+ */
+export function isLinkOnlyLine(line: string, links: Array<{ text: string }>): boolean {
+  let rest = line;
+  for (const l of links) {
+    const t = l.text.replace(/\s+/g, " ").trim();
+    if (t.length >= 2) rest = rest.split(t).join(" ");
+  }
+  return rest.replace(/[^\p{L}\p{N}]+/gu, "").length < 6 && rest.length < line.length;
+}
+
 export function extractFields(page: ParsedPage): { fields: OpportunityFields; missing: string[] } {
-  const lines = sentences(page.text);
+  const lines = sentences(page.text).filter((s) => !isLinkOnlyLine(s, page.links ?? []));
   const url = page.url;
   const fields: OpportunityFields = {};
 

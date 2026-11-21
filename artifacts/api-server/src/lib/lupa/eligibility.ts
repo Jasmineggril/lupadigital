@@ -168,7 +168,22 @@ export function evaluateRequirementText(text: string, sourceUrl: string, p: Teac
   const eliminatory = adjusted.filter((x) => x.state === "nao_atendida" && x.nature === "obrigatorio");
   const state: State = eliminatory.length ? "nao_atendida" : adjusted.every((x) => x.state === "atendida") ? "atendida" : adjusted.some((x) => x.state === "nao_atendida" || x.state === "pendente_comprovacao") ? "pendente_comprovacao" : "atendida";
   const nat: EligibilityNature = adjusted.some((x) => x.nature === "obrigatorio") ? "obrigatorio" : adjusted.some((x) => x.nature === "desejavel") ? "desejavel" : "descritivo";
-  const reason = adjusted.length === 1 ? adjusted[0].reason : adjusted.map((x) => `${x.condicao}: ${x.reason}`).join(" · ");
+  // Texto para a pessoa: o que IMPEDE primeiro ("Exige…"), depois pendências e o que foi atendido;
+  // o aviso de autodeclaração aparece uma vez só.
+  const ORDER: Record<State, number> = { nao_atendida: 0, pendente_comprovacao: 1, atendida: 2 } as Record<State, number>;
+  const phrased = adjusted.map((x) => ({
+    ...x,
+    reason: x.state === "nao_atendida" && x.nature === "obrigatorio" ? x.reason.replace(/^Pede /, "Exige ") : x.reason,
+  }));
+  const selfDeclared = phrased.some((x) => x.reason.includes(SELF_DECLARED));
+  const reason =
+    phrased.length === 1
+      ? phrased[0].reason
+      : [...phrased]
+          .sort((a, b) => (ORDER[a.state] ?? 3) - (ORDER[b.state] ?? 3))
+          .map((x) => x.reason.replace(SELF_DECLARED, "").trim())
+          .join(" ")
+          .concat(selfDeclared ? ` ${SELF_DECLARED}` : "");
   const basis = adjusted.map((x) => x.profile_basis).filter(Boolean).join("; ") || null;
   return {
     requirement: text,
@@ -179,6 +194,6 @@ export function evaluateRequirementText(text: string, sourceUrl: string, p: Teac
     profile_basis: basis,
     nature: nat,
     eliminatory: eliminatory.length > 0,
-    parts: adjusted.map(({ condicao, state: s, reason: r, nature: n, applies_to }) => ({ condicao, state: s, reason: r, nature: n, applies_to })),
+    parts: phrased.map(({ condicao, state: s, reason: r, nature: n, applies_to }) => ({ condicao, state: s, reason: r, nature: n, applies_to })),
   };
 }

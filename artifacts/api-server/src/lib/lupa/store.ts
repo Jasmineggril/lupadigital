@@ -117,10 +117,13 @@ export function defaultSources(now = new Date().toISOString()): OpportunitySourc
   ];
 }
 
+/** Documentos sem campos voláteis (hora da coleta, reaproveitamento): só o conteúdo conta. */
+const stableDocs = (docs: OpportunityDocument[]) => JSON.stringify(docs.map(({ fetched_at: _f, reused: _r, ...d }) => d));
+
 function sameContent(a: OpportunityUpsert, b: Opportunity): boolean {
   return (
     a.content_hash === b.content_hash &&
-    JSON.stringify(a.documents) === JSON.stringify(b.documents) &&
+    stableDocs(a.documents) === stableDocs(b.documents) &&
     JSON.stringify(a.events) === JSON.stringify(b.events) &&
     a.status === b.status
   );
@@ -454,7 +457,7 @@ export class SupabaseStore implements LupaStore {
   private async hydrate(rows: Array<Omit<Opportunity, "documents" | "events">>): Promise<Opportunity[]> {
     if (rows.length === 0) return [];
     const ids = rows.map((r) => r.id);
-    const docs = (check(await this.db.from("opportunity_documents").select("opportunity_id,url,kind,title").in("opportunity_id", ids)) ?? []) as Array<
+    const docs = (check(await this.db.from("opportunity_documents").select("opportunity_id,url,kind,title,content_hash,size_bytes,page_count,text_status,error,fetched_at,pages").in("opportunity_id", ids)) ?? []) as Array<
       OpportunityDocument & { opportunity_id: string }
     >;
     const evs = (check(
@@ -519,7 +522,7 @@ export class SupabaseStore implements LupaStore {
       check(
         await this.db
           .from("opportunity_documents")
-          .upsert(documents.map((d) => ({ ...d, opportunity_id: saved.id })), { onConflict: "opportunity_id,url" }),
+          .upsert(documents.map(({ reused: _r, ...d }) => ({ ...d, opportunity_id: saved.id })), { onConflict: "opportunity_id,url" }),
       );
     }
     if (events.length) {

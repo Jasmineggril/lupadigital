@@ -212,6 +212,18 @@ export interface OpportunityDocument {
   url: string;
   kind: DocumentKind;
   title: string;
+  // ── Leitura do documento (coleta de PDFs) — ausentes quando não foi baixado ──
+  /** SHA-256 do conteúdo efetivo (detecta troca do PDF na mesma URL) */
+  content_hash?: string | null;
+  size_bytes?: number | null;
+  page_count?: number | null;
+  text_status?: "extraido" | "parcial" | "sem_texto" | "invalido" | "erro" | null;
+  error?: string | null;
+  fetched_at?: string | null;
+  /** Texto por página (evidência com página) */
+  pages?: Array<{ page: number; text: string }> | null;
+  /** Leitura reaproveitada porque o hash não mudou */
+  reused?: boolean;
 }
 
 export interface OpportunityEvent {

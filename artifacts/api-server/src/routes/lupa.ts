@@ -30,7 +30,8 @@ import {
 } from "../lib/lupa/types";
 import { RECOMMENDATION_RULE_VERSION, computeRecommendation, inferOpportunityTypes, normalizeText } from "../lib/lupa/matching";
 import type { NotificationDraft } from "../lib/lupa/store";
-import { createSafeFetcher, runCollection, type PageFetcher } from "../lib/lupa/collector/crawler";
+import { createSafeDocumentFetcher, createSafeFetcher, runCollection, type PageFetcher } from "../lib/lupa/collector/crawler";
+import type { DocumentFetcher } from "../lib/lupa/collector/documents";
 import { InstitutionalImportSchema, LattesSummarySchema, getLattesProvider, type LattesSummary } from "../lib/lupa/integrations/lattes";
 import { HERMES_STATUS, hermesConfigured, verifyHermesSecret } from "../lib/lupa/integrations/hermes";
 import {
@@ -60,6 +61,10 @@ function fail(req: Request, res: Response, err: unknown, context: string) {
 
 /** Permite trocar o fetcher da coleta em testes (sem rede). */
 let fetcherFactory: (allowedHosts: string[]) => PageFetcher = createSafeFetcher;
+let documentFetcherFactory: (allowedHosts: string[]) => DocumentFetcher = createSafeDocumentFetcher;
+export function setDocumentFetcherFactoryForTests(f: ((allowedHosts: string[]) => DocumentFetcher) | null) {
+  documentFetcherFactory = f ?? createSafeDocumentFetcher;
+}
 export function setFetcherFactoryForTests(f: ((allowedHosts: string[]) => PageFetcher) | null) {
   fetcherFactory = f ?? createSafeFetcher;
 }
@@ -199,7 +204,9 @@ export function submissionDeadline(o: Opportunity, today?: string): string | nul
 
 function publicOpportunity(o: Opportunity) {
   const { reviewed_by: _r, ...rest } = o;
-  return { ...rest, deadline: submissionDeadline(o), types: inferOpportunityTypes(o) };
+  // Texto por página fica no servidor (pesado); a resposta diz se foi lido e quantas páginas
+  const documents = o.documents.map(({ pages: _p, ...d }) => d);
+  return { ...rest, documents, deadline: submissionDeadline(o), types: inferOpportunityTypes(o) };
 }
 
 const CatalogQuerySchema = z.object({
@@ -835,7 +842,7 @@ async function triggerRun(req: Request, res: Response, sourceId: string, trigger
       res.status(404).json({ error: "Fonte não encontrada." });
       return;
     }
-    const run = await runCollection(store, sourceId, { trigger, triggeredBy, fetcher: fetcherFactory(source.allowed_hosts) });
+    const run = await runCollection(store, sourceId, { trigger, triggeredBy, fetcher: fetcherFactory(source.allowed_hosts), documentFetcher: documentFetcherFactory(source.allowed_hosts) });
     res.status(trigger === "hermes" ? 202 : 200).json({ run });
   } catch (err) {
     if (err instanceof ConcurrentRunError) {

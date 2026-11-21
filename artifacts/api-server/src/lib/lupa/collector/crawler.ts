@@ -15,6 +15,8 @@ import type { LupaStore } from "../store";
 import { ConcurrentRunError } from "../store";
 import type { CollectionRun, OpportunityDocument, OpportunitySource } from "../types";
 import { isAllowedHost, isDocumentUrl, normalizeUrl } from "./urls";
+import { MAX_DOCUMENTS_PER_RUN, MAX_DOCUMENT_BYTES, processDocument, type DocumentFetcher } from "./documents";
+import { EXTRACTED_FIELD_KEYS, OPTIONAL_FIELD_KEYS, type OpportunityFields } from "../types";
 import {
   classifyDocument,
   classifyPage,
@@ -50,8 +52,24 @@ export function createSafeFetcher(allowedHosts: string[]): PageFetcher {
   };
 }
 
+/** Baixa documentos (bytes) com a mesma proteção de URL da coleta. */
+export function createSafeDocumentFetcher(allowedHosts: string[]): DocumentFetcher {
+  return async (url) => {
+    if (!isAllowedHost(url, allowedHosts)) throw new UnsafeUrlError(`Host fora da fonte: ${url}`);
+    const res = await safeFetch(url, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/pdf" },
+      timeoutMs: 30_000,
+      maxBytes: MAX_DOCUMENT_BYTES,
+    });
+    if (!isAllowedHost(res.finalUrl, allowedHosts)) throw new UnsafeUrlError(`Redirecionou para fora da fonte: ${res.finalUrl}`);
+    return { url: res.finalUrl, status: res.status, contentType: res.contentType, bytes: res.body };
+  };
+}
+
 export interface CrawlOptions {
   fetcher: PageFetcher;
+  /** Sem ele, os documentos só são listados (comportamento anterior). */
+  documentFetcher?: DocumentFetcher;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
 }
@@ -154,7 +172,7 @@ export interface CollectionStats {
 }
 
 /** Monta e grava as oportunidades a partir do resultado da coleta. Idempotente. */
-export async function persistCrawl(store: LupaStore, source: OpportunitySource, crawl: CrawlResult, now = new Date()) {
+export async function persistCrawl(store: LupaStore, source: OpportunitySource, crawl: CrawlResult, now = new Date(), documentFetcher?: DocumentFetcher) {
   const stats: CollectionStats = {
     paginas: crawl.pagesFetched,
     categorias: crawl.categoryPages.length,
@@ -166,7 +184,15 @@ export async function persistCrawl(store: LupaStore, source: OpportunitySource, 
     retificacoes_vinculadas: 0,
     retificacoes_sem_vinculo: 0,
     erros: crawl.errors.length,
+    documentos_lidos: 0,
+    documentos_reaproveitados: 0,
+    documentos_com_falha: 0,
+    leituras_parciais: 0,
   };
+  // Leituras anteriores (por URL do documento) para não reprocessar PDF que não mudou
+  const previousDocs = new Map<string, OpportunityDocument>();
+  if (documentFetcher) for (const o of await store.listOpportunities({ includeRejected: true })) for (const d of o.documents) previousDocs.set(`${o.canonical_url}|${d.url}`, d);
+  let documentBudget = MAX_DOCUMENTS_PER_RUN;
 
   // Uma página de oportunidade pode aparecer por URLs equivalentes; agrupar por número
   const byNumber = new Map<string, ParsedPage>();
@@ -189,12 +215,40 @@ export async function persistCrawl(store: LupaStore, source: OpportunitySource, 
         docs.set(loose.url, { url: loose.url, kind, title: loose.text || "Retificação" });
       }
     }
-    const documents = [...docs.values()].sort((a, b) => a.url.localeCompare(b.url));
-    const { fields, missing } = extractFields(page);
+    let documents = [...docs.values()].sort((a, b) => a.url.localeCompare(b.url));
+    const extracted = extractFields(page);
+    const fields: OpportunityFields = extracted.fields;
+    const missing = [...extracted.missing];
+    if (documentFetcher) {
+      const processed: OpportunityDocument[] = [];
+      for (const d of documents) {
+        if (documentBudget <= 0 || d.kind === "outro") {
+          processed.push(d);
+          continue;
+        }
+        documentBudget--;
+        const r = await processDocument(d, documentFetcher, previousDocs.get(`${page.url}|${d.url}`) ?? null, now);
+        if (r.reused) stats.documentos_reaproveitados++;
+        else if (r.text_status === "extraido" || r.text_status === "parcial") stats.documentos_lidos++;
+        if (r.text_status !== "extraido") (r.text_status === "parcial" ? stats.leituras_parciais++ : stats.documentos_com_falha++);
+        processed.push(r);
+        // Campos do PDF completam (não substituem) o que veio da página; evidência cita a página
+        for (const pg of r.pages ?? []) {
+          const f = extractFields({ url: `${d.url}#page=${pg.page}`, title: page.title, text: pg.text, links: [] }).fields;
+          mergeFields(fields, f, d.kind === "retificacao");
+        }
+      }
+      documents = processed;
+      const recomputed = EXTRACTED_FIELD_KEYS.filter((k) => fields[k] === undefined && !OPTIONAL_FIELD_KEYS.has(k));
+      missing.splice(0, missing.length, ...recomputed);
+      const main = documents.find((d) => d.kind === "edital");
+      if (main && main.text_status !== "extraido") missing.push(`documento_oficial: leitura ${main.text_status === "parcial" ? "parcial" : "não concluída"} (${main.error ?? main.text_status ?? "sem detalhe"})`);
+    }
     const events = eventsFromDocuments(documents, page.text, page.url).sort((a, b) => `${a.kind}${a.title}`.localeCompare(`${b.kind}${b.title}`));
     const status = inferStatus(fields, page.text, now);
     // A versão do extrator entra no hash: melhorar a extração gera nova versão rastreável
-    const hashInput = { title: page.title, text: page.text, extractor: EXTRACTOR_VERSION };
+    // Hash do CONTEÚDO dos documentos também entra: PDF trocado na mesma URL gera nova versão
+    const hashInput = { title: page.title, text: page.text, extractor: EXTRACTOR_VERSION, docs: documents.map((d) => [d.url, d.content_hash ?? null]) };
     const outcome = await store.upsertOpportunity({
       source_id: source.id,
       canonical_url: page.url,
@@ -241,7 +295,7 @@ export async function runCollection(store: LupaStore, sourceId: string, opts: Ru
   const run = await store.startRun(sourceId, opts.trigger, opts.triggeredBy); // lança ConcurrentRunError
   try {
     const crawl = await crawlSource(source, opts);
-    const stats = await persistCrawl(store, source, crawl);
+    const stats = await persistCrawl(store, source, crawl, new Date(), opts.documentFetcher);
     const status: CollectionRun["status"] =
       crawl.pagesFetched > 0 && crawl.errors.length >= crawl.pagesFetched ? "failed" : crawl.errors.length > 0 || crawl.stoppedBy !== "concluido" ? "partial" : "succeeded";
     return await store.finishRun(run.id, {
@@ -259,3 +313,19 @@ export async function runCollection(store: LupaStore, sourceId: string, opts: Ru
 }
 
 export { ConcurrentRunError };
+
+
+/** Junta campos do PDF aos da página: só completa o que falta (e, em retificação, acrescenta datas). */
+export function mergeFields(into: OpportunityFields, from: OpportunityFields, isRectification = false) {
+  for (const key of Object.keys(from) as Array<keyof OpportunityFields>) {
+    const value = from[key];
+    if (value === undefined) continue;
+    const current = into[key];
+    if (current === undefined) {
+      (into as Record<string, unknown>)[key] = value;
+    } else if (Array.isArray(current) && Array.isArray(value) && (key !== "datas" || isRectification || current.length === 0)) {
+      const seen = new Set(current.map((x) => JSON.stringify([x.evidence, (x as { iso?: string }).iso ?? null])));
+      for (const v of value) if (!seen.has(JSON.stringify([v.evidence, (v as { iso?: string }).iso ?? null]))) (current as unknown[]).push(v);
+    }
+  }
+}

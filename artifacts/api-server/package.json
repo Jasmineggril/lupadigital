@@ -19,6 +19,7 @@
     "@workspace/feature-catalog": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
     "@workspace/project-contract": "workspace:*",
+    "@workspace/telemetry": "workspace:*",
     "cheerio": "^1.2.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2",

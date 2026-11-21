@@ -1,5 +1,6 @@
 import "./load-env";
 import * as Sentry from "@sentry/node";
+import { scrubBreadcrumb, scrubEvent, scrubUrl } from "@workspace/telemetry";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { runMigrations } from "./lib/migrate";
@@ -12,8 +13,17 @@ if (sentryDsn) {
     dsn: sentryDsn,
     release: "lupa-digital@1.0.0",
     environment: process.env.NODE_ENV ?? "development",
-    tracesSampleRate: 0.2,
+    tracesSampleRate: 0.05,
     enabled: process.env.NODE_ENV === "production",
+    // Dados mínimos: sem IP, corpo, cookies ou cabeçalhos; ver @workspace/telemetry
+    sendDefaultPii: false,
+    beforeSend: (event) => scrubEvent(event as never) as typeof event | null,
+    beforeSendTransaction: (event) => {
+      if (event.transaction) event.transaction = scrubUrl(event.transaction);
+      if (event.request) event.request = { url: scrubUrl(event.request.url), method: event.request.method };
+      return event;
+    },
+    beforeBreadcrumb: (crumb) => scrubBreadcrumb(crumb as never) as typeof crumb | null,
   });
 }
 

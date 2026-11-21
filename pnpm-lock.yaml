@@ -118,6 +118,9 @@ importers:
       '@workspace/project-contract':
         specifier: workspace:*
         version: link:../../lib/project-contract
+      '@workspace/telemetry':
+        specifier: workspace:*
+        version: link:../../lib/telemetry
       cheerio:
         specifier: ^1.2.0
         version: 1.2.0
@@ -218,6 +221,9 @@ importers:
       '@workspace/project-contract':
         specifier: workspace:*
         version: link:../../lib/project-contract
+      '@workspace/telemetry':
+        specifier: workspace:*
+        version: link:../../lib/telemetry
       html2canvas:
         specifier: ^1.4.1
         version: 1.4.1
@@ -679,6 +685,8 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+
+  lib/telemetry: {}
 
   scripts:
     devDependencies:

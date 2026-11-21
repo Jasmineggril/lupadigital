@@ -19,6 +19,10 @@ export const OPPORTUNITY_TYPES = [
   "publicacao",
   "infraestrutura",
   "formacao",
+  // Públicos além do docente (perfil progressivo): só interesse, nunca requisito
+  "extensao",
+  "hackathon",
+  "concurso",
 ] as const;
 
 const termList = z
@@ -318,7 +322,11 @@ export interface RecommendationResult {
   interest: {
     opportunity_type: "corresponde" | "nao_corresponde" | "nao_informado";
     temporary_matches: string[];
+    /** Preferências do perfil comparadas só quando o edital informa; nunca eliminam. */
+    preferences?: Array<{ campo: "objetivos" | "modalidade" | "localizacao" | "formacao"; situacao: "corresponde" | "diverge" | "edital_nao_informa" | "perfil_nao_informa"; motivo: string }>;
   };
+  /** Versão da regra usada (recomendações antigas são recalculadas) */
+  rule_version?: number;
   missing: string[];
   warnings: string[];
   summary: string;

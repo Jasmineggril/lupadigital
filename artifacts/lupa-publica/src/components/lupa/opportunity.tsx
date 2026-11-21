@@ -18,6 +18,9 @@ import { highlightTerms } from "@/lib/highlight";
 import { Evidence } from "@/components/lupa/ui";
 import { confirmedDeadline, formatDate, OPPORTUNITY_TYPE_LABELS, type EligibilityState, type Opportunity, type Recommendation } from "@/lib/lupa-types";
 
+const PREF_LABEL = { objetivos: "Seus objetivos", modalidade: "Modalidade", localizacao: "Região", formacao: "Formação" } as const;
+const PREF_STATE = { corresponde: "combina", diverge: "diferente da sua preferência", edital_nao_informa: "o edital não informa", perfil_nao_informa: "você não informou" } as const;
+
 export function StatusBadge({ status }: { status: Opportunity["status"] }) {
   const map = {
     aberta: ["Aberta", "border-emerald-200 bg-emerald-50 text-emerald-800"],
@@ -128,7 +131,17 @@ export function RecommendationExplanation({ rec }: { rec: Recommendation }) {
                   : "Tipo de oportunidade não comparado (não informado no perfil ou não identificado no edital)."}
             </li>
             {r.interest.temporary_matches.length > 0 && <li>Relacionado ao seu interesse atual: {r.interest.temporary_matches.join(", ")}.</li>}
+            {(r.interest.preferences ?? [])
+              .filter((p) => p.situacao !== "perfil_nao_informa")
+              .map((p) => (
+                <li key={p.campo}>
+                  <strong className="font-semibold">{PREF_LABEL[p.campo]}:</strong> {PREF_STATE[p.situacao]} — {p.motivo}
+                </li>
+              ))}
           </ul>
+          {(r.interest.preferences ?? []).some((p) => p.situacao === "diverge") && (
+            <p className="mt-1 text-xs text-slate-600">Preferências diferentes não impedem a participação; servem para você decidir.</p>
+          )}
         </section>
       )}
       {r.missing.length > 0 && (

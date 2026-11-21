@@ -28,7 +28,7 @@ import {
   type Recommendation,
   type TeacherProfile,
 } from "../lib/lupa/types";
-import { computeRecommendation, inferOpportunityTypes, normalizeText } from "../lib/lupa/matching";
+import { RECOMMENDATION_RULE_VERSION, computeRecommendation, inferOpportunityTypes, normalizeText } from "../lib/lupa/matching";
 import type { NotificationDraft } from "../lib/lupa/store";
 import { createSafeFetcher, runCollection, type PageFetcher } from "../lib/lupa/collector/crawler";
 import { InstitutionalImportSchema, LattesSummarySchema, getLattesProvider, type LattesSummary } from "../lib/lupa/integrations/lattes";
@@ -301,7 +301,8 @@ export async function refreshRecommendations(userId: string) {
   for (const o of opportunities) {
     let rec = byOpp.get(o.id);
     let recomputed = false;
-    if (!rec || rec.opportunity_version !== o.version || rec.profile_version !== profile.version) {
+    // Também recalcula quando a REGRA mudou (recomendações antigas não ficam com critérios velhos)
+    if (!rec || rec.opportunity_version !== o.version || rec.profile_version !== profile.version || rec.result.rule_version !== RECOMMENDATION_RULE_VERSION) {
       rec = {
         user_id: userId,
         opportunity_id: o.id,

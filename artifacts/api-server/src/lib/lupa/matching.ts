@@ -102,7 +102,11 @@ function thematic(profile: TeacherProfile, o: Opportunity): RecommendationResult
   if (totalTerms === 0 || (!hasOpportunityText && matches.length === 0)) {
     return { score: 0, level: "indeterminada", matches };
   }
-  const score = Math.min(100, points * 10);
+  // Antes: min(100, pontos×10) — saturava com 4 termos. Agora: fração dos pesos do perfil
+  // encontrados, com referência entre 9 e 15 pontos (≈3 a 5 termos fortes).
+  const possible = FIELD_WEIGHTS.reduce((acc, f) => acc + (profile[f.key] ?? []).length * f.weight, 0);
+  const reference = Math.min(15, Math.max(9, possible));
+  const score = Math.min(100, Math.round((points / reference) * 100));
   const level = score >= 60 ? "alta" : score >= 30 ? "media" : score > 0 ? "baixa" : "baixa";
   return { score, level, matches };
 }
@@ -128,6 +132,9 @@ const TYPE_PATTERNS: Array<[string, RegExp]> = [
   ["inovacao", /\binova[cç][aã]o\b|\bstartups?\b|\bempreendedor|\btecnol[oó]gic[oa] e inova/],
   ["infraestrutura", /\binfraestrutura\b|\bequipamentos?\b|\blaborat[oó]rios?\b/],
   ["formacao", /\bforma[cç][aã]o\b|\bcapacita[cç][aã]o\b|\bcursos?\b/],
+  ["extensao", /\bextens[aã]o\b|\bprojetos? de extens/],
+  ["hackathon", /\bhackathons?\b|\bmaratona de (programa[cç][aã]o|inova[cç][aã]o)|\bdesafio de inova/],
+  ["concurso", /\bconcurso p[uú]blico\b|\bprocesso seletivo\b|\bsele[cç][aã]o p[uú]blica\b|\bconcurso de (provas|t[ií]tulos)/],
   ["auxilio_pesquisa", /\bpesquisa\b|\bprojetos? de pesquisa\b|\bpesquisador/],
 ];
 
@@ -138,9 +145,60 @@ export function inferOpportunityTypes(o: Opportunity): string[] {
   return TYPE_PATTERNS.filter(([, re]) => re.test(plain) || re.test(text)).map(([t]) => t);
 }
 
+export const RECOMMENDATION_RULE_VERSION = 3;
+
+/** Objetivos do perfil progressivo → tipos de oportunidade (interesse, não requisito). */
+const OBJECTIVE_TYPES: Record<string, string[]> = {
+  bolsas: ["bolsa"],
+  pesquisa: ["auxilio_pesquisa"],
+  extensao: ["extensao"],
+  inovacao: ["inovacao"],
+  hackathons: ["hackathon"],
+  concursos: ["concurso"],
+  formacao: ["formacao"],
+  eventos: ["evento"],
+};
+
+function editalText(o: Opportunity): string {
+  const f = o.fields;
+  return normalizeText([o.title, f.objeto?.evidence, f.areas?.evidence, ...(f.elegibilidade ?? []).map((e) => e.evidence), ...(f.requisitos ?? []).map((e) => e.evidence)].filter(Boolean).join(" "));
+}
+
+/** Compara preferências SÓ quando o edital traz a informação; caso contrário, diz que não informa. */
+export function preferences(profile: TeacherProfile, o: Opportunity): NonNullable<RecommendationResult["interest"]["preferences"]> {
+  const t = editalText(o);
+  const out: NonNullable<RecommendationResult["interest"]["preferences"]> = [];
+  // Modalidade
+  const modal = /\b(a distancia|remot[oa]|online|virtual)\b/.test(t) ? (/\bpresencial\b/.test(t) ? "hibrido" : "remoto") : /\bpresencial\b/.test(t) ? "presencial" : /\bhibrid/.test(t) ? "hibrido" : null;
+  if (!profile.modalidade) out.push({ campo: "modalidade", situacao: "perfil_nao_informa", motivo: "Você não informou a modalidade preferida." });
+  else if (!modal) out.push({ campo: "modalidade", situacao: "edital_nao_informa", motivo: "O edital não informa a modalidade." });
+  else
+    out.push({
+      campo: "modalidade",
+      situacao: profile.modalidade === "qualquer" || profile.modalidade === modal || modal === "hibrido" ? "corresponde" : "diverge",
+      motivo: `Edital: ${modal}; sua preferência: ${profile.modalidade}.`,
+    });
+  // Localização (região de atuação); a exigência formal de instituição no DF fica na elegibilidade
+  const regionDf = /\b(distrito federal|brasilia)\b|\bdf\b/.test(t);
+  if (!profile.localizacao) out.push({ campo: "localizacao", situacao: "perfil_nao_informa", motivo: "Você não informou cidade/UF." });
+  else if (!regionDf) out.push({ campo: "localizacao", situacao: "edital_nao_informa", motivo: "O edital não restringe região no texto extraído." });
+  else {
+    const inDf = /\b(df|distrito federal|brasilia)\b/.test(normalizeText(profile.localizacao));
+    out.push({ campo: "localizacao", situacao: inDf ? "corresponde" : "diverge", motivo: inDf ? "O edital é voltado ao DF e você informou estar no DF." : `O edital é voltado ao DF; você informou ${profile.localizacao}.` });
+  }
+  // Formação em curso (bolsas para estudantes)
+  const wantsEnrolled = /\b(matriculad|regularmente inscrit|cursando|estudantes? de (graduacao|mestrado|doutorado))/.test(t);
+  if (wantsEnrolled) {
+    if (!profile.formacao_situacao) out.push({ campo: "formacao", situacao: "perfil_nao_informa", motivo: "O edital é para quem está cursando; você não informou a situação da formação." });
+    else out.push({ campo: "formacao", situacao: profile.formacao_situacao === "em_curso" ? "corresponde" : "diverge", motivo: profile.formacao_situacao === "em_curso" ? "O edital é para quem está cursando, como você informou." : "O edital é para quem está cursando; você informou formação concluída." });
+  }
+  return out;
+}
+
 function interest(profile: TeacherProfile, o: Opportunity): RecommendationResult["interest"] {
   const types = inferOpportunityTypes(o);
-  const wanted = profile.opportunity_types ?? [];
+  const fromObjectives = (profile.objetivos ?? []).flatMap((x) => OBJECTIVE_TYPES[x] ?? []);
+  const wanted = [...new Set([...(profile.opportunity_types ?? []), ...fromObjectives])];
   const opportunity_type =
     wanted.length === 0 || types.length === 0 ? "nao_informado" : types.some((t) => wanted.includes(t)) ? "corresponde" : "nao_corresponde";
   const tokens = new Set(opportunityPassages(o).flatMap((p) => significantTokens(p.text)));
@@ -148,7 +206,15 @@ function interest(profile: TeacherProfile, o: Opportunity): RecommendationResult
     const t = significantTokens(term);
     return t.length > 0 && t.every((x) => tokens.has(x));
   });
-  return { opportunity_type, temporary_matches };
+  const prefs = preferences(profile, o);
+  if (fromObjectives.length) {
+    prefs.unshift({
+      campo: "objetivos",
+      situacao: types.length === 0 ? "edital_nao_informa" : types.some((t) => fromObjectives.includes(t)) ? "corresponde" : "diverge",
+      motivo: types.length === 0 ? "Não foi possível identificar o tipo do edital." : `Tipo do edital: ${types.join(", ")}; seus objetivos: ${(profile.objetivos ?? []).join(", ")}.`,
+    });
+  }
+  return { opportunity_type, temporary_matches, preferences: prefs };
 }
 
 const STATUS_WARNING: Partial<Record<Opportunity["status"], string>> = {
@@ -211,7 +277,9 @@ export function computeRecommendation(profile: TeacherProfile, o: Opportunity): 
       : overall === "pendente"
         ? "Elegibilidade com pendências de comprovação."
         : "Nenhum impedimento identificado nos requisitos extraídos.";
+  const divergent = (inter.preferences ?? []).filter((x) => x.situacao === "diverge");
   return {
+    rule_version: RECOMMENDATION_RULE_VERSION,
     thematic: them,
     eligibility: { overall, checks },
     interest: inter,
@@ -219,6 +287,8 @@ export function computeRecommendation(profile: TeacherProfile, o: Opportunity): 
     warnings,
     summary: `${themText} ${eligText}${
       inter.opportunity_type === "corresponde" ? " Tipo de oportunidade entre os que você procura." : ""
-    }${inter.temporary_matches.length ? ` Relacionado ao seu interesse atual: ${inter.temporary_matches.join(", ")}.` : ""}`,
+    }${inter.temporary_matches.length ? ` Relacionado ao seu interesse atual: ${inter.temporary_matches.join(", ")}.` : ""}${
+      divergent.length ? ` Diferente das suas preferências (não impede): ${divergent.map((d) => d.campo).join(", ")}.` : ""
+    }`,
   };
 }

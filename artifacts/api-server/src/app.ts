@@ -159,6 +159,11 @@ app.use(
 // Helmet: aplica ~15 headers de segurança HTTP por padrão.
 // crossOriginResourcePolicy: "cross-origin" permite que o frontend Vite carregue
 // assets da API (imagens, arquivos) quando servidos de domínios diferentes.
+// Durante o encerramento controlado (servidor persistente), novas requisições recebem 503
+app.use((req, res, next) => {
+  const lc = app.get("lifecycle") as { drainGuard: express.RequestHandler } | undefined;
+  return lc ? lc.drainGuard(req, res, next) : next();
+});
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
 }));

@@ -39,9 +39,9 @@ const STOPWORDS = new Set(
   "a o as os de da do das dos e em no na nos nas para por com sem um uma uns umas ao aos à às que se ou sua seu suas seus como mais menos entre sobre sob até ate the of and in on for to".split(" "),
 );
 
-export function normalizeText(s: string): string {
-  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
+export { normalizeText } from "./matching-text";
+import { normalizeText } from "./matching-text";
+import { evaluateRequirementText } from "./eligibility";
 
 function stem(token: string): string {
   if (token.length > 5 && token.endsWith("oes")) return token.slice(0, -3) + "ao";
@@ -116,73 +116,9 @@ const DEGREE_LABEL: Record<string, string> = {
 };
 const SELF_DECLARED = "Dado autodeclarado no perfil — precisa ser comprovado na submissão.";
 
+/** Avalia um requisito (ver eligibility.ts: alternativas, negações, alcance, natureza). */
 export function evaluateRequirement(text: string, sourceUrl: string, p: TeacherProfile): EligibilityCheck | null {
-  const n = normalizeText(text);
-  const base = { requirement: text, evidence: text, source_url: sourceUrl };
-
-  // Titulação mínima
-  const needsDoctor = /\b(doutor|doutora|doutorado)\b/.test(n);
-  const needsMaster = !needsDoctor && /\b(mestre|mestrado)\b/.test(n);
-  if (needsDoctor || needsMaster) {
-    const required = needsDoctor ? "doutorado" : "mestrado";
-    if (!p.declared_degree) {
-      return { ...base, state: "pendente_comprovacao", reason: `Exige ${DEGREE_LABEL[required]}; titulação não informada no perfil.`, profile_basis: null };
-    }
-    const ok = DEGREE_RANK[p.declared_degree] >= DEGREE_RANK[required];
-    return {
-      ...base,
-      state: ok ? "atendida" : "nao_atendida",
-      reason: ok
-        ? `Exige ${DEGREE_LABEL[required]}; o perfil informa ${DEGREE_LABEL[p.declared_degree]}. ${SELF_DECLARED}`
-        : `Exige ${DEGREE_LABEL[required]}; o perfil informa ${DEGREE_LABEL[p.declared_degree]}.`,
-      profile_basis: `titulação: ${DEGREE_LABEL[p.declared_degree]} (autodeclarado)`,
-    };
-  }
-
-  // Vínculo institucional
-  if (/vinculo (empregaticio|funcional|efetivo|institucional|permanente)|servidor (publico )?efetivo|quadro (permanente|efetivo)/.test(n)) {
-    const bond = p.declared_bond;
-    if (!bond) return { ...base, state: "pendente_comprovacao", reason: "Exige vínculo institucional; vínculo não informado no perfil.", profile_basis: null };
-    if (bond === "efetivo") {
-      return { ...base, state: "atendida", reason: `Exige vínculo; o perfil informa vínculo efetivo. ${SELF_DECLARED}`, profile_basis: "vínculo: efetivo (autodeclarado)" };
-    }
-    if (bond === "sem_vinculo") {
-      return { ...base, state: "nao_atendida", reason: "Exige vínculo institucional; o perfil informa que não há vínculo.", profile_basis: "vínculo: sem vínculo (autodeclarado)" };
-    }
-    return {
-      ...base,
-      state: "pendente_comprovacao",
-      reason: `Exige vínculo; o perfil informa vínculo "${bond}". Confira no edital se esse tipo é aceito.`,
-      profile_basis: `vínculo: ${bond} (autodeclarado)`,
-    };
-  }
-
-  // Instituição sediada no DF
-  if (/(sediad|localizad|situad)\w*\s+(no|na)\s+(distrito federal|df)\b|instituicao.*\bdf\b/.test(n)) {
-    if (!p.institution) return { ...base, state: "pendente_comprovacao", reason: "Exige instituição no DF; instituição não informada no perfil.", profile_basis: null };
-    const inst = normalizeText(p.institution);
-    const inDf = /\bundf\b|distrito federal|\bdf\b|brasilia|\bunb\b|\bifb\b/.test(inst);
-    return {
-      ...base,
-      state: inDf ? "atendida" : "pendente_comprovacao",
-      reason: inDf
-        ? `Exige instituição no DF; o perfil informa ${p.institution}. ${SELF_DECLARED}`
-        : `Exige instituição no DF; não foi possível confirmar a localização de "${p.institution}".`,
-      profile_basis: `instituição: ${p.institution} (autodeclarado)`,
-    };
-  }
-
-  // Currículo Lattes
-  if (/\blattes\b/.test(n)) {
-    const has = Boolean(p.lattes_id || p.lattes_url);
-    return {
-      ...base,
-      state: has ? "atendida" : "pendente_comprovacao",
-      reason: has ? `Exige currículo Lattes; o perfil informa o Lattes. Confira se está atualizado.` : "Exige currículo Lattes; informe o identificador ou endereço no perfil.",
-      profile_basis: has ? "Lattes informado no perfil" : null,
-    };
-  }
-  return null;
+  return evaluateRequirementText(text, sourceUrl, p);
 }
 
 const TYPE_PATTERNS: Array<[string, RegExp]> = [
@@ -251,7 +187,8 @@ export function computeRecommendation(profile: TeacherProfile, o: Opportunity): 
   if (!profile.declared_degree) missing.push("Perfil: titulação não informada.");
   if (!profile.declared_bond) missing.push("Perfil: vínculo institucional não informado.");
 
-  const overall = checks.some((c) => c.state === "nao_atendida")
+  // Impedimento só com requisito OBRIGATÓRIO, aplicável e contrariado pelo perfil
+  const overall = checks.some((c) => c.state === "nao_atendida" && c.eliminatory !== false)
     ? "impedimento"
     : checks.length === 0 || checks.some((c) => c.state === "pendente_comprovacao")
       ? "pendente"

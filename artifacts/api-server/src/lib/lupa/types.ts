@@ -285,6 +285,8 @@ export interface CollectionRun {
 
 export type EligibilityState = "atendida" | "nao_atendida" | "pendente_comprovacao";
 
+export type EligibilityNature = "obrigatorio" | "desejavel" | "descritivo";
+
 export interface EligibilityCheck {
   requirement: string;
   evidence: string;
@@ -293,6 +295,12 @@ export interface EligibilityCheck {
   reason: string;
   /** Dado do perfil usado (sempre autodeclarado ou importado — nunca prova). */
   profile_basis: string | null;
+  /** Obrigatório, desejável ou só descritivo (ex.: "não é necessário doutorado"). */
+  nature?: EligibilityNature;
+  /** true só quando um requisito obrigatório e aplicável é contrariado pelo perfil. */
+  eliminatory?: boolean;
+  /** Condições avaliadas separadamente (requisitos compostos). */
+  parts?: Array<{ condicao: string; state: EligibilityState; reason: string; nature: EligibilityNature; applies_to: string }>;
 }
 
 export interface RecommendationResult {

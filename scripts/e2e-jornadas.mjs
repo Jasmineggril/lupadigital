@@ -286,7 +286,7 @@ await step("meus dados: baixar cópia (só de A) e excluir com confirmação, se
   await p.getByText(/Arquivo gerado/).waitFor();
   const del = p.getByRole("button", { name: "Excluir meus dados" });
   assert(await del.isDisabled(), "exclusão deveria exigir a frase de confirmação");
-  await p.getByLabel(/Para confirmar, digite/).fill("EXCLUIR MEUS DADOS");
+  await p.getByLabel("Para confirmar, digite EXCLUIR MEUS DADOS").fill("EXCLUIR MEUS DADOS");
   await del.click();
   await p.getByText(/Seus dados foram apagados/).waitFor();
   await p.waitForURL(`${WEB}/`, { timeout: 10000 });

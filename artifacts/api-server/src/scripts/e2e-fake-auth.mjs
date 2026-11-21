@@ -211,6 +211,15 @@ http
         if (u) u.revoked = true;
         return send(res, 200, {});
       }
+      // Mesmo formato da API de administração do Supabase Auth (exige a chave de serviço de teste)
+      const del = /^\/auth\/v1\/admin\/users\/([0-9a-f-]+)$/.exec(p);
+      if (del && req.method === "DELETE") {
+        if (req.headers.authorization !== "Bearer e2e-service-role") return err(res, 401, "unauthorized", "service role required");
+        const entry = [...users.entries()].find(([, u]) => u.id === del[1]);
+        if (!entry) return err(res, 404, "user_not_found", "User not found");
+        users.delete(entry[0]);
+        return send(res, 200, {});
+      }
       if (p === "/__test/mailbox") return send(res, 200, mailbox);
       if (p === "/__test/user") {
         const u = users.get(url.searchParams.get("email"));

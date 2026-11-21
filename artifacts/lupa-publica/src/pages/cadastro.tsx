@@ -103,7 +103,6 @@ export default function Cadastro() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [accept, setAccept] = useState(false);
   const [touched, setTouched] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -117,7 +116,6 @@ export default function Cadastro() {
     email: !EMAIL_RE.test(email.trim()) ? "Informe um e-mail válido." : null,
     password: problems.length ? `A senha precisa de ${problems.join(", ")}.` : null,
     confirm: confirm !== password || !confirm ? "As senhas não conferem." : null,
-    accept: !accept ? "É preciso aceitar a política de privacidade." : null,
   };
   const valid = Object.values(errors).every((e) => e === null);
 
@@ -193,30 +191,16 @@ export default function Cadastro() {
           <PasswordRules password={password} />
         </div>
         <PasswordField label="Confirme a senha" name="confirm-password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} error={show("confirm")} />
-        <div className="space-y-1">
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg py-1 text-sm text-ink-2">
-            <input
-              type="checkbox"
-              checked={accept}
-              onChange={(e) => setAccept(e.target.checked)}
-              className="mt-0.5 h-5 w-5 shrink-0 rounded border-field accent-[#0B6E78]"
-              aria-invalid={show("accept") ? true : undefined}
-              aria-describedby={show("accept") ? "accept-err" : undefined}
-            />
-            <span>
-              Li e aceito a{" "}
-              <Link href="/privacidade" className="font-semibold text-lens underline underline-offset-2">
-                política de privacidade
-              </Link>
-              .
-            </span>
-          </label>
-          {show("accept") && (
-            <p id="accept-err" className="text-[0.8125rem] font-medium text-red-700">
-              {errors.accept}
-            </p>
-          )}
-        </div>
+        {/* Aviso (não é consentimento): a conta existe para prestar o serviço pedido. Tratamentos
+            opcionais (perfil, análises salvas, compartilhamento) são escolhidos depois, um a um. */}
+        <p className="rounded-lg bg-slate-50 p-3 text-sm leading-6 text-ink-2" data-testid="cadastro-aviso-privacidade">
+          Para criar a conta usamos só <strong>nome, e-mail e senha</strong> (a senha fica guardada
+          cifrada pelo Supabase). O perfil e o restante são opcionais. Veja no{" "}
+          <Link href="/privacidade" className="font-semibold text-lens underline underline-offset-2">
+            aviso de privacidade
+          </Link>{" "}
+          o que é tratado, com quem e por quanto tempo — e como baixar, corrigir ou excluir seus dados.
+        </p>
         <Button type="submit" className="w-full" disabled={submitting} aria-busy={submitting} data-testid="cadastro-submit">
           {submitting ? "Criando conta…" : "Criar conta"}
         </Button>

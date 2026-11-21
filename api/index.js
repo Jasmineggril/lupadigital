@@ -162448,6 +162448,10 @@ function requireAdmin() {
       res.status(403).json({ error: "Acesso restrito \xE0 administra\xE7\xE3o." });
       return;
     }
+    if (process.env.LUPA_ADMIN_REQUIRE_MFA === "true" && claims.aal !== "aal2") {
+      res.status(403).json({ error: "A administra\xE7\xE3o exige verifica\xE7\xE3o em duas etapas. Entre com o segundo fator.", code: "MFA_REQUIRED" });
+      return;
+    }
     next2();
   };
 }
@@ -163011,6 +163015,21 @@ async function deleteUserData(userId) {
     }
   }
   return { concluido: secoes.every((s) => s.ok), secoes };
+}
+
+// src/lib/accountClosure.ts
+async function deleteAuthUser(userId) {
+  if (process.env.LUPA_STORE === "memory") {
+    const base2 = process.env.LUPA_TEST_AUTH_URL;
+    if (!base2) return { ok: false, detalhe: "Auth de teste n\xE3o configurado" };
+    const r = await fetch(`${base2}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+      headers: { authorization: "Bearer e2e-service-role" }
+    });
+    return r.ok ? { ok: true } : { ok: false, detalhe: `HTTP ${r.status}` };
+  }
+  const { error: error63 } = await getSupabaseAdmin().auth.admin.deleteUser(userId);
+  return error63 ? { ok: false, detalhe: error63.message.slice(0, 120) } : { ok: true };
 }
 
 // src/routes/lupa.ts
@@ -163631,6 +163650,30 @@ router6.delete("/me/data", requireAuth(), async (req, res) => {
     res.status(out.concluido ? 200 : 207).json(out);
   } catch (err) {
     fail(req, res, err, "me:delete");
+  }
+});
+var CloseAccountSchema = external_exports.object({ confirmacao: external_exports.literal("ENCERRAR MINHA CONTA") }).strict();
+router6.delete("/me/account", requireAuth(), async (req, res) => {
+  const userId = getUserId(req);
+  if (!CloseAccountSchema.safeParse(req.body ?? {}).success) {
+    res.status(400).json({ error: "Para confirmar, digite exatamente: ENCERRAR MINHA CONTA" });
+    return;
+  }
+  try {
+    const dados = await deleteUserData(userId);
+    if (!dados.concluido) {
+      res.status(207).json({ ...dados, conta_removida: false, aviso: "Nem todos os dados foram apagados; a conta N\xC3O foi removida. Tente de novo." });
+      return;
+    }
+    const conta = await deleteAuthUser(userId);
+    req.log?.info({ context: "me:close", conta_removida: conta.ok }, "account closure");
+    res.status(conta.ok ? 200 : 207).json({
+      ...dados,
+      conta_removida: conta.ok,
+      ...conta.ok ? {} : { aviso: "Os dados foram apagados, mas a conta de acesso n\xE3o p\xF4de ser removida agora. Tente de novo ou use o canal de atendimento." }
+    });
+  } catch (err) {
+    fail(req, res, err, "me:close");
   }
 });
 router6.delete("/saved-opportunities/:opportunityId", requireAuth(), async (req, res) => {

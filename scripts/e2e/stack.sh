@@ -15,7 +15,7 @@ pkill -f scripts/e2e/static-server.mjs 2>/dev/null || true
 sleep 1
 nohup node scripts/e2e/static-server.mjs artifacts/lupa-publica/dist/public > "$LOG/web.log" 2>&1 &
 nohup node artifacts/api-server/src/scripts/e2e-fake-auth.mjs 54321 > "$LOG/auth.log" 2>&1 &
-(cd artifacts/api-server; SUPABASE_JWKS_URL=http://127.0.0.1:54321/auth/v1/.well-known/jwks.json PORT=3001 \
+(cd artifacts/api-server; SUPABASE_JWKS_URL=http://127.0.0.1:54321/auth/v1/.well-known/jwks.json LUPA_TEST_AUTH_URL=http://127.0.0.1:54321 PORT=3001 \
   RATE_LIMIT_AI_ANON_PER_HOUR=1000 RATE_LIMIT_OCR_ANON_PER_HOUR=1000 RATE_LIMIT_DEFAULT_MAX=100000 \
   nohup ../../scripts/node_modules/.bin/tsx src/scripts/e2e-server.ts > "$LOG/api.log" 2>&1 &)
 for _ in $(seq 1 60); do

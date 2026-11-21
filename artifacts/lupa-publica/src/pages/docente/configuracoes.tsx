@@ -248,6 +248,31 @@ function MyData({ onDeleted }: { onDeleted: () => void | Promise<void> }) {
     }
   };
 
+  const [closeText, setCloseText] = useState("");
+  const closeAccount = async () => {
+    if (inFlight.current || closeText !== "ENCERRAR MINHA CONTA") return;
+    inFlight.current = true;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const out = await apiFetch<{ concluido: boolean; conta_removida: boolean; aviso?: string }>("/me/account", {
+        method: "DELETE",
+        body: JSON.stringify({ confirmacao: closeText }),
+      });
+      if (out.conta_removida) {
+        setMsg({ kind: "success", text: "Conta encerrada e dados apagados. Você será desconectado." });
+        setTimeout(() => void onDeleted(), 2500);
+      } else {
+        setMsg({ kind: "error", text: out.aviso ?? "A conta não pôde ser encerrada agora. Tente de novo." });
+      }
+    } catch (err) {
+      setMsg({ kind: "error", text: err instanceof Error ? err.message : "Não foi possível encerrar a conta. Nada foi alterado." });
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  };
+
   const remove = async () => {
     if (inFlight.current || confirmText !== "EXCLUIR MEUS DADOS") return;
     inFlight.current = true;
@@ -294,8 +319,8 @@ function MyData({ onDeleted }: { onDeleted: () => void | Promise<void> }) {
         <ul className="list-disc space-y-1 pl-5 text-sm text-red-950">
           <li>Apaga perfil, histórico, participações, avisos, links compartilhados e conteúdos gerados. Não dá para desfazer.</li>
           <li>Registros de consumo da IA (sem o conteúdo) ficam, mas deixam de ser ligados a você.</li>
-          <li>Cópias de segurança do provedor expiram no ciclo dele; não são apagadas na hora.</li>
-          <li>A conta de acesso (e-mail e senha) é removida a pedido pelo canal indicado na política de privacidade.</li>
+          <li>Cópias de segurança, quando existirem, não são apagadas na hora: expiram no prazo de retenção descrito no aviso de privacidade.</li>
+          <li>A conta de acesso (e-mail e senha) continua: você pode seguir usando o LUPA do zero. Para remover também o acesso, use “Encerrar a conta”, abaixo.</li>
         </ul>
         <label htmlFor="confirmar-exclusao" className="block pt-2 text-sm font-semibold text-red-950">
           Para confirmar, digite EXCLUIR MEUS DADOS
@@ -304,6 +329,23 @@ function MyData({ onDeleted }: { onDeleted: () => void | Promise<void> }) {
         <div>
           <Button variant="destructive" className="mt-2" onClick={remove} disabled={busy || confirmText !== "EXCLUIR MEUS DADOS"}>
             Excluir meus dados
+          </Button>
+        </div>
+      </div>
+      <div className="mt-6 space-y-2 rounded-lg border border-red-300 bg-white p-4" data-testid="encerrar-conta">
+        <h3 className="text-sm font-semibold text-red-900">Encerrar a conta</h3>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-red-950">
+          <li>Faz tudo o que “Excluir meus dados” faz e, se tudo for apagado, remove também a conta de acesso (e-mail e senha).</li>
+          <li>Depois disso não é possível entrar com este e-mail; para voltar, é preciso criar uma conta nova.</li>
+          <li>Se algum dado não puder ser apagado, a conta não é removida e você é avisado para tentar de novo.</li>
+        </ul>
+        <label htmlFor="confirmar-encerramento" className="block pt-2 text-sm font-semibold text-red-950">
+          Para confirmar, digite ENCERRAR MINHA CONTA
+        </label>
+        <input id="confirmar-encerramento" autoComplete="off" spellCheck={false} className="h-11 w-full rounded-xl border border-red-300 bg-white px-3 text-sm sm:w-80" value={closeText} onChange={(e) => setCloseText(e.target.value)} />
+        <div>
+          <Button variant="destructive" className="mt-2" onClick={closeAccount} disabled={busy || closeText !== "ENCERRAR MINHA CONTA"}>
+            Encerrar a conta
           </Button>
         </div>
       </div>

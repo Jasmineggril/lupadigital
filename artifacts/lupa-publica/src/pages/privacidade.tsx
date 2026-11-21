@@ -23,8 +23,9 @@ export default function Privacidade() {
     <div className="container mx-auto max-w-3xl px-4 py-12">
       <h1 className="font-display text-3xl font-bold text-ink md:text-4xl">Privacidade e termos de uso</h1>
       <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-        <strong>Versão preliminar.</strong> Este texto descreve como o LUPA Digital funciona hoje e está em revisão jurídica e institucional. A definição
-        formal do controlador e do encarregado (DPO) ainda está pendente.
+        <strong>Versão preliminar (atualizada em 21/11/2026).</strong> Este texto descreve como o LUPA Digital funciona hoje e está em revisão jurídica e
+        institucional. A definição formal do controlador, do encarregado (DPO) e do canal oficial de atendimento ao titular ainda está pendente. As bases
+        legais de cada tratamento estão documentadas para essa revisão; não usamos uma caixa de “aceito” para justificar tudo.
       </p>
 
       <div className="mt-8 space-y-10 text-[0.9375rem] leading-relaxed text-ink-2">
@@ -37,7 +38,8 @@ export default function Privacidade() {
             <li>Seu perfil serve para indicar editais e conferir requisitos. Ele não dá acesso a áreas restritas e não comprova nada.</li>
             <li>O texto que você envia para análise vai para um serviço de IA externo. Não envie documentos com dados pessoais que não sejam necessários.</li>
             <li>
-              Você pode baixar uma cópia dos seus dados e pedir a exclusão em <Link href="/configuracoes" className="font-semibold underline">Configurações → Seus dados</Link>.
+              Você pode baixar uma cópia dos seus dados, excluí-los ou encerrar a conta em{" "}
+              <Link href="/configuracoes" className="font-semibold underline">Configurações → Seus dados</Link>.
             </li>
           </ul>
         </section>
@@ -63,7 +65,9 @@ export default function Privacidade() {
                 <Row dado="Análises salvas, participações, avisos, links compartilhados" para="Histórico e acompanhamento" onde="Banco da aplicação (Supabase)" />
                 <Row dado="Histórico sem conta" para="Reabrir análises neste aparelho" onde="Só no seu navegador (armazenamento local)" />
                 <Row dado="Registros de uso da IA (módulo, tempo, tokens; sem o texto)" para="Controle de custo, limites e segurança" onde="Banco da aplicação" />
-                <Row dado="Registros técnicos (endereço, método, código de resposta)" para="Funcionamento e investigação de falhas" onde="Provedor de hospedagem (Vercel)" />
+                <Row dado="Registros técnicos (endereço sem parâmetros nem tokens, método, código de resposta)" para="Funcionamento e investigação de falhas" onde="Provedor de hospedagem (Vercel)" />
+                <Row dado="Contadores de uso (um código derivado da sua conta ou do endereço de rede, sem o valor original)" para="Limites de uso e de custo da IA" onde="Banco da aplicação; apagados em até 1 dia" />
+                <Row dado="Mensagens de erro técnicas, filtradas (sem e-mail, tokens, conteúdo de documentos ou corpo das requisições)" para="Saber que algo quebrou e onde no código" onde="Sentry, se ativado (hoje desligado no navegador)" />
               </tbody>
             </table>
           </div>
@@ -88,8 +92,13 @@ export default function Privacidade() {
               páginas.
             </li>
             <li>
-              <strong>Supabase</strong> (conta e banco de dados) e <strong>Vercel</strong> (hospedagem).
+              <strong>Supabase</strong> (conta e banco de dados, região São Paulo) e <strong>Vercel</strong> (hospedagem).
             </li>
+            <li>
+              <strong>Sentry</strong> (monitoramento de erros): no navegador está <strong>desligado</strong>; a gravação de tela (Session Replay) está
+              desligada por padrão. Se o monitoramento for ligado, recebe só dados técnicos filtrados antes do envio.
+            </li>
+            <li>Não usamos ferramentas de analytics nem publicidade.</li>
             <li>Links compartilhados: quem tiver o endereço vê a interpretação até a validade (30 dias) ou até você revogar. Dados do seu perfil não vão no link.</li>
           </ul>
         </section>
@@ -102,9 +111,16 @@ export default function Privacidade() {
             <li>Consultar e corrigir: em Meu perfil (cada campo mostra a origem e a data).</li>
             <li>Baixar uma cópia: Configurações → Seus dados → Baixar meus dados (arquivo JSON).</li>
             <li>
-              Excluir: Configurações → Seus dados → Excluir meus dados. Apaga perfil, histórico, participações, avisos e links. Os registros de uso da IA
-              ficam, mas desvinculados de você. Cópias de segurança do provedor expiram no ciclo dele. A remoção da conta de acesso é feita a pedido, pelo{" "}
-              <Link href="/contato" className="font-semibold underline">contato</Link>.
+              Excluir os dados: Configurações → Seus dados → Excluir meus dados. Apaga perfil, histórico, participações, avisos e links; a conta de acesso
+              continua. Os registros de uso da IA ficam, mas desvinculados de você.
+            </li>
+            <li>
+              Encerrar a conta: Configurações → Seus dados → Encerrar a conta. Apaga os dados e remove o acesso (e-mail e senha). Se algum dado não puder
+              ser apagado, a conta não é removida e você é avisado.
+            </li>
+            <li>
+              Outras solicitações (informação, oposição, revisão): pela página de <Link href="/contato" className="font-semibold underline">contato</Link>
+              , enquanto o canal oficial do encarregado não é definido.
             </li>
             <li>Revogar links compartilhados: Configurações → Links compartilhados.</li>
             <li>Avisos por e-mail estão desligados; a preferência fica registrada para quando o envio existir.</li>
@@ -116,8 +132,10 @@ export default function Privacidade() {
             Por quanto tempo
           </h2>
           <p className="mt-2">
-            Dados da conta, perfil, histórico e participações ficam enquanto a conta existir ou até você excluí-los. Links compartilhados valem 30 dias. Os
-            prazos dos registros técnicos e de uso da IA estão em definição (proposta em revisão: até 12 meses).
+            Dados da conta, perfil, histórico e participações ficam enquanto a conta existir ou até você excluí-los. Links compartilhados valem 30 dias.
+            Contadores de uso: até 1 dia. Os prazos dos registros técnicos e de uso da IA estão em definição (proposta em revisão: até 12 meses).
+            Cópias de segurança: em 21/11/2026 o banco <strong>não tinha</strong> cópia automática no provedor; uma rotina própria, criptografada, está
+            preparada e aguarda aprovação — se ativada, as cópias expiram em até 14 dias.
           </p>
         </section>
 

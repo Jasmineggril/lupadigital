@@ -84,7 +84,9 @@ await step("cadastro: validações claras e associadas aos campos", async () => 
 await step("cadastro: envio único, aviso de confirmação e reenvio com intervalo", async () => {
   await page.getByLabel("Senha", { exact: true }).fill(PROF.password);
   await page.getByLabel("Confirme a senha").fill(PROF.password);
-  await page.getByRole("checkbox").check();
+  // Aviso de privacidade visível, sem caixa de "aceito" obrigatória (não é consentimento genérico)
+  assert(/aviso de privacidade/.test(await page.getByTestId("cadastro-aviso-privacidade").innerText()), "aviso de privacidade ausente no cadastro");
+  assert((await page.locator("form").getByRole("checkbox").count()) === 0, "cadastro não deveria exigir caixa de consentimento");
   const btn = page.getByTestId("cadastro-submit");
   // Dois cliques no mesmo instante (antes de o React re-renderizar): só um cadastro pode sair
   await btn.evaluate((b) => {

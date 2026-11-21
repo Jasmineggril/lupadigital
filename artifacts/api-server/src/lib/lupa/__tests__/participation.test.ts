@@ -414,3 +414,51 @@ describe("compartilhamento", () => {
     expect(shareState({})).toBe("ativo");
   });
 });
+
+describe("encerrar a conta (diferente de excluir os dados)", () => {
+  it("exige confirmação própria; apaga os dados e remove o acesso no Auth; não afeta outra pessoa", async () => {
+    const removed: string[] = [];
+    let authFails = false;
+    const fakeAuth = http.createServer((req, res) => {
+      const m = /^\/auth\/v1\/admin\/users\/(.+)$/.exec(req.url ?? "");
+      if (req.method === "DELETE" && m && req.headers.authorization === "Bearer e2e-service-role" && !authFails) {
+        removed.push(decodeURIComponent(m[1]));
+        res.writeHead(200).end("{}");
+        return;
+      }
+      res.writeHead(500).end("{}");
+    });
+    await new Promise<void>((r) => fakeAuth.listen(0, "127.0.0.1", () => r()));
+    process.env.LUPA_TEST_AUTH_URL = `http://127.0.0.1:${(fakeAuth.address() as AddressInfo).port}`;
+    try {
+      const { opportunity } = await store.upsertOpportunity(edital());
+      await call("PUT", "/profile", A, { display_name: "A" });
+      await call("PUT", "/profile", B, { display_name: "B" });
+      await call("POST", "/participations", A, { opportunity_id: opportunity.id });
+      await call("POST", "/participations", B, { opportunity_id: opportunity.id });
+
+      // A frase de "excluir dados" não serve para encerrar a conta
+      expect((await call("DELETE", "/me/account", A, { confirmacao: "EXCLUIR MEUS DADOS" })).status).toBe(400);
+      expect(removed).toEqual([]);
+
+      // Auth fora do ar: dados apagados, conta NÃO removida, resposta 207 com aviso
+      authFails = true;
+      const partial = await call("DELETE", "/me/account", A, { confirmacao: "ENCERRAR MINHA CONTA" });
+      expect(partial.status).toBe(207);
+      expect(partial.body.conta_removida).toBe(false);
+      expect(partial.body.aviso).toMatch(/não pôde ser removida/);
+
+      authFails = false;
+      const ok = await call("DELETE", "/me/account", A, { confirmacao: "ENCERRAR MINHA CONTA" });
+      expect(ok.status).toBe(200);
+      expect(ok.body).toMatchObject({ concluido: true, conta_removida: true });
+      expect(removed).toEqual(["usuaria-a"]);
+      expect((await call("GET", "/participations", A)).body.participations).toHaveLength(0);
+      expect((await call("GET", "/participations", B)).body.participations).toHaveLength(1);
+      expect((await call("GET", "/profile", B)).body.profile.display_name).toBe("B");
+    } finally {
+      delete process.env.LUPA_TEST_AUTH_URL;
+      await new Promise<void>((r) => fakeAuth.close(() => r()));
+    }
+  });
+});

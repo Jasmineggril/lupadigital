@@ -247,6 +247,35 @@ await step("P8: 'Baixar meus dados' inclui projetos (plano e manual) e participa
   assert(!JSON.stringify(out).includes("proj.d@"), "exportação de C contém dados de D");
 });
 
+await step("LGPD: aviso no cadastro sem caixa de consentimento; encerrar a conta remove o acesso (diferente de excluir dados)", async () => {
+  const E = { email: "encerra.e@exemplo.test", password: "Teste2026segura", name: "Pessoa E" };
+  await authPost("/__test/seed", { ...E, confirmed: true });
+  const { page: p, ctx } = await newPage();
+  await p.goto(`${WEB}/cadastro`);
+  await p.getByTestId("cadastro-aviso-privacidade").getByRole("link", { name: "aviso de privacidade" }).waitFor();
+  assert((await p.locator("form").getByRole("checkbox").count()) === 0, "cadastro exige caixa de consentimento genérica");
+  await login(p, E, "/configuracoes");
+  const sec = p.getByTestId("encerrar-conta");
+  await sec.waitFor();
+  const btn = sec.getByRole("button", { name: "Encerrar a conta" });
+  assert(await btn.isDisabled(), "encerrar deveria exigir a frase de confirmação");
+  await sec.getByLabel("Para confirmar, digite ENCERRAR MINHA CONTA").fill("EXCLUIR MEUS DADOS");
+  assert(await btn.isDisabled(), "a frase de excluir dados não pode encerrar a conta");
+  await sec.getByLabel("Para confirmar, digite ENCERRAR MINHA CONTA").fill("ENCERRAR MINHA CONTA");
+  await btn.click();
+  await p.getByText(/Conta encerrada e dados apagados/).waitFor();
+  await p.waitForURL(`${WEB}/`, { timeout: 10000 });
+  // O acesso não existe mais
+  await p.goto(`${WEB}/login`);
+  await p.getByLabel("E-mail").fill(E.email);
+  await p.getByLabel("Senha", { exact: true }).fill(E.password);
+  await p.getByTestId("login-submit").click();
+  await p.getByText(/inválid|incorret|não confere/i).first().waitFor();
+  const gone = await fetch(`${AUTH}/__test/user?email=${encodeURIComponent(E.email)}`);
+  assert(gone.status === 404, "a conta continua no Auth");
+  await ctx.close();
+});
+
 await browser.close();
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n${passed}/${results.length} jornadas de regressão passaram`);

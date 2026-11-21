@@ -40,7 +40,9 @@ async function loginState(u) {
   await p.getByLabel("E-mail").fill(u.email);
   await p.getByLabel("Senha", { exact: true }).fill(u.password);
   await p.getByTestId("login-submit").click();
-  await p.waitForURL(/\/(inicio|perfil)/);
+  // Espera sair da página de login (o ?next=/inicio da própria URL de login não conta)
+  await p.waitForURL((u) => /^\/(inicio|perfil)$/.test(new URL(u).pathname));
+  await p.waitForFunction(() => Object.keys(localStorage).some((k) => k.includes("auth-token")));
   const state = await ctx.storageState();
   const api = (path, init = {}) =>
     p.evaluate(
@@ -77,7 +79,7 @@ const ROUTES = [
   ["usuario", "/testar"], ["usuario", "/niasci"], ["usuario", "/niasci/editais"], ["usuario", "/niasci/elattes"], ["usuario", "/niasci/artigos"],
   ["usuario", "/niasci/projetos"], ["usuario", "/niasci/planetario"], ["usuario", "/niasci/assistente"], ["usuario", "/dashboard"], ["usuario", "/timeline"],
   ["usuario", "/admin"], ["admin", "/admin"],
-].filter(([, r]) => !ONLY || ONLY.has(r.replace(/\/[0-9a-f-]{20,}$/, "/:id")));
+].filter(([who, r]) => (!ONLY || ONLY.has(r.replace(/\/[0-9a-f-]{20,}$/, "/:id"))) && (!process.env.ONLY_ROLE || process.env.ONLY_ROLE === who));
 
 const states = { visitante: undefined, usuario: user.state, admin: admin.state };
 await admin.close();
@@ -122,7 +124,7 @@ async function buttonsOf(page) {
       const key = name || "(sem nome)";
       const n = (seen.get(key) ?? 0) + 1;
       seen.set(key, n);
-      out.push({ name: key, nth: n - 1, disabled: el.disabled || el.getAttribute("aria-disabled") === "true", role: el.getAttribute("role") || el.tagName.toLowerCase(), area: el.closest("header, nav") ? "topo" : el.closest("footer") ? "rodape" : "pagina" });
+      out.push({ name: key, nth: n - 1, disabled: el.disabled || el.getAttribute("aria-disabled") === "true", role: el.getAttribute("role") || el.tagName.toLowerCase(), area: el.closest("nav") || el.closest("header")?.querySelector('[data-testid="link-logo"]') ? "topo" : el.closest("footer") ? "rodape" : "pagina" });
     }
     return out;
   });

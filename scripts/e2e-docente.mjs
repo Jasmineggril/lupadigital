@@ -410,6 +410,7 @@ await step("celular (390px): sem rolagem horizontal e menu acessível", async ()
 await step("teclado: link para pular ao conteúdo e foco visível", async () => {
   const { page: k } = await newPage();
   await k.goto(`${WEB}/oportunidades`);
+  await k.waitForLoadState("networkidle");
   await k.keyboard.press("Tab");
   const focused = await k.evaluate(() => document.activeElement?.textContent?.trim());
   assert(focused === "Pular para o conteúdo", `primeiro Tab deveria focar o atalho, focou "${focused}"`);

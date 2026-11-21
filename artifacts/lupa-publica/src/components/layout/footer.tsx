@@ -1,7 +1,6 @@
 import { Link } from "wouter";
 import { Github, HelpCircle } from "lucide-react";
 
-import { buttonVariants } from "@/components/ui/button";
 
 
 export function Footer() {
@@ -66,7 +65,10 @@ export function Footer() {
         <div className="space-y-4 lg:col-span-1">
           <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-slate-300">Ajuda</p>
           <p className="text-sm text-slate-200 max-w-xs">Os três caminhos do LUPA: entender um edital, encontrar oportunidades e organizar a participação.</p>
-          <Link href="/como-funciona" className={buttonVariants({ variant: "outline", className: "gap-2 border-white/30 bg-transparent text-white hover:border-white hover:bg-white/10" })}>
+          <Link
+            href="/como-funciona"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/40 px-4 text-sm font-semibold text-white hover:border-white hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
             <HelpCircle className="w-4 h-4" aria-hidden />
             Como funciona
           </Link>

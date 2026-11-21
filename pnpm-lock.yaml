@@ -105,6 +105,9 @@ importers:
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../../lib/integrations/openai-ai-server
+      '@workspace/project-contract':
+        specifier: workspace:*
+        version: link:../../lib/project-contract
       cheerio:
         specifier: ^1.2.0
         version: 1.2.0
@@ -196,6 +199,9 @@ importers:
       '@workspace/feature-catalog':
         specifier: workspace:*
         version: link:../../lib/feature-catalog
+      '@workspace/project-contract':
+        specifier: workspace:*
+        version: link:../../lib/project-contract
       html2canvas:
         specifier: ^1.4.1
         version: 1.4.1
@@ -651,6 +657,12 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.5
+
+  lib/project-contract:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
 
   scripts:
     devDependencies:

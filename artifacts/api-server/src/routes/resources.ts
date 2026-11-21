@@ -32,6 +32,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import getSupabaseAdmin, { getReqUserId, requireAuth } from "../lib/supabase";
 import { z } from "zod";
+import { ResearchProjectWriteSchema } from "@workspace/project-contract";
 import crypto from "node:crypto";
 
 const router = Router();
@@ -151,13 +152,11 @@ const ArticleAnalysisSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
-/** Schema de validação para a tabela research_projects */
-const ResearchProjectSchema = z.object({
-  title: z.string().optional(),
-  description: z.string().nullable().optional(),
-  team: z.record(z.string(), z.unknown()).nullable().optional(),
-  timeline: z.record(z.string(), z.unknown()).nullable().optional(),
-});
+/**
+ * research_projects: contrato compartilhado com a tela (@workspace/project-contract).
+ * `.strict()`: campo desconhecido é recusado em vez de descartado em silêncio.
+ */
+const ResearchProjectSchema = ResearchProjectWriteSchema.strict();
 
 /** Schema de validação para a tabela planetarium_contents */
 const PlanetariumContentSchema = z.object({
@@ -448,9 +447,11 @@ router.put("/resources/:table/:id", async (req: Request, res: Response): Promise
       res.json(row);
       return;
     }
+    // Tabelas com updated_at (research_projects): data da última edição vem do servidor
+    const values = String(table) === "research_projects" ? { ...(built.data as Record<string, unknown>), updated_at: new Date().toISOString() } : built.data;
     const { data, error } = await getSupabaseAdmin()
       .from(String(table))
-      .update(built.data)
+      .update(values)
       .match({ id, user_id: userId }) // atômico: só atualiza se id E user_id baterem
       .select()
       .single();

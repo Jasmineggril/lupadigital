@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@workspace/project-contract": "workspace:*",
     "@workspace/feature-catalog": "workspace:*",
     "@sentry/react": "^10.70.0",
     "@supabase/supabase-js": "^2.108.2",

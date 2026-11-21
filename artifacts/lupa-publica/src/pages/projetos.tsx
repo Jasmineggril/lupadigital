@@ -20,6 +20,8 @@
  *   - listResearchProjects(): carrega histórico de projetos
  */
 
+import { apiFetch } from "@/lib/api";
+import { planFromRecord, recordFromPlan, type ProjectPlan, type ProjectOrigin, type ResearchProjectRecord } from "@workspace/project-contract";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -32,7 +34,6 @@ import {
   listResearchProjects,
   deleteResearchProject,
 } from "@/services/analisesService";
-import type { ResearchProject } from "@/lib/supabase-types";
 import {
   API_BASE,
   NiasciHeader,
@@ -55,19 +56,8 @@ import {
  * Plano de projeto gerado pela IA.
  * Cobre todos os componentes de gestão de projetos científicos.
  */
-interface ProjetoResult {
-  titulo?: string;
-  resumo?: string;
-  objetivos?: string[];
-  equipe?: { papel: string; responsabilidades: string }[];
-  cronograma?: { fase: string; duracao: string; descricao: string }[];
-  etapas?: { nome: string; descricao: string; entregavel: string }[];
-  indicadores?: { nome: string; meta: string; metodologia: string }[];
-  riscos?: { risco: string; probabilidade: string; mitigacao: string }[];
-  pendencias?: string[];
-  proximasAcoes?: string[];
-  alertas?: string[];
-}
+/** Plano de projeto: mesmo contrato da API e do banco (@workspace/project-contract). */
+type ProjetoResult = ProjectPlan;
 
 /**
  * Projeto salvo pelo usuário no gerenciador local.
@@ -130,7 +120,12 @@ export default function Projetos() {
   const [result, setResult] = useState<ProjetoResult | null>(null);
 
   // Histórico de projetos gerados por IA (Supabase/localStorage)
-  const [aiHistory, setAiHistory] = useState<ResearchProject[]>([]);
+  const [aiHistory, setAiHistory] = useState<ResearchProjectRecord[]>([]);
+  // Registro antigo reaberto: só parte do plano existia
+  const [partialRecord, setPartialRecord] = useState(false);
+  // Vínculo com a participação (preenchido quando a página abre a partir de "Quero participar")
+  const [origin, setOrigin] = useState<ProjectOrigin | null>(null);
+  const onSaved = useRef<((r: ResearchProjectRecord) => void) | null>(null).current;
   const [historyLoading, setHistoryLoading] = useState(true);
 
   // Gerenciador local de projetos
@@ -194,37 +189,26 @@ export default function Projetos() {
     startStageAnimation();
 
     try {
-      const response = await fetch(`${API_BASE}/niasci/projetos/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description }),
-      });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `Erro ${response.status}`);
-      }
-
-      const data: ProjetoResult = await response.json();
+      // Chamada autenticada: a sessão vai junto (limite de uso da conta, não de visitante)
+      const data = await apiFetch<ProjetoResult>("/niasci/projetos/analyze", { method: "POST", body: JSON.stringify({ description }) });
 
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
       setStage("completed");
       setResult(data);
 
-      // Persiste no Supabase ou localStorage
-      const saved = await saveResearchProject({
-        title: data.titulo ?? "Projeto sem título",
-        description: data.resumo ?? "",
-        team: (data.equipe ?? []) as any,
-        timeline: (data.cronograma ?? []) as any,
-      }).catch((e: unknown) => {
-        // A análise está pronta; só a gravação falhou — dizer isso, sem marcar a análise como erro
-        toast({ title: "Resultado pronto, mas não foi salvo", description: e instanceof Error ? e.message : "Não foi possível salvar no histórico.", variant: "destructive" });
+      setPartialRecord(false);
+      // Grava o plano INTEIRO (o mesmo que aparece na tela e no PDF)
+      const saved = await saveResearchProject(recordFromPlan(data, origin)).catch((e: unknown) => {
+        // A análise está pronta; só a gravação falhou — o resultado continua na tela
+        toast({ title: "Plano pronto, mas não foi salvo", description: e instanceof Error ? e.message : "Não foi possível salvar no histórico. O plano continua na tela.", variant: "destructive" });
         return null;
       });
 
-      if (saved) setAiHistory((prev) => [saved as ResearchProject, ...prev].slice(0, 20));
-      toast({ title: "Plano gerado!", description: "O plano do projeto está pronto." });
+      if (saved) {
+        setAiHistory((prev) => [saved, ...prev].slice(0, 20));
+        onSaved?.(saved);
+        toast({ title: "Plano gerado e salvo", description: "Ele está no seu histórico de projetos." });
+      }
     } catch (err) {
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
       const msg = getFriendlyErrorMessage(err);
@@ -234,13 +218,16 @@ export default function Projetos() {
     }
   };
 
-  const handleHistorySelect = (item: ResearchProject) => {
-    const r = (item as any)?.metadata?.result ?? item;
-    if (r.objetivos || r.cronograma) {
-      setResult(r as ProjetoResult);
-      setStage("completed");
-      toast({ title: "Plano restaurado", description: "Resultado carregado do histórico." });
-    }
+  const handleHistorySelect = (item: ResearchProjectRecord) => {
+    // Reabre EXATAMENTE o que foi salvo; registros antigos mostram só o que existia
+    const { plan, parcial } = planFromRecord(item);
+    setResult(plan);
+    setPartialRecord(parcial);
+    setStage("completed");
+    toast({
+      title: "Plano reaberto",
+      description: parcial ? "Registro antigo: na época só título, resumo, equipe e cronograma eram salvos." : "Todas as seções foram restauradas.",
+    });
   };
 
   const handleHistoryDelete = async (id: string) => {
@@ -459,6 +446,11 @@ export default function Projetos() {
           {/* Resultados do plano gerado */}
           {result && stage === "completed" && (
             <div>
+            {partialRecord && (
+              <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" data-testid="projeto-parcial">
+                Registro antigo: na época só título, resumo, equipe e cronograma eram salvos. As demais seções não existem neste registro.
+              </p>
+            )}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-lens" />

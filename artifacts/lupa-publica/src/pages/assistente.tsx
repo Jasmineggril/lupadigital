@@ -25,6 +25,7 @@
  *   - listChatMessages(): carrega histórico de conversas por sessão
  */
 
+import { apiFetch } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -173,21 +174,11 @@ export default function Assistente() {
       // Monta o histórico para enviar ao backend (exclui IDs locais)
       const history = [...messages, userMsg].map(({ role, content }) => ({ role, content }));
 
-      const response = await fetch(`${API_BASE}/niasci/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      // Chamada autenticada: a sessão vai junto (limite de uso da conta, não de visitante)
+      const data = await apiFetch<{ reply?: string }>("/niasci/chat", { method: "POST", body: JSON.stringify({
           messages: history,
           context: context.trim() || undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `Erro ${response.status}`);
-      }
-
-      const data = await response.json();
+        }) });
       const assistantMsg: ChatMsg = {
         role: "assistant",
         content: data.reply ?? "Não consegui gerar uma resposta. Tente novamente.",

@@ -95,20 +95,29 @@ const STAGES = [
 ];
 
 // ── Chave localStorage para projetos manuais ──────────────────────────────────
-const LOCAL_KEY = "niasci-projetos-v1";
+// Chave ANTIGA, global (sem dono): só lida para oferecer importação explícita. Projetos manuais
+// agora ficam na conta (research_projects, source "manual").
+const LEGACY_LOCAL_KEY = "niasci-projetos-v1";
 
-function loadLocalProjects(): LocalProject[] {
-  try { return JSON.parse(localStorage.getItem(LOCAL_KEY) ?? "[]"); }
-  catch { return []; }
-}
-
-function saveLocalProjects(projects: LocalProject[]) {
+function readLegacyDrafts(): LocalProject[] {
   try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(projects));
+    const v = JSON.parse(localStorage.getItem(LEGACY_LOCAL_KEY) ?? "[]");
+    return Array.isArray(v) ? v : [];
   } catch {
-    // modo privado / armazenamento cheio: a tela avisa que os projetos manuais ficam só neste navegador
+    return [];
   }
 }
+
+function clearLegacyDrafts(): boolean {
+  try {
+    localStorage.removeItem(LEGACY_LOCAL_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const manualBody = (p: LocalProject) => ({ title: p.title, description: p.description, source: "manual" as const, manual: p });
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function Projetos() {
@@ -171,6 +180,52 @@ export default function Projetos() {
 
   // Gerenciador local de projetos
   const [localProjects, setLocalProjects] = useState<LocalProject[]>([]);
+  const [legacyDrafts, setLegacyDrafts] = useState<LocalProject[]>([]);
+  const [manualLoadError, setManualLoadError] = useState<string | null>(null);
+
+  /**
+   * Grava na conta o que mudou entre `prev` e `next` (criar, alterar, excluir). Em falha, a tela
+   * volta ao estado anterior e diz que não salvou — nunca simula gravação.
+   */
+  const saveLocalProjects = async (next: LocalProject[], prev: LocalProject[] = localProjects) => {
+    const before = new Map(prev.map((p) => [p.id, p]));
+    const after = new Map(next.map((p) => [p.id, p]));
+    try {
+      let result = next;
+      for (const p of next) {
+        const old = before.get(p.id);
+        if (!old) {
+          const rec = await apiFetch<ResearchProjectRecord>("/resources/research_projects", { method: "POST", body: JSON.stringify(manualBody(p)) });
+          result = result.map((x) => (x.id === p.id ? { ...x, id: rec.id } : x));
+        } else if (JSON.stringify(old) !== JSON.stringify(p)) {
+          await apiFetch(`/resources/research_projects/${p.id}`, { method: "PUT", body: JSON.stringify(manualBody(p)) });
+        }
+      }
+      for (const id of before.keys()) if (!after.has(id)) await apiFetch(`/resources/research_projects/${id}`, { method: "DELETE" });
+      setLocalProjects(result);
+    } catch (e) {
+      setLocalProjects(prev);
+      toast({ title: "Não foi salvo", description: e instanceof Error ? e.message : "A alteração não foi gravada na sua conta. Tente novamente.", variant: "destructive" });
+    }
+  };
+
+  const importLegacy = async () => {
+    const created: LocalProject[] = [];
+    try {
+      for (const d of legacyDrafts) {
+        const rec = await apiFetch<ResearchProjectRecord>("/resources/research_projects", { method: "POST", body: JSON.stringify(manualBody(d)) });
+        created.push({ ...d, id: rec.id });
+      }
+      clearLegacyDrafts();
+      setLegacyDrafts([]);
+      setLocalProjects((cur) => [...created, ...cur]);
+      toast({ title: "Rascunhos importados", description: `${created.length} projeto(s) agora estão na sua conta.` });
+    } catch (e) {
+      setLocalProjects((cur) => [...created, ...cur]);
+      setLegacyDrafts((cur) => cur.slice(created.length));
+      toast({ title: "Importação incompleta", description: `${created.length} importado(s). ${e instanceof Error ? e.message : "Tente de novo."}`, variant: "destructive" });
+    }
+  };
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
 
   // Formulário de novo projeto local
@@ -184,14 +239,21 @@ export default function Projetos() {
   const stageTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    // Carrega histórico de projetos gerados por IA
+    // Projetos da CONTA: gerados com IA (histórico) e manuais (gerenciador)
     listResearchProjects()
-      .then((items) => setAiHistory(items))
-      .catch(() => setAiHistory([]))
+      .then((items) => {
+        setAiHistory(items.filter((i) => i.source !== "manual"));
+        setLocalProjects(items.filter((i) => i.source === "manual" && i.manual).map((i) => ({ ...(i.manual as LocalProject), id: i.id })));
+        setManualLoadError(null);
+      })
+      .catch((e: unknown) => {
+        setAiHistory([]);
+        setManualLoadError(e instanceof Error ? e.message : "Não foi possível carregar seus projetos.");
+      })
       .finally(() => setHistoryLoading(false));
 
-    // Carrega projetos do gerenciador local
-    setLocalProjects(loadLocalProjects());
+    // Rascunhos antigos deste navegador: só mostrados para importar ou descartar
+    setLegacyDrafts(readLegacyDrafts());
   }, []);
 
   useEffect(() => {
@@ -319,7 +381,7 @@ export default function Projetos() {
     };
     const updated = [project, ...localProjects];
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
     setNewTitle("");
     setNewObjective("");
     setNewProjectForm(false);
@@ -331,7 +393,7 @@ export default function Projetos() {
   const deleteLocalProject = (id: string) => {
     const updated = localProjects.filter((p) => p.id !== id);
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
     if (expandedProject === id) setExpandedProject(null);
   };
 
@@ -351,7 +413,7 @@ export default function Projetos() {
       };
     });
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
   };
 
   /** Avança o status de uma etapa no ciclo: pendente → em andamento → concluída → pendente. */
@@ -369,7 +431,7 @@ export default function Projetos() {
       };
     });
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
   };
 
   /** Atualiza o nome de uma etapa. */
@@ -379,7 +441,7 @@ export default function Projetos() {
       return { ...p, stages: p.stages.map((s) => s.id === stageId ? { ...s, name } : s) };
     });
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
   };
 
   /** Remove uma etapa do projeto. */
@@ -389,7 +451,7 @@ export default function Projetos() {
       return { ...p, stages: p.stages.filter((s) => s.id !== stageId) };
     });
     setLocalProjects(updated);
-    saveLocalProjects(updated);
+    void saveLocalProjects(updated);
   };
 
   /** Calcula o percentual de progresso de um projeto com base nas etapas concluídas. */
@@ -783,7 +845,7 @@ export default function Projetos() {
                     };
                     const updated = [project, ...localProjects];
                     setLocalProjects(updated);
-                    saveLocalProjects(updated);
+                    void saveLocalProjects(updated);
                     setPageTab("projetos");
                     setExpandedProject(project.id);
                     toast({ title: "Projeto salvo!", description: "Acesse a aba Meus Projetos para acompanhar." });
@@ -825,9 +887,47 @@ export default function Projetos() {
 
           {/* Formulário de novo projeto */}
           <p role="note" className="mb-3 text-xs text-slate-600">
-            Projetos criados manualmente ficam guardados só neste navegador (não vão para a sua conta). Planos gerados com IA vão para o histórico
-            da conta quando você está logado.
+            Seus projetos ficam na sua conta: aparecem em qualquer aparelho em que você entrar e entram em “Baixar meus dados” e “Excluir meus dados”.
           </p>
+          {manualLoadError && (
+            <p role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+              {manualLoadError} Nada foi alterado.
+            </p>
+          )}
+          {legacyDrafts.length > 0 && (
+            <section aria-labelledby="rascunhos-titulo" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4" data-testid="rascunhos-locais">
+              <h3 id="rascunhos-titulo" className="font-semibold text-amber-950">
+                Rascunhos antigos neste navegador ({legacyDrafts.length})
+              </h3>
+              <p className="mt-1 text-sm text-amber-950">
+                Antes, projetos manuais ficavam só no navegador, sem ligação com uma conta. Eles podem ter sido criados por outra pessoa que usou este
+                aparelho. Nada foi associado à sua conta: confira e escolha.
+              </p>
+              <ul className="mt-2 list-disc pl-5 text-sm text-amber-950">
+                {legacyDrafts.slice(0, 10).map((d) => (
+                  <li key={d.id}>
+                    {d.title || "Sem título"} — {d.stages?.length ?? 0} etapa(s){d.createdAt ? `, criado em ${new Date(d.createdAt).toLocaleDateString("pt-BR")}` : ""}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" onClick={importLegacy}>
+                  Importar para a minha conta
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (!window.confirm("Descartar os rascunhos deste navegador? Eles não estão em nenhuma conta e serão apagados.")) return;
+                    if (clearLegacyDrafts()) setLegacyDrafts([]);
+                    else toast({ title: "Não foi possível descartar", description: "O navegador não permitiu apagar.", variant: "destructive" });
+                  }}
+                >
+                  Descartar
+                </Button>
+              </div>
+            </section>
+          )}
           {newProjectForm && (
             <Card className="border-lens/30">
               <CardHeader><CardTitle className="text-sm">Novo projeto</CardTitle></CardHeader>

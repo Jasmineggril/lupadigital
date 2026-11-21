@@ -35,6 +35,23 @@ export const ProjectOriginSchema = z.object({
   agent_result_id: z.number().int().nullable().optional(),
 });
 
+/** Projeto cadastrado à mão no gerenciador (etapas com prazo e situação). */
+export const ManualProjectSchema = z.object({
+  id: z.string().max(80).optional(),
+  title: str(300),
+  objective: str(4000).default(""),
+  description: str(8000).default(""),
+  status: z.enum(["planejamento", "em andamento", "concluído", "pausado"]),
+  startDate: str(20).default(""),
+  endDate: str(20).default(""),
+  stages: z
+    .array(z.object({ id: str(80), name: str(300), description: str(2000).default(""), deadline: str(20).default(""), status: z.enum(["pendente", "em andamento", "concluída"]) }))
+    .max(100)
+    .default([]),
+  createdAt: str(40).optional(),
+});
+export type ManualProject = z.infer<typeof ManualProjectSchema>;
+
 /** Corpo aceito em POST/PUT /resources/research_projects. */
 export const ResearchProjectWriteSchema = z.object({
   title: str(300).optional(),
@@ -43,6 +60,8 @@ export const ResearchProjectWriteSchema = z.object({
   team: z.union([z.array(z.unknown()), z.record(z.string(), z.unknown())]).nullable().optional(),
   timeline: z.union([z.array(z.unknown()), z.record(z.string(), z.unknown())]).nullable().optional(),
   plan: ProjectPlanSchema.nullable().optional(),
+  /** Projeto manual (source = "manual"); antes ficava só no localStorage, sem dono */
+  manual: ManualProjectSchema.nullable().optional(),
   source: z.enum(["ia", "manual"]).optional(),
   origin: ProjectOriginSchema.nullable().optional(),
   contract_version: z.number().int().optional(),

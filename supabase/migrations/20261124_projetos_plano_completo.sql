@@ -8,6 +8,8 @@
 ALTER TABLE IF EXISTS public.research_projects ADD COLUMN IF NOT EXISTS plan jsonb;
 ALTER TABLE IF EXISTS public.research_projects ADD COLUMN IF NOT EXISTS source text;
 ALTER TABLE IF EXISTS public.research_projects ADD COLUMN IF NOT EXISTS origin jsonb;
+-- Projetos manuais (gerenciador de etapas): antes só no navegador, numa chave sem dono
+ALTER TABLE IF EXISTS public.research_projects ADD COLUMN IF NOT EXISTS manual jsonb;
 ALTER TABLE IF EXISTS public.research_projects ADD COLUMN IF NOT EXISTS contract_version integer;
 ALTER TABLE IF EXISTS public.research_projects ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 CREATE INDEX IF NOT EXISTS idx_research_projects_user ON public.research_projects (user_id, created_at DESC);

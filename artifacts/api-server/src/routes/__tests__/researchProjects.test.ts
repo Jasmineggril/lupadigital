@@ -79,6 +79,18 @@ describe("Projetos: salvar e reabrir o plano completo", () => {
     expect(old.plan.equipe).toEqual([]);
   });
 
+  it("projeto manual: grava na conta, altera, isola entre contas e valida a estrutura", async () => {
+    const manual = { title: "Projeto manual", objective: "o", description: "d", status: "planejamento", startDate: "", endDate: "", stages: [{ id: "s1", name: "Etapa 1", description: "", deadline: "2027-01-10", status: "pendente" }] };
+    const c = await call("POST", "/resources/research_projects", A, { title: manual.title, description: "d", source: "manual", manual });
+    expect(c.status, JSON.stringify(c.body)).toBe(201);
+    const up = await call("PUT", `/resources/research_projects/${c.body.id}`, A, { title: manual.title, source: "manual", manual: { ...manual, status: "em andamento" } });
+    expect(up.status).toBe(200);
+    expect(up.body.manual.status).toBe("em andamento");
+    expect((await call("GET", "/resources/research_projects", B)).body).toHaveLength(0);
+    expect((await call("PUT", `/resources/research_projects/${c.body.id}`, B, { title: "x", source: "manual", manual })).status).toBe(404);
+    expect((await call("POST", "/resources/research_projects", A, { title: "x", source: "manual", manual: { ...manual, status: "inventado" } })).status).toBe(400);
+  });
+
   it("plano com estrutura inválida é recusado (não grava lixo)", async () => {
     const r = await call("POST", "/resources/research_projects", A, { title: "x", plan: { objetivos: "não é lista" } });
     expect(r.status).toBe(400);

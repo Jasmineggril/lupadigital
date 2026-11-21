@@ -22,7 +22,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -380,7 +380,7 @@ export default function Projetos() {
     <div className="max-w-4xl mx-auto px-4 py-10">
       <NiasciHeader
         module="Projetos"
-        moduleColor="text-violet-600 dark:text-violet-400"
+        moduleColor="text-lens dark:text-violet-400"
         title="Projetos de Pesquisa"
         description="Descreva sua ideia de pesquisa e a IA gera um plano completo com objetivos, equipe, cronograma, indicadores e análise de riscos. Ou gerencie seus projetos existentes com controle de etapas e progresso."
       />
@@ -391,6 +391,7 @@ export default function Projetos() {
           variant={pageTab === "ia" ? "default" : "outline"}
           size="sm"
           onClick={() => setPageTab("ia")}
+          aria-pressed={pageTab === "ia"}
           className="gap-2"
         >
           <Sparkles className="w-4 h-4" /> Gerar com IA
@@ -399,6 +400,7 @@ export default function Projetos() {
           variant={pageTab === "projetos" ? "default" : "outline"}
           size="sm"
           onClick={() => setPageTab("projetos")}
+          aria-pressed={pageTab === "projetos"}
           className="gap-2"
         >
           <FolderKanban className="w-4 h-4" /> Meus Projetos
@@ -417,7 +419,7 @@ export default function Projetos() {
             onDelete={handleHistoryDelete}
             getLabel={(p) => p.title ?? "Projeto sem título"}
             isLoading={historyLoading}
-            accentBg="bg-violet-500/10"
+            accentBg="bg-lens-tint"
           />
 
           {/* Textarea de descrição do projeto */}
@@ -430,7 +432,7 @@ export default function Projetos() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ex: Projeto de pesquisa sobre uso de machine learning para diagnóstico precoce de diabetes em populações rurais do Brasil. Equipe de 3 pesquisadores, duração de 18 meses, financiamento via CNPq…"
               rows={6}
-              className="w-full px-4 py-3 rounded-2xl border border-field bg-card text-sm resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500/50 transition"
+              className="w-full px-4 py-3 rounded-2xl border border-field bg-card text-sm resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-lens/30 focus:border-lens/50 transition"
             />
             {description && (
               <p className="text-xs text-muted-foreground/40 mt-1 text-right">{description.length} caracteres</p>
@@ -439,7 +441,7 @@ export default function Projetos() {
               <Button
                 onClick={handleGenerate}
                 disabled={isLoading || description.trim().length < 30}
-                className="gap-2 bg-violet-600 hover:bg-violet-700 text-white"
+                className="gap-2 bg-lens hover:bg-lens-deep text-white"
               >
                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {isLoading ? "Gerando plano…" : "Gerar plano de projeto"}
@@ -450,7 +452,7 @@ export default function Projetos() {
           <AnalysisProgress
             stage={stage}
             stages={STAGES}
-            accentColor="text-violet-500"
+            accentColor="text-lens"
             errorMessage={errorMessage}
           />
 
@@ -459,14 +461,14 @@ export default function Projetos() {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-violet-500" />
+                  <Sparkles className="w-5 h-5 text-lens" />
                   <h2 className="text-lg font-bold">{result.titulo ?? "Plano de projeto"}</h2>
                 </div>
                 <ExportButton filename={`projeto-${result.titulo ?? "plano"}`} sections={buildExportSections()} />
               </div>
 
               {result.resumo && (
-                <Card className="mb-4 border-violet-500/20 bg-violet-500/5">
+                <Card className="mb-4 border-lens/30 bg-lens-tint">
                   <CardContent className="pt-4">
                     <p className="text-sm leading-7">{result.resumo}</p>
                   </CardContent>
@@ -487,12 +489,12 @@ export default function Projetos() {
 
                 <TabsContent value="objetivos">
                   <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><Target className="w-4 h-4 text-violet-500" /> Objetivos</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><Target className="w-4 h-4 text-lens" /> Objetivos</CardTitle></CardHeader>
                     <CardContent>
                       <ul className="space-y-2">
                         {(result.objetivos ?? []).map((o, i) => (
                           <li key={i} className="flex gap-2 text-sm">
-                            <span className="text-violet-500 font-bold shrink-0">{i === 0 ? "◈" : "◦"}</span>
+                            <span className="text-lens font-bold shrink-0">{i === 0 ? "◈" : "◦"}</span>
                             <span className={i === 0 ? "font-semibold" : ""}>{o}</span>
                           </li>
                         ))}
@@ -503,12 +505,12 @@ export default function Projetos() {
 
                 <TabsContent value="equipe">
                   <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><Users className="w-4 h-4 text-violet-500" /> Equipe sugerida</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><Users className="w-4 h-4 text-lens" /> Equipe sugerida</CardTitle></CardHeader>
                     <CardContent>
                       <div className="space-y-3">
                         {(result.equipe ?? []).map((e, i) => (
                           <div key={i} className="flex gap-3">
-                            <Badge variant="outline" className="shrink-0 text-violet-600 border-violet-500/30 h-fit">{e.papel}</Badge>
+                            <Badge variant="outline" className="shrink-0 text-lens border-lens/30 h-fit">{e.papel}</Badge>
                             <p className="text-sm text-foreground/80">{e.responsabilidades}</p>
                           </div>
                         ))}
@@ -519,7 +521,7 @@ export default function Projetos() {
 
                 <TabsContent value="cronograma">
                   <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><Calendar className="w-4 h-4 text-violet-500" /> Cronograma por fases</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><Calendar className="w-4 h-4 text-lens" /> Cronograma por fases</CardTitle></CardHeader>
                     <CardContent>
                       <div className="space-y-3">
                         {(result.cronograma ?? []).map((c, i) => (
@@ -550,7 +552,7 @@ export default function Projetos() {
                             </div>
                           </div>
                           <div className="mt-2 flex items-center gap-2">
-                            <ArrowRight className="w-3 h-3 text-violet-500" />
+                            <ArrowRight className="w-3 h-3 text-lens" />
                             <span className="text-xs text-foreground/70 italic">{e.entregavel}</span>
                           </div>
                         </CardContent>
@@ -561,7 +563,7 @@ export default function Projetos() {
 
                 <TabsContent value="indicadores">
                   <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><BarChart2 className="w-4 h-4 text-violet-500" /> Indicadores de desempenho</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><BarChart2 className="w-4 h-4 text-lens" /> Indicadores de desempenho</CardTitle></CardHeader>
                     <CardContent>
                       <div className="space-y-3">
                         {(result.indicadores ?? []).map((ind, i) => (
@@ -602,7 +604,7 @@ export default function Projetos() {
 
                 <TabsContent value="acoes">
                   <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><ListChecks className="w-4 h-4 text-violet-500" /> Próximas ações</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><ListChecks className="w-4 h-4 text-lens" /> Próximas ações</CardTitle></CardHeader>
                     <CardContent>
                       <ul className="space-y-2">
                         {(result.pendencias ?? []).map((p, i) => (
@@ -613,7 +615,7 @@ export default function Projetos() {
                         ))}
                         {(result.proximasAcoes ?? []).map((a, i) => (
                           <li key={`a-${i}`} className="flex gap-2 text-sm">
-                            <ArrowRight className="w-4 h-4 shrink-0 mt-0.5 text-violet-500" />
+                            <ArrowRight className="w-4 h-4 shrink-0 mt-0.5 text-lens" />
                             <span>{a}</span>
                           </li>
                         ))}
@@ -678,8 +680,8 @@ export default function Projetos() {
 
           {stage === "idle" && (
             <div className="text-center py-10 text-muted-foreground">
-              <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center mx-auto mb-4">
-                <Layers className="w-8 h-8 text-violet-500" />
+              <div className="w-16 h-16 rounded-2xl bg-lens-tint flex items-center justify-center mx-auto mb-4">
+                <Layers className="w-8 h-8 text-lens" />
               </div>
               <p className="text-sm font-medium">Descreva seu projeto para começar</p>
               <p className="text-xs mt-1 max-w-sm mx-auto">
@@ -709,23 +711,23 @@ export default function Projetos() {
             da conta quando você está logado.
           </p>
           {newProjectForm && (
-            <Card className="border-violet-500/30">
+            <Card className="border-lens/30">
               <CardHeader><CardTitle className="text-sm">Novo projeto</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <input
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="Título do projeto"
-                  className="w-full px-3 py-2 rounded-lg border border-field bg-card text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-violet-500/30"
+                  className="w-full px-3 py-2 rounded-lg border border-field bg-card text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-lens/30"
                 />
                 <input
                   value={newObjective}
                   onChange={(e) => setNewObjective(e.target.value)}
                   placeholder="Objetivo principal (opcional)"
-                  className="w-full px-3 py-2 rounded-lg border border-field bg-card text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-violet-500/30"
+                  className="w-full px-3 py-2 rounded-lg border border-field bg-card text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-lens/30"
                 />
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={createLocalProject} className="bg-violet-600 hover:bg-violet-700 text-white">Criar</Button>
+                  <Button size="sm" onClick={createLocalProject} className="bg-lens hover:bg-lens-deep text-white">Criar</Button>
                   <Button size="sm" variant="ghost" onClick={() => setNewProjectForm(false)}>Cancelar</Button>
                 </div>
               </CardContent>
@@ -738,7 +740,7 @@ export default function Projetos() {
             const isExpanded = expandedProject === project.id;
 
             return (
-              <Card key={project.id} className={`transition ${isExpanded ? "border-violet-500/30" : ""}`}>
+              <Card key={project.id} className={`transition ${isExpanded ? "border-lens/30" : ""}`}>
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <button
@@ -746,7 +748,7 @@ export default function Projetos() {
                       className="flex-1 text-left group"
                     >
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-base group-hover:text-violet-600 transition-colors">
+                        <CardTitle className="text-base group-hover:text-lens transition-colors">
                           {project.title}
                         </CardTitle>
                         {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -771,7 +773,7 @@ export default function Projetos() {
                     </div>
                     <div className="h-1.5 rounded-full bg-muted/30 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-violet-500 transition"
+                        className="h-full rounded-full bg-lens transition"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -811,7 +813,7 @@ export default function Projetos() {
                       variant="ghost"
                       size="sm"
                       onClick={() => addStage(project.id)}
-                      className="gap-1 text-xs text-muted-foreground hover:text-violet-600"
+                      className="gap-1 text-xs text-muted-foreground hover:text-lens"
                     >
                       <Plus className="w-3 h-3" /> Adicionar etapa
                     </Button>
@@ -823,8 +825,8 @@ export default function Projetos() {
 
           {localProjects.length === 0 && !newProjectForm && (
             <div className="text-center py-10 text-muted-foreground">
-              <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center mx-auto mb-4">
-                <FolderKanban className="w-8 h-8 text-violet-500" />
+              <div className="w-16 h-16 rounded-2xl bg-lens-tint flex items-center justify-center mx-auto mb-4">
+                <FolderKanban className="w-8 h-8 text-lens" />
               </div>
               <p className="text-sm font-medium">Nenhum projeto cadastrado</p>
               <p className="text-xs mt-1">Use o botão "Novo projeto" ou gere um plano com IA.</p>
@@ -834,7 +836,7 @@ export default function Projetos() {
       )}
 
       <div className="mt-10">
-        <Link href="/niasci"><Button variant="ghost" size="sm">← Voltar ao NIASci</Button></Link>
+        <Link href="/niasci" className={buttonVariants({ variant: "ghost", size: "sm" })}>← Voltar ao NIASci</Link>
       </div>
     </div>
   );

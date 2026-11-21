@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sparkles, Target, UserCheck, Clock, FileText, AlertCircle,
   BarChart2, ExternalLink, ArrowLeft, Share2,
@@ -19,6 +20,7 @@ async function fetchShared(token: string) {
     title: string;
     resultJson: Record<string, unknown>;
     createdAt: string;
+    expiresAt?: string | null;
   }>;
 }
 
@@ -147,8 +149,15 @@ export default function Compartilhado() {
     retry: false,
   });
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(window.location.href).catch(() => {});
+  // Cópia com retorno real: "copiado" só depois que o navegador confirmar
+  const [copyMsg, setCopyMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopyMsg({ ok: true, text: "Link copiado." });
+    } catch {
+      setCopyMsg({ ok: false, text: "Não foi possível copiar automaticamente. Copie o endereço na barra do navegador." });
+    }
   };
 
   return (
@@ -156,11 +165,9 @@ export default function Compartilhado() {
       <div className="container mx-auto px-4 py-10 max-w-2xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 gap-4">
-          <Link href="/testar">
-            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-4 h-4" />
-              Testar IA
-            </Button>
+          <Link href="/testar" className={buttonVariants({ variant: "ghost", size: "sm", className: "gap-2" })}>
+            <ArrowLeft className="w-4 h-4" aria-hidden />
+            Analisar um edital
           </Link>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 rounded-full px-3 py-1.5 border border-border/50">
             <Share2 className="w-3 h-3" />
@@ -181,14 +188,12 @@ export default function Compartilhado() {
               <AlertCircle className="w-8 h-8 text-red-400" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold mb-1">Link não encontrado</h2>
-              <p className="text-sm text-muted-foreground">Esta interpretação não existe ou foi removida.</p>
+              <h1 className="text-lg font-semibold mb-1">Link indisponível</h1>
+              <p className="text-sm text-muted-foreground">O link não existe, expirou (links valem 30 dias) ou foi revogado por quem o criou.</p>
             </div>
-              <Link href="/testar">
-                <Button variant="outline" className="gap-2 rounded-xl">
-                  <ExternalLink className="w-4 h-4" />
-                  Fazer nova interpretação
-                </Button>
+              <Link href="/testar" className={buttonVariants({ variant: "outline", className: "gap-2" })}>
+                <ExternalLink className="w-4 h-4" aria-hidden />
+                Fazer nova interpretação
               </Link>
           </div>
         )}
@@ -196,11 +201,15 @@ export default function Compartilhado() {
         {data && (
           <div className="space-y-6">
             <div>
-              <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-slate-800 via-primary to-blue-600 bg-clip-text text-transparent leading-tight">
+              <h1 className="font-display text-2xl font-bold leading-tight text-ink">
                 {data.title || "Interpretação de Edital"}
               </h1>
               <p className="text-xs text-muted-foreground mt-1">
                 Compartilhado em {new Date(data.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
+                {data.expiresAt ? ` · disponível até ${new Date(data.expiresAt).toLocaleDateString("pt-BR")}` : ""}
+              </p>
+              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                Interpretação de apoio, gerada com IA. Não substitui o edital oficial: confira prazos, valores e requisitos no documento.
               </p>
             </div>
 
@@ -210,17 +219,20 @@ export default function Compartilhado() {
               <GenericView r={data.resultJson} />
             )}
 
-            <div className="flex items-center gap-3 pt-2">
-              <Button variant="outline" size="sm" className="gap-2 rounded-xl" onClick={handleCopy}>
-                <Share2 className="w-3.5 h-3.5" />
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Button variant="outline" size="sm" className="gap-2" onClick={handleCopy}>
+                <Share2 className="w-3.5 h-3.5" aria-hidden />
                 Copiar link
               </Button>
-              <Link href="/testar">
-                <Button size="sm" className="gap-2 rounded-xl">
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Interpretar outro edital
-                </Button>
+              <Link href="/testar" className={buttonVariants({ size: "sm", className: "gap-2" })}>
+                <ExternalLink className="w-3.5 h-3.5" aria-hidden />
+                Interpretar outro edital
               </Link>
+              {copyMsg && (
+                <p role="status" className={`w-full text-sm ${copyMsg.ok ? "text-emerald-800" : "text-red-800"}`}>
+                  {copyMsg.text}
+                </p>
+              )}
             </div>
 
             <p className="text-xs text-muted-foreground text-center pt-4 border-t border-border/40">

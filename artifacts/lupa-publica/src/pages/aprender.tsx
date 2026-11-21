@@ -7,7 +7,7 @@
  */
 
 import { Term } from "@/components/edu/Term";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { EXAMPLE_TITLE, LEARN_STEPS, QUIZ } from "@/lib/learn-path";
 import { ArrowLeft, ArrowRight, CheckCircle2, GraduationCap, HelpCircle, RotateCcw, Sparkles, XCircle } from "lucide-react";
@@ -151,11 +151,9 @@ function Quiz() {
               : "Bom começo! Revise os passos acima e tente de novo quando quiser."}
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Link href="/testar">
-              <Button>
+            <Link href="/testar" className={buttonVariants()}>
                 <Sparkles className="mr-2 h-4 w-4" aria-hidden /> Praticar com um edital real
-              </Button>
-            </Link>
+              </Link>
             <Button variant="outline" onClick={() => setAnswers(QUIZ.map(() => null))}>
               <RotateCcw className="mr-2 h-4 w-4" aria-hidden /> Refazer o quiz
             </Button>

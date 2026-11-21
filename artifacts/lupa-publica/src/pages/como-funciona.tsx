@@ -1,96 +1,74 @@
-import { Card, CardContent } from "@/components/ui/card";
+/**
+ * @file pages/como-funciona.tsx
+ * @description Os três caminhos reais do LUPA (analisar, encontrar, participar) e como a
+ * compatibilidade é calculada (âncora #compatibilidade, usada pelas recomendações).
+ */
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { ContentPage, NextActions } from "@/components/lupa/ContentPage";
+
+const FLOWS: Array<{ titulo: string; rota: string; acao: string; passos: string[] }> = [
+  {
+    titulo: "Entender um edital",
+    rota: "/testar",
+    acao: "Analisar um edital",
+    passos: [
+      "Cole o texto, informe o link público ou envie o PDF.",
+      "O agente sugerido aparece com o motivo; você pode escolher outro.",
+      "Clique em Analisar documento. A tela mostra a etapa real (extraindo, analisando, concluído ou parcial).",
+      "Veja resumo, datas, valores, documentos e elegibilidade, cada um com o trecho do edital.",
+      "Salve, exporte em PDF, pergunte no chat ou abra “Quero participar”.",
+    ],
+  },
+  {
+    titulo: "Encontrar oportunidades",
+    rota: "/oportunidades",
+    acao: "Ver oportunidades",
+    passos: [
+      "Busque e filtre editais coletados de fontes oficiais (começando pela FAPDF).",
+      "Com conta, responda às perguntas rápidas do perfil (vínculos, objetivos, áreas).",
+      "Em Minhas recomendações, veja por que cada edital apareceu: aderência, elegibilidade, interesse e pendências separadas.",
+      "Salve os que interessam e receba avisos quando a página oficial mudar.",
+    ],
+  },
+  {
+    titulo: "Organizar a participação",
+    rota: "/participar",
+    acao: "Minhas participações",
+    passos: [
+      "Em um edital ou numa análise salva, clique em Quero participar.",
+      "Marque os documentos prontos, acrescente prazos e itens seus.",
+      "Se o edital pedir projeto, escreva a proposta e salve versões.",
+      "Use a conferência para ver prazo, documentos e seções pendentes. Se o edital mudar, veja o que mudou antes de atualizar.",
+      "A inscrição é feita por você, no canal oficial do edital.",
+    ],
+  },
+];
 
 export default function ComoFunciona() {
-  const steps = [
-    {
-      num: "1",
-      title: "Acesse a plataforma",
-      desc: "Navegue para a página de teste do LUPA Digital de qualquer dispositivo."
-    },
-    {
-      num: "2",
-      title: "Cole o texto ou URL do edital",
-      desc: "Você pode colar o texto inteiro do edital ou simplesmente colar o link público (URL) que nosso sistema extrai o texto automaticamente."
-    },
-    {
-      num: "3",
-      title: "Clique em Simplificar",
-      desc: "A inteligência artificial irá processar o jargão burocrático e jurídico em poucos segundos."
-    },
-    {
-      num: "4",
-      title: "Receba o resumo estruturado",
-      desc: "Você verá informações cruciais como prazos, requisitos e objetivos claramente separados."
-    },
-    {
-      num: "5",
-      title: "Salve ou exporte o PDF",
-      desc: "Você pode salvar no histórico para ver depois ou baixar um PDF elegante do resumo."
-    }
-  ];
-
   return (
-    <div className="container mx-auto px-4 py-16 max-w-4xl">
-      <div className="text-center mb-16">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-4">Como Funciona</h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Veja como a LUPA Digital, dentro do NIASci, transforma documentos complexos em informações acessíveis em apenas 5 passos.
-        </p>
-      </div>
-
-      <div className="relative">
-        {/* Timeline line */}
-        <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-0.5 bg-border -translate-x-1/2" />
-        
-        <div className="space-y-12 relative">
-          {steps.map((step, idx) => {
-            const isEven = idx % 2 === 0;
-            return (
-              <div key={idx} className={`flex flex-col md:flex-row items-center gap-8 ${isEven ? 'md:flex-row-reverse' : ''}`}>
-                <div className="flex-1 w-full flex justify-center md:justify-start">
-                  {isEven ? (
-                    <div className="md:ml-auto md:text-right">
-                      <h3 className="text-2xl font-bold mb-2">{step.title}</h3>
-                      <p className="text-muted-foreground text-lg">{step.desc}</p>
-                    </div>
-                  ) : (
-                    <div className="md:mr-auto">
-                      <h3 className="text-2xl font-bold mb-2">{step.title}</h3>
-                      <p className="text-muted-foreground text-lg">{step.desc}</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold shrink-0 z-10 border-4 border-background shadow-sm">
-                  {step.num}
-                </div>
-                
-                <div className="flex-1 w-full" />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mt-20 text-center">
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="py-8">
-            <h3 className="text-2xl font-bold mb-4">Destaque: Extração via URL</h3>
-            <p className="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
-              Não quer copiar e colar um texto gigante? Basta colar o link do edital e a LUPA Digital extrai tudo para você antes de simplificar.
-            </p>
-            <Link href="/testar">
-              <Button size="lg">Experimentar Agora</Button>
+    <ContentPage eyebrow="Como funciona" title="Três caminhos, do edital à participação" description="O que você faz em cada um e o que recebe.">
+      <div className="grid gap-4 lg:grid-cols-3">
+        {FLOWS.map((f, n) => (
+          <section key={f.titulo} aria-labelledby={`fluxo-${n}`} className="flex flex-col rounded-xl border border-hairline bg-white p-5">
+            <p className="font-mono text-xs font-semibold text-lens">CAMINHO {n + 1}</p>
+            <h2 id={`fluxo-${n}`} className="font-display mt-1 text-lg font-bold text-ink">
+              {f.titulo}
+            </h2>
+            <ol className="mt-3 list-decimal space-y-2 pl-5 text-[0.9375rem] leading-relaxed text-ink-2">
+              {f.passos.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ol>
+            <Link href={f.rota} className="mt-auto pt-4 text-sm font-semibold text-lens underline">
+              {f.acao} →
             </Link>
-          </CardContent>
-        </Card>
+          </section>
+        ))}
       </div>
 
-      <section id="compatibilidade" className="mt-20 scroll-mt-24 rounded-2xl border bg-white p-6 text-left shadow-sm">
-        <h2 className="text-2xl font-bold">Como calculamos a compatibilidade edital × docente</h2>
-        <p className="mt-2 text-muted-foreground">
+      <section id="compatibilidade" className="scroll-mt-24 rounded-xl border border-hairline bg-white p-5 text-left sm:p-7">
+        <h2 className="font-display text-xl font-bold text-ink sm:text-2xl">Como calculamos a compatibilidade edital × docente</h2>
+        <p className="mt-2 text-ink-2">
           A recomendação tem partes avaliadas separadamente. Uma nota alta de aderência nunca esconde um requisito eliminatório.
         </p>
         <h3 className="mt-6 text-lg font-semibold">1. Aderência temática (0 a 100)</h3>
@@ -125,6 +103,8 @@ export default function ComoFunciona() {
           Toda informação do edital mostra o trecho e o link da fonte oficial; o que não foi encontrado aparece como pendente de verificação.
         </p>
       </section>
-    </div>
+
+      <NextActions />
+    </ContentPage>
   );
 }

@@ -271,6 +271,22 @@ describe("meus dados", () => {
   });
 });
 
+describe("ferramentas NIASci (recursos)", () => {
+  it("cada pessoa vê, altera e apaga só os próprios projetos", async () => {
+    (await import("../../../routes/resources")).resetResourceMemory();
+    const c = await call("POST", "/resources/research_projects", A, { title: "Projeto da A" });
+    expect(c.status).toBe(201);
+    const id = c.body.id;
+    expect((await call("GET", "/resources/research_projects", A)).body).toHaveLength(1);
+    expect((await call("GET", "/resources/research_projects", B)).body).toHaveLength(0);
+    expect((await call("GET", `/resources/research_projects/${id}`, B)).status).toBe(404);
+    expect((await call("PUT", `/resources/research_projects/${id}`, B, { title: "invadido" })).status).toBe(404);
+    await call("DELETE", `/resources/research_projects/${id}`, B);
+    expect((await call("GET", `/resources/research_projects/${id}`, A)).body.title).toBe("Projeto da A");
+    expect((await call("POST", "/resources/research_projects", A, { title: "x", user_id: "usuario-b" })).status).toBe(400);
+  });
+});
+
 describe("compartilhamento", () => {
   it("sem login não cria link (para que possa ser revogado)", async () => {
     expect((await call("POST", "/edital/share", undefined, { agentId: "simples", title: "x", resultJson: {} })).status).toBe(401);

@@ -278,7 +278,7 @@ export default function ParticipacaoDetalhe() {
                 Novo documento
               </label>
               <input id="novo-doc" className={inputClass} placeholder="Acrescentar documento (ex.: carta de anuência)" value={newItem} onChange={(e) => setNewItem(e.target.value)} />
-              <Button type="submit" variant="outline">
+              <Button type="submit" variant="outline" disabled={!newItem.trim()}>
                 Acrescentar
               </Button>
             </form>
@@ -323,7 +323,7 @@ export default function ParticipacaoDetalhe() {
                 Data
               </label>
               <input id="novo-prazo-data" type="date" className={inputClass} value={newDate.data} onChange={(e) => setNewDate({ ...newDate, data: e.target.value })} />
-              <Button type="submit" variant="outline">
+              <Button type="submit" variant="outline" disabled={!newDate.rotulo.trim()}>
                 Acrescentar
               </Button>
             </form>

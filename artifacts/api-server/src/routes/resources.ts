@@ -32,6 +32,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import getSupabaseAdmin, { getReqUserId, requireAuth } from "../lib/supabase";
 import { z } from "zod";
+import crypto from "node:crypto";
 
 const router = Router();
 
@@ -62,6 +63,29 @@ function tableNameIsAllowed(name: string) {
  * Extrai mensagem legível de qualquer erro (Error ou objeto Supabase/PostgREST).
  * Evita logar "[object Object]" para erros que não são instâncias de Error.
  */
+// ── Modo memória (SOMENTE testes/E2E: LUPA_STORE=memory, recusado em produção) ──
+// Mesmo formato de linha do banco (snake_case), sempre filtrado pelo dono.
+type MemRow = Record<string, unknown> & { id: string; user_id: string; created_at: string; updated_at: string };
+const memRows = new Map<string, MemRow[]>();
+function memoryMode(): boolean {
+  if (process.env.LUPA_STORE !== "memory") return false;
+  if (process.env.NODE_ENV === "production") throw new Error("LUPA_STORE=memory não é permitido em produção.");
+  return true;
+}
+const memTable = (t: string) => {
+  if (!memRows.has(t)) memRows.set(t, []);
+  return memRows.get(t)!;
+};
+/** Exportado para testes. */
+export function resetResourceMemory() {
+  memRows.clear();
+}
+
+/** Resposta padrão quando o banco não responde: nada foi alterado. */
+function unavailable(res: Response, action: string) {
+  res.status(503).json({ error: `Não foi possível ${action} agora. Nada foi alterado; tente novamente em instantes.` });
+}
+
 function errMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "object" && err !== null && "message" in err) {
@@ -255,9 +279,12 @@ router.get("/resources/:table", async (req: Request, res: Response): Promise<voi
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  const supabase = getSupabaseAdmin();
   try {
-    const { data, error } = await supabase
+    if (memoryMode()) {
+      res.json(memTable(String(table)).filter((r) => r.user_id === String(userId)).sort((a, b) => b.created_at.localeCompare(a.created_at)));
+      return;
+    }
+    const { data, error } = await getSupabaseAdmin()
       .from(String(table))
       .select("*")
       .eq("user_id", userId)
@@ -267,7 +294,7 @@ router.get("/resources/:table", async (req: Request, res: Response): Promise<voi
   } catch (err) {
     const message = errMessage(err);
     req.log?.error({ error: message, table, userId }, "resource:list:error");
-    res.status(500).json({ error: "Falha ao listar recursos." });
+    unavailable(res, "carregar o histórico");
   }
 });
 
@@ -295,7 +322,6 @@ router.post("/resources/:table", async (req: Request, res: Response): Promise<vo
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  const supabase = getSupabaseAdmin();
   try {
     // Só dados validados; user_id vem do JWT (nunca do body)
     const built = buildWritePayload(String(table), req.body, "create", String(userId));
@@ -303,7 +329,14 @@ router.post("/resources/:table", async (req: Request, res: Response): Promise<vo
       res.status(built.status).json(built.body);
       return;
     }
-    const { data, error } = await supabase
+    if (memoryMode()) {
+      const now = new Date().toISOString();
+      const row = { ...(built.data as Record<string, unknown>), id: crypto.randomUUID(), user_id: String(userId), created_at: now, updated_at: now } as MemRow;
+      memTable(String(table)).push(row);
+      res.status(201).json(row);
+      return;
+    }
+    const { data, error } = await getSupabaseAdmin()
       .from(String(table))
       .insert([built.data])
       .select()
@@ -313,7 +346,7 @@ router.post("/resources/:table", async (req: Request, res: Response): Promise<vo
   } catch (err) {
     const message = errMessage(err);
     req.log?.error({ error: message, table, userId }, "resource:create:error");
-    res.status(500).json({ error: "Falha ao criar recurso." });
+    unavailable(res, "salvar");
   }
 });
 
@@ -343,9 +376,14 @@ router.get("/resources/:table/:id", async (req: Request, res: Response): Promise
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  const supabase = getSupabaseAdmin();
   try {
-    const { data, error } = await supabase
+    if (memoryMode()) {
+      const row = memTable(String(table)).find((r) => r.id === String(id) && r.user_id === String(userId));
+      if (!row) res.status(404).json({ error: "Não encontrado" });
+      else res.json(row);
+      return;
+    }
+    const { data, error } = await getSupabaseAdmin()
       .from(String(table))
       .select("*")
       .eq("id", id)
@@ -363,7 +401,7 @@ router.get("/resources/:table/:id", async (req: Request, res: Response): Promise
   } catch (err) {
     const message = errMessage(err);
     req.log?.error({ error: message, table, id, userId }, "resource:get:error");
-    res.status(500).json({ error: "Falha ao recuperar recurso." });
+    unavailable(res, "abrir este item");
   }
 });
 
@@ -393,7 +431,6 @@ router.put("/resources/:table/:id", async (req: Request, res: Response): Promise
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  const supabase = getSupabaseAdmin();
   try {
     // Só dados validados; id/user_id/timestamps nunca podem ser alterados
     const built = buildWritePayload(String(table), req.body, "update", String(userId));
@@ -401,7 +438,17 @@ router.put("/resources/:table/:id", async (req: Request, res: Response): Promise
       res.status(built.status).json(built.body);
       return;
     }
-    const { data, error } = await supabase
+    if (memoryMode()) {
+      const row = memTable(String(table)).find((r) => r.id === String(id) && r.user_id === String(userId));
+      if (!row) {
+        res.status(404).json({ error: "Não encontrado ou sem permissão" });
+        return;
+      }
+      Object.assign(row, built.data, { updated_at: new Date().toISOString() });
+      res.json(row);
+      return;
+    }
+    const { data, error } = await getSupabaseAdmin()
       .from(String(table))
       .update(built.data)
       .match({ id, user_id: userId }) // atômico: só atualiza se id E user_id baterem
@@ -423,7 +470,7 @@ router.put("/resources/:table/:id", async (req: Request, res: Response): Promise
   } catch (err) {
     const message = errMessage(err);
     req.log?.error({ error: message, table, id, userId }, "resource:update:error");
-    res.status(500).json({ error: "Falha ao atualizar recurso." });
+    unavailable(res, "salvar a alteração");
   }
 });
 
@@ -452,9 +499,15 @@ router.delete("/resources/:table/:id", async (req: Request, res: Response): Prom
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  const supabase = getSupabaseAdmin();
   try {
-    const { error } = await supabase
+    if (memoryMode()) {
+      const t = memTable(String(table));
+      const i = t.findIndex((r) => r.id === String(id) && r.user_id === String(userId));
+      if (i >= 0) t.splice(i, 1);
+      res.sendStatus(204);
+      return;
+    }
+    const { error } = await getSupabaseAdmin()
       .from(String(table))
       .delete()
       .match({ id, user_id: userId }); // owner check: só deleta se ambos baterem
@@ -463,7 +516,7 @@ router.delete("/resources/:table/:id", async (req: Request, res: Response): Prom
   } catch (err) {
     const message = errMessage(err);
     req.log?.error({ error: message, table, id, userId }, "resource:delete:error");
-    res.status(500).json({ error: "Falha ao deletar recurso." });
+    unavailable(res, "excluir");
   }
 });
 

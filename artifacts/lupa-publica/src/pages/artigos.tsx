@@ -26,7 +26,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -254,7 +254,7 @@ export default function Artigos() {
     <div className="max-w-4xl mx-auto px-4 py-10">
       <NiasciHeader
         module="Artigos Científicos"
-        moduleColor="text-amber-600 dark:text-amber-400"
+        moduleColor="text-lens dark:text-amber-400"
         title="Artigos Científicos"
         description="Analise artigos acadêmicos com IA e extraia automaticamente todos os componentes estruturais: objetivo, metodologia, resultados, conclusões, limitações, citações, referências e palavras-chave."
       />
@@ -265,7 +265,7 @@ export default function Artigos() {
         onDelete={handleHistoryDelete}
         getLabel={(a) => (a.metadata as any)?.result?.titulo ?? a.title ?? "Artigo sem título"}
         isLoading={historyLoading}
-        accentBg="bg-amber-500/10"
+        accentBg="bg-lens-tint"
       />
 
       <InputSection
@@ -282,7 +282,7 @@ export default function Artigos() {
       <AnalysisProgress
         stage={stage}
         stages={STAGES}
-        accentColor="text-amber-500"
+        accentColor="text-lens"
         errorMessage={errorMessage}
       />
 
@@ -291,10 +291,10 @@ export default function Artigos() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-amber-500" />
+              <Sparkles className="w-5 h-5 text-lens" />
               <h2 className="text-lg font-bold">{result.titulo ?? "Artigo analisado"}</h2>
               {result.tipo && (
-                <Badge variant="outline" className="text-amber-600 border-amber-500/30">{result.tipo}</Badge>
+                <Badge variant="outline" className="text-lens border-lens/30">{result.tipo}</Badge>
               )}
             </div>
             <ExportButton filename={`artigo-${result.titulo ?? "analise"}`} sections={buildExportSections()} />
@@ -304,7 +304,7 @@ export default function Artigos() {
           {(result.keywords?.length ?? 0) > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-4">
               {(result.keywords ?? []).map((k, i) => (
-                <Badge key={i} className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-0 text-xs">{k}</Badge>
+                <Badge key={i} className="bg-lens-tint text-lens dark:text-amber-300 border-0 text-xs">{k}</Badge>
               ))}
             </div>
           )}
@@ -326,7 +326,7 @@ export default function Artigos() {
             {/* Resumo executivo */}
             <TabsContent value="resumo">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="w-4 h-4 text-amber-500" /> Resumo executivo</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="w-4 h-4 text-lens" /> Resumo executivo</CardTitle></CardHeader>
                 <CardContent><p className="text-sm leading-7">{result.resumo ?? "—"}</p></CardContent>
               </Card>
             </TabsContent>
@@ -334,7 +334,7 @@ export default function Artigos() {
             {/* Objetivo */}
             <TabsContent value="objetivo">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Target className="w-4 h-4 text-amber-500" /> Objetivo da pesquisa</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Target className="w-4 h-4 text-lens" /> Objetivo da pesquisa</CardTitle></CardHeader>
                 <CardContent><p className="text-sm leading-7">{result.objetivo ?? "—"}</p></CardContent>
               </Card>
             </TabsContent>
@@ -342,7 +342,7 @@ export default function Artigos() {
             {/* Metodologia */}
             <TabsContent value="metodologia">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><FlaskConical className="w-4 h-4 text-amber-500" /> Metodologia</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><FlaskConical className="w-4 h-4 text-lens" /> Metodologia</CardTitle></CardHeader>
                 <CardContent><p className="text-sm leading-7">{result.metodologia ?? "—"}</p></CardContent>
               </Card>
             </TabsContent>
@@ -350,7 +350,7 @@ export default function Artigos() {
             {/* Resultados */}
             <TabsContent value="resultados">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-amber-500" /> Resultados</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-lens" /> Resultados</CardTitle></CardHeader>
                 <CardContent><p className="text-sm leading-7">{result.resultados ?? "—"}</p></CardContent>
               </Card>
             </TabsContent>
@@ -358,7 +358,7 @@ export default function Artigos() {
             {/* Conclusões */}
             <TabsContent value="conclusoes">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><CheckSquare className="w-4 h-4 text-amber-500" /> Conclusões</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><CheckSquare className="w-4 h-4 text-lens" /> Conclusões</CardTitle></CardHeader>
                 <CardContent><p className="text-sm leading-7">{result.conclusoes ?? "—"}</p></CardContent>
               </Card>
             </TabsContent>
@@ -366,7 +366,7 @@ export default function Artigos() {
             {/* Limitações */}
             <TabsContent value="limitacoes">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-amber-500" /> Limitações do estudo</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-lens" /> Limitações do estudo</CardTitle></CardHeader>
                 <CardContent><p className="text-sm leading-7">{result.limitacoes ?? "—"}</p></CardContent>
               </Card>
             </TabsContent>
@@ -374,12 +374,12 @@ export default function Artigos() {
             {/* Referências */}
             <TabsContent value="referencias">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-amber-500" /> Referências bibliográficas</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-lens" /> Referências bibliográficas</CardTitle></CardHeader>
                 <CardContent>
                   <ul className="space-y-1.5">
                     {(result.referencias ?? []).map((r, i) => (
                       <li key={i} className="flex gap-2 text-xs text-foreground/80">
-                        <span className="text-amber-500 shrink-0 font-bold">[{i + 1}]</span>
+                        <span className="text-lens shrink-0 font-bold">[{i + 1}]</span>
                         <span>{r}</span>
                       </li>
                     ))}
@@ -391,11 +391,11 @@ export default function Artigos() {
             {/* Citações relevantes */}
             <TabsContent value="citacoes">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Quote className="w-4 h-4 text-amber-500" /> Citações relevantes</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Quote className="w-4 h-4 text-lens" /> Citações relevantes</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {(result.citacoes ?? []).map((c, i) => (
-                      <div key={i} className="border-l-2 border-amber-500/30 pl-4">
+                      <div key={i} className="border-l-2 border-lens/30 pl-4">
                         <p className="text-sm italic text-foreground/80">"{c.trecho}"</p>
                         <p className="text-xs text-muted-foreground mt-1">{c.relevancia}</p>
                       </div>
@@ -408,12 +408,12 @@ export default function Artigos() {
             {/* Sugestões de uso */}
             <TabsContent value="uso">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Lightbulb className="w-4 h-4 text-amber-500" /> Sugestões de uso</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Lightbulb className="w-4 h-4 text-lens" /> Sugestões de uso</CardTitle></CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
                     {(result.sugestoesDeUso ?? []).map((s, i) => (
                       <li key={i} className="flex gap-2 text-sm">
-                        <span className="text-amber-500 shrink-0">→</span>
+                        <span className="text-lens shrink-0">→</span>
                         <span>{s}</span>
                       </li>
                     ))}
@@ -425,12 +425,12 @@ export default function Artigos() {
             {/* Alertas */}
             {(result.alertas?.length ?? 0) > 0 && (
               <TabsContent value="alertas">
-                <Card className="border-amber-500/30">
-                  <CardHeader><CardTitle className="flex items-center gap-2 text-amber-600"><AlertCircle className="w-4 h-4" /> Pontos de atenção</CardTitle></CardHeader>
+                <Card className="border-lens/30">
+                  <CardHeader><CardTitle className="flex items-center gap-2 text-lens"><AlertCircle className="w-4 h-4" /> Pontos de atenção</CardTitle></CardHeader>
                   <CardContent>
                     <ul className="space-y-2">
                       {(result.alertas ?? []).map((a, i) => (
-                        <li key={i} className="text-sm text-amber-700 dark:text-amber-300">{a}</li>
+                        <li key={i} className="text-sm text-lens dark:text-amber-300">{a}</li>
                       ))}
                     </ul>
                   </CardContent>
@@ -444,15 +444,15 @@ export default function Artigos() {
       {/* Estado vazio */}
       {stage === "idle" && (
         <div className="text-center py-12 text-muted-foreground">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
-            <FileText className="w-8 h-8 text-amber-500" />
+          <div className="w-16 h-16 rounded-2xl bg-lens-tint flex items-center justify-center mx-auto mb-4">
+            <FileText className="w-8 h-8 text-lens" />
           </div>
           <p className="text-sm font-medium">Nenhum artigo analisado ainda</p>
           <p className="text-xs mt-1 max-w-sm mx-auto">
             Faça upload do PDF ou cole o texto do artigo científico para começar a análise.
           </p>
           <div className="mt-6">
-            <Link href="/niasci"><Button variant="ghost" size="sm">← Voltar ao NIASci</Button></Link>
+            <Link href="/niasci" className={buttonVariants({ variant: "ghost", size: "sm" })}>← Voltar ao NIASci</Link>
           </div>
         </div>
       )}

@@ -1,53 +1,48 @@
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+/**
+ * @file pages/sobre.tsx
+ * @description O que é o LUPA, quem faz, princípios e estado atual — sem promessas que não se sustentam.
+ */
+import { ContentPage, ContentSection, NextActions, TermList } from "@/components/lupa/ContentPage";
 
 export default function Sobre() {
-  const valores = [
-    { title: "Acessibilidade", desc: "Informação pública deve ser compreensível para todos, não apenas para advogados." },
-    { title: "Inclusão Digital", desc: "Uso da tecnologia para aproximar o cidadão do Estado." },
-    { title: "Transparência", desc: "Regras claras geram processos mais justos e competitivos." },
-    { title: "Inovação", desc: "Aplicação de IA de ponta para resolver problemas crônicos." },
-    { title: "Educação", desc: "Ajudar o cidadão a entender seus direitos e oportunidades." },
-    { title: "Impacto Social", desc: "Focar em editais que mudam vidas: bolsas, concursos e auxílios." },
-    { title: "Ética", desc: "Uso responsável da IA com foco no bem comum e privacidade." }
-  ];
-
   return (
-    <div className="container mx-auto px-4 py-16 max-w-5xl">
-      <div className="text-center mb-16">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-4">Sobre Nós</h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Conheça a missão que nos move e a visão de futuro que estamos construindo.
+    <ContentPage
+      eyebrow="Sobre"
+      title="O que é o LUPA Digital"
+      description="Um projeto do NIASci/UnDF para que encontrar uma oportunidade, entender se ela serve para você e saber como seguir seja mais simples."
+    >
+      <ContentSection id="missao" title="Para que existe">
+        <p>
+          Editais decidem quem acessa bolsas, financiamento de pesquisa, vagas e programas públicos. Eles costumam ser longos, técnicos e espalhados por vários
+          sites. O LUPA ajuda a ler esses documentos em linguagem simples, mostrando de onde veio cada informação, e organiza o trabalho de quem quer participar.
         </p>
-      </div>
+        <p>
+          O primeiro público é o corpo docente da UnDF, com editais da FAPDF. A análise de editais em <a href="/testar" className="font-semibold text-lens underline">Analisar um edital</a>{" "}
+          é aberta a qualquer pessoa.
+        </p>
+      </ContentSection>
 
-      <div className="grid md:grid-cols-2 gap-12 mb-20">
-        <div className="bg-primary text-primary-foreground p-8 rounded-3xl shadow-lg">
-          <h2 className="text-3xl font-bold mb-4 text-primary-foreground">Nossa Missão</h2>
-          <p className="text-lg leading-relaxed opacity-90">
-            Democratizar o acesso à informação pública no Brasil por meio da Inteligência Artificial, traduzindo a linguagem burocrática em conhecimento acessível e empoderando o cidadão.
-          </p>
-        </div>
-        <div className="bg-muted p-8 rounded-3xl border border-border">
-          <h2 className="text-3xl font-bold mb-4">Nossa Visão</h2>
-          <p className="text-lg leading-relaxed text-muted-foreground">
-            Ser a ferramenta de referência nacional para interpretação de documentos públicos, garantindo que a complexidade jurídica nunca mais seja uma barreira entre o cidadão e seus direitos.
-          </p>
-        </div>
-      </div>
+      <ContentSection id="principios" title="Como trabalhamos">
+        <TermList
+          items={[
+            { t: "O documento oficial manda", d: "Toda data, valor ou requisito mostra o trecho de origem. O que não está no texto aparece como “não encontrado”." },
+            { t: "Sem resultado inventado", d: "Quando a IA falha, a tela diz que o resultado é parcial ou de contingência, em vez de fingir que deu certo." },
+            { t: "Linguagem simples", d: "Explicamos sem mudar o sentido. Termos difíceis têm glossário." },
+            { t: "Seus dados, sob seu controle", d: "Perfil opcional, cópia e exclusão dos dados em Configurações, links compartilhados revogáveis." },
+            { t: "Decisão é sua", d: "Recomendações e conferências apoiam; não aprovam nem inscrevem ninguém." },
+            { t: "Acessível para mais gente", d: "Meta técnica WCAG 2.2 AA, funcionamento no celular e por teclado." },
+          ]}
+        />
+      </ContentSection>
 
-      <h2 className="text-3xl font-bold text-center mb-10">Nossos Valores</h2>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {valores.map((v, i) => (
-          <Card key={i} className="border-border/50 hover:border-primary/30 transition-colors">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xl text-primary">{v.title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">{v.desc}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
+      <ContentSection id="estado" title="Em que ponto estamos" tone="tint">
+        <p>
+          O LUPA está em desenvolvimento. A análise de editais funciona em produção; catálogo, recomendações e “Quero participar” foram validados em testes e
+          ainda não passaram por um piloto com docentes. Integrações com Hermes e eLattes dependem de contratos que ainda não temos.
+        </p>
+      </ContentSection>
+
+      <NextActions />
+    </ContentPage>
   );
 }

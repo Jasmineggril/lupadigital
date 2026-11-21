@@ -1,74 +1,37 @@
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+/**
+ * @file pages/impacto-social.tsx
+ * @description Por que o LUPA existe e para quem serve HOJE (sem prometer cobertura que não temos).
+ */
+import { ContentPage, ContentSection, NextActions, TermList } from "@/components/lupa/ContentPage";
 
 export default function ImpactoSocial() {
   return (
-    <div className="container mx-auto px-4 py-16 max-w-4xl">
-      <div className="text-center mb-16">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-4">Impacto Social</h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Por que simplificar editais é uma questão de cidadania.
-        </p>
-      </div>
-
-      <div className="prose prose-lg dark:prose-invert max-w-none mb-16">
+    <ContentPage eyebrow="Impacto social" title="Por que simplificar editais" description="Entender as regras é o primeiro passo para participar.">
+      <ContentSection id="problema" title="O problema">
         <p>
-          No Brasil, o acesso a oportunidades governamentais, bolsas de estudo, vagas em universidades, financiamentos para cultura e até auxílios sociais depende da leitura e compreensão de <strong>editais</strong>.
+          Bolsas, financiamento de pesquisa, vagas e programas públicos dependem de editais. Eles são longos, técnicos e mudam com retificações. Muita gente
+          desiste ou perde prazos não por falta de requisitos, mas por não conseguir entender o documento a tempo.
         </p>
         <p>
-          O problema é que esses documentos são escritos em "juridiquês", uma linguagem densa, burocrática e excludente. O cidadão comum frequentemente perde oportunidades não porque não tem os requisitos, mas porque não conseguiu entender as regras do jogo.
+          <strong className="text-ink">Linguagem simples é uma forma de acesso.</strong> O LUPA traduz sem mudar o sentido e sempre aponta o trecho original.
         </p>
-        <p>
-          Acreditamos que <strong>linguagem simples é direito do cidadão</strong>. A LUPA Digital usa a tecnologia para equilibrar essa balança.
-        </p>
-      </div>
+      </ContentSection>
 
-      <h2 className="text-3xl font-bold mb-8 text-center">Quem se Beneficia?</h2>
-      <div className="grid sm:grid-cols-2 gap-6 mb-16">
-        <Card>
-          <CardHeader>
-            <CardTitle>Estudantes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Compreendendo editais do ENEM, Prouni, FIES, Sisu e programas de bolsas de iniciação científica e extensão.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Concurseiros</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Entendendo rapidamente os requisitos, cronogramas e conteúdo programático de concursos públicos municipais, estaduais e federais.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Artistas e Empreendedores</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Acessando editais de fomento à cultura (Lei Rouanet, Lei Paulo Gustavo) e programas de aceleração de startups ou editais da FAPESP/FINEP.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>População Vulnerável</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Descobrindo se tem direito e como acessar programas de habitação popular, auxílios emergenciais e benefícios sociais.</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="bg-primary/10 rounded-3xl p-8 text-center">
-        <h3 className="text-2xl font-bold mb-4">Faça parte dessa mudança</h3>
-        <p className="text-lg text-slate-700 mb-6 max-w-2xl mx-auto">
-          Você tem um edital complexo que precisa entender? Teste nossa ferramenta gratuitamente e veja a diferença.
+      <ContentSection id="quem" title="Para quem serve hoje">
+        <TermList
+          items={[
+            { t: "Docentes e pesquisadores da UnDF", d: "Catálogo de editais da FAPDF, recomendações explicadas e espaço para organizar a participação." },
+            { t: "Estudantes", d: "Entender editais de bolsas, iniciação científica, extensão e seleções." },
+            { t: "Quem presta concursos ou seleções", d: "Ver prazos, etapas, documentos e requisitos de qualquer edital que você enviar." },
+            { t: "Qualquer pessoa", d: "Analisar um edital público por texto, link ou PDF, sem precisar criar conta." },
+          ]}
+        />
+        <p className="text-sm text-slate-700">
+          O catálogo monitora só fontes oficiais configuradas (começando pela FAPDF). Não cobrimos todos os editais da internet.
         </p>
-        <Link href="/testar">
-          <Button size="lg">Simplificar um Edital</Button>
-        </Link>
-      </div>
-    </div>
+      </ContentSection>
+
+      <NextActions title="Experimente com um edital seu" />
+    </ContentPage>
   );
 }

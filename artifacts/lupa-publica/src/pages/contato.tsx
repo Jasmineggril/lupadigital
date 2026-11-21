@@ -2,8 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
-import { Mail, Github, Linkedin } from "lucide-react";
+import { Mail, Github } from "lucide-react";
+import { ContentPage, ContentSection } from "@/components/lupa/ContentPage";
 
 const CONTACT_EMAIL = "contato@lupapublica.com.br";
 
@@ -25,75 +25,49 @@ export default function Contato() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-16 max-w-5xl">
-      <div className="text-center mb-16">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-4">Contato</h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Tem dúvidas, sugestões ou quer colaborar com o projeto? Fale com a gente.
-        </p>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-12">
-        <div>
-          <h2 className="text-2xl font-bold mb-6">Fale Conosco</h2>
-          <p className="text-muted-foreground mb-8">
-            A LUPA Digital, dentro do NIASci, é um projeto de responsabilidade social e código aberto. Estamos sempre abertos a parcerias com governos, ONGs e desenvolvedores voluntários.
+    <ContentPage eyebrow="Contato" title="Fale com a equipe" description="Dúvidas, sugestões, problemas encontrados ou interesse em colaborar com o projeto.">
+      <div className="grid gap-6 md:grid-cols-[1fr_1.2fr]">
+        <ContentSection id="canais" title="Canais">
+          <p>O LUPA Digital é um projeto acadêmico e de código aberto do NIASci/UnDF.</p>
+          <ul className="space-y-3">
+            <li className="flex items-center gap-3">
+              <Mail className="h-5 w-5 shrink-0 text-lens" aria-hidden />
+              <a href={`mailto:${CONTACT_EMAIL}`} className="font-medium text-ink underline">
+                {CONTACT_EMAIL}
+              </a>
+            </li>
+            <li className="flex items-center gap-3">
+              <Github className="h-5 w-5 shrink-0 text-lens" aria-hidden />
+              <a href="https://github.com/Jasmineggril/lupadigital" target="_blank" rel="noopener noreferrer" className="font-medium text-ink underline">
+                Código no GitHub<span className="sr-only"> (abre em nova aba)</span>
+              </a>
+            </li>
+          </ul>
+          <p className="text-sm">
+            Pedidos sobre seus dados pessoais: use também <a href="/configuracoes" className="font-semibold text-lens underline">Configurações → Seus dados</a>.
           </p>
-          
-          <div className="space-y-6">
-            <div className="flex items-center gap-4 text-lg">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <Mail className="w-6 h-6" />
-              </div>
-              <a href="mailto:contato@lupapublica.com.br" className="hover:text-primary transition-colors">
-                contato@lupapublica.com.br
-              </a>
-            </div>
-            
-            <div className="flex items-center gap-4 text-lg">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <Github className="w-6 h-6" />
-              </div>
-              <a href="https://github.com/Jasmineggril/lupapublica" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                github.com/Jasmineggril/lupapublica
-              </a>
-            </div>
-            
-            <div className="flex items-center gap-4 text-lg">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <Linkedin className="w-6 h-6" />
-              </div>
-              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                LUPA Digital
-              </a>
-            </div>
-          </div>
-        </div>
+        </ContentSection>
 
-        <Card>
-          <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium">Nome</label>
-                <Input id="name" placeholder="Seu nome" required />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium">E-mail</label>
-                <Input id="email" type="email" placeholder="seu@email.com" required />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="message" className="text-sm font-medium">Mensagem</label>
-                <Textarea id="message" placeholder="Como podemos ajudar?" className="min-h-[150px] resize-y" required />
-              </div>
-              <Button type="submit" className="w-full">Escrever pelo meu e-mail</Button>
-              <p className="text-xs text-muted-foreground">
-                Abre o seu programa de e-mail com a mensagem preenchida. Para pedidos sobre seus dados pessoais, você também pode usar
-                Configurações → Seus dados (baixar ou excluir).
-              </p>
-            </form>
-          </CardContent>
-        </Card>
+        <section aria-labelledby="escrever" className="rounded-xl border border-hairline bg-white p-5 sm:p-7">
+          <h2 id="escrever" className="font-display text-xl font-bold text-ink">
+            Escrever uma mensagem
+          </h2>
+          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="name" className="block text-sm font-semibold text-ink">Nome</label>
+              <Input id="name" name="name" autoComplete="name" required />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="message" className="block text-sm font-semibold text-ink">Mensagem</label>
+              <Textarea id="message" name="message" className="min-h-[150px] resize-y" required />
+            </div>
+            <Button type="submit" className="w-full">Escrever pelo meu e-mail</Button>
+            <p className="text-xs text-slate-700">
+              Abre o seu programa de e-mail com a mensagem preenchida. Nada é enviado pelo site: a mensagem só sai quando você confirmar o envio lá.
+            </p>
+          </form>
+        </section>
       </div>
-    </div>
+    </ContentPage>
   );
 }

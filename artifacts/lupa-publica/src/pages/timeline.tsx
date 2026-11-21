@@ -1,3 +1,4 @@
+import { Link } from "wouter";
 import { useListAgentHistory } from "@workspace/api-client-react";
 import type { AgentResultRecord } from "@workspace/api-client-react";
 import { useMemo, useState } from "react";
@@ -168,6 +169,7 @@ export default function Timeline() {
                 Analise um edital com o agente{" "}
                 <strong>Acompanhamento</strong> e salve o resultado para visualizá-lo aqui.
               </p>
+              <Link href="/testar" className="mt-3 text-sm font-semibold text-lens underline">Analisar um edital</Link>
             </CardContent>
           </Card>
         ) : (

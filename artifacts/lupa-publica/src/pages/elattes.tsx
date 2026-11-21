@@ -26,7 +26,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -289,7 +289,7 @@ export default function ELattes() {
       {/* Cabeçalho padronizado NIASci */}
       <NiasciHeader
         module="e-Lattes"
-        moduleColor="text-emerald-600 dark:text-emerald-400"
+        moduleColor="text-lens dark:text-emerald-400"
         title="e-Lattes"
         description="Faça upload do seu currículo Lattes em PDF ou cole o texto para receber uma análise completa: resumo executivo, linha do tempo, competências, publicações e sugestões de editais compatíveis com seu perfil."
       />
@@ -301,7 +301,7 @@ export default function ELattes() {
         onDelete={handleHistoryDelete}
         getLabel={(p) => (p.metadata as any)?.result?.resumo?.slice(0, 80) ?? p.name ?? "Análise sem título"}
         isLoading={historyLoading}
-        accentBg="bg-emerald-500/10"
+        accentBg="bg-lens-tint"
       />
 
       {/* Seção de entrada: upload PDF + textarea */}
@@ -320,7 +320,7 @@ export default function ELattes() {
       <AnalysisProgress
         stage={stage}
         stages={STAGES}
-        accentColor="text-emerald-500"
+        accentColor="text-lens"
         errorMessage={errorMessage}
       />
 
@@ -330,10 +330,10 @@ export default function ELattes() {
           {/* Cabeçalho dos resultados com botão de exportação */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-emerald-500" />
+              <Sparkles className="w-5 h-5 text-lens" />
               <h2 className="text-lg font-bold">Resultado da análise</h2>
               {result.nomeInferido && (
-                <Badge variant="outline" className="text-emerald-600 border-emerald-500/30">
+                <Badge variant="outline" className="text-lens border-lens/30">
                   {result.nomeInferido}
                 </Badge>
               )}
@@ -361,7 +361,7 @@ export default function ELattes() {
             {/* Aba: Resumo executivo */}
             <TabsContent value="resumo">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><User className="w-4 h-4 text-emerald-500" /> Resumo executivo</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><User className="w-4 h-4 text-lens" /> Resumo executivo</CardTitle></CardHeader>
                 <CardContent>
                   <p className="text-sm leading-7 text-foreground/90">{result.resumo ?? "Sem resumo disponível."}</p>
                 </CardContent>
@@ -371,7 +371,7 @@ export default function ELattes() {
             {/* Aba: Linha do tempo acadêmica */}
             <TabsContent value="timeline">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Clock className="w-4 h-4 text-emerald-500" /> Linha do tempo acadêmica</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Clock className="w-4 h-4 text-lens" /> Linha do tempo acadêmica</CardTitle></CardHeader>
                 <CardContent>
                   {(result.timeline ?? []).length === 0 ? (
                     <p className="text-sm text-muted-foreground">Nenhum evento identificado no currículo.</p>
@@ -380,7 +380,7 @@ export default function ELattes() {
                       {(result.timeline ?? []).map((item, i) => (
                         <div key={i} className="flex gap-4">
                           <div className="shrink-0 w-14 text-right">
-                            <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-500/30">{item.year}</Badge>
+                            <Badge variant="outline" className="text-xs text-lens border-lens/30">{item.year}</Badge>
                           </div>
                           <div className="flex-1 border-l border-border/40 pl-4 pb-3">
                             <p className="text-sm text-foreground/90">{item.text}</p>
@@ -396,11 +396,11 @@ export default function ELattes() {
             {/* Aba: Competências */}
             <TabsContent value="competencias">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Target className="w-4 h-4 text-emerald-500" /> Competências identificadas</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Target className="w-4 h-4 text-lens" /> Competências identificadas</CardTitle></CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
                     {(result.competencias ?? []).map((c, i) => (
-                      <Badge key={i} className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-0">{c}</Badge>
+                      <Badge key={i} className="bg-lens-tint text-lens dark:text-emerald-300 border-0">{c}</Badge>
                     ))}
                   </div>
                 </CardContent>
@@ -410,7 +410,7 @@ export default function ELattes() {
             {/* Aba: Produção científica */}
             <TabsContent value="publicacoes">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-emerald-500" /> Produção científica</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-lens" /> Produção científica</CardTitle></CardHeader>
                 <CardContent>
                   {(result.publicacoes ?? []).length === 0 ? (
                     <p className="text-sm text-muted-foreground">Nenhuma publicação identificada.</p>
@@ -418,7 +418,7 @@ export default function ELattes() {
                     <ul className="space-y-2">
                       {(result.publicacoes ?? []).map((p, i) => (
                         <li key={i} className="flex gap-2 text-sm">
-                          <span className="text-emerald-500 shrink-0">•</span>
+                          <span className="text-lens shrink-0">•</span>
                           <span className="text-foreground/90">{p}</span>
                         </li>
                       ))}
@@ -431,11 +431,11 @@ export default function ELattes() {
             {/* Aba: Áreas de pesquisa */}
             <TabsContent value="areas">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="w-4 h-4 text-emerald-500" /> Áreas de pesquisa</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="w-4 h-4 text-lens" /> Áreas de pesquisa</CardTitle></CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
                     {(result.areas ?? []).map((a, i) => (
-                      <Badge key={i} variant="outline" className="text-emerald-600 border-emerald-500/30">{a}</Badge>
+                      <Badge key={i} variant="outline" className="text-lens border-lens/30">{a}</Badge>
                     ))}
                   </div>
                 </CardContent>
@@ -445,12 +445,12 @@ export default function ELattes() {
             {/* Aba: Sugestões de editais */}
             <TabsContent value="sugestoes">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><BarChart2 className="w-4 h-4 text-emerald-500" /> Editais sugeridos</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><BarChart2 className="w-4 h-4 text-lens" /> Editais sugeridos</CardTitle></CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
                     {(result.sugestoes ?? []).map((s, i) => (
                       <li key={i} className="flex gap-2 text-sm">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-4 h-4 text-lens shrink-0 mt-0.5" />
                         <span>{s}</span>
                       </li>
                     ))}
@@ -462,7 +462,7 @@ export default function ELattes() {
             {/* Aba: Oportunidades */}
             <TabsContent value="oportunidades">
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Lightbulb className="w-4 h-4 text-emerald-500" /> Ideias de oportunidades</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Lightbulb className="w-4 h-4 text-lens" /> Ideias de oportunidades</CardTitle></CardHeader>
                 <CardContent>
                   <p role="note" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                     Sugestões geradas pela IA a partir do currículo: <strong>não são editais nem vagas reais</strong> e podem citar instituições de exemplo.
@@ -486,22 +486,22 @@ export default function ELattes() {
               <div className="space-y-4">
                 {/* Índice de Maturidade Científica */}
                 {result.maturidadeCientifica && (
-                  <Card className="border-emerald-500/30 bg-emerald-50/40">
+                  <Card className="border-lens/30 bg-lens-tint/40">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        <BarChart2 className="w-4 h-4 text-emerald-500" />
+                        <BarChart2 className="w-4 h-4 text-lens" />
                         ⭐ Índice de Maturidade Científica
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="flex items-center gap-4">
-                        <p className={`text-4xl font-black ${(result.maturidadeCientifica.score ?? 0) >= 70 ? "text-emerald-600" : (result.maturidadeCientifica.score ?? 0) >= 40 ? "text-amber-600" : "text-red-500"}`}>
+                        <p className={`text-4xl font-black ${(result.maturidadeCientifica.score ?? 0) >= 70 ? "text-lens" : (result.maturidadeCientifica.score ?? 0) >= 40 ? "text-amber-600" : "text-red-500"}`}>
                           {result.maturidadeCientifica.score}<span className="text-base font-normal text-muted-foreground">/100</span>
                         </p>
                         <div className="flex-1">
                           <div className="w-full bg-muted rounded-full h-3">
                             <div
-                              className={`h-3 rounded-full transition ${(result.maturidadeCientifica.score ?? 0) >= 70 ? "bg-emerald-500" : (result.maturidadeCientifica.score ?? 0) >= 40 ? "bg-amber-400" : "bg-red-400"}`}
+                              className={`h-3 rounded-full transition ${(result.maturidadeCientifica.score ?? 0) >= 70 ? "bg-lens" : (result.maturidadeCientifica.score ?? 0) >= 40 ? "bg-amber-400" : "bg-red-400"}`}
                               style={{ width: `${result.maturidadeCientifica.score ?? 0}%` }}
                             />
                           </div>
@@ -524,7 +524,7 @@ export default function ELattes() {
                           <ol className="space-y-1">
                             {(result.maturidadeCientifica.acoesPrioritarias ?? []).map((a, i) => (
                               <li key={i} className="flex gap-2 text-sm">
-                                <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                                <span className="w-4 h-4 rounded-full bg-lens-tint text-lens text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
                                 <span>{a}</span>
                               </li>
                             ))}
@@ -541,11 +541,11 @@ export default function ELattes() {
                   <div className="space-y-3">
                     {(result.sugestoesMelhoria.curriculo ?? []).length > 0 && (
                       <Card>
-                        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-500" /> Currículo</CardTitle></CardHeader>
+                        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Sparkles className="w-4 h-4 text-lens" /> Currículo</CardTitle></CardHeader>
                         <CardContent>
                           <ul className="space-y-2">
                             {(result.sugestoesMelhoria.curriculo ?? []).map((s, i) => (
-                              <li key={i} className="flex gap-2 text-sm"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /><span>{s}</span></li>
+                              <li key={i} className="flex gap-2 text-sm"><CheckCircle2 className="w-4 h-4 text-lens shrink-0 mt-0.5" /><span>{s}</span></li>
                             ))}
                           </ul>
                         </CardContent>
@@ -553,11 +553,11 @@ export default function ELattes() {
                     )}
                     {(result.sugestoesMelhoria.producaoCientifica ?? []).length > 0 && (
                       <Card>
-                        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><BookOpen className="w-4 h-4 text-emerald-500" /> Produção Científica</CardTitle></CardHeader>
+                        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><BookOpen className="w-4 h-4 text-lens" /> Produção Científica</CardTitle></CardHeader>
                         <CardContent>
                           <ul className="space-y-2">
                             {(result.sugestoesMelhoria.producaoCientifica ?? []).map((s, i) => (
-                              <li key={i} className="flex gap-2 text-sm"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /><span>{s}</span></li>
+                              <li key={i} className="flex gap-2 text-sm"><CheckCircle2 className="w-4 h-4 text-lens shrink-0 mt-0.5" /><span>{s}</span></li>
                             ))}
                           </ul>
                         </CardContent>
@@ -565,11 +565,11 @@ export default function ELattes() {
                     )}
                     {(result.sugestoesMelhoria.competencias ?? []).length > 0 && (
                       <Card>
-                        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Target className="w-4 h-4 text-emerald-500" /> Competências</CardTitle></CardHeader>
+                        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Target className="w-4 h-4 text-lens" /> Competências</CardTitle></CardHeader>
                         <CardContent>
                           <ul className="space-y-2">
                             {(result.sugestoesMelhoria.competencias ?? []).map((s, i) => (
-                              <li key={i} className="flex gap-2 text-sm"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /><span>{s}</span></li>
+                              <li key={i} className="flex gap-2 text-sm"><CheckCircle2 className="w-4 h-4 text-lens shrink-0 mt-0.5" /><span>{s}</span></li>
                             ))}
                           </ul>
                         </CardContent>
@@ -607,17 +607,15 @@ export default function ELattes() {
       {/* Estado vazio — antes de qualquer análise */}
       {stage === "idle" && (
         <div className="text-center py-12 text-muted-foreground">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
-            <User className="w-8 h-8 text-emerald-500" />
+          <div className="w-16 h-16 rounded-2xl bg-lens-tint flex items-center justify-center mx-auto mb-4">
+            <User className="w-8 h-8 text-lens" />
           </div>
           <p className="text-sm font-medium">Nenhuma análise realizada ainda</p>
           <p className="text-xs mt-1 max-w-sm mx-auto">
             Faça upload do PDF ou cole o texto do seu currículo Lattes para começar.
           </p>
           <div className="mt-6">
-            <Link href="/niasci">
-              <Button variant="ghost" size="sm">← Voltar ao NIASci</Button>
-            </Link>
+            <Link href="/niasci" className={buttonVariants({ variant: "ghost", size: "sm" })}>← Voltar ao NIASci</Link>
           </div>
         </div>
       )}

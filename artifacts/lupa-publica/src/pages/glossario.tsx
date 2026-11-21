@@ -7,7 +7,7 @@
  */
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   CATEGORY_LABELS,
@@ -67,11 +67,9 @@ export default function Glossario() {
                 data-testid="glossary-search"
               />
             </div>
-            <Link href="/aprender">
-              <Button variant="outline" className="w-full sm:w-auto">
+            <Link href="/aprender" className={buttonVariants({ variant: "outline", className: "w-full sm:w-auto" })}>
                 <GraduationCap className="mr-2 h-4 w-4" aria-hidden /> Trilha: como ler um edital
-              </Button>
-            </Link>
+              </Link>
           </div>
           <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filtrar por categoria">
             {(["todas", ...categories] as Filter[]).map((c) => (

@@ -54,6 +54,14 @@ export function requireAdmin(): RequestHandler {
       res.status(403).json({ error: "Acesso restrito à administração." });
       return;
     }
+    // MFA: com LUPA_ADMIN_REQUIRE_MFA=true, só sessão com segundo fator (claim "aal" = "aal2" do
+    // Supabase Auth). Fica desligado até a conta administradora cadastrar o fator (TOTP) —
+    // ligar antes disso bloquearia a própria administração.
+    if (process.env.LUPA_ADMIN_REQUIRE_MFA === "true" && (claims as { aal?: unknown }).aal !== "aal2") {
+      res.status(403).json({ error: "A administração exige verificação em duas etapas. Entre com o segundo fator.", code: "MFA_REQUIRED" });
+      return;
+    }
     next();
   };
 }
+

@@ -117,6 +117,13 @@ export interface TeacherProfile {
   orcid: string | null;
   temporary_interests: string[];
   collaboration_role: "coordenar" | "colaborar" | "ambos" | null;
+  vinculos?: string[];
+  formacao_situacao?: "em_curso" | "concluida" | null;
+  formacao_curso?: string | null;
+  objetivos?: string[];
+  objetivo_atual?: string | null;
+  localizacao?: string | null;
+  modalidade?: "presencial" | "remoto" | "hibrido" | "qualquer" | null;
   notification_prefs: { email: boolean; frequency: "diaria" | "semanal" | "nunca" };
   field_sources: Record<string, { source: FieldSource; updated_at: string }>;
   version: number;

@@ -91,7 +91,7 @@ export function Footer() {
           <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-slate-300">Legal</p>
           <nav aria-label="Legal" className="flex flex-col space-y-2 text-sm">
             <Link href="/privacidade" className="text-slate-200 hover:text-white hover:underline transition-colors">Política de Privacidade</Link>
-            <Link href="/privacidade" className="text-slate-200 hover:text-white hover:underline transition-colors">Termos de Uso</Link>
+            <a href="/privacidade#termos-de-uso" className="text-slate-200 hover:text-white hover:underline transition-colors">Termos de Uso</a>
           </nav>
           <div className="pt-2">
             <p className="text-[0.8125rem] text-slate-200">Projeto 100% gratuito e de código aberto.</p>

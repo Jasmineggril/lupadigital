@@ -22,6 +22,7 @@ import type {
   SavedItem,
   TeacherProfile,
 } from "./types";
+import type { Participation } from "./participations";
 
 export type NotificationDraft = Omit<NotificationItem, "id" | "read_at" | "created_at">;
 
@@ -77,7 +78,22 @@ export interface LupaStore {
   addNotifications(items: NotificationDraft[]): Promise<number>;
   listNotifications(userId: string, limit?: number): Promise<NotificationItem[]>;
   markNotificationsRead(userId: string, ids: string[] | "all"): Promise<number>;
+
+  // "Quero participar" — sempre filtrado pelo dono (a API também confere)
+  listParticipations(userId: string): Promise<Participation[]>;
+  getParticipation(userId: string, id: string): Promise<Participation | null>;
+  createParticipation(p: Participation): Promise<Participation>;
+  /** Grava só se a versão no banco for `expectedVersion` (evita sobrescrever outra aba). null = conflito ou inexistente. */
+  updateParticipation(userId: string, next: Participation, expectedVersion: number): Promise<Participation | null>;
+  deleteParticipation(userId: string, id: string): Promise<boolean>;
+
+  /** Direitos do titular: tudo desta pessoa nas tabelas do fluxo docente. */
+  exportUser(userId: string): Promise<Record<string, unknown[]>>;
+  deleteUser(userId: string): Promise<Record<string, number>>;
 }
+
+/** Tabelas deste repositório com dados por user_id (dependentes antes do perfil). */
+export const STORE_USER_TABLES = ["participations", "notifications", "recommendation_feedback", "recommendations", "saved_opportunities", "teacher_profiles"] as const;
 
 /** Fonte FAPDF padrão (a URL inicial precisa ser confirmada no site real; ver docs). */
 export function defaultSources(now = new Date().toISOString()): OpportunitySource[] {
@@ -123,6 +139,61 @@ export class MemoryStore implements LupaStore {
   feedback = new Map<string, { opportunity_id: string; relevant: boolean; comment: string | null }>();
   saved = new Map<string, Map<string, SavedItem>>();
   notifications: NotificationItem[] = [];
+  participations = new Map<string, Participation>();
+
+  async listParticipations(userId: string) {
+    return [...this.participations.values()]
+      .filter((p) => p.user_id === userId)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .map((p) => structuredClone(p));
+  }
+  async getParticipation(userId: string, id: string) {
+    const p = this.participations.get(id);
+    return p && p.user_id === userId ? structuredClone(p) : null;
+  }
+  async createParticipation(p: Participation) {
+    this.participations.set(p.id, structuredClone(p));
+    return structuredClone(p);
+  }
+  async updateParticipation(userId: string, next: Participation, expectedVersion: number) {
+    const cur = this.participations.get(next.id);
+    if (!cur || cur.user_id !== userId || cur.version !== expectedVersion) return null;
+    const saved = { ...structuredClone(next), id: cur.id, user_id: cur.user_id };
+    this.participations.set(cur.id, saved);
+    return structuredClone(saved);
+  }
+  async deleteParticipation(userId: string, id: string) {
+    const cur = this.participations.get(id);
+    if (!cur || cur.user_id !== userId) return false;
+    return this.participations.delete(id);
+  }
+
+  async exportUser(userId: string) {
+    const recs = [...this.recs.values()].filter((r) => r.user_id === userId);
+    const fb = [...this.feedback.entries()].filter(([k]) => k.startsWith(`${userId}:`)).map(([, v]) => ({ user_id: userId, ...v }));
+    const profile = this.profiles.get(userId);
+    return {
+      participations: await this.listParticipations(userId),
+      notifications: this.notifications.filter((n) => n.user_id === userId).map((n) => structuredClone(n)),
+      recommendation_feedback: fb,
+      recommendations: recs.map((r) => structuredClone(r)),
+      saved_opportunities: [...(this.saved.get(userId)?.values() ?? [])].map((v) => ({ user_id: userId, ...structuredClone(v) })),
+      teacher_profiles: profile ? [structuredClone(profile)] : [],
+    };
+  }
+  async deleteUser(userId: string) {
+    const out: Record<string, number> = {};
+    out.participations = [...this.participations.values()].filter((p) => p.user_id === userId).map((p) => this.participations.delete(p.id)).length;
+    const before = this.notifications.length;
+    this.notifications = this.notifications.filter((n) => n.user_id !== userId);
+    out.notifications = before - this.notifications.length;
+    out.recommendation_feedback = [...this.feedback.keys()].filter((k) => k.startsWith(`${userId}:`)).map((k) => this.feedback.delete(k)).length;
+    out.recommendations = [...this.recs.entries()].filter(([, r]) => r.user_id === userId).map(([k]) => this.recs.delete(k)).length;
+    out.saved_opportunities = this.saved.get(userId)?.size ?? 0;
+    this.saved.delete(userId);
+    out.teacher_profiles = this.profiles.delete(userId) ? 1 : 0;
+    return out;
+  }
 
   async getProfile(userId: string) {
     const p = this.profiles.get(userId);
@@ -316,6 +387,42 @@ export class SupabaseStore implements LupaStore {
   readonly kind = "supabase" as const;
   private get db() {
     return getSupabaseAdmin();
+  }
+
+  // service role contorna RLS: TODA consulta abaixo filtra por user_id explicitamente
+  async exportUser(userId: string) {
+    const out: Record<string, unknown[]> = {};
+    for (const t of STORE_USER_TABLES) out[t] = (check(await this.db.from(t).select("*").eq("user_id", userId).limit(5000)) ?? []) as unknown[];
+    return out;
+  }
+  async deleteUser(userId: string) {
+    const out: Record<string, number> = {};
+    for (const t of STORE_USER_TABLES) {
+      const data = check(await this.db.from(t).delete().eq("user_id", userId).select("user_id"));
+      out[t] = Array.isArray(data) ? data.length : 0;
+    }
+    return out;
+  }
+  async listParticipations(userId: string) {
+    return (check(await this.db.from("participations").select("*").eq("user_id", userId).order("updated_at", { ascending: false }).limit(200)) ?? []) as Participation[];
+  }
+  async getParticipation(userId: string, id: string) {
+    const data = check(await this.db.from("participations").select("*").eq("id", id).eq("user_id", userId).maybeSingle());
+    return (data as Participation | null) ?? null;
+  }
+  async createParticipation(p: Participation) {
+    return check(await this.db.from("participations").insert(p).select().single()) as Participation;
+  }
+  async updateParticipation(userId: string, next: Participation, expectedVersion: number) {
+    const { id: _id, user_id: _u, created_at: _c, ...patch } = next;
+    const data = check(
+      await this.db.from("participations").update(patch).eq("id", next.id).eq("user_id", userId).eq("version", expectedVersion).select().maybeSingle(),
+    );
+    return (data as Participation | null) ?? null;
+  }
+  async deleteParticipation(userId: string, id: string) {
+    const data = check(await this.db.from("participations").delete().eq("id", id).eq("user_id", userId).select("id"));
+    return Array.isArray(data) && data.length > 0;
   }
 
   async getProfile(userId: string) {

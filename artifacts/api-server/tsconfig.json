@@ -10,6 +10,9 @@
   "include": ["src"],
   "references": [
     {
+      "path": "../../lib/feature-catalog"
+    },
+    {
       "path": "../../lib/db"
     },
     {

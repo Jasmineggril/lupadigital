@@ -12,6 +12,7 @@ import { Term } from "@/components/edu/Term";
 import { buttonVariants } from "@/components/ui/button";
 import { AlertTriangle, ArrowRight, BookOpen, Check, CircleHelp, FileText, GraduationCap, Search, X } from "lucide-react";
 import { Link } from "wouter";
+import { GoalPicker } from "@/components/lupa/GoalPicker";
 
 const steps = [
   {
@@ -135,6 +136,10 @@ export default function Home() {
       </section>
 
       {/* 2 · Como a LUPA lê um edital (é uma sequência real) */}
+      <div className="container mx-auto max-w-[75rem] px-4 pt-12 sm:px-6 lg:px-8">
+        <GoalPicker />
+      </div>
+
       <section className="container mx-auto max-w-[75rem] px-4 py-16 sm:px-6 md:py-24 lg:px-8" aria-labelledby="como">
         <p className="eyebrow">Como funciona</p>
         <h2 id="como" className="font-display mt-3 text-[1.75rem] font-bold leading-tight text-ink md:text-4xl">

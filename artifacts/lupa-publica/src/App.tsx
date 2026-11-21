@@ -89,6 +89,8 @@ const Avisos = React.lazy(() => import("@/pages/docente/avisos"));
 const Perfil = React.lazy(() => import("@/pages/docente/perfil"));
 const Configuracoes = React.lazy(() => import("@/pages/docente/configuracoes"));
 const Admin = React.lazy(() => import("@/pages/docente/admin"));
+const Participacoes = React.lazy(() => import("@/pages/participar"));
+const ParticipacaoDetalhe = React.lazy(() => import("@/pages/participar-detalhe"));
 
 /**
  * Instância singleton do cliente React Query.
@@ -115,7 +117,7 @@ function Router() {
       <Navbar />
       <SessionExpiredBanner />
       <main id="conteudo" className="flex-1 flex flex-col">
-        <Suspense fallback={<div className="flex-1 grid place-items-center p-8 text-sm text-muted-foreground">Carregando…</div>}>
+        <Suspense fallback={<div role="status" className="flex-1 grid place-items-center p-8 text-sm text-slate-700">Carregando…</div>}>
           <Switch>
             {/* ── Páginas públicas ──────────────────────────────────────── */}
             <Route path="/" component={Home} />
@@ -185,6 +187,12 @@ function Router() {
             </Route>
             <Route path="/configuracoes">
               <ProtectedRoute><Configuracoes /></ProtectedRoute>
+            </Route>
+            <Route path="/participar">
+              <ProtectedRoute><Participacoes /></ProtectedRoute>
+            </Route>
+            <Route path="/participar/:id">
+              <ProtectedRoute><ParticipacaoDetalhe /></ProtectedRoute>
             </Route>
             <Route path="/admin">
               <ProtectedRoute adminOnly><Admin /></ProtectedRoute>

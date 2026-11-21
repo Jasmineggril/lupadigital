@@ -22,7 +22,7 @@ export default function Sobre() {
 
       <div className="grid md:grid-cols-2 gap-12 mb-20">
         <div className="bg-primary text-primary-foreground p-8 rounded-3xl shadow-lg">
-          <h2 className="text-3xl font-bold mb-4">Nossa Missão</h2>
+          <h2 className="text-3xl font-bold mb-4 text-primary-foreground">Nossa Missão</h2>
           <p className="text-lg leading-relaxed opacity-90">
             Democratizar o acesso à informação pública no Brasil por meio da Inteligência Artificial, traduzindo a linguagem burocrática em conhecimento acessível e empoderando o cidadão.
           </p>

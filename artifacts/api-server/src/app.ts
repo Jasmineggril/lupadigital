@@ -130,6 +130,11 @@ const diagLimiter = rateLimit({
 
 // ── Middlewares globais (aplicados a todas as rotas) ─────────────────────────
 
+/** URL para log: sem query string e sem tokens de compartilhamento no caminho. Exportado para testes. */
+export function maskLogUrl(url: string | undefined): string | undefined {
+  return url?.split("?")[0].replace(/(\/(?:api\/)?edital\/share\/)[^/]+/, "$1[token]");
+}
+
 // Logging estruturado: registra method, URL (sem query string) e statusCode
 app.use(
   pinoHttp({
@@ -140,7 +145,8 @@ app.use(
           id: req.id,
           method: req.method,
           // Remove query string do log para não vazar dados sensíveis em parâmetros de URL
-          url: req.url?.split("?")[0],
+          // e mascara o token de links públicos (funciona como chave de acesso)
+          url: maskLogUrl(req.url),
         };
       },
       res(res) {

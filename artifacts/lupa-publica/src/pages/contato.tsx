@@ -5,16 +5,23 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Github, Linkedin } from "lucide-react";
 
+const CONTACT_EMAIL = "contato@lupapublica.com.br";
+
 export default function Contato() {
   const { toast } = useToast();
 
+  // O site não tem envio de mensagens: abrimos o programa de e-mail da pessoa com o texto
+  // preenchido. Nada é "enviado" pelo LUPA — e a tela diz isso (antes dizia "Mensagem enviada").
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const f = e.target as HTMLFormElement;
+    const get = (id: string) => (f.elements.namedItem(id) as HTMLInputElement | HTMLTextAreaElement | null)?.value ?? "";
+    const body = `${get("message")}\n\n— ${get("name")}`;
+    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Contato pelo LUPA Digital")}&body=${encodeURIComponent(body)}`;
     toast({
-      title: "Mensagem enviada",
-      description: "Agradecemos o contato. Retornaremos em breve!",
+      title: "Abrimos o seu programa de e-mail",
+      description: "A mensagem só é enviada quando você confirmar o envio lá. Se nada abriu, escreva para " + CONTACT_EMAIL + ".",
     });
-    (e.target as HTMLFormElement).reset();
   };
 
   return (
@@ -78,7 +85,11 @@ export default function Contato() {
                 <label htmlFor="message" className="text-sm font-medium">Mensagem</label>
                 <Textarea id="message" placeholder="Como podemos ajudar?" className="min-h-[150px] resize-y" required />
               </div>
-              <Button type="submit" className="w-full">Enviar Mensagem</Button>
+              <Button type="submit" className="w-full">Escrever pelo meu e-mail</Button>
+              <p className="text-xs text-muted-foreground">
+                Abre o seu programa de e-mail com a mensagem preenchida. Para pedidos sobre seus dados pessoais, você também pode usar
+                Configurações → Seus dados (baixar ou excluir).
+              </p>
             </form>
           </CardContent>
         </Card>

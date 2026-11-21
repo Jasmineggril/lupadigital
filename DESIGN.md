@@ -177,3 +177,14 @@ Sem rolagem horizontal em 320 px. Tabelas largas (admin) rolam dentro do própri
   `tabular`.
 - Antes de entregar: revise com as Web Interface Guidelines (foco visível, rótulos, erros inline,
   `aria-live`, estados de carregamento, sem rolagem horizontal, `prefers-reduced-motion`).
+
+## Decisões da evolução integrada (novembro de 2026)
+
+- **Entrada por objetivo** (“O que você quer fazer?”): cartões simples com rótulo, o que a pessoa recebe e o destino real; “pede conta” escrito antes do clique. O catálogo vem de `@workspace/feature-catalog` (única fonte — a mesma usada pelo Assistente).
+- **Espaço de participação**: duas colunas no desktop (trabalho à esquerda; situação, conferência e próximos passos fixos à direita); uma coluna no celular, com a mesma ordem de prioridade. Origem dos itens em texto (“do edital”, “da análise”, “seu”), trecho em `<details>`.
+- **Conferência**: ícone + palavra + cor (nunca só cor), tons já existentes (`emerald`, `amber`, `red`, neutro).
+- **Mudanças do edital**: bloco âmbar com “Antes / Agora / afeta”, e ação explícita para atualizar — nada muda sozinho.
+- **Perfil essencial**: “Para começar” no topo, seis perguntas com “por que perguntamos”, todas opcionais.
+- **Texto auxiliar**: `text-muted-foreground` sem opacidade (5,5:1). Nunca reduzir contraste com `opacity` em texto.
+- **Botões de salvar** que podem ficar inativos usam `aria-disabled` para não tirar o foco do teclado.
+- **Itens de menu**: o menu principal não ganha novos itens sem caber em 1280 px sem quebrar linha; “Minhas participações” fica no menu da conta.

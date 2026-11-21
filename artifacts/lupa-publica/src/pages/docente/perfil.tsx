@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearch } from "wouter";
 import { Info, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GOALS } from "@workspace/feature-catalog";
 import { apiFetch, ApiError } from "@/lib/api";
 import { OPPORTUNITY_TYPE_LABELS, SOURCE_LABELS, formatDateTime, type TeacherProfile } from "@/lib/lupa-types";
 import { ErrorState, FormAlert, LoadingState, PageHeader, TextField, inputClass, useAsync } from "@/components/lupa/ui";
@@ -29,6 +30,26 @@ function SourceTag({ profile, field }: { profile: TeacherProfile; field: string 
     </span>
   );
 }
+
+const VINCULOS: Array<[string, string]> = [
+  ["estudante", "Estudante"],
+  ["docente", "Docente"],
+  ["pesquisador", "Pesquisador(a)"],
+  ["servidor", "Servidor(a) público(a)"],
+  ["profissional", "Profissional de mercado"],
+  ["outro", "Outro"],
+];
+const OBJETIVOS: Array<[string, string]> = [
+  ["bolsas", "Bolsas"],
+  ["pesquisa", "Financiamento de pesquisa"],
+  ["extensao", "Extensão"],
+  ["inovacao", "Inovação"],
+  ["hackathons", "Hackathons"],
+  ["concursos", "Concursos"],
+  ["formacao", "Formação e cursos"],
+  ["eventos", "Eventos"],
+];
+const toggle = (list: string[], id: string, on: boolean) => (on ? [...new Set([...list, id])] : list.filter((x) => x !== id));
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -106,6 +127,13 @@ export default function Perfil() {
       orcid: form.orcid || null,
       temporary_interests: form.temporary_interests ?? [],
       collaboration_role: form.collaboration_role || null,
+      vinculos: form.vinculos ?? [],
+      objetivos: form.objetivos ?? [],
+      objetivo_atual: form.objetivo_atual || null,
+      formacao_situacao: form.formacao_situacao || null,
+      formacao_curso: form.formacao_curso || null,
+      localizacao: form.localizacao || null,
+      modalidade: form.modalidade || null,
     };
     try {
       const r = await apiFetch<{ profile: TeacherProfile }>("/profile", { method: "PUT", body: JSON.stringify(body) });
@@ -120,25 +148,48 @@ export default function Perfil() {
     }
   };
 
-  const importJson = async () => {
-    setImportMsg(null);
-    let payload: unknown;
+  // Importação em duas etapas: prévia (nada é gravado) → confirmação, escolhendo o que substituir
+  const [preview, setPreview] = useState<{ mudancas: Array<{ campo: string; atual: unknown; novo: unknown; conflito: boolean }>; origem: { fonte: string; atualizado_em: string | null } } | null>(null);
+  const [replace, setReplace] = useState<string[]>([]);
+  const parsedJson = () => {
     try {
-      payload = JSON.parse(jsonText);
+      return JSON.parse(jsonText) as Record<string, unknown>;
     } catch {
       setImportMsg({ kind: "error", text: "O conteúdo não é um JSON válido." });
-      return;
+      return null;
     }
+  };
+  const importJson = async () => {
+    setImportMsg(null);
+    const payload = parsedJson();
+    if (!payload) return;
     try {
-      const r = await apiFetch<{ profile: TeacherProfile }>("/profile/lattes-import", { method: "POST", body: JSON.stringify(payload) });
-      setData((d) => (d ? { ...d, profile: r.profile } : d));
-      setJsonText("");
-      setImportMsg({ kind: "success", text: "Resumo importado. Revise os campos abaixo — a origem aparece como “importado de JSON (provisório)”." });
+      const r = await apiFetch<NonNullable<typeof preview>>("/profile/lattes-import?previa=1", { method: "POST", body: JSON.stringify(payload) });
+      setPreview(r);
+      setReplace([]);
+      if (r.mudancas.length === 0) setImportMsg({ kind: "success", text: "Nada a mudar: o perfil já tem essas informações." });
     } catch (err) {
       const details = err instanceof ApiError && err.details ? ` (${Object.keys(err.details as object).join(", ")})` : "";
       setImportMsg({ kind: "error", text: `${err instanceof Error ? err.message : "Falha na importação."}${details}` });
     }
   };
+  const confirmImport = async () => {
+    const payload = parsedJson();
+    if (!payload) return;
+    try {
+      const r = await apiFetch<{ profile: TeacherProfile; mantidos: string[] }>("/profile/lattes-import", { method: "POST", body: JSON.stringify({ ...payload, substituir: replace }) });
+      setData((d) => (d ? { ...d, profile: r.profile } : d));
+      setJsonText("");
+      setPreview(null);
+      setImportMsg({
+        kind: "success",
+        text: `Importação gravada (origem: “importado de JSON (provisório)”).${r.mantidos.length ? ` Mantidos como você tinha: ${r.mantidos.join(", ")}.` : ""}`,
+      });
+    } catch (err) {
+      setImportMsg({ kind: "error", text: err instanceof Error ? err.message : "Falha na importação. Nada foi gravado." });
+    }
+  };
+  const show = (v: unknown) => (Array.isArray(v) ? v.join(", ") || "—" : v == null || v === "" ? "—" : String(v));
 
   const err = (k: string) => fieldErrors[k]?.[0] ?? null;
 
@@ -146,8 +197,8 @@ export default function Perfil() {
     <div className="min-h-[100dvh] bg-slate-50">
       <PageHeader
         eyebrow={welcome ? "Passo 2 de 2" : "Meu perfil"}
-        title="Perfil docente"
-        description="Essas informações orientam as recomendações. Você pode preencher aos poucos e mudar quando quiser."
+        title="Seu perfil"
+        description="Essas informações orientam as recomendações. Comece pelas perguntas rápidas; o restante pode ficar para depois."
       />
       <div className="container mx-auto max-w-4xl space-y-6 px-4 py-8">
         {welcome && (
@@ -165,7 +216,75 @@ export default function Perfil() {
         ) : error ? (
           <ErrorState message={error} onRetry={reload} />
         ) : (
-          <form onSubmit={save} noValidate className="space-y-6" aria-label="Perfil docente">
+          <form onSubmit={save} noValidate className="space-y-6" aria-label="Seu perfil">
+            <Section title="Para começar" description="Seis perguntas rápidas. Todas são opcionais e você pode responder depois.">
+              <fieldset>
+                <legend className="text-sm font-semibold text-slate-900">O que você quer fazer agora?</legend>
+                <p className="text-xs text-slate-600">Por que perguntamos: a página inicial passa a sugerir o caminho certo para isso.</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {GOALS.map((g) => (
+                    <label key={g.id} className="flex min-h-11 items-start gap-2 rounded-lg border border-hairline p-2.5 text-sm">
+                      <input type="radio" name="objetivo_atual" className="mt-0.5 h-4 w-4" checked={form!.objetivo_atual === g.id} onChange={() => set("objetivo_atual", g.id)} />
+                      {g.rotulo}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend className="text-sm font-semibold text-slate-900">Seus vínculos hoje (marque todos que valem)</legend>
+                <p className="text-xs text-slate-600">Por que perguntamos: muitos editais exigem um vínculo específico. Isso não dá acesso a nenhuma área restrita.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {VINCULOS.map(([id, label]) => (
+                    <label key={id} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-hairline px-3 text-sm">
+                      <input type="checkbox" className="h-4 w-4" checked={(form!.vinculos ?? []).includes(id)} onChange={(e) => set("vinculos", toggle(form!.vinculos ?? [], id, e.target.checked))} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend className="text-sm font-semibold text-slate-900">O que você busca</legend>
+                <p className="text-xs text-slate-600">Por que perguntamos: para priorizar tipos de oportunidade. Interesse não é requisito: “concursos” aqui é um interesse, não um vínculo.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {OBJETIVOS.map(([id, label]) => (
+                    <label key={id} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-hairline px-3 text-sm">
+                      <input type="checkbox" className="h-4 w-4" checked={(form!.objetivos ?? []).includes(id)} onChange={(e) => set("objetivos", toggle(form!.objetivos ?? [], id, e.target.checked))} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label htmlFor="formacao-sit" className="block text-sm font-semibold text-slate-900">
+                    Formação mais recente
+                  </label>
+                  <select id="formacao-sit" className={selectCls} value={form!.formacao_situacao ?? ""} onChange={(e) => set("formacao_situacao", (e.target.value || null) as Editable["formacao_situacao"])} aria-describedby="formacao-ajuda">
+                    <option value="">Prefiro não informar agora</option>
+                    <option value="em_curso">Em curso</option>
+                    <option value="concluida">Concluída</option>
+                  </select>
+                  <p id="formacao-ajuda" className="text-xs text-slate-600">Por que perguntamos: bolsas e editais costumam exigir formação em curso ou concluída.</p>
+                </div>
+                <TextField label="Curso ou área da formação" value={form!.formacao_curso ?? ""} onChange={(e) => set("formacao_curso", e.target.value)} hint="Ex.: Doutorado em Saúde Coletiva" error={err("formacao_curso")} />
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <TextField label="Cidade ou UF" value={form!.localizacao ?? ""} onChange={(e) => set("localizacao", e.target.value)} hint="Por que perguntamos: há editais restritos a uma região (ex.: DF)." error={err("localizacao")} autoComplete="address-level2" />
+                <div className="space-y-1.5">
+                  <label htmlFor="modalidade" className="block text-sm font-semibold text-slate-900">
+                    Modalidade preferida
+                  </label>
+                  <select id="modalidade" className={selectCls} value={form!.modalidade ?? ""} onChange={(e) => set("modalidade", (e.target.value || null) as Editable["modalidade"])}>
+                    <option value="">Prefiro não informar agora</option>
+                    <option value="presencial">Presencial</option>
+                    <option value="remoto">Remota</option>
+                    <option value="hibrido">Híbrida</option>
+                    <option value="qualquer">Tanto faz</option>
+                  </select>
+                </div>
+              </div>
+            </Section>
+
             <Section title="Identificação e instituição">
               <TextField label="Nome de exibição" value={form!.display_name ?? ""} onChange={(e) => set("display_name", e.target.value)} hint={<SourceTag profile={data!.profile} field="display_name" />} error={err("display_name")} />
               <div className="grid gap-5 sm:grid-cols-2">
@@ -299,8 +418,57 @@ export default function Perfil() {
                   />
                   {importMsg && <FormAlert kind={importMsg.kind}>{importMsg.text}</FormAlert>}
                   <Button type="button" variant="outline" onClick={importJson} disabled={!jsonText.trim()}>
-                    Importar e revisar
+                    Ver prévia (nada é gravado)
                   </Button>
+                  {preview && preview.mudancas.length > 0 && (
+                    <div className="rounded-lg border border-hairline bg-white p-3" data-testid="lattes-previa">
+                      <p className="font-semibold text-ink">Prévia da importação</p>
+                      <p className="text-xs text-slate-600">
+                        Origem: {preview.origem.fonte}
+                        {preview.origem.atualizado_em ? ` · currículo atualizado em ${preview.origem.atualizado_em}` : ""}
+                      </p>
+                      <div className="mt-2 overflow-x-auto">
+                        <table className="w-full min-w-[32rem] text-left text-xs">
+                          <caption className="sr-only">Campos que mudariam com a importação</caption>
+                          <thead>
+                            <tr className="border-b border-hairline">
+                              <th scope="col" className="py-1 pr-2">Campo</th>
+                              <th scope="col" className="py-1 pr-2">Atual</th>
+                              <th scope="col" className="py-1 pr-2">Importado</th>
+                              <th scope="col" className="py-1">Substituir?</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {preview.mudancas.map((m) => (
+                              <tr key={m.campo} className="border-b border-hairline align-top last:border-0">
+                                <th scope="row" className="py-1.5 pr-2 font-medium">{m.campo}</th>
+                                <td className="py-1.5 pr-2">{show(m.atual)}</td>
+                                <td className="py-1.5 pr-2">{show(m.novo)}</td>
+                                <td className="py-1.5">
+                                  {m.conflito ? (
+                                    <label className="inline-flex items-center gap-1">
+                                      <input type="checkbox" className="h-4 w-4" checked={replace.includes(m.campo)} onChange={(e) => setReplace((r) => (e.target.checked ? [...r, m.campo] : r.filter((x) => x !== m.campo)))} />
+                                      sim (você já tinha informado)
+                                    </label>
+                                  ) : (
+                                    "entra (campo vazio ou importado)"
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Button type="button" onClick={confirmImport}>
+                          Gravar importação
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => setPreview(null)}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </details>
             </Section>

@@ -14,7 +14,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Bell, ChevronDown, LogOut, Menu, Settings, UserCircle, X } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, Settings, UserCircle, X, ClipboardCheck } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
@@ -227,8 +227,11 @@ export function Navbar() {
                     <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
                     <p className="truncate text-xs text-slate-600">{user.email}</p>
                   </div>
+                  <Link href="/participar" onClick={() => setAccountOpen(false)} className={`flex items-center gap-2 px-4 py-2.5 text-sm text-slate-800 hover:bg-slate-50 ${focusRing}`}>
+                    <ClipboardCheck className="h-4 w-4" aria-hidden /> Minhas participações
+                  </Link>
                   <Link href="/configuracoes" onClick={() => setAccountOpen(false)} className={`flex items-center gap-2 px-4 py-2.5 text-sm text-slate-800 hover:bg-slate-50 ${focusRing}`}>
-                    <Settings className="h-4 w-4" aria-hidden /> Configurações
+                    <Settings className="h-4 w-4" aria-hidden /> Configurações e privacidade
                   </Link>
                   <button type="button" onClick={doLogout} className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-700 hover:bg-red-50 ${focusRing}`} data-testid="logout">
                     <LogOut className="h-4 w-4" aria-hidden /> Sair
@@ -288,6 +291,9 @@ export function Navbar() {
                   <p className="px-3 text-sm text-slate-600">{user.email}</p>
                   <Link href="/avisos" className={`block rounded-xl px-3 py-3 text-base text-slate-800 ${focusRing}`}>
                     {unread > 0 ? `Avisos (${unread} não ${unread === 1 ? "lido" : "lidos"})` : "Avisos"}
+                  </Link>
+                  <Link href="/participar" className={`block rounded-xl px-3 py-3 text-base text-slate-800 ${focusRing}`}>
+                    Minhas participações
                   </Link>
                   <Link href="/configuracoes" className={`block rounded-xl px-3 py-3 text-base text-slate-800 ${focusRing}`}>
                     Configurações

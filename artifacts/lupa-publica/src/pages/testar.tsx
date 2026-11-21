@@ -34,7 +34,7 @@
  */
 
 import { useState, useRef, useMemo, useEffect, type ReactNode } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -106,6 +106,7 @@ import {
 } from "@/lib/agents";
 import { extractTextFromPdf, PdfExtractError, type PdfStructuredData } from "@/lib/pdf";
 import { apiFetch } from "@/lib/api";
+import { QueroParticipar } from "@/components/lupa/QueroParticipar";
 import { deleteLocalHistory, listLocalHistory, saveLocalHistory, setLocalFavorite, type LocalAgentRecord } from "@/lib/localHistory";
 import { DocumentTimeline, QuickViewContent, ResultValidity, StageBanner, isPartialResult, type RealStage } from "@/components/testar/AnalysisPanels";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
@@ -1230,6 +1231,7 @@ function ProfileForm({
             }
             className="w-full text-xs rounded-lg border border-teal-300 bg-white px-2 py-1.5 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-1 focus:ring-teal-400"
           >
+            <option value="">Prefiro não informar</option>
             <option value="fundamental">Ensino Fundamental</option>
             <option value="medio">Ensino Médio</option>
             <option value="superior_incompleto">Superior Incompleto</option>
@@ -1273,6 +1275,7 @@ function ProfileForm({
               }
               className="w-full text-xs rounded-lg border border-teal-300 bg-white px-2 py-1.5 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-1 focus:ring-teal-400"
             >
+              <option value="">Prefiro não informar</option>
               <option value="ate1">Até 1 salário mínimo</option>
               <option value="1a3">1 a 3 salários mínimos</option>
               <option value="3a5">3 a 5 salários mínimos</option>
@@ -2260,7 +2263,7 @@ function HistoryPanel({
               <Trash2 className="w-3.5 h-3.5" />
               Limpar antigos
             </Button>
-            <Button variant="ghost" size="icon" onClick={onClose}>
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar histórico">
               <X className="w-5 h-5" />
             </Button>
           </div>
@@ -2422,6 +2425,7 @@ function HistoryPanel({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                        aria-label="Excluir do histórico"
                         onClick={(e) =>
                           handleDeleteSupabase(item.data.id ?? "", e)
                         }
@@ -2465,11 +2469,12 @@ export default function TestarIA() {
   const [agentResult, setAgentResult] = useState<AgentResult | null>(null);
   const [canonicalAnalysis, setCanonicalAnalysis] = useState<CanonicalAnalysisLike | null>(null);
   const [checklistState, setChecklistState] = useState<ChecklistItem[]>([]);
+  // Sem valores presumidos: vazio = "não informado" (a IA trata como pendente)
   const [profile, setProfile] = useState<UserProfile>({
-    escolaridade: "superior",
+    escolaridade: "",
     atuacao: "",
     municipio: "",
-    rendaFamiliar: "1a3",
+    rendaFamiliar: "",
   });
   const [showHistory, setShowHistory] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -3052,6 +3057,14 @@ export default function TestarIA() {
 
   const generateShareToken = async () => {
     if (!agentResult) return null;
+    if (!user) {
+      // Link público só é criado por quem está logado, para que possa ser revogado depois
+      toast({
+        title: "Entre para compartilhar",
+        description: "Links de compartilhamento ficam na sua conta: você vê quem criou, até quando vale e pode revogar em Configurações.",
+      });
+      return null;
+    }
     setIsSharing(true);
     try {
       const title =
@@ -3059,25 +3072,26 @@ export default function TestarIA() {
             ? ((agentResult as { resumo?: string }).resumo?.slice(0, 60) ??
               "Edital")
             : "Interpretação de Edital";
-      const res = await fetch(`${BASE}/api/edital/share`, {
+      const { token, expiresAt } = await apiFetch<{ token: string; expiresAt?: string }>("/edital/share", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agentId: agentResult.type,
           title,
           resultJson: canonicalAnalysis ?? agentResult,
         }),
       });
-      if (!res.ok) throw new Error();
-      const { token } = (await res.json()) as { token: string };
       setShareToken(token);
       setShowShareLink(true);
       setShareOptionsOpen(true);
-      return token;
-    } catch {
       toast({
-        title: "Erro",
-        description: "Não foi possível gerar o link.",
+        title: "Link criado",
+        description: `Qualquer pessoa com o link pode ver esta interpretação${expiresAt ? ` até ${new Date(expiresAt).toLocaleDateString("pt-BR")}` : ""}. Dados do seu perfil não são incluídos. Revogue em Configurações.`,
+      });
+      return token;
+    } catch (err) {
+      toast({
+        title: "Link não criado",
+        description: err instanceof Error && err.message ? err.message : "Não foi possível gerar o link. Nada foi publicado.",
         variant: "destructive",
       });
       return null;
@@ -3797,6 +3811,39 @@ export default function TestarIA() {
                   Cole o edital e clique em <strong>Analisar Documento</strong> para ver a interpretação organizada.
                 </span>
               </div>
+            )}
+            {agentResult && !isAnalyzing && (
+              <section aria-labelledby="proximos-passos" className="rounded-2xl border border-hairline bg-white p-4" data-testid="testar-proximos-passos">
+                <h2 id="proximos-passos" className="text-sm font-semibold text-ink">
+                  E agora?
+                </h2>
+                <div className="mt-2 flex flex-wrap items-start gap-3">
+                  {user && currentSavedId && !currentSavedId.startsWith("local-") ? (
+                    <QueroParticipar agentResultId={Number(currentSavedId)} titulo={text.trim().slice(0, 120).replace(/\n/g, " ")} size="sm" />
+                  ) : user ? (
+                    <p className="max-w-xs text-xs text-slate-600">
+                      Para organizar documentos e prazos em <strong>Quero participar</strong>, salve a interpretação primeiro.
+                    </p>
+                  ) : (
+                    <QueroParticipar size="sm" />
+                  )}
+                  <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                    <li>
+                      <span className="text-slate-600">Documentos e elegibilidade: </span>abas <strong>Checklist</strong> e <strong>Elegibilidade</strong> abaixo
+                    </li>
+                    <li>
+                      <Link href="/glossario" className="font-medium text-lens underline">
+                        Entender um termo
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/oportunidades" className="font-medium text-lens underline">
+                        Ver editais parecidos
+                      </Link>
+                    </li>
+                  </ul>
+                </div>
+              </section>
             )}
             {agentResult && !isAnalyzing && (
               <Tabs defaultValue="resumo" className="w-full">

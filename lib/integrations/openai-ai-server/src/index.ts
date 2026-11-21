@@ -18,3 +18,4 @@ export {
 } from "./client";
 export { generateImageBuffer, editImages } from "./image";
 export { batchProcess, batchProcessWithSSE, isRateLimitError, type BatchOptions } from "./batch";
+export { UNTRUSTED_CONTENT_RULE, withUntrustedContentRule } from "./promptSafety";

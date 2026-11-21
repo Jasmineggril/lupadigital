@@ -99,6 +99,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/feature-catalog':
+        specifier: workspace:*
+        version: link:../../lib/feature-catalog
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../../lib/integrations/openai-ai-server
@@ -190,6 +193,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.110.8
+      '@workspace/feature-catalog':
+        specifier: workspace:*
+        version: link:../../lib/feature-catalog
       html2canvas:
         specifier: ^1.4.1
         version: 1.4.1
@@ -618,6 +624,8 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+
+  lib/feature-catalog: {}
 
   lib/integrations/openai-ai-react:
     devDependencies:

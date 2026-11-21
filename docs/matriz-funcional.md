@@ -20,6 +20,7 @@ Rotas conferidas em `artifacts/lupa-publica/src/App.tsx`. Endpoints conferidos e
 |---|---|
 | **E2E-D** | `scripts/e2e-docente.mjs` (23 cenários) |
 | **E2E-T** | `scripts/e2e-testar.mjs` (17 cenários) |
+| **E2E-J** | `scripts/e2e-jornadas.mjs` (jornadas integradas + axe-core, 320–1440 px) |
 | **API** | Testes vitest da API |
 | **PROD** | Chamada real em lupa-digital.vercel.app (20/11/2026) |
 
@@ -42,6 +43,10 @@ Rotas conferidas em `artifacts/lupa-publica/src/App.tsx`. Endpoints conferidos e
 | Menu da conta → Sair | U | Encerra a sessão | Supabase Auth `signOut` | — | ✅ E2E-D |
 | Sessão expirada | U | Volta ao login com aviso e retorna à página | Renovação do Supabase + evento 401 da API | — | ✅ E2E-D, E2E-T |
 | `/configuracoes` | U | Preferência de avisos e troca de senha | `PUT /profile` (`notification_prefs`), Auth `updateUser` | Erros da API | 🟡 o envio de e-mail não está ativo; a tela informa isso |
+| `/configuracoes` → Links compartilhados → Revogar | U | Lista dos links criados (validade e estado); revogar com confirmação | `GET /edital/shares`, `DELETE /edital/share/:token` · `shared_results` | Falha → "o link continua ativo" | ✅ API, E2E-J |
+| `/configuracoes` → Baixar meus dados | U | Arquivo JSON com tudo da pessoa; seções que falharem são listadas | `GET /me/export` | Cópia incompleta é dita como incompleta | ✅ API, E2E-J |
+| `/configuracoes` → Excluir meus dados | U | Exige digitar a frase; apaga dados da aplicação, desassocia logs de consumo e sai | `DELETE /me/data` | Exclusão parcial → 207 com o que faltou | ✅ API, E2E-J (outro usuário intacto). 🟡 remoção da conta de acesso é manual |
+| `/` e `/inicio` → "O que você quer fazer?" | V/U | 8 objetivos → página real do catálogo; avisa quando pede conta; no `/inicio` começa pelo objetivo atual do perfil | `@workspace/feature-catalog` | — | ✅ E2E-J; teste confere que toda rota do catálogo existe |
 
 ## 2. Fluxo docente
 
@@ -55,8 +60,11 @@ Banco: Supabase, projeto `zhwop…`. Todas as consultas usam o usuário do token
 | `/recomendacoes` → explicação, Relevante?, Salvar | U | 4 partes: aderência, elegibilidade, interesse, pendências | `GET /recommendations`, `POST /recommendations/:id/feedback` | Impedimento separado mesmo com aderência alta | ✅ E2E-D |
 | `/salvos` | U | Salvos, com interesse e "alterado desde que você salvou" | `GET /saved-opportunities` | Vazio orientado | ✅ E2E-D |
 | `/avisos` → Marcar como lido | U | Avisos internos, sem duplicação | `GET /notifications`, `POST /notifications/read` · `notifications` | Isolamento por usuário (API) | ✅ E2E-D, API |
-| `/perfil` → Salvar perfil | U | Dados, áreas, tipos, Lattes, ORCID; origem e data por campo | `GET/PUT /profile` · `teacher_profiles` | Erros por campo; aviso de alterações não salvas | ✅ E2E-D |
-| `/perfil` → Importar resumo Lattes (JSON) | U | JSON validado → campos marcados como "provisório" | `POST /profile/lattes-import` | Esquema estrito | 🟡 alternativa provisória; o eLattes não está integrado |
+| `/perfil` → Salvar perfil | U | **Para começar** (6 perguntas opcionais com "por que perguntamos": objetivo atual, vínculos múltiplos, o que busca, formação, cidade/UF, modalidade) + dados, áreas, tipos, Lattes, ORCID; origem e data por campo | `GET/PUT /profile` · `teacher_profiles` | Erros por campo; aviso de alterações não salvas; campo fora da lista → 400; vínculo não dá acesso | ✅ E2E-D, E2E-J, API |
+| `/perfil` → Importar resumo Lattes (JSON) | U | **Prévia** (nada é gravado) com origem e data → escolher o que substituir → gravar. Dados confirmados não são sobrescritos sem escolha | `POST /profile/lattes-import?previa=1`, `POST /profile/lattes-import` | Esquema estrito | ✅ API. 🟡 alternativa provisória; o eLattes não está integrado |
+| `/oportunidades/:id` → Quero participar | U (V vê "Entrar para organizar") | Abre o espaço de participação deste edital; repetir o clique reabre o mesmo | `POST /participations` | Edital rejeitado/inexistente → 404 | ✅ API, E2E-J |
+| `/participar` | U | Lista das participações (tipo, situação, documentos prontos) | `GET /participations` · `participations` | Vazio orientado | ✅ E2E-J |
+| `/participar/:id` | U (só o dono) | Situação; mudanças do edital (antes/agora/afeta) com "Atualizar para a versão nova"; conferência sem IA; documentos e prazos (origem: do edital, da análise, seu — com trecho); proposta (sugestão de estrutura) com versões e restauração; notas; excluir | `GET/PATCH/DELETE /participations/:id`, `POST …/aceitar-versao` | 404 para outro usuário; 409 em edição concorrente (texto preservado); aviso de alterações não salvas | ✅ API, E2E-J, RLS (Postgres local). Comparação de versões: ✅ API (E2E sem retificação real) |
 
 ## 3. Administração (`/admin`)
 
@@ -95,7 +103,8 @@ Fluxo: entrada → extração → análise → resultado → histórico → chat
 | Chat | V | Resposta **automática, sem IA**, rotulada | — | ✅ E2E-T |
 | Chat | U | IA com o contexto deste edital (análise salva + texto), conversa por documento; falha → resposta automática rotulada | `POST /niasci/chat` (autenticado) | ✅ código e API; ⚠ resposta real da IA não exercitada neste ciclo (limite de uso) |
 | Exportar PDF | V/U | Identificação do documento, aviso de parcial, itens a conferir, datas, valores e documentos com trecho | jsPDF no navegador | ✅ E2E-T (conteúdo verificado) |
-| Compartilhar → link, WhatsApp, Gmail, copiar | V/U | Gera link público do resultado; falha ao copiar é informada | `POST /edital/share` · `shared_results` | ✅ código; não exercitado no E2E |
+| Compartilhar → link, WhatsApp, Gmail, copiar | U (V é convidado a entrar) | Link somente leitura, válido por 30 dias, revogável; sem dados do perfil e sem o dono na resposta pública | `POST /edital/share`, `GET /edital/share/:token` · `shared_results` | ✅ API, E2E-J (criar → abrir anônimo → revogar → 404) |
+| E agora? (depois da análise) | V/U | Quero participar (logado e salvo na conta), checklist/elegibilidade, glossário, editais parecidos | `POST /participations {agent_result_id}` | ✅ E2E-J |
 | Limpar entrada | V/U | Limpa texto, link e resultado; **não** apaga o histórico; avisa | — | ✅ E2E-T |
 | Editar o texto | V/U | Descarta o resultado anterior (sem misturar documentos) | — | ✅ E2E-T |
 | Celular (390 px) | — | Sem rolagem horizontal | — | ✅ E2E-T |
@@ -113,7 +122,9 @@ As ferramentas em `/niasci/*` **exigem login** (`ProtectedRoute`). O histórico 
 | `/niasci/artigos` | Texto do artigo → resumo, método, resultados, limitações | `POST /niasci/artigos/analyze` · `article_analyses` | ✅ PROD: números preservados; sem referências no texto → nenhuma inventada |
 | `/niasci/projetos` | Descrição → plano com IA (salvo no histórico). Projetos manuais: criar, etapas, excluir | `POST /niasci/projetos/analyze` · `research_projects` | ✅ PROD. 🟡 projetos manuais ficam só no navegador (a tela diz isso) |
 | `/niasci/planetario` | Tema e público → roteiro de divulgação científica, quiz, slides, glossário | `POST /niasci/planetario/generate` · `planetarium_contents` | ✅ PROD. Fontes rotuladas como indicações da IA, a conferir |
-| `/niasci/assistente` | Perguntas, com contexto opcional | `POST /niasci/chat` · `chat_messages` | ✅ código. Limitações explicitadas na tela; falha ao salvar a conversa é avisada |
+| `/niasci/assistente` | Perguntas, com contexto opcional | `POST /niasci/chat` · `chat_messages` | ✅ código. O prompt traz o catálogo único de páginas reais (sem a área administrativa) e a regra de conteúdo não confiável (teste). Limitações explicitadas na tela; falha ao salvar a conversa é avisada |
+| `/contato` | Formulário → abre o e-mail da pessoa com a mensagem | `mailto:` | 🟡 antes dizia "Mensagem enviada" sem enviar; agora diz que abre o e-mail. Caixa `contato@lupapublica.com.br` a confirmar |
+| `/privacidade` | Aviso de privacidade e termos (versão preliminar) | — | — conteúdo; em revisão jurídica |
 | `/niasci/editais` | A mesma página de `/testar` (reexportada), dentro da área NIASci, exigindo login | — | ✅ igual a `/testar` |
 
 ## 6. Dependências bloqueadas
@@ -132,4 +143,5 @@ As ferramentas em `/niasci/*` **exigem login** (`ProtectedRoute`). O histórico 
 |---|---|---|
 | `20261120_docentes_oportunidades.sql` | Tabelas docentes | Aplicada (PR #12) |
 | `20261121_docentes_refinamentos.sql` | Colunas e `notifications` | Aplicada (PR #16) |
-| `20261122_agent_results_favorito.sql` | **Nova.** Coluna `favorito` e índice em `agent_results` | Validada em PostgreSQL 16 local: idempotente, RLS preservada. Aplica em produção no merge, pela integração do GitHub |
+| `20261122_agent_results_favorito.sql` | Coluna `favorito` e índice em `agent_results` | Aplicada (PR #18) |
+| `20261123_perfil_participacao_compartilhamento.sql` | **Nova.** Perfil essencial em `teacher_profiles`; tabela `participations` com RLS `participations_own`; `expires_at`/`revoked_at` em `shared_results` (links antigos passam a valer 30 dias a partir da migração) | Validada em PostgreSQL 16 local com todas as anteriores, duas vezes (idempotente); RLS testada com dois usuários. Aplica em produção no merge |

@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth";
 import { confirmedDeadline, formatDate, type Recommendation, type TeacherProfile } from "@/lib/lupa-types";
 import { EmptyState, ErrorState, LoadingState, PageHeader, useAsync } from "@/components/lupa/ui";
 import { EligibilityBadge, ThematicBadge } from "@/components/lupa/opportunity";
+import { GoalPicker } from "@/components/lupa/GoalPicker";
 
 /** Pendências do perfil que afetam as recomendações. Exportado para testes. */
 export function profileGaps(p: TeacherProfile): Array<{ label: string; why: string }> {
@@ -151,6 +152,16 @@ export default function Inicio() {
           </>
         )}
       </div>
+      {data && (
+        <div className="container mx-auto max-w-6xl px-4 pb-10">
+          <GoalPicker headingId="objetivo-inicio" current={data.profile.objetivo_atual ?? null} />
+          {!data.profile.objetivo_atual && (
+            <p className="mt-3 text-sm text-slate-600">
+              Dica: diga em <Link href="/perfil" className="font-medium text-lens underline">Meu perfil</Link> o que você quer fazer agora, e esta lista passa a começar por ele.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

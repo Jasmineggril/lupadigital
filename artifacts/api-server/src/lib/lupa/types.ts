@@ -27,6 +27,13 @@ const termList = z
   .transform((items) => Array.from(new Set(items.map((s) => s.trim()))));
 
 /** Campos que o próprio docente pode editar. Papel/admin NÃO está aqui. */
+/** Vínculos (condição atual) — não são categorias exclusivas e NUNCA concedem acesso administrativo. */
+export const VINCULOS = ["estudante", "docente", "pesquisador", "servidor", "profissional", "outro"] as const;
+/** Objetivos (interesses) — "concurseiro" é um objetivo, não um vínculo. */
+export const OBJETIVOS = ["bolsas", "pesquisa", "extensao", "inovacao", "hackathons", "concursos", "formacao", "eventos"] as const;
+/** Mesmos ids da entrada "O que você quer fazer?" (lib/feature-catalog GOALS). */
+export const OBJETIVO_ATUAL = ["encontrar", "entender", "elegibilidade", "documentos", "projeto", "lattes", "artigo", "aprender"] as const;
+
 export const ProfileInputSchema = z
   .object({
     display_name: z.string().trim().max(160).nullable().optional(),
@@ -62,6 +69,17 @@ export const ProfileInputSchema = z
     /** Interesses do momento (ex.: "chamada para eventos em 2027"); pesam menos que áreas. */
     temporary_interests: termList.optional(),
     collaboration_role: z.enum(["coordenar", "colaborar", "ambos"]).nullable().optional(),
+    // ── Perfil essencial (progressivo; tudo opcional, pode responder depois) ──
+    /** Vínculos: várias ao mesmo tempo (ex.: docente E pesquisador). Não dão permissão nenhuma. */
+    vinculos: z.array(z.enum(VINCULOS)).max(VINCULOS.length).optional(),
+    formacao_situacao: z.enum(["em_curso", "concluida"]).nullable().optional(),
+    formacao_curso: z.string().trim().max(200).nullable().optional(),
+    /** Objetivos de médio prazo (o que você busca). */
+    objetivos: z.array(z.enum(OBJETIVOS)).max(OBJETIVOS.length).optional(),
+    /** "O que você quer fazer agora?" — muda as sugestões da página inicial. */
+    objetivo_atual: z.enum(OBJETIVO_ATUAL).nullable().optional(),
+    localizacao: z.string().trim().max(120).nullable().optional(),
+    modalidade: z.enum(["presencial", "remoto", "hibrido", "qualquer"]).nullable().optional(),
     notification_prefs: z
       .object({
         email: z.boolean(),
@@ -91,6 +109,13 @@ export interface TeacherProfile {
   orcid: string | null;
   temporary_interests: string[];
   collaboration_role: "coordenar" | "colaborar" | "ambos" | null;
+  vinculos: string[];
+  formacao_situacao: "em_curso" | "concluida" | null;
+  formacao_curso: string | null;
+  objetivos: string[];
+  objetivo_atual: string | null;
+  localizacao: string | null;
+  modalidade: "presencial" | "remoto" | "hibrido" | "qualquer" | null;
   notification_prefs: { email: boolean; frequency: "diaria" | "semanal" | "nunca" };
   field_sources: Record<string, { source: FieldSource; updated_at: string }>;
   version: number;
@@ -117,6 +142,13 @@ export function emptyProfile(userId: string, now = new Date().toISOString()): Te
     orcid: null,
     temporary_interests: [],
     collaboration_role: null,
+    vinculos: [],
+    formacao_situacao: null,
+    formacao_curso: null,
+    objetivos: [],
+    objetivo_atual: null,
+    localizacao: null,
+    modalidade: null,
     notification_prefs: { email: false, frequency: "semanal" },
     field_sources: {},
     version: 0,

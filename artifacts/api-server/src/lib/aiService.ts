@@ -744,9 +744,7 @@ const ChunkFactsSchema = z.object({
 });
 
 function buildChunkFactPrompt(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>) {
-  const profileInfo = profile && agentId === "elegibilidade"
-    ? `\n\nPERFIL DO USUÁRIO:\n- Escolaridade: ${profile.escolaridade}\n- Área de atuação: ${profile.atuacao || "não informada"}\n- Município/UF: ${profile.municipio || "não informada"}\n- Renda familiar: ${profile.rendaFamiliar}`
-    : "";
+  const profileInfo = agentId === "elegibilidade" ? profilePromptLines(profile) : "";
 
   const system = [
     "Você é um assistente especializado em extração estruturada de fatos de editais públicos.",
@@ -1324,12 +1322,24 @@ import { classifyAiError } from "./processingErrors";
 
 export type AgentId = "simples" | "analista" | "estrategica" | "acompanhamento" | "documentacao" | "elegibilidade";
 
+/**
+ * Perfil informado no /testar (só usado pelo agente de elegibilidade).
+ * Sem valores padrão: o que a pessoa não informou vai como "não informado" —
+ * nunca como um valor presumido (antes, renda "1 a 3 salários" era enviada sem ser informada).
+ */
 export const AgentUserProfileSchema = z.object({
-  escolaridade: z.string().default("superior"),
-  atuacao: z.string().default(""),
-  municipio: z.string().default(""),
-  rendaFamiliar: z.string().default("1a3"),
+  escolaridade: z.string().max(60).optional(),
+  atuacao: z.string().max(200).optional(),
+  municipio: z.string().max(120).optional(),
+  rendaFamiliar: z.string().max(20).optional(),
 });
+
+/** Linhas do perfil para o prompt; campos vazios aparecem como "não informado". */
+export function profilePromptLines(profile?: z.infer<typeof AgentUserProfileSchema>): string {
+  if (!profile) return "";
+  const v = (x?: string) => (x && x.trim() ? x.trim() : "não informado");
+  return `\n\nPERFIL INFORMADO PELA PESSOA (autodeclarado; o que estiver "não informado" deve ser tratado como pendente, nunca presumido):\n- Escolaridade: ${v(profile.escolaridade)}\n- Área de atuação: ${v(profile.atuacao)}\n- Município/UF: ${v(profile.municipio)}\n- Renda familiar: ${v(profile.rendaFamiliar)}`;
+}
 
 export const AgentAnalyzeBodySchema = z.object({
   agentId: z.enum(["simples", "analista", "estrategica", "acompanhamento", "documentacao", "elegibilidade"]),
@@ -2514,10 +2524,7 @@ const INSTRUCTIONS: Record<AgentId, string> = {
  * 3. Linguagem Simples        4. Transparência e Rastreabilidade
  */
 function buildAgentPrompt(agentId: AgentId, text: string, profile?: z.infer<typeof AgentUserProfileSchema>) {
-  const profileInfo =
-    profile && agentId === "elegibilidade"
-      ? `\n\nPERFIL DO USUÁRIO:\n- Escolaridade: ${profile.escolaridade}\n- Área de atuação: ${profile.atuacao || "não informada"}\n- Município/UF: ${profile.municipio || "não informado"}\n- Renda familiar: ${profile.rendaFamiliar}`
-      : "";
+  const profileInfo = agentId === "elegibilidade" ? profilePromptLines(profile) : "";
 
   const system = [
     INSTRUCTIONS[agentId],

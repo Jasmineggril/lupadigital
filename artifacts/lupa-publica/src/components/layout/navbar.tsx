@@ -146,6 +146,7 @@ export function Navbar() {
         { href: "/oportunidades", label: "Oportunidades" },
         { href: "/recomendacoes", label: "Minhas recomendações" },
         { href: "/salvos", label: "Editais salvos" },
+        { href: "/participar", label: "Participações" },
         { href: "/perfil", label: "Meu perfil" },
         ...(isAdmin ? [{ href: "/admin", label: "Administração" }] : []),
       ]

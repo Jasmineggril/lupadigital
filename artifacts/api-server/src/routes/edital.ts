@@ -31,7 +31,7 @@ import * as cheerio from "cheerio";
 import { z } from "zod";
 import multer from "multer";
 import { randomUUID } from "crypto";
-import { httpSelect, httpSelectTwoFilters, httpInsert, httpDelete, httpCount, httpUpdate, mapKeys } from "../lib/db-http";
+import { httpSelect, httpSelectTwoFilters, httpInsert, httpDelete, httpCount, httpUpdate } from "../lib/db-http";
 import {
   SimplifyEditalBody,
   SaveEditalBody,
@@ -54,7 +54,7 @@ const upload = multer({
 const router: IRouter = Router();
 
 import { analyzeAgent, AgentAnalyzeBodySchema, simplifyEdital, ocrPdf, buildCanonicalAnalysis, validateDocumentAnalysis } from "../lib/aiService";
-import { getReqUserId, requireAuth, getSupabaseAdmin } from "../lib/supabase";
+import { getReqUserId, requireAuth } from "../lib/supabase";
 import { safeFetch, UnsafeUrlError } from "../lib/safeFetch";
 import { classifyAiError } from "../lib/processingErrors";
 
@@ -545,8 +545,9 @@ export function sanitizeSharedResult(result: Record<string, unknown>): Record<st
 
 /** Situação de um link a partir da linha do banco (colunas novas podem não existir em bancos antigos). */
 export function shareState(row: Record<string, unknown>, now = Date.now()): "ativo" | "revogado" | "expirado" {
-  if (row.revoked_at) return "revogado";
-  const exp = row.expires_at ? Date.parse(String(row.expires_at)) : NaN;
+  if (row.revoked_at || row.revokedAt) return "revogado";
+  const rawExp = row.expires_at ?? row.expiresAt;
+  const exp = rawExp ? Date.parse(String(rawExp)) : NaN;
   if (!Number.isNaN(exp) && exp <= now) return "expirado";
   return "ativo";
 }
@@ -572,11 +573,7 @@ router.post("/edital/share", async (req, res) => {
   const days = parsed.data.validadeDias ?? SHARE_DEFAULT_DAYS;
   const expiresAt = new Date(Date.now() + days * 86_400_000).toISOString();
   try {
-    const supabase = getSupabaseAdmin();
-    const { error } = await supabase
-      .from("shared_results")
-      .insert({ token, agent_id: agentId, title, result_json: resultJson, user_id: String(userId), expires_at: expiresAt });
-    if (error) throw new Error(error.message);
+    await httpInsert("shared_results", { token, agent_id: agentId, title, result_json: resultJson, user_id: String(userId), expires_at: expiresAt });
   } catch (error) {
     req.log?.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to create share link");
     res.status(503).json({ error: "Falha ao criar o link de compartilhamento. Nada foi publicado; tente novamente." });
@@ -593,20 +590,14 @@ router.get("/edital/shares", async (req, res) => {
     return;
   }
   try {
-    const { data, error } = await getSupabaseAdmin()
-      .from("shared_results")
-      .select("token, title, agent_id, created_at, expires_at, revoked_at")
-      .eq("user_id", String(userId))
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (error) throw new Error(error.message);
+    const rows = await httpSelect<Record<string, unknown>>("shared_results", { user_id: String(userId) }, { order: "created_at", ascending: false, limit: 100 });
     res.json({
-      links: (data ?? []).map((r: Record<string, unknown>) => ({
+      links: rows.map((r) => ({
         token: r.token,
         title: r.title,
-        agentId: r.agent_id,
-        createdAt: r.created_at,
-        expiresAt: r.expires_at ?? null,
+        agentId: r.agentId,
+        createdAt: r.createdAt,
+        expiresAt: r.expiresAt ?? null,
         estado: shareState(r),
       })),
     });
@@ -624,14 +615,8 @@ router.delete("/edital/share/:token", async (req, res) => {
     return;
   }
   try {
-    const { data, error } = await getSupabaseAdmin()
-      .from("shared_results")
-      .update({ revoked_at: new Date().toISOString() })
-      .eq("token", req.params.token)
-      .eq("user_id", String(userId))
-      .select("token");
-    if (error) throw new Error(error.message);
-    if (!data || data.length === 0) {
+    const updated = await httpUpdate("shared_results", { revoked_at: new Date().toISOString() }, "token", req.params.token, "user_id", String(userId));
+    if (!updated) {
       res.status(404).json({ error: "Link não encontrado." });
       return;
     }
@@ -679,23 +664,19 @@ router.post("/edital/ocr-pdf", async (req, res): Promise<void> => {
 router.get("/edital/share/:token", async (req, res) => {
   const { token } = req.params;
   try {
-    const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase.from("shared_results").select("*").eq("token", token).limit(1);
-    if (error) {
-      throw new Error(error.message);
-    }
-    const row = data?.[0] as Record<string, unknown> | undefined;
+    const rows = await httpSelect<Record<string, unknown>>("shared_results", { token }, { limit: 1 });
+    const row = rows[0];
     if (!row || shareState(row) !== "ativo") {
       res.status(404).json({ error: "Link não encontrado, expirado ou revogado por quem o criou." });
       return;
     }
     res.json({
       token: row.token,
-      agentId: row.agent_id,
+      agentId: row.agentId,
       title: row.title,
-      resultJson: sanitizeSharedResult((row.result_json ?? {}) as Record<string, unknown>),
-      createdAt: row.created_at,
-      expiresAt: row.expires_at ?? null,
+      resultJson: sanitizeSharedResult((row.resultJson ?? {}) as Record<string, unknown>),
+      createdAt: row.createdAt,
+      expiresAt: row.expiresAt ?? null,
     });
   } catch (error) {
     req.log?.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to fetch shared result");

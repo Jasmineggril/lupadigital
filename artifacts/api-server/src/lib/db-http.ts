@@ -222,3 +222,31 @@ export async function httpUpdate<T = Record<string, unknown>>(
   if (error) throw new Error(error.message);
   return data && data.length ? (mapKeys(data[0]) as T) : null;
 }
+
+/**
+ * Apaga TODAS as linhas de um usuário em uma tabela (exclusão de dados a pedido do titular).
+ * Retorna quantas linhas saíram.
+ */
+export async function httpDeleteAllForUser(table: string, userId: string): Promise<number> {
+  if (memoryMode()) {
+    const t = memTable(table);
+    const before = t.length;
+    for (let i = t.length - 1; i >= 0; i -= 1) if (memMatch(t[i], { user_id: userId })) t.splice(i, 1);
+    return before - t.length;
+  }
+  const { data, error } = await getSupabaseAdmin().from(table).delete().eq("user_id", userId).select("user_id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
+}
+
+/** Desassocia o usuário das linhas (registros que precisam ficar, como logs de consumo). */
+export async function httpDetachUser(table: string, userId: string): Promise<number> {
+  if (memoryMode()) {
+    let n = 0;
+    for (const r of memTable(table)) if (memMatch(r, { user_id: userId })) { r.user_id = null; n += 1; }
+    return n;
+  }
+  const { data, error } = await getSupabaseAdmin().from(table).update({ user_id: null }).eq("user_id", userId).select("user_id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
+}

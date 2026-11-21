@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { Link, useRoute } from "wouter";
 import { ExternalLink, FileText } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { QueroParticipar } from "@/components/lupa/QueroParticipar";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { FIELD_LABELS, formatDate, formatDateTime, type Opportunity, type Recommendation } from "@/lib/lupa-types";
@@ -98,6 +99,7 @@ export default function OportunidadeDetalhe() {
             </a>
             {user && rec && <SaveButton opportunityId={o.id} initial={rec.saved} />}
             {user && rec && <InterestButton opportunityId={o.id} initial={Boolean(rec.interested)} />}
+            <QueroParticipar opportunityId={o.id} />
           </div>
         </div>
       </header>

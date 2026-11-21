@@ -34,7 +34,7 @@
  */
 
 import { useState, useRef, useMemo, useEffect, type ReactNode } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -106,6 +106,7 @@ import {
 } from "@/lib/agents";
 import { extractTextFromPdf, PdfExtractError, type PdfStructuredData } from "@/lib/pdf";
 import { apiFetch } from "@/lib/api";
+import { QueroParticipar } from "@/components/lupa/QueroParticipar";
 import { deleteLocalHistory, listLocalHistory, saveLocalHistory, setLocalFavorite, type LocalAgentRecord } from "@/lib/localHistory";
 import { DocumentTimeline, QuickViewContent, ResultValidity, StageBanner, isPartialResult, type RealStage } from "@/components/testar/AnalysisPanels";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
@@ -1230,6 +1231,7 @@ function ProfileForm({
             }
             className="w-full text-xs rounded-lg border border-teal-300 bg-white px-2 py-1.5 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-1 focus:ring-teal-400"
           >
+            <option value="">Prefiro não informar</option>
             <option value="fundamental">Ensino Fundamental</option>
             <option value="medio">Ensino Médio</option>
             <option value="superior_incompleto">Superior Incompleto</option>
@@ -1273,6 +1275,7 @@ function ProfileForm({
               }
               className="w-full text-xs rounded-lg border border-teal-300 bg-white px-2 py-1.5 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-1 focus:ring-teal-400"
             >
+              <option value="">Prefiro não informar</option>
               <option value="ate1">Até 1 salário mínimo</option>
               <option value="1a3">1 a 3 salários mínimos</option>
               <option value="3a5">3 a 5 salários mínimos</option>
@@ -2465,11 +2468,12 @@ export default function TestarIA() {
   const [agentResult, setAgentResult] = useState<AgentResult | null>(null);
   const [canonicalAnalysis, setCanonicalAnalysis] = useState<CanonicalAnalysisLike | null>(null);
   const [checklistState, setChecklistState] = useState<ChecklistItem[]>([]);
+  // Sem valores presumidos: vazio = "não informado" (a IA trata como pendente)
   const [profile, setProfile] = useState<UserProfile>({
-    escolaridade: "superior",
+    escolaridade: "",
     atuacao: "",
     municipio: "",
-    rendaFamiliar: "1a3",
+    rendaFamiliar: "",
   });
   const [showHistory, setShowHistory] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -3806,6 +3810,39 @@ export default function TestarIA() {
                   Cole o edital e clique em <strong>Analisar Documento</strong> para ver a interpretação organizada.
                 </span>
               </div>
+            )}
+            {agentResult && !isAnalyzing && (
+              <section aria-labelledby="proximos-passos" className="rounded-2xl border border-hairline bg-white p-4" data-testid="testar-proximos-passos">
+                <h2 id="proximos-passos" className="text-sm font-semibold text-ink">
+                  E agora?
+                </h2>
+                <div className="mt-2 flex flex-wrap items-start gap-3">
+                  {user && currentSavedId && !currentSavedId.startsWith("local-") ? (
+                    <QueroParticipar agentResultId={Number(currentSavedId)} titulo={text.trim().slice(0, 120).replace(/\n/g, " ")} size="sm" />
+                  ) : user ? (
+                    <p className="max-w-xs text-xs text-slate-600">
+                      Para organizar documentos e prazos em <strong>Quero participar</strong>, salve a interpretação primeiro.
+                    </p>
+                  ) : (
+                    <QueroParticipar size="sm" />
+                  )}
+                  <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                    <li>
+                      <span className="text-slate-600">Documentos e elegibilidade: </span>abas <strong>Checklist</strong> e <strong>Elegibilidade</strong> abaixo
+                    </li>
+                    <li>
+                      <Link href="/glossario" className="font-medium text-lens underline">
+                        Entender um termo
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="/oportunidades" className="font-medium text-lens underline">
+                        Ver editais parecidos
+                      </Link>
+                    </li>
+                  </ul>
+                </div>
+              </section>
             )}
             {agentResult && !isAnalyzing && (
               <Tabs defaultValue="resumo" className="w-full">

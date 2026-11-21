@@ -4,6 +4,9 @@
  *
  * Notificações por e-mail ficam só registradas como preferência: o envio ainda
  * não está implementado (dito explicitamente na tela).
+ *
+ * Privacidade: links compartilhados (com revogação), cópia dos dados (JSON) e
+ * exclusão dos dados da aplicação — com o que acontece em cada caso explicado.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -127,6 +130,12 @@ export default function Configuracoes() {
           </form>
         </section>
 
+        <SharedLinks />
+        <MyData onDeleted={async () => {
+          await logout();
+          navigate("/");
+        }} />
+
         <section className="rounded-xl border border-hairline bg-white p-5 sm:p-6" aria-labelledby="sair">
           <h2 id="sair" className="text-lg font-semibold text-slate-900">
             Sessão
@@ -145,5 +154,159 @@ export default function Configuracoes() {
         </section>
       </div>
     </div>
+  );
+}
+
+type ShareLink = { token: string; title: string; createdAt: string; expiresAt: string | null; estado: "ativo" | "revogado" | "expirado" };
+
+function SharedLinks() {
+  const { data, error, loading, reload } = useAsync(() => apiFetch<{ links: ShareLink[] }>("/edital/shares"));
+  const [msg, setMsg] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const revoke = async (l: ShareLink) => {
+    if (!window.confirm(`Revogar o link “${l.title}”? Quem tiver o endereço não conseguirá mais abrir.`)) return;
+    try {
+      await apiFetch(`/edital/share/${l.token}`, { method: "DELETE" });
+      setMsg({ kind: "success", text: "Link revogado. Ele não abre mais." });
+      reload();
+    } catch (err) {
+      setMsg({ kind: "error", text: err instanceof Error ? err.message : "Não foi possível revogar. O link continua ativo." });
+    }
+  };
+  const estado = { ativo: "ativo", revogado: "revogado", expirado: "expirado" } as const;
+  return (
+    <section className="rounded-xl border border-hairline bg-white p-5 sm:p-6" aria-labelledby="links">
+      <h2 id="links" className="text-lg font-semibold text-slate-900">
+        Links compartilhados
+      </h2>
+      <p className="mt-1 text-sm text-slate-600">
+        Quem tiver o endereço pode ver a interpretação (somente leitura) até a data de validade. Dados do seu perfil não vão no link.
+      </p>
+      {msg && <div className="mt-3"><FormAlert kind={msg.kind}>{msg.text}</FormAlert></div>}
+      {loading ? (
+        <LoadingState />
+      ) : error ? (
+        <ErrorState message={error} onRetry={reload} />
+      ) : !data || data.links.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-700">Você não criou nenhum link.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-hairline" data-testid="links-compartilhados">
+          {data.links.map((l) => (
+            <li key={l.token} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
+              <span className="min-w-0">
+                <span className="font-medium text-ink">{l.title}</span>
+                <span className="block text-xs text-slate-600">
+                  Criado em {new Date(l.createdAt).toLocaleDateString("pt-BR")}
+                  {l.expiresAt ? ` · vale até ${new Date(l.expiresAt).toLocaleDateString("pt-BR")}` : ""} · {estado[l.estado]}
+                </span>
+              </span>
+              {l.estado === "ativo" && (
+                <Button size="sm" variant="outline" onClick={() => revoke(l)}>
+                  Revogar
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function MyData({ onDeleted }: { onDeleted: () => void | Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: "success" | "error" | "info"; text: string } | null>(null);
+  const [confirmText, setConfirmText] = useState("");
+  const inFlight = useRef(false);
+
+  const download = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const out = await apiFetch<{ gerado_em: string; completo: boolean; secoes: Array<{ rotulo: string; ok: boolean }> }>("/me/export");
+      const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `lupa-meus-dados-${out.gerado_em.slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      const falhas = out.secoes.filter((x) => !x.ok).map((x) => x.rotulo);
+      setMsg(
+        out.completo
+          ? { kind: "success", text: "Arquivo gerado. Ele foi salvo na pasta de downloads do seu navegador." }
+          : { kind: "error", text: `Arquivo gerado, mas incompleto: não foi possível ler ${falhas.join(", ")}. Tente de novo mais tarde.` },
+      );
+    } catch (err) {
+      setMsg({ kind: "error", text: err instanceof Error ? err.message : "Não foi possível gerar o arquivo." });
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    if (inFlight.current || confirmText !== "EXCLUIR MEUS DADOS") return;
+    inFlight.current = true;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const out = await apiFetch<{ concluido: boolean; secoes: Array<{ rotulo: string; ok: boolean }> }>("/me/data", {
+        method: "DELETE",
+        body: JSON.stringify({ confirmacao: confirmText }),
+      });
+      if (out.concluido) {
+        setMsg({ kind: "success", text: "Seus dados foram apagados. Você será desconectado." });
+        setTimeout(() => void onDeleted(), 2500);
+      } else {
+        const falhas = out.secoes.filter((x) => !x.ok).map((x) => x.rotulo);
+        setMsg({ kind: "error", text: `Parte dos dados não pôde ser apagada agora (${falhas.join(", ")}). Tente novamente; o que foi apagado não volta.` });
+      }
+    } catch (err) {
+      setMsg({ kind: "error", text: err instanceof Error ? err.message : "Não foi possível apagar. Nada foi alterado." });
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-hairline bg-white p-5 sm:p-6" aria-labelledby="dados">
+      <h2 id="dados" className="text-lg font-semibold text-slate-900">
+        Seus dados
+      </h2>
+      <p className="mt-1 text-sm text-slate-600">
+        Veja o que guardamos e por quê na <a href="/privacidade" className="font-semibold underline">política de privacidade</a>.
+      </p>
+      {msg && <div className="mt-3"><FormAlert kind={msg.kind}>{msg.text}</FormAlert></div>}
+      <div className="mt-4 space-y-2">
+        <h3 className="text-sm font-semibold text-ink">Baixar uma cópia</h3>
+        <p className="text-sm text-slate-600">Perfil, análises salvas, participações, avisos, links e conteúdos gerados, em um arquivo JSON.</p>
+        <Button variant="outline" onClick={download} disabled={busy}>
+          Baixar meus dados
+        </Button>
+      </div>
+      <div className="mt-6 space-y-2 rounded-lg border border-red-200 bg-red-50 p-4">
+        <h3 className="text-sm font-semibold text-red-900">Excluir meus dados</h3>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-red-950">
+          <li>Apaga perfil, histórico, participações, avisos, links compartilhados e conteúdos gerados. Não dá para desfazer.</li>
+          <li>Registros de consumo da IA (sem o conteúdo) ficam, mas deixam de ser ligados a você.</li>
+          <li>Cópias de segurança do provedor expiram no ciclo dele; não são apagadas na hora.</li>
+          <li>A conta de acesso (e-mail e senha) é removida a pedido pelo canal indicado na política de privacidade.</li>
+        </ul>
+        <label htmlFor="confirmar-exclusao" className="block pt-2 text-sm font-semibold text-red-950">
+          Para confirmar, digite EXCLUIR MEUS DADOS
+        </label>
+        <input id="confirmar-exclusao" autoComplete="off" spellCheck={false} className="h-11 w-full rounded-xl border border-red-300 bg-white px-3 text-sm sm:w-80" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} />
+        <div>
+          <Button variant="destructive" className="mt-2" onClick={remove} disabled={busy || confirmText !== "EXCLUIR MEUS DADOS"}>
+            Excluir meus dados
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }

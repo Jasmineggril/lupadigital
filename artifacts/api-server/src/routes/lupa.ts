@@ -33,6 +33,19 @@ import type { NotificationDraft } from "../lib/lupa/store";
 import { createSafeFetcher, runCollection, type PageFetcher } from "../lib/lupa/collector/crawler";
 import { InstitutionalImportSchema, LattesSummarySchema, getLattesProvider, type LattesSummary } from "../lib/lupa/integrations/lattes";
 import { HERMES_STATUS, hermesConfigured, verifyHermesSecret } from "../lib/lupa/integrations/hermes";
+import {
+  CreateParticipationSchema,
+  MAX_PARTICIPATIONS_PER_USER,
+  UpdateParticipationSchema,
+  applyUpdate,
+  blankParticipation,
+  compareFields,
+  deterministicCheck,
+  fromAnalysis,
+  fromOpportunity,
+} from "../lib/lupa/participations";
+import { httpSelectTwoFilters } from "../lib/db-http";
+import { deleteUserData, exportUserData } from "../lib/userData";
 
 const router = Router();
 
@@ -115,10 +128,35 @@ router.put("/profile", requireAuth(), async (req, res) => {
   }
 });
 
-/** Importação PROVISÓRIA do resumo Lattes em JSON — só para o próprio perfil. */
+/**
+ * Diferenças entre o perfil atual e a importação. Campos já confirmados pela pessoa
+ * (origem "autodeclarado") e diferentes do importado ficam como CONFLITO: só são
+ * substituídos se ela marcar explicitamente (body.substituir).
+ */
+export function lattesImportPlan(current: TeacherProfile, input: ProfileInput) {
+  const changes: Array<{ campo: string; atual: unknown; novo: unknown; origem_atual: string | null; conflito: boolean }> = [];
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined) continue;
+    const atual = (current as unknown as Record<string, unknown>)[key];
+    if (JSON.stringify(atual) === JSON.stringify(value)) continue;
+    const origem = current.field_sources[key]?.source ?? null;
+    const vazio = atual == null || (Array.isArray(atual) && atual.length === 0) || atual === "";
+    changes.push({ campo: key, atual: atual ?? null, novo: value, origem_atual: origem, conflito: !vazio && origem === "autodeclarado" });
+  }
+  return changes;
+}
+
+/**
+ * Importação PROVISÓRIA do resumo Lattes em JSON — só para o próprio perfil.
+ *   ?previa=1 → mostra o que mudaria (nada é gravado).
+ *   Sem previa → grava; conflitos com dados confirmados só entram se listados em `substituir`.
+ */
 router.post("/profile/lattes-import", requireAuth(), async (req, res) => {
   const userId = getUserId(req) as string;
-  const parsed = LattesSummarySchema.safeParse(req.body ?? {});
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const substituir = Array.isArray(body.substituir) ? body.substituir.filter((x): x is string => typeof x === "string").slice(0, 40) : [];
+  const { substituir: _s, ...summary } = body;
+  const parsed = LattesSummarySchema.safeParse(summary);
   if (!parsed.success) {
     res.status(400).json({ error: "JSON do resumo Lattes inválido.", details: parsed.error.flatten().fieldErrors });
     return;
@@ -127,9 +165,22 @@ router.post("/profile/lattes-import", requireAuth(), async (req, res) => {
     const store = getStore();
     const current = (await store.getProfile(userId)) ?? emptyProfile(userId);
     const input = ProfileInputSchema.parse(Object.fromEntries(Object.entries(summaryToInput(parsed.data)).filter(([, v]) => v !== undefined)));
-    const next = applyProfileInput(current, input, "importacao_json_provisoria");
+    const plan = lattesImportPlan(current, input);
+    const origem = { fonte: "Resumo Lattes (JSON, importação provisória)", atualizado_em: parsed.data.atualizado_em ?? null };
+    if (req.query.previa === "1") {
+      res.json({ previa: true, mudancas: plan, origem });
+      return;
+    }
+    const allowed = Object.fromEntries(
+      Object.entries(input).filter(([k]) => {
+        const c = plan.find((p) => p.campo === k);
+        return c && (!c.conflito || substituir.includes(k));
+      }),
+    ) as ProfileInput;
+    const next = applyProfileInput(current, allowed, "importacao_json_provisoria");
     const saved = next === current ? current : await store.saveProfile(next);
-    res.json({ profile: saved, provisional: true, lattes_updated_at: parsed.data.atualizado_em });
+    const mantidos = plan.filter((p) => p.conflito && !substituir.includes(p.campo)).map((p) => p.campo);
+    res.json({ profile: saved, provisional: true, lattes_updated_at: parsed.data.atualizado_em, mantidos, origem });
   } catch (err) {
     fail(req, res, err, "profile:lattes-import");
   }
@@ -461,6 +512,209 @@ router.post("/notifications/read", requireAuth(), async (req, res) => {
     res.json({ marked: n });
   } catch (err) {
     fail(req, res, err, "notifications:read");
+  }
+});
+
+// ── Quero participar ────────────────────────────────────────────────────────
+// Organiza o trabalho da pessoa para um edital. Não inscreve em site externo.
+
+router.get("/participations", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  try {
+    const list = await getStore().listParticipations(userId);
+    res.json({
+      participations: list.map(({ fields_snapshot: _f, versoes, ...p }) => ({ ...p, versoes_total: versoes.length })),
+    });
+  } catch (err) {
+    fail(req, res, err, "participations:list");
+  }
+});
+
+router.post("/participations", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  const parsed = CreateParticipationSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos." });
+    return;
+  }
+  try {
+    const store = getStore();
+    const existing = await store.listParticipations(userId);
+    // Um espaço por edital/análise: repetir o clique reabre o mesmo, não duplica
+    const same = existing.find(
+      (p) => (parsed.data.opportunity_id && p.opportunity_id === parsed.data.opportunity_id) || (parsed.data.agent_result_id && p.agent_result_id === parsed.data.agent_result_id),
+    );
+    if (same) {
+      res.status(200).json({ participation: same, existente: true });
+      return;
+    }
+    if (existing.length >= MAX_PARTICIPATIONS_PER_USER) {
+      res.status(409).json({ error: `Limite de ${MAX_PARTICIPATIONS_PER_USER} participações atingido. Exclua alguma antes de criar outra.` });
+      return;
+    }
+    let created;
+    if (parsed.data.opportunity_id) {
+      const o = await store.getOpportunity(parsed.data.opportunity_id);
+      if (!o || o.review_status === "rejeitado") {
+        res.status(404).json({ error: "Edital não encontrado." });
+        return;
+      }
+      created = fromOpportunity(userId, o);
+    } else if (parsed.data.agent_result_id) {
+      // Só análises DESTA pessoa (owner check no servidor)
+      const rows = await httpSelectTwoFilters<Record<string, unknown>>("agent_results", "id", parsed.data.agent_result_id, "user_id", userId, { limit: 1 });
+      const row = rows[0];
+      if (!row) {
+        res.status(404).json({ error: "Análise não encontrada." });
+        return;
+      }
+      const result = (row.resultJson ?? {}) as Record<string, unknown>;
+      created = fromAnalysis(userId, Number(row.id), String(parsed.data.titulo ?? row.title ?? "Participação"), (result.base ?? null) as never);
+    } else {
+      created = blankParticipation(userId, parsed.data.titulo as string, parsed.data.tipo);
+    }
+    if (parsed.data.tipo) {
+      created.tipo = parsed.data.tipo;
+    }
+    const saved = await store.createParticipation(created);
+    res.status(201).json({ participation: saved, existente: false });
+  } catch (err) {
+    fail(req, res, err, "participations:create");
+  }
+});
+
+router.get("/participations/:id", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  try {
+    const store = getStore();
+    const p = await store.getParticipation(userId, req.params.id as string);
+    if (!p) {
+      res.status(404).json({ error: "Participação não encontrada." });
+      return;
+    }
+    const o = p.opportunity_id ? await store.getOpportunity(p.opportunity_id) : null;
+    res.json({
+      participation: p,
+      edital: o ? { id: o.id, title: o.title, version: o.version, status: o.status, canonical_url: o.canonical_url, captured_at: o.captured_at } : null,
+      conferencia: deterministicCheck(p, o?.version ?? null),
+      mudancas: o && p.opportunity_version != null && o.version > p.opportunity_version ? compareFields(p.fields_snapshot, o.fields) : [],
+    });
+  } catch (err) {
+    fail(req, res, err, "participations:get");
+  }
+});
+
+router.patch("/participations/:id", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  const parsed = UpdateParticipationSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Dados inválidos. Campos como id, dono e origem do edital não podem ser alterados.", details: parsed.error.flatten().fieldErrors });
+    return;
+  }
+  try {
+    const store = getStore();
+    const current = await store.getParticipation(userId, req.params.id as string);
+    if (!current) {
+      res.status(404).json({ error: "Participação não encontrada." });
+      return;
+    }
+    if (current.version !== parsed.data.expected_version) {
+      res.status(409).json({ error: "Esta participação foi alterada em outra aba ou dispositivo. Recarregue para ver a versão mais recente; seu texto continua na tela.", atual: current });
+      return;
+    }
+    const next = applyUpdate(current, parsed.data);
+    const saved = await store.updateParticipation(userId, next, parsed.data.expected_version);
+    if (!saved) {
+      res.status(409).json({ error: "Esta participação foi alterada ao mesmo tempo em outro lugar. Recarregue; seu texto continua na tela." });
+      return;
+    }
+    res.json({ participation: saved });
+  } catch (err) {
+    fail(req, res, err, "participations:update");
+  }
+});
+
+/** Aceita a versão nova do edital: atualiza o retrato e acrescenta itens novos sem apagar os seus. */
+router.post("/participations/:id/aceitar-versao", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  try {
+    const store = getStore();
+    const p = await store.getParticipation(userId, req.params.id as string);
+    if (!p || !p.opportunity_id) {
+      res.status(404).json({ error: "Participação não encontrada." });
+      return;
+    }
+    const o = await store.getOpportunity(p.opportunity_id);
+    if (!o) {
+      res.status(404).json({ error: "O edital não está mais disponível no catálogo." });
+      return;
+    }
+    const fresh = fromOpportunity(userId, o);
+    const knownItems = new Set(p.checklist.map((c) => c.item));
+    const knownDates = new Set(p.prazos.map((d) => `${d.rotulo}|${d.data}`));
+    const next = {
+      ...p,
+      opportunity_version: o.version,
+      fields_snapshot: fresh.fields_snapshot,
+      checklist: [...p.checklist, ...fresh.checklist.filter((c) => !knownItems.has(c.item))],
+      // Prazos do edital passam a ser os da nova versão; os seus continuam
+      prazos: [...fresh.prazos, ...p.prazos.filter((d) => d.origem === "usuario" && !knownDates.has(`${d.rotulo}|${d.data}`))],
+      version: p.version + 1,
+      updated_at: new Date().toISOString(),
+    };
+    const saved = await store.updateParticipation(userId, next, p.version);
+    if (!saved) {
+      res.status(409).json({ error: "A participação mudou enquanto atualizávamos. Recarregue e tente de novo." });
+      return;
+    }
+    res.json({ participation: saved });
+  } catch (err) {
+    fail(req, res, err, "participations:accept-version");
+  }
+});
+
+router.delete("/participations/:id", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  try {
+    const ok = await getStore().deleteParticipation(userId, req.params.id as string);
+    if (!ok) {
+      res.status(404).json({ error: "Participação não encontrada." });
+      return;
+    }
+    res.status(204).end();
+  } catch (err) {
+    fail(req, res, err, "participations:delete");
+  }
+});
+
+// ── Meus dados (direitos do titular) ────────────────────────────────────────
+
+router.get("/me/export", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  try {
+    const out = await exportUserData(userId);
+    res.setHeader("Content-Disposition", `attachment; filename="lupa-meus-dados-${out.gerado_em.slice(0, 10)}.json"`);
+    res.setHeader("Cache-Control", "no-store");
+    res.json(out);
+  } catch (err) {
+    fail(req, res, err, "me:export");
+  }
+});
+
+const DeleteMeSchema = z.object({ confirmacao: z.literal("EXCLUIR MEUS DADOS") }).strict();
+
+router.delete("/me/data", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  if (!DeleteMeSchema.safeParse(req.body ?? {}).success) {
+    res.status(400).json({ error: 'Para confirmar, digite exatamente: EXCLUIR MEUS DADOS' });
+    return;
+  }
+  try {
+    const out = await deleteUserData(userId);
+    req.log?.info({ context: "me:delete", concluido: out.concluido }, "user data deletion");
+    res.status(out.concluido ? 200 : 207).json(out);
+  } catch (err) {
+    fail(req, res, err, "me:delete");
   }
 });
 

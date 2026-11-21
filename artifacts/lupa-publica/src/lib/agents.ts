@@ -505,9 +505,12 @@ export function analyzeElegibilidade(text: string, profile: UserProfile): Elegib
     "superior": 4,
     "pos": 5,
   };
-  const userLevel = escMap[profile.escolaridade] ?? 2;
+  const userLevel = escMap[profile.escolaridade] ?? 0;
 
-  if (/doutorado|phd/.test(t)) {
+  if (userLevel === 0) {
+    // Não informada: pendente, nunca presumida
+    criterios.push({ criterio: "Escolaridade exigida", atende: "parcial", observacao: "Você não informou sua escolaridade. Confira o requisito no edital." });
+  } else if (/doutorado|phd/.test(t)) {
     criterios.push({ criterio: "Doutorado concluído", atende: userLevel >= 5 ? true : false, observacao: userLevel >= 5 ? "Atende ao requisito de titulação" : "Seu nível de escolaridade não atende a este requisito" });
   } else if (/mestrado/.test(t)) {
     criterios.push({ criterio: "Mestrado concluído", atende: userLevel >= 5 ? true : userLevel === 4 ? "parcial" : false, observacao: userLevel >= 5 ? "Atende" : "Verifique se há exceções no edital" });
@@ -536,18 +539,22 @@ export function analyzeElegibilidade(text: string, profile: UserProfile): Elegib
     criterio: `Perfil profissional / área de atuação`,
     atende: atuacaoCompativel ? true : "parcial",
     observacao: atuacaoCompativel
-      ? `Seu perfil (${profile.atuacao}) é compatível com o público-alvo do edital`
-      : `O edital é voltado para ${pub}. Verifique se seu perfil (${profile.atuacao}) se enquadra`,
+      ? `Seu perfil (${profile.atuacao || "não informado"}) é compatível com o público-alvo do edital`
+      : `O edital é voltado para ${pub}. Verifique se seu perfil (${profile.atuacao || "não informado"}) se enquadra`,
   });
 
   if (/renda familiar|per capita|salário mínimo/.test(t)) {
     const rendaMap: Record<string, number> = { "ate1": 1, "1a3": 2, "3a5": 3, "acima5": 4 };
-    const rendaUser = rendaMap[profile.rendaFamiliar] ?? 2;
-    criterios.push({
-      criterio: "Critério de renda familiar",
-      atende: rendaUser <= 2 ? true : rendaUser === 3 ? "parcial" : false,
-      observacao: rendaUser <= 2 ? "Provável atendimento ao critério socioeconômico" : "Pode não atender ao critério de renda — verifique o limite exato",
-    });
+    const rendaUser = rendaMap[profile.rendaFamiliar];
+    criterios.push(
+      rendaUser === undefined
+        ? { criterio: "Critério de renda familiar", atende: "parcial", observacao: "O edital tem critério de renda e você não informou a sua. Confira o limite exato no edital." }
+        : {
+            criterio: "Critério de renda familiar",
+            atende: rendaUser <= 2 ? true : rendaUser === 3 ? "parcial" : false,
+            observacao: rendaUser <= 2 ? "Provável atendimento ao critério socioeconômico" : "Pode não atender ao critério de renda — verifique o limite exato",
+          },
+    );
   }
 
   criterios.push({
@@ -593,6 +600,6 @@ export function runAgent(id: AgentId, text: string, profile?: UserProfile): Agen
     case "estrategica": return analyzeEstrategica(text);
     case "acompanhamento": return analyzeAcompanhamento(text);
     case "documentacao": return analyzeDocumentacao(text);
-    case "elegibilidade": return analyzeElegibilidade(text, profile ?? { escolaridade: "superior", atuacao: "", municipio: "", rendaFamiliar: "1a3" });
+    case "elegibilidade": return analyzeElegibilidade(text, profile ?? { escolaridade: "", atuacao: "", municipio: "", rendaFamiliar: "" });
   }
 }

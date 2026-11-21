@@ -27,6 +27,9 @@ async function step(name, fn) {
     console.log(`✓ ${name}`);
   } catch (e) {
     results.push({ name, ok: false, error: String(e?.message ?? e).split("\n")[0] });
+    // Captura da tela no momento da falha (diagnóstico no CI)
+    let i = 0;
+    for (const ctx of browser.contexts()) for (const pg of ctx.pages()) await pg.screenshot({ path: `${SHOTS}/falha-${results.length}-${i++}.png`, fullPage: true }).catch(() => {});
     console.log(`✗ ${name}\n    ${String(e?.message ?? e).split("\n")[0]}`);
   }
 }

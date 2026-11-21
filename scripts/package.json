@@ -9,6 +9,8 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "axe-core": "4.10.2",
+    "playwright": "1.63.0",
     "tsx": "catalog:"
   }
 }

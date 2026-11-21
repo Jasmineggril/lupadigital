@@ -121,7 +121,7 @@ await step("perfil essencial: vínculos múltiplos e objetivo atual persistem ap
   await p.getByRole("radio", { name: "Encontrar oportunidades" }).check();
   await p.getByRole("checkbox", { name: "Docente", exact: true }).check();
   await p.getByRole("checkbox", { name: "Pesquisador(a)" }).check();
-  await p.getByRole("checkbox", { name: "Concursos" }).check();
+  await p.getByRole("checkbox", { name: "Concursos", exact: true }).check();
   await p.getByTestId("perfil-salvar").click();
   await p.getByText(/Perfil salvo/).waitFor();
   await p.reload();

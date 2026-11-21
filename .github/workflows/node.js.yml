@@ -58,3 +58,52 @@ jobs:
       run: pnpm --filter @workspace/api-server exec tsx src/scripts/validate-supabase.ts
     - if: ${{ env.DATABASE_URL != '' || env.DIRECT_URL != '' || env.DIRECT_URL_IPV4 != '' }}
       run: pnpm --filter @workspace/api-server exec tsx src/scripts/validate-db.ts
+
+  # Jornadas críticas no navegador (Chromium), em pilha de TESTE isolada e reprodutível:
+  # auth de teste + API real com banco em memória de testes + build estático + coleta com fixtures.
+  # Não usa banco, Auth nem IA de produção; não acessa a rede externa. Falha se qualquer jornada falhar.
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 9.15.9
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+        cache: pnpm
+        cache-dependency-path: pnpm-lock.yaml
+    - run: pnpm install --frozen-lockfile --prod=false
+    - run: pnpm typecheck
+    - run: pnpm --filter @workspace/scripts exec playwright install --with-deps chromium
+    - name: Jornadas (testar, docente, integradas, regressão P1–P8)
+      run: bash scripts/e2e/run-all.sh --build
+      env:
+        E2E_OUT: e2e-out
+        E2E_TIMEOUT: "20000"
+    - name: Resumo e validações NÃO verificadas por este job
+      if: always()
+      run: |
+        {
+          echo "## Jornadas de navegador (ambiente de teste)"
+          echo '```'; cat e2e-out/resumo.txt 2>/dev/null || echo "sem resumo"; echo '```'
+          echo "### Não verificadas aqui"
+          echo "- Banco, Auth e IA de produção (Supabase/OpenAI): o job usa banco em memória, auth de teste e plano de IA fictício."
+          echo "- Coleta real no site da FAPDF e documentos reais (o job usa páginas e PDFs fictícios)."
+          echo "- OCR de PDF escaneado (não configurado no servidor)."
+          echo "- Integrações Hermes e eLattes (não existem)."
+          echo "- Dispositivos físicos, Android/iOS, leitores de tela (NVDA, TalkBack, VoiceOver), Libras/VLibras."
+          echo "- axe-core cobre só regras automáticas; validação humana de acessibilidade continua pendente."
+        } >> "$GITHUB_STEP_SUMMARY"
+    - if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-capturas
+        path: |
+          e2e-out/
+          /tmp/lupa-e2e/*.log
+        retention-days: 14
+        if-no-files-found: warn

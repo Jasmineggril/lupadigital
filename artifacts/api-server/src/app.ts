@@ -27,6 +27,8 @@ import * as Sentry from "@sentry/node";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import { costGuard, memoryBackend, setDefaultLimitBackend, sqlBackend } from "./lib/limits/shared";
+import { getSupabaseAdmin } from "./lib/supabase";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -168,6 +170,20 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 
+// Armazenamento dos limites compartilhados: Postgres (Supabase) quando configurado
+if (process.env.LUPA_STORE !== "memory" && process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY)) {
+  setDefaultLimitBackend(
+    sqlBackend("supabase", async (fn, args) => {
+      const { data, error } = await getSupabaseAdmin().rpc(fn, args);
+      if (error) throw new Error(`limite: ${error.code ?? "erro"}`);
+      return data;
+    }),
+  );
+} else {
+  setDefaultLimitBackend(memoryBackend());
+  if (process.env.NODE_ENV === "production") logger.warn("Limites de custo em memória: NÃO compartilhados entre instâncias (Supabase não configurado)");
+}
+
 app.use(cors(corsDelegate));
 app.use(defaultLimiter);
 
@@ -184,11 +200,17 @@ app.use(supabaseAuthMiddleware());
 // ── Rate limiters específicos por rota ───────────────────────────────────────
 // Aplicados ANTES do router principal para garantir que o limite é checado
 // antes de qualquer lógica de negócio ou acesso ao banco de dados.
-app.use("/api/edital/ocr-pdf", anonOcrLimiter, ocrLimiter);
-app.use("/api/edital/analyze", anonAiLimiter, aiLimiter);
-app.use("/api/edital/simplify", anonAiLimiter, aiLimiter);
-app.use("/api/edital/extract-url", anonOcrLimiter, aiLimiter);
-app.use("/api/niasci", anonAiLimiter, aiLimiter); // todas as sub-rotas do NIASci usam IA
+// 1ª camada: limitadores locais por minuto (rajadas, por instância).
+// 2ª camada: costGuard — cotas COMPARTILHADAS entre instâncias (Postgres), orçamento global e
+// limite de execuções simultâneas; falha do armazenamento → 503 (fechado). Ver lib/limits/shared.ts.
+const aiCost = costGuard("ai");
+const ocrCost = costGuard("ocr");
+const onlyPost = (h: express.RequestHandler): express.RequestHandler => (req, res, next) => (req.method === "POST" ? h(req, res, next) : next());
+app.use("/api/edital/ocr-pdf", anonOcrLimiter, ocrLimiter, onlyPost(ocrCost));
+app.use("/api/edital/analyze", anonAiLimiter, aiLimiter, onlyPost(aiCost));
+app.use("/api/edital/simplify", anonAiLimiter, aiLimiter, onlyPost(aiCost));
+app.use("/api/edital/extract-url", anonOcrLimiter, aiLimiter, onlyPost(ocrCost));
+app.use("/api/niasci", anonAiLimiter, aiLimiter, onlyPost(aiCost)); // todas as sub-rotas do NIASci usam IA
 app.post("/api/edital/share", shareLimiter);
 app.use("/api/diag", diagLimiter); // diagnóstico de provedores (5 req/min)
 

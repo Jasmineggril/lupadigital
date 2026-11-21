@@ -17,6 +17,7 @@ import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { requireAuth } from "../lib/supabase";
 import { getStore, ConcurrentRunError } from "../lib/lupa/store";
+import { logger } from "../lib/logger";
 import { getUserId, isAdminClaims, getClaims, requireAdmin } from "../lib/lupa/roles";
 import {
   emptyProfile,
@@ -34,6 +35,7 @@ import { createSafeDocumentFetcher, createSafeFetcher, runCollection, type PageF
 import type { DocumentFetcher } from "../lib/lupa/collector/documents";
 import { InstitutionalImportSchema, LattesSummarySchema, getLattesProvider, type LattesSummary } from "../lib/lupa/integrations/lattes";
 import { HERMES_STATUS, hermesConfigured, verifyHermesSecret } from "../lib/lupa/integrations/hermes";
+import { STALE_RUN_MS, cronConfigured, dueSources, verifyCronSecret } from "../lib/lupa/integrations/cron";
 import {
   CreateParticipationSchema,
   MAX_PARTICIPATIONS_PER_USER,
@@ -788,6 +790,7 @@ router.get("/admin/status", requireAdmin(), (_req, res) => {
   res.json({
     store: getStore().kind,
     hermes: { ...HERMES_STATUS, trigger_configured: hermesConfigured() },
+    coleta_agendada: { configurada: cronConfigured(), horario: "diária, 06:17 (horário de Brasília)" },
     elattes: { configured: getLattesProvider().configured, fallback: "importação JSON provisória" },
   });
 });
@@ -1032,6 +1035,54 @@ router.post("/integrations/hermes/collect", async (req, res) => {
     return;
   }
   await triggerRun(req, res, parsed.data.source_id, "hermes", parsed.data.request_id ? `hermes:${parsed.data.request_id}` : "hermes");
+});
+
+// ── Coleta automática diária (Vercel Cron) ───────────────────────────────────
+
+router.get("/cron/collect", async (req, res) => {
+  if (!cronConfigured()) {
+    res.status(503).json({ error: "Coleta agendada não configurada (CRON_SECRET ausente)." });
+    return;
+  }
+  if (!verifyCronSecret(req.headers.authorization)) {
+    res.status(401).json({ error: "Credencial do agendador inválida." });
+    return;
+  }
+  try {
+    const store = getStore();
+    const now = new Date();
+    const [sources, runs] = await Promise.all([store.listSources(), store.listRuns(100)]);
+    const decisions = dueSources(sources, runs, now);
+    const results: Array<Record<string, unknown>> = [];
+    // Uma fonte por vez: respeita o intervalo entre requisições de cada site e o tempo da função
+    for (const d of decisions) {
+      if (d.action === "pular") {
+        results.push({ ...d });
+        continue;
+      }
+      const source = sources.find((s) => s.id === d.source_id)!;
+      // Execução presa (função interrompida) não pode bloquear a fonte para sempre
+      for (const stuck of runs.filter((r) => r.source_id === source.id && r.status === "running" && now.getTime() - new Date(r.started_at).getTime() >= STALE_RUN_MS)) {
+        await store.finishRun(stuck.id, { status: "failed", stats: {}, errors: [{ url: source.base_url, message: "Execução interrompida (sem término registrado); encerrada pela coleta agendada." }] });
+      }
+      try {
+        const run = await runCollection(store, source.id, {
+          trigger: "agendada",
+          triggeredBy: "vercel-cron",
+          fetcher: fetcherFactory(source.allowed_hosts),
+          documentFetcher: documentFetcherFactory(source.allowed_hosts),
+        });
+        results.push({ ...d, run_id: run.id, status: run.status, stats: run.stats, erros: run.errors.length });
+      } catch (err) {
+        if (err instanceof ConcurrentRunError) results.push({ ...d, action: "pular", motivo: "coleta em andamento" });
+        else results.push({ ...d, status: "failed", erro: err instanceof Error ? err.message.slice(0, 200) : "erro" });
+      }
+    }
+    logger.info({ cron: results.map((r) => ({ source_id: r.source_id, action: r.action, status: r.status })) }, "coleta agendada");
+    res.json({ executado_em: now.toISOString(), resultados: results });
+  } catch (err) {
+    fail(req, res, err, "cron:collect");
+  }
 });
 
 export default router;

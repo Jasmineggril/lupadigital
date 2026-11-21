@@ -4,7 +4,7 @@
 |---|---|---|
 | Migração `20261123` em produção | Validada só em Postgres 16 local | Aplicada automaticamente ao mesclar o PR em `main` (integração GitHub → Supabase). Requer autorização. |
 | Coleta real da FAPDF | Coletor testado com fixtures; portal recusa conexões do ambiente de teste | Executar “Executar coleta agora” em produção e revisar o resultado; confirmar a URL da página de editais. |
-| Hermes | Sem contrato real da interface | Documentação do Hermes. Gatilho `POST /integrations/hermes/collect` já existe (com segredo); execução manual da administração preservada. |
+| Hermes | Sem contrato real da interface | Documentação do Hermes. Gatilho `POST /integrations/hermes/collect` já existe (com segredo); execução manual da administração preservada. Enquanto isso, a coleta diária usa o agendador da Vercel (`docs/operacao/coleta-agendada.md`), que depende de `CRON_SECRET` configurado na Vercel. |
 | eLattes (API) | Sem contrato conhecido | Documentação/credenciais. Alternativa: importação JSON com prévia + leitura guiada no e-Lattes. |
 | Envio de e-mail (avisos) | Desligado; preferência só registrada | Escolher provedor e aprovar o uso. |
 | OCR no servidor | Depende de chave de visão (Gemini/OpenAI) | Configurar a chave na Vercel; sem ela, a tela explica o limite. |

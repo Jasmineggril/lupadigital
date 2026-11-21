@@ -289,7 +289,7 @@ export const SourceUpdateSchema = z
 export interface CollectionRun {
   id: string;
   source_id: string;
-  trigger: "manual" | "hermes";
+  trigger: "manual" | "hermes" | "agendada";
   triggered_by: string | null;
   status: "running" | "succeeded" | "partial" | "failed";
   started_at: string;

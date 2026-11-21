@@ -163879,6 +163879,10 @@ app.use(
     }
   })
 );
+app.use((req, res, next2) => {
+  const lc = app.get("lifecycle");
+  return lc ? lc.drainGuard(req, res, next2) : next2();
+});
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));

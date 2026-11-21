@@ -39,9 +39,19 @@ describe("lifecycle: erro fatal × recuperável", () => {
     expect(lc.isShuttingDown()).toBe(true);
     // Requisição chegando durante o encerramento (conexão nova antes do close completar)
     const during = await new Promise<number>((resolve) => {
-      const req = { url: "/x", method: "GET", headers: {} } as never;
-      const res = { statusCode: 0, setHeader() {}, status(c: number) { this.statusCode = c; return this; }, json() { resolve(this.statusCode); } } as never;
-      lc.drainGuard(req, res, () => resolve(200));
+      const req = { url: "/x", method: "GET", headers: {} };
+      const res = {
+        statusCode: 0,
+        setHeader() {},
+        status(c: number) {
+          this.statusCode = c;
+          return this;
+        },
+        json() {
+          resolve(this.statusCode);
+        },
+      };
+      lc.drainGuard(req as never, res as never, () => resolve(200));
     });
     expect(during).toBe(503);
     await p;

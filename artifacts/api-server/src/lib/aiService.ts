@@ -1318,6 +1318,7 @@ async function createJsonChatCompletion(
 
 import { logger } from "./logger";
 import { getSupabaseAdmin } from "./supabase";
+import { recordAiTokens } from "./limits/shared";
 import { classifyAiError } from "./processingErrors";
 
 export type AgentId = "simples" | "analista" | "estrategica" | "acompanhamento" | "documentacao" | "elegibilidade";
@@ -2619,6 +2620,7 @@ async function persistUsageLog(args: {
     } else {
       logger.info(logContext, args.message ?? "AIService usage log");
     }
+    await recordAiTokens(args.totalTokens ?? null); // orçamento global compartilhado
     const supa = getSupabaseAdmin();
     await supa.from("ai_usage_logs").insert(payload);
   } catch (logErr) {
@@ -3058,7 +3060,7 @@ export async function analyzeAgent(
 
       const singleResult = {
         ...canonical,
-        ...validated.data,
+        ...(validated.data as Record<string, unknown>),
         type: agentId,
         agentResult: validated.data,
         analysisId: canonical.analysisId,

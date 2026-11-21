@@ -1,8 +1,10 @@
 import "./load-env";
 import * as Sentry from "@sentry/node";
+import { scrubBreadcrumb, scrubEvent, scrubUrl } from "@workspace/telemetry";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { runMigrations } from "./lib/migrate";
+import { createLifecycle, installProcessHandlers } from "./lib/lifecycle";
 
 // Sentry init — must be before any other code
 const sentryDsn = process.env.SENTRY_DSN;
@@ -11,21 +13,24 @@ if (sentryDsn) {
     dsn: sentryDsn,
     release: "lupa-digital@1.0.0",
     environment: process.env.NODE_ENV ?? "development",
-    tracesSampleRate: 0.2,
+    tracesSampleRate: 0.05,
     enabled: process.env.NODE_ENV === "production",
+    // Dados mínimos: sem IP, corpo, cookies ou cabeçalhos; ver @workspace/telemetry
+    sendDefaultPii: false,
+    beforeSend: (event) => scrubEvent(event as never) as typeof event | null,
+    beforeSendTransaction: (event) => {
+      if (event.transaction) event.transaction = scrubUrl(event.transaction);
+      if (event.request) event.request = { url: scrubUrl(event.request.url), method: event.request.method };
+      return event;
+    },
+    beforeBreadcrumb: (crumb) => scrubBreadcrumb(crumb as never) as typeof crumb | null,
   });
 }
 
-// Rede de segurança: um erro não tratado em um handler async (ex.: falha no
-// Supabase em /edital/share) vira rejeição não capturada e derruba o processo
-// inteiro. Aqui logamos e mantemos o servidor vivo; o Express Error Handler
-// cobre os erros que passam por next(err).
-process.on("unhandledRejection", (reason) => {
-  logger.error({ err: reason }, "Unhandled promise rejection — keeping server alive");
-});
-process.on("uncaughtException", (error) => {
-  logger.error({ err: error }, "Uncaught exception — keeping server alive");
-});
+// Erro fatal → encerramento controlado (o supervisor reinicia); ver lib/lifecycle.ts
+const lifecycle = createLifecycle({ logger, flush: () => Sentry.flush(2000) });
+installProcessHandlers(lifecycle, logger, sentryDsn ? (err) => Sentry.captureException(err) : undefined);
+app.set("lifecycle", lifecycle);
 
 const rawPort = process.env["PORT"];
 
@@ -41,24 +46,29 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// Run migrations before starting the server
-runMigrations()
+// Migrações no início: DESLIGADO por padrão. Em produção quem aplica as migrações é a integração
+// GitHub → Supabase ao mesclar na main. Um servidor extra (ex.: CIIA) apontando para o MESMO banco
+// não pode alterar o esquema por conta própria. Ligue só num banco exclusivo deste servidor.
+const migrate = process.env.LUPA_RUN_MIGRATIONS_ON_START === "true" ? runMigrations : async () => logger.info("Migrações no início desligadas (LUPA_RUN_MIGRATIONS_ON_START != true)");
+migrate()
   .then(() => {
-    app.listen(port, (err) => {
+    const server = app.listen(port, (err) => {
       if (err) {
         logger.error({ err }, "Error listening on port");
         process.exit(1);
       }
       logger.info({ port }, "Server listening");
     });
+    lifecycle.attach(server);
   })
   .catch((err) => {
     logger.error({ err }, "Migration failed — starting server anyway");
-    app.listen(port, (err) => {
+    const server = app.listen(port, (err) => {
       if (err) {
         logger.error({ err }, "Error listening on port");
         process.exit(1);
       }
       logger.info({ port }, "Server listening (with migration errors)");
     });
+    lifecycle.attach(server);
   });

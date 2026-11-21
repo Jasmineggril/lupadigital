@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+e2e-out
+e2e-shots*
+.git
+deploy/ciia/.env
+**/.env
+**/.env.*
+!**/.env.example

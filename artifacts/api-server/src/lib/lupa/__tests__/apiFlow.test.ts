@@ -445,3 +445,50 @@ describe("Coleta automática diária (Vercel Cron)", () => {
     expect((await store.listRuns(10)).length).toBe(1);
   });
 });
+
+describe("administração: toda rota /admin está protegida", () => {
+  it("enumera as rotas registradas: sem login 401, usuário comum 403, admin passa da autorização", async () => {
+    const { default: router } = await import("../../../routes/lupa");
+    const routes: Array<{ path: string; method: string }> = [];
+    for (const layer of (router as unknown as { stack: Array<{ route?: { path: string; methods: Record<string, boolean> } }> }).stack) {
+      if (!layer.route || !String(layer.route.path).startsWith("/admin")) continue;
+      for (const m of Object.keys(layer.route.methods)) routes.push({ path: layer.route.path, method: m.toUpperCase() });
+    }
+    expect(routes.length).toBeGreaterThan(5);
+    const user = await token("pessoa-comum");
+    for (const r of routes) {
+      const path = r.path.replace(/:[a-z_]+/gi, "id-ficticio");
+      const anon = await call(r.method, path, undefined, r.method === "GET" ? undefined : {});
+      expect(anon.status, `${r.method} ${r.path} sem login`).toBe(401);
+      const common = await call(r.method, path, user, r.method === "GET" ? undefined : {});
+      expect(common.status, `${r.method} ${r.path} usuário comum`).toBe(403);
+    }
+  });
+
+  it("user_metadata.role = admin NÃO dá acesso (só app_metadata, controlado pelo servidor de Auth)", async () => {
+    const forged = await new SignJWT({ sub: "forjador", role: "authenticated", user_metadata: { role: "admin" }, app_metadata: {} })
+      .setProtectedHeader({ alg: "ES256", kid: "test-key" })
+      .setIssuedAt()
+      .setExpirationTime(Math.floor(Date.now() / 1000) + 600)
+      .sign(key);
+    expect((await call("GET", "/admin/runs", forged)).status).toBe(403);
+  });
+
+  it("com LUPA_ADMIN_REQUIRE_MFA=true, admin sem segundo fator (aal1) é recusado e com aal2 passa", async () => {
+    process.env.LUPA_ADMIN_REQUIRE_MFA = "true";
+    try {
+      const sign = (aal: string) =>
+        new SignJWT({ sub: "admin-mfa", role: "authenticated", app_metadata: { role: "admin" }, aal })
+          .setProtectedHeader({ alg: "ES256", kid: "test-key" })
+          .setIssuedAt()
+          .setExpirationTime(Math.floor(Date.now() / 1000) + 600)
+          .sign(key);
+      const r1 = await call("GET", "/admin/runs", await sign("aal1"));
+      expect(r1.status).toBe(403);
+      expect(r1.body.code).toBe("MFA_REQUIRED");
+      expect((await call("GET", "/admin/runs", await sign("aal2"))).status).toBe(200);
+    } finally {
+      delete process.env.LUPA_ADMIN_REQUIRE_MFA;
+    }
+  });
+});

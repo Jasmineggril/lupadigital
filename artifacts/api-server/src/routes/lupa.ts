@@ -53,6 +53,7 @@ import { httpSelectTwoFilters } from "../lib/db-http";
 import { officialSubmissionDeadline } from "../lib/lupa/deadlines";
 import { datesAsCandidates } from "../lib/lupa/collector/parse";
 import { deleteUserData, exportUserData } from "../lib/userData";
+import { deleteAuthUser } from "../lib/accountClosure";
 
 const router = Router();
 
@@ -772,6 +773,33 @@ router.delete("/me/data", requireAuth(), async (req, res) => {
     res.status(out.concluido ? 200 : 207).json(out);
   } catch (err) {
     fail(req, res, err, "me:delete");
+  }
+});
+
+const CloseAccountSchema = z.object({ confirmacao: z.literal("ENCERRAR MINHA CONTA") }).strict();
+
+/** Encerrar a conta: apaga os dados e, só se tudo foi apagado, remove o acesso (Supabase Auth). */
+router.delete("/me/account", requireAuth(), async (req, res) => {
+  const userId = getUserId(req) as string;
+  if (!CloseAccountSchema.safeParse(req.body ?? {}).success) {
+    res.status(400).json({ error: "Para confirmar, digite exatamente: ENCERRAR MINHA CONTA" });
+    return;
+  }
+  try {
+    const dados = await deleteUserData(userId);
+    if (!dados.concluido) {
+      res.status(207).json({ ...dados, conta_removida: false, aviso: "Nem todos os dados foram apagados; a conta NÃO foi removida. Tente de novo." });
+      return;
+    }
+    const conta = await deleteAuthUser(userId);
+    req.log?.info({ context: "me:close", conta_removida: conta.ok }, "account closure");
+    res.status(conta.ok ? 200 : 207).json({
+      ...dados,
+      conta_removida: conta.ok,
+      ...(conta.ok ? {} : { aviso: "Os dados foram apagados, mas a conta de acesso não pôde ser removida agora. Tente de novo ou use o canal de atendimento." }),
+    });
+  } catch (err) {
+    fail(req, res, err, "me:close");
   }
 });
 

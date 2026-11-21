@@ -1,0 +1,19 @@
+{
+  "//": "Exceções JUSTIFICADAS da auditoria de dependências. Cada uma vence em 'revisar_ate' (o CI falha depois). Ver docs/seguranca/dependencias.md.",
+  "excecoes": [
+    {
+      "id": "GHSA-67mh-4wv8-2f99",
+      "pacote": "esbuild",
+      "escopo": "ferramenta",
+      "motivo": "Só via drizzle-kit (CLI de migração); o servidor de desenvolvimento do esbuild não é usado; não vai para produção.",
+      "revisar_ate": "2027-02-28"
+    },
+    {
+      "id": "GHSA-g3hv-75wg-m249",
+      "pacote": "minimatch",
+      "escopo": "ferramenta",
+      "motivo": "Só no gerador de código orval, com padrões do próprio repositório; correção exige versão principal nova (11).",
+      "revisar_ate": "2027-02-28"
+    }
+  ]
+}

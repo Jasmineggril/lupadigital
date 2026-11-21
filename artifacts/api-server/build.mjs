@@ -66,7 +66,8 @@ async function buildAll() {
       "@swc/*",
       "@aws-sdk/*",
       "@azure/*",
-      "@opentelemetry/*",
+      // "@opentelemetry/*" NÃO é externo: o @sentry/node depende dele e o servidor (Docker/CIIA)
+      // roda só com dist/, sem node_modules (mesmo motivo do bundle da Vercel abaixo).
       "@google-cloud/*",
       "@google/*",
       "googleapis",
@@ -166,7 +167,27 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
   });
 }
 
-buildAll().catch((err) => {
+// Worker de PDF (arquivo separado: roda em worker_threads e pode ser encerrado no tempo-limite)
+async function buildPdfWorker() {
+  const common = {
+    entryPoints: [path.resolve(artifactDir, "src/lib/pdf/pdf-worker.mjs")],
+    platform: "node",
+    bundle: true,
+    format: "esm",
+    logLevel: "info",
+    sourcemap: false,
+    banner: {
+      js: `import { createRequire as __bannerCrReq } from 'node:module';
+globalThis.require = __bannerCrReq(import.meta.url);
+`,
+    },
+  };
+  await esbuild({ ...common, outfile: path.resolve(artifactDir, "dist/pdf-worker.mjs") });
+  // Prefixo "_" : a Vercel não transforma em função; vercel.json inclui o arquivo na função api/index.js
+  await esbuild({ ...common, outfile: path.resolve(artifactDir, "../../api/_pdf-worker.mjs") });
+}
+
+buildAll().then(buildPdfWorker).catch((err) => {
   console.error(err);
   process.exit(1);
 });

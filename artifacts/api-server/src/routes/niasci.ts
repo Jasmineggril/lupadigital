@@ -56,7 +56,7 @@ const LatteAnalyzeSchema = z.object({
 router.post("/niasci/elattes/analyze", async (req, res): Promise<void> => {
   const parsed = LatteAnalyzeSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Texto inválido." });
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Texto inválido." });
     return;
   }
 
@@ -90,7 +90,7 @@ const ArtigoAnalyzeSchema = z.object({
 router.post("/niasci/artigos/analyze", async (req, res): Promise<void> => {
   const parsed = ArtigoAnalyzeSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Texto inválido." });
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Texto inválido." });
     return;
   }
 
@@ -126,7 +126,7 @@ const ProjetoAnalyzeSchema = z.object({
 router.post("/niasci/projetos/analyze", async (req, res): Promise<void> => {
   const parsed = ProjetoAnalyzeSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Descrição inválida." });
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Descrição inválida." });
     return;
   }
 
@@ -184,7 +184,7 @@ const PlanetarioGenerateSchema = z.object({
 router.post("/niasci/planetario/generate", async (req, res): Promise<void> => {
   const parsed = PlanetarioGenerateSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Dados inválidos." });
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos." });
     return;
   }
 

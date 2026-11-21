@@ -6,7 +6,7 @@
 
 | O quê | Como | Situação |
 |---|---|---|
-| Banco (Supabase) | Backups automáticos do Supabase (frequência e retenção dependem do plano do projeto `zhwopvepavcoisclsjnk`) | **Confirmar o plano** no painel (Database → Backups). Se for o plano gratuito, programar `pg_dump` semanal cifrado. |
+| Banco (Supabase) | **Verificado em 21/11/2026 pela API do Supabase: 0 backups, PITR desligado** — não há cópia automática. Rotina própria preparada: `scripts/ops/backup.sh` (ver `seguranca-e-recuperacao.md`) | **Pendente de aprovação** (local de guarda, retenção, acesso) ou contratação de plano com backup |
 | Esquema | Migrações versionadas em `supabase/migrations` (aplicadas pela integração GitHub → Supabase ao mesclar em `main`) | Ok |
 | Código | GitHub | Ok |
 | Configuração | Variáveis na Vercel (não versionadas, por conterem segredos) | Manter lista dos **nomes** em `docs/` (sem valores) |
@@ -14,7 +14,7 @@
 ## Teste de restauração (procedimento)
 
 1. Criar projeto Supabase de **desenvolvimento** (nunca restaurar sobre produção).
-2. Restaurar o backup mais recente (ou `psql < dump.sql`).
+2. Restaurar com `scripts/ops/restore-test.sh` (confere integridade, migrações, RLS e isolamento A/B; recusa produção). Testado localmente em 21/11/2026.
 3. Aplicar `supabase/migrations` em ordem e conferir idempotência (já validado em Postgres 16 local, sem dados).
 4. Apontar um deploy de *preview* para o projeto restaurado e rodar `scripts/e2e-*.mjs` adaptados.
 5. Registrar data, duração e falhas. Meta proposta: restauração em até 4 h, perda máxima de 24 h (a aprovar).

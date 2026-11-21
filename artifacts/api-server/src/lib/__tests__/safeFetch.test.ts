@@ -31,12 +31,79 @@ describe("isPrivateIp", () => {
     expect(isPrivateIp(ip)).toBe(true);
   });
 
-  it.each(["93.184.216.34", "8.8.8.8", "172.32.0.1", "2606:4700:4700::1111", "::ffff:8.8.8.8"])(
+  it.each(["93.184.216.34", "8.8.8.8", "172.32.0.1", "2606:4700:4700::1111", "2a00:1450:4001:80b::200e"])(
     "%s é público",
     (ip) => {
       expect(isPrivateIp(ip)).toBe(false);
     },
   );
+});
+
+// Regressão da auditoria de 2026-11-21: IPv4 mapeado em hexadecimal era tratado como público
+describe("isPrivateIp — representações equivalentes de destinos proibidos", () => {
+  it.each([
+    ["::ffff:7f00:1", "127.0.0.1 mapeado (hex)"],
+    ["::ffff:7f00:0001", "127.0.0.1 mapeado (hex com zeros)"],
+    ["0:0:0:0:0:ffff:7f00:1", "127.0.0.1 mapeado (forma longa)"],
+    ["0000:0000:0000:0000:0000:FFFF:7F00:0001", "127.0.0.1 mapeado (maiúsculas)"],
+    ["[::ffff:7f00:1]", "com colchetes (como em URL)"],
+    ["::ffff:a9fe:a9fe", "169.254.169.254 (metadados da nuvem) mapeado"],
+    ["::ffff:169.254.169.254", "metadados da nuvem mapeado (decimal)"],
+    ["::ffff:a00:1", "10.0.0.1 mapeado"],
+    ["::ffff:8.8.8.8", "IPv4 público mapeado (recusado por política: use a forma IPv4)"],
+    ["::7f00:1", "IPv4 compatível (obsoleto)"],
+    ["::127.0.0.1", "IPv4 compatível (decimal)"],
+    ["64:ff9b::7f00:1", "NAT64"],
+    ["64:ff9b:1::a00:1", "NAT64 local"],
+    ["2002:7f00:1::", "6to4 com 127.0.0.1 embutido"],
+    ["2001:0:4136:e378:8000:63bf:3fff:fdd2", "Teredo"],
+    ["2001:db8::1", "documentação"],
+    ["fec0::1", "site-local (obsoleto)"],
+    ["100::1", "descarte"],
+    ["fe80::1%eth0", "link-local com zona"],
+    ["198.51.100.7", "documentação IPv4"],
+    ["192.88.99.1", "6to4 relay"],
+    ["240.0.0.1", "reservado"],
+    ["1.2.3", "IPv4 incompleto"],
+    ["0177.0.0.1", "octal (não é forma canônica)"],
+    ["2130706433", "inteiro"],
+    ["", "vazio"],
+  ])("%s (%s) é bloqueado", (ip) => {
+    expect(isPrivateIp(ip)).toBe(true);
+  });
+
+  it("URL com IPv6 mapeado é recusada antes de qualquer consulta ou conexão", async () => {
+    const fetchImpl = vi.fn();
+    const resolve = vi.fn(publicResolver);
+    for (const u of ["http://[::ffff:127.0.0.1]/", "http://[::ffff:7f00:1]/", "http://[::ffff:a9fe:a9fe]/latest/meta-data/", "http://[0:0:0:0:0:ffff:7f00:1]:8080/"]) {
+      await expect(safeFetch(u, { fetchImpl: fetchImpl as any, resolve })).rejects.toBeInstanceOf(UnsafeUrlError);
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("redirecionamento para IPv6 mapeado é recusado sem segundo pedido", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(res(302, { headers: { location: "http://[::ffff:a9fe:a9fe]/latest/meta-data/" } }));
+    await expect(safeFetch("https://site.example/", { fetchImpl: fetchImpl as any, resolve: publicResolver })).rejects.toBeInstanceOf(UnsafeUrlError);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("nome que resolve para IPv4 mapeado é recusado", async () => {
+    await expect(assertPublicHost("disfarce.example", async () => ["::ffff:7f00:1"])).rejects.toBeInstanceOf(UnsafeUrlError);
+  });
+
+  it("protocolos diferentes de http/https são recusados", async () => {
+    for (const u of ["file:///etc/passwd", "ftp://site.example/", "gopher://site.example/", "data:text/plain,oi"]) {
+      await expect(safeFetch(u, { resolve: publicResolver })).rejects.toBeInstanceOf(UnsafeUrlError);
+    }
+  });
+
+  it("tempo esgotado interrompe a busca", async () => {
+    const fetchImpl = vi.fn((_u: string, init: RequestInit) => new Promise<Response>((_r, reject) => init.signal?.addEventListener("abort", () => reject(init.signal?.reason))));
+    const t0 = Date.now();
+    await expect(safeFetch("https://lento.example/", { fetchImpl: fetchImpl as any, resolve: publicResolver, timeoutMs: 50 })).rejects.toThrow();
+    expect(Date.now() - t0).toBeLessThan(2000);
+  });
 });
 
 describe("assertPublicHost", () => {
@@ -174,6 +241,14 @@ describe("DNS rebinding (conexão fixada no IP verificado)", () => {
     hits = 0;
     const pinned = createPinnedFetch(async () => ["127.0.0.1"]);
     await expect(pinned(`http://interno.example:${port}/`)).rejects.toBeInstanceOf(UnsafeUrlError);
+    expect(hits).toBe(0);
+  });
+
+  it("o fetch fixado recusa IP literal mapeado (que não passa pelo lookup) sem conectar", async () => {
+    hits = 0;
+    const pinned = createPinnedFetch(publicResolver);
+    await expect(pinned(`http://[::ffff:7f00:1]:${port}/`)).rejects.toBeInstanceOf(UnsafeUrlError);
+    await expect(pinned(`http://127.0.0.1:${port}/`)).rejects.toBeInstanceOf(UnsafeUrlError);
     expect(hits).toBe(0);
   });
 

@@ -13,6 +13,9 @@
       "path": "../../lib/project-contract"
     },
     {
+      "path": "../../lib/telemetry"
+    },
+    {
       "path": "../../lib/feature-catalog"
     },
     {

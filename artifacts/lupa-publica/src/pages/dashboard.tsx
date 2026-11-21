@@ -1,3 +1,4 @@
+import { Link } from "wouter";
 import { useListAgentHistory, useListEditalHistory } from "@workspace/api-client-react";
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -220,7 +221,7 @@ export default function Dashboard() {
               ) : stats.byAgent.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-center">
                   <p className="text-sm text-muted-foreground">Nenhuma interpretação ainda.</p>
-                  <p className="text-xs text-muted-foreground mt-1">Vá para Testar IA e faça sua primeira interpretação!</p>
+                  <Link href="/testar" className="mt-2 text-sm font-semibold text-lens underline">Analisar um edital</Link>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={200}>
@@ -312,6 +313,7 @@ export default function Dashboard() {
               <div className="text-center py-10">
                 <History className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">Nenhuma interpretação salva ainda.</p>
+                <Link href="/testar" className="mt-2 inline-block text-sm font-semibold text-lens underline">Analisar um edital</Link>
               </div>
             ) : (
               <div className="space-y-2">

@@ -1,45 +1,10 @@
-import { useState } from "react";
 import { Link } from "wouter";
-import { Github, HelpCircle, FileText, Download, Heart, Share2, History, Sparkles } from "lucide-react";
+import { Github, HelpCircle } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { buttonVariants } from "@/components/ui/button";
 
-const ACTIONS = [
-  {
-    icon: Sparkles,
-    title: "Interpretar",
-    text: "Escolha o agente, cole o texto do edital ou envie um PDF e clique em Interpretar para gerar o resultado.",
-  },
-  {
-    icon: FileText,
-    title: "Ler PDF",
-    text: "Envie um PDF com texto legível para extrair conteúdo e preparar a interpretação automaticamente.",
-  },
-  {
-    icon: Download,
-    title: "Exportar PDF",
-    text: "Baixa um relatório do resultado atual com layout específico para o agente selecionado.",
-  },
-  {
-    icon: Heart,
-    title: "Favoritar",
-    text: "Marca a interpretação para facilitar o acesso depois no histórico.",
-  },
-  {
-    icon: History,
-    title: "Salvar / Histórico",
-    text: "Salva o resultado e permite recuperar interpretações anteriores.",
-  },
-  {
-    icon: Share2,
-    title: "Compartilhar",
-    text: "Gera um link para abrir em WhatsApp, Google ou copiar direto.",
-  },
-];
 
 export function Footer() {
-  const [helpOpen, setHelpOpen] = useState(false);
   const year = new Date().getFullYear();
 
   return (
@@ -57,7 +22,7 @@ export function Footer() {
             Democratizando o acesso à informação pública por meio da Inteligência Artificial.
           </p>
           <a
-            href="https://github.com/Jasmineggril/lupapublica"
+            href="https://github.com/Jasmineggril/lupadigital"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-sm text-slate-200 hover:text-white hover:underline transition-colors"
@@ -70,9 +35,9 @@ export function Footer() {
         <div className="space-y-4">
           <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-slate-300">Links Rápidos</p>
           <nav aria-label="Links rápidos" className="flex flex-col space-y-2 text-sm">
-            <Link href="/" className="text-slate-200 hover:text-white hover:underline transition-colors">Home</Link>
+            <Link href="/" className="text-slate-200 hover:text-white hover:underline transition-colors">Início</Link>
             <Link href="/como-funciona" className="text-slate-200 hover:text-white hover:underline transition-colors">Como Funciona</Link>
-            <Link href="/testar" className="text-slate-200 hover:text-white hover:underline transition-colors">Testar IA</Link>
+            <Link href="/testar" className="text-slate-200 hover:text-white hover:underline transition-colors">Analisar um edital</Link>
             <Link href="/sobre" className="text-slate-200 hover:text-white hover:underline transition-colors">Sobre</Link>
           </nav>
         </div>
@@ -99,72 +64,12 @@ export function Footer() {
         </div>
 
         <div className="space-y-4 lg:col-span-1">
-          <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-slate-300">Ajuda do sistema</p>
-          <p className="text-sm text-slate-200 max-w-xs">
-            Veja o fluxo principal e o que faz cada ação da tela de teste sem sair do rodapé.
-          </p>
-          <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2 border-white/30 bg-transparent text-white hover:border-white hover:bg-white/10">
-                <HelpCircle className="w-4 h-4" aria-hidden />
-                Como funciona
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-2xl">Como usar a LUPA Digital</DialogTitle>
-                <DialogDescription>
-                  O fluxo abaixo resume o caminho completo da tela de teste e explica o papel de cada ação principal.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-6">
-                <div className="grid gap-3 md:grid-cols-3">
-                  {[
-                    "1. Escolha o agente de interpretação",
-                    "2. Cole o texto ou envie um PDF",
-                    "3. Clique em Interpretar para gerar o resultado",
-                  ].map((step) => (
-                    <div key={step} className="rounded-2xl border bg-muted/30 p-4 text-sm font-medium text-foreground">
-                      {step}
-                    </div>
-                  ))}
-                </div>
-
-                <div>
-                  <h5 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Ações principais</h5>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {ACTIONS.map((action) => {
-                      const Icon = action.icon;
-                      return (
-                        <div key={action.title} className="rounded-2xl border p-4 shadow-sm bg-background">
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                              <Icon className="h-4 w-4" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold">{action.title}</p>
-                              <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{action.text}</p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
-                  <p className="text-sm font-semibold text-primary flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    Dica rápida
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                    Para conseguir o melhor resultado, escolha primeiro o agente que corresponde ao objetivo da sua leitura. Depois exporte o PDF só quando o resultado estiver pronto.
-                  </p>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-slate-300">Ajuda</p>
+          <p className="text-sm text-slate-200 max-w-xs">Os três caminhos do LUPA: entender um edital, encontrar oportunidades e organizar a participação.</p>
+          <Link href="/como-funciona" className={buttonVariants({ variant: "outline", className: "gap-2 border-white/30 bg-transparent text-white hover:border-white hover:bg-white/10" })}>
+            <HelpCircle className="w-4 h-4" aria-hidden />
+            Como funciona
+          </Link>
         </div>
       </div>
 

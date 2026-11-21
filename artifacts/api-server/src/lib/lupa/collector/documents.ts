@@ -15,26 +15,8 @@
  *  - reaproveita o que já foi lido quando o hash não mudou (reprocessa só o necessário).
  */
 import { createHash } from "node:crypto";
-// pdf.js 2.0.550 (o que vem no pdf-parse), importado pelo caminho FIXO para o bundle incluir.
-// O padrão do pdf-parse (1.10.100) falha em alguns PDFs válidos ("bad XRef entry") e escolhe a
-// versão com require dinâmico, que não funciona dentro do bundle da Vercel.
-// @ts-expect-error — build UMD sem tipos
-import * as PDFJS from "pdf-parse/lib/pdf.js/v2.0.550/build/pdf.js";
-
-interface PdfTextItem {
-  str: string;
-  transform?: number[];
-}
-interface PdfPage {
-  getTextContent: () => Promise<{ items: PdfTextItem[] }>;
-}
-interface PdfDoc {
-  numPages: number;
-  getPage: (n: number) => Promise<PdfPage>;
-  destroy: () => Promise<void>;
-}
-const pdfjs = ((PDFJS as { default?: unknown }).default ?? PDFJS) as { disableWorker?: boolean; getDocument: (src: unknown) => { promise: Promise<PdfDoc> } };
-pdfjs.disableWorker = true;
+// Leitura isolada em worker (pdf.js 6.5, tempo-limite com encerramento real, teto de memória)
+import { PDF_LIMITS, PdfExtractError, extractPdfText } from "../../pdf/extract";
 import type { OpportunityDocument } from "../types";
 
 export interface FetchedDocument {
@@ -45,10 +27,9 @@ export interface FetchedDocument {
 }
 export type DocumentFetcher = (url: string) => Promise<FetchedDocument>;
 
-export const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
+export const MAX_DOCUMENT_BYTES = PDF_LIMITS.maxBytes;
 export const MAX_DOCUMENTS_PER_RUN = 40;
-export const MAX_PAGES_STORED = 120;
-const MAX_TEXT_PER_PAGE = 12_000;
+export const MAX_PAGES_STORED = PDF_LIMITS.maxPages;
 
 export interface PageText {
   page: number;
@@ -63,30 +44,9 @@ export function documentHash(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-/** Texto por página (quebra de linha quando muda a posição vertical). */
-export async function pdfPages(bytes: Uint8Array): Promise<{ pages: PageText[]; total: number }> {
-  // Cópia com memória própria (o pdf.js pode reter/transferir o buffer)
-  const data = new Uint8Array(bytes.byteLength);
-  data.set(bytes);
-  const doc = await pdfjs.getDocument({ data, isEvalSupported: false, disableFontFace: true }).promise;
-  try {
-    const pages: PageText[] = [];
-    const last = Math.min(doc.numPages, MAX_PAGES_STORED);
-    for (let n = 1; n <= last; n++) {
-      const content = await (await doc.getPage(n)).getTextContent();
-      let prevY: number | null = null;
-      let text = "";
-      for (const it of content.items) {
-        const y = it.transform?.[5] ?? null;
-        text += prevY !== null && y !== null && Math.abs(y - prevY) > 2 ? `\n${it.str}` : it.str;
-        prevY = y;
-      }
-      pages.push({ page: n, text: text.replace(/[ \t]+/g, " ").trim().slice(0, MAX_TEXT_PER_PAGE) });
-    }
-    return { pages, total: doc.numPages };
-  } finally {
-    await doc.destroy().catch(() => {});
-  }
+/** Texto por página, lido no worker isolado. `truncated` = páginas ou texto acima do limite. */
+export async function pdfPages(bytes: Uint8Array): Promise<{ pages: PageText[]; total: number; truncated: boolean }> {
+  return extractPdfText(bytes);
 }
 
 /**
@@ -109,18 +69,34 @@ export async function processDocument(doc: OpportunityDocument, fetchDoc: Docume
     return { ...previous, fetched_at: base.fetched_at, reused: true };
   }
   try {
-    const { pages, total } = await pdfPages(fetched.bytes);
+    const { pages, total, truncated } = await pdfPages(fetched.bytes);
     const hasText = pages.some((p) => p.text.length >= 30);
     return {
       ...base,
       content_hash: hash,
       size_bytes: fetched.bytes.length,
       page_count: total,
-      text_status: hasText ? (total > MAX_PAGES_STORED ? "parcial" : "extraido") : "sem_texto",
-      ...(hasText ? {} : { error: "PDF sem camada de texto (provavelmente escaneado). OCR no servidor não configurado; confira o documento oficial." }),
+      // Nunca "extraido" se algo ficou de fora: parcial é sinalizado
+      text_status: hasText ? (truncated ? "parcial" : "extraido") : "sem_texto",
+      ...(hasText
+        ? truncated
+          ? { error: `Leitura parcial: limite de ${MAX_PAGES_STORED} páginas ou de texto por página atingido. Confira o documento oficial.` }
+          : {}
+        : { error: "PDF sem camada de texto (provavelmente escaneado). OCR no servidor não configurado; confira o documento oficial." }),
       pages: hasText ? pages : [],
     };
   } catch (err) {
-    return { ...base, content_hash: hash, size_bytes: fetched.bytes.length, text_status: "invalido", error: `PDF corrompido ou protegido: ${(err instanceof Error ? err.message : String(err)).slice(0, 200)}` };
+    const kind = err instanceof PdfExtractError ? err.kind : "erro";
+    const message =
+      kind === "protegido"
+        ? "PDF protegido por senha; não foi possível ler."
+        : kind === "timeout" || kind === "memoria"
+          ? `Leitura interrompida (${kind === "timeout" ? "tempo-limite" : "memória"}). Confira o documento oficial.`
+          : kind === "ocupado"
+            ? "Leitor de PDF ocupado; será tentado na próxima coleta."
+            : `PDF corrompido ou ilegível: ${(err instanceof Error ? err.message : String(err)).slice(0, 200)}`;
+    // Falha temporária (tempo, memória, ocupado) fica como "erro" para ser tentada de novo na próxima coleta
+    const status = kind === "protegido" || kind === "invalido" ? "invalido" : "erro";
+    return { ...base, content_hash: hash, size_bytes: fetched.bytes.length, text_status: status, error: message };
   }
 }

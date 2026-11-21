@@ -4,7 +4,8 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 300,
-      "memory": 1024
+      "memory": 1024,
+      "includeFiles": "api/_pdf-worker.mjs"
     }
   },
   "rewrites": [

@@ -13,6 +13,7 @@
 const pw = await import(process.env.PLAYWRIGHT_PATH ?? "playwright");
 const { chromium } = pw.default ?? pw;
 import fs from "node:fs";
+import { isolate, blockedHosts } from "./e2e/isolate.mjs";
 
 const WEB = process.env.E2E_WEB ?? "http://127.0.0.1:4173";
 const AUTH = process.env.E2E_AUTH ?? "http://127.0.0.1:54321";
@@ -42,6 +43,7 @@ const browser = await chromium.launch();
 const errors = [];
 async function newPage(viewport = { width: 1280, height: 900 }) {
   const ctx = await browser.newContext({ viewport });
+  await isolate(ctx);
   const page = await ctx.newPage();
   page.setDefaultTimeout(Number(process.env.E2E_TIMEOUT ?? 8000));
   page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
@@ -431,4 +433,5 @@ const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} cenários passaram`);
 if (errors.length) console.log("Erros de página:", errors.slice(0, 5));
 fs.writeFileSync(`${SHOTS}/resultado.json`, JSON.stringify({ results, pageErrors: errors }, null, 2));
+if (blockedHosts.size) console.log(`Rede externa bloqueada (isolamento): ${[...blockedHosts].join(", ")}`);
 process.exit(failed.length ? 1 : 0);

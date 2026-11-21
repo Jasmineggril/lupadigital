@@ -1,3 +1,4 @@
+import { withUntrustedContentRule } from "./promptSafety";
 import OpenAI from "openai";
 
 export { OpenAI };
@@ -307,6 +308,7 @@ export async function createWithFallback(
   payload: Record<string, unknown>,
   requestOptions?: { signal?: AbortSignal | null; timeout?: number },
 ): Promise<FallbackResult> {
+  payload = withUntrustedContentRule(payload);
   const primaryProvider = getProviderName();
   const primaryModel = getOpenAIModel();
 

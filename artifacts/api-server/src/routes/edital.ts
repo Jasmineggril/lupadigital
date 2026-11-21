@@ -512,49 +512,134 @@ router.get("/edital/stats", requireAuth(), async (req, res): Promise<void> => {
   });
 });
 
-// ── POST /edital/share — create a share link ──────────────────────
+// ── Compartilhamento ─────────────────────────────────────────────
+// Link público SOMENTE LEITURA, criado por quem está logado (para poder revogar),
+// com validade (padrão 30 dias). O conteúdo compartilhado nunca inclui dados do
+// perfil de quem compartilhou, e a resposta pública não revela o dono.
 const ShareBodySchema = z.object({
   agentId: z.string().min(1).max(64),
   title: z.string().max(300),
   resultJson: z.record(z.string(), z.unknown()),
+  validadeDias: z.coerce.number().int().min(1).max(90).optional(),
 });
 
 /** Tamanho máximo do JSON compartilhado (evita usar o banco como depósito de dados). */
 export const MAX_SHARE_JSON_BYTES = 512 * 1024;
+export const SHARE_DEFAULT_DAYS = 30;
+
+/** Remove do resultado o que é pessoal (comparação com o perfil de quem compartilhou). */
+export function sanitizeSharedResult(result: Record<string, unknown>): Record<string, unknown> {
+  const clone = JSON.parse(JSON.stringify(result)) as Record<string, unknown>;
+  const strip = (obj: unknown) => {
+    if (obj && typeof obj === "object" && "base" in (obj as Record<string, unknown>)) {
+      const base = (obj as Record<string, unknown>).base;
+      if (base && typeof base === "object") delete (base as Record<string, unknown>).elegibilidade_perfil;
+    }
+  };
+  strip(clone);
+  strip(clone.agentResult);
+  delete clone.userId;
+  delete clone.user_id;
+  return clone;
+}
+
+/** Situação de um link a partir da linha do banco (colunas novas podem não existir em bancos antigos). */
+export function shareState(row: Record<string, unknown>, now = Date.now()): "ativo" | "revogado" | "expirado" {
+  if (row.revoked_at) return "revogado";
+  const exp = row.expires_at ? Date.parse(String(row.expires_at)) : NaN;
+  if (!Number.isNaN(exp) && exp <= now) return "expirado";
+  return "ativo";
+}
 
 router.post("/edital/share", async (req, res) => {
+  const userId = getReqUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Entre na sua conta para criar um link. Assim você pode revogá-lo depois." });
+    return;
+  }
   const parsed = ShareBodySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Dados inválidos." });
     return;
   }
-  const { agentId, title, resultJson } = parsed.data;
+  const { agentId, title } = parsed.data;
+  const resultJson = sanitizeSharedResult(parsed.data.resultJson);
   if (Buffer.byteLength(JSON.stringify(resultJson), "utf8") > MAX_SHARE_JSON_BYTES) {
     res.status(413).json({ error: "O resultado é grande demais para ser compartilhado." });
     return;
   }
   const token = randomUUID();
-  const userId = getReqUserId(req);
+  const days = parsed.data.validadeDias ?? SHARE_DEFAULT_DAYS;
+  const expiresAt = new Date(Date.now() + days * 86_400_000).toISOString();
   try {
     const supabase = getSupabaseAdmin();
-    const row: Record<string, unknown> = { token, agent_id: agentId, title, result_json: resultJson };
-    // Registra quem criou o link quando o usuário está logado
-    if (userId) row.user_id = String(userId);
-    let { error } = await supabase.from("shared_results").insert(row);
-    // Bancos sem a migration 20260713 (coluna user_id): grava sem o dono
-    if (error && userId && /user_id/.test(error.message)) {
-      delete row.user_id;
-      ({ error } = await supabase.from("shared_results").insert(row));
-    }
-    if (error) {
-      throw new Error(error.message);
-    }
+    const { error } = await supabase
+      .from("shared_results")
+      .insert({ token, agent_id: agentId, title, result_json: resultJson, user_id: String(userId), expires_at: expiresAt });
+    if (error) throw new Error(error.message);
   } catch (error) {
     req.log?.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to create share link");
-    res.status(503).json({ error: "Falha ao criar o link de compartilhamento. Tente novamente." });
+    res.status(503).json({ error: "Falha ao criar o link de compartilhamento. Nada foi publicado; tente novamente." });
     return;
   }
-  res.status(201).json({ token });
+  res.status(201).json({ token, expiresAt });
+});
+
+// ── GET /edital/shares — links criados por mim ────────────────────
+router.get("/edital/shares", async (req, res) => {
+  const userId = getReqUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from("shared_results")
+      .select("token, title, agent_id, created_at, expires_at, revoked_at")
+      .eq("user_id", String(userId))
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw new Error(error.message);
+    res.json({
+      links: (data ?? []).map((r: Record<string, unknown>) => ({
+        token: r.token,
+        title: r.title,
+        agentId: r.agent_id,
+        createdAt: r.created_at,
+        expiresAt: r.expires_at ?? null,
+        estado: shareState(r),
+      })),
+    });
+  } catch (error) {
+    req.log?.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to list share links");
+    res.status(503).json({ error: "Não foi possível carregar seus links agora." });
+  }
+});
+
+// ── DELETE /edital/share/:token — revogar (só o dono) ─────────────
+router.delete("/edital/share/:token", async (req, res) => {
+  const userId = getReqUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from("shared_results")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("token", req.params.token)
+      .eq("user_id", String(userId))
+      .select("token");
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) {
+      res.status(404).json({ error: "Link não encontrado." });
+      return;
+    }
+    res.status(204).end();
+  } catch (error) {
+    req.log?.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to revoke share link");
+    res.status(503).json({ error: "Não foi possível revogar agora. O link continua ativo; tente novamente." });
+  }
 });
 
 // ── POST /edital/ocr-pdf — extract text from PDF page images via GPT-4o Vision ──
@@ -590,24 +675,28 @@ router.post("/edital/ocr-pdf", async (req, res): Promise<void> => {
   }
 });
 
-// ── GET /edital/share/:token — retrieve shared result ─────────────
+// ── GET /edital/share/:token — leitura pública (sem dados do dono) ──
 router.get("/edital/share/:token", async (req, res) => {
   const { token } = req.params;
   try {
     const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-      .from("shared_results")
-      .select("*")
-      .eq("token", token)
-      .limit(1);
+    const { data, error } = await supabase.from("shared_results").select("*").eq("token", token).limit(1);
     if (error) {
       throw new Error(error.message);
     }
-    if (!data || data.length === 0) {
-      res.status(404).json({ error: "Link não encontrado ou expirado." });
+    const row = data?.[0] as Record<string, unknown> | undefined;
+    if (!row || shareState(row) !== "ativo") {
+      res.status(404).json({ error: "Link não encontrado, expirado ou revogado por quem o criou." });
       return;
     }
-    res.json(mapKeys(data[0]));
+    res.json({
+      token: row.token,
+      agentId: row.agent_id,
+      title: row.title,
+      resultJson: sanitizeSharedResult((row.result_json ?? {}) as Record<string, unknown>),
+      createdAt: row.created_at,
+      expiresAt: row.expires_at ?? null,
+    });
   } catch (error) {
     req.log?.error({ error: error instanceof Error ? error.message : String(error) }, "Failed to fetch shared result");
     res.status(503).json({ error: "Falha ao buscar o link compartilhado. Tente novamente." });

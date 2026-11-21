@@ -3052,6 +3052,14 @@ export default function TestarIA() {
 
   const generateShareToken = async () => {
     if (!agentResult) return null;
+    if (!user) {
+      // Link público só é criado por quem está logado, para que possa ser revogado depois
+      toast({
+        title: "Entre para compartilhar",
+        description: "Links de compartilhamento ficam na sua conta: você vê quem criou, até quando vale e pode revogar em Configurações.",
+      });
+      return null;
+    }
     setIsSharing(true);
     try {
       const title =
@@ -3059,25 +3067,26 @@ export default function TestarIA() {
             ? ((agentResult as { resumo?: string }).resumo?.slice(0, 60) ??
               "Edital")
             : "Interpretação de Edital";
-      const res = await fetch(`${BASE}/api/edital/share`, {
+      const { token, expiresAt } = await apiFetch<{ token: string; expiresAt?: string }>("/edital/share", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agentId: agentResult.type,
           title,
           resultJson: canonicalAnalysis ?? agentResult,
         }),
       });
-      if (!res.ok) throw new Error();
-      const { token } = (await res.json()) as { token: string };
       setShareToken(token);
       setShowShareLink(true);
       setShareOptionsOpen(true);
-      return token;
-    } catch {
       toast({
-        title: "Erro",
-        description: "Não foi possível gerar o link.",
+        title: "Link criado",
+        description: `Qualquer pessoa com o link pode ver esta interpretação${expiresAt ? ` até ${new Date(expiresAt).toLocaleDateString("pt-BR")}` : ""}. Dados do seu perfil não são incluídos. Revogue em Configurações.`,
+      });
+      return token;
+    } catch (err) {
+      toast({
+        title: "Link não criado",
+        description: err instanceof Error && err.message ? err.message : "Não foi possível gerar o link. Nada foi publicado.",
         variant: "destructive",
       });
       return null;

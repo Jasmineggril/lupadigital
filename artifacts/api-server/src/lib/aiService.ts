@@ -34,8 +34,10 @@ import {
   getVisionClient,
   getVisionClients,
   createWithFallback,
+  withUntrustedContentRule,
   type FallbackResult,
 } from "@workspace/integrations-openai-ai-server";
+import { catalogForPrompt } from "@workspace/feature-catalog";
 import { SimplifyEditalResponse } from "@workspace/api-zod";
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
@@ -3651,6 +3653,11 @@ export async function chatNiasci(
     "",
     PLAIN_LANGUAGE_PRINCIPLES,
     "",
+    "PÁGINAS REAIS DO LUPA DIGITAL (indique somente estas; não invente páginas, botões ou capacidades):",
+    catalogForPrompt(),
+    "Quando a pergunta for sobre como fazer algo no LUPA, indique a página pelo nome e pelo endereço acima.",
+    "Se a pessoa pedir algo que o LUPA não faz (por exemplo, inscrever-se automaticamente em um edital), diga claramente que não faz.",
+    "",
     "Responda SEMPRE em português brasileiro.",
     "Seja direto, útil e encorajador. Não invente informações que não sabe.",
   ].join("\n");
@@ -3668,10 +3675,10 @@ export async function chatNiasci(
       })),
     ];
 
-    const completion = await openai.chat.completions.create({
-      model,
-      messages: chatMessages,
-    }, { signal: AbortSignal.timeout(60_000) });
+    const completion = await openai.chat.completions.create(
+      withUntrustedContentRule({ model, messages: chatMessages }) as { model: string; messages: typeof chatMessages },
+      { signal: AbortSignal.timeout(60_000) },
+    );
 
     const response = completion.choices[0]?.message?.content ?? "Não consegui gerar uma resposta. Tente novamente.";
     const latency = Date.now() - start;

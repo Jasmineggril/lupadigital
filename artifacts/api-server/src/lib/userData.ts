@@ -14,7 +14,8 @@
  *  - Cópias de segurança do provedor expiram pelo ciclo dele; não prometemos exclusão instantânea delas.
  */
 
-import { httpDeleteAllForUser, httpDetachUser, httpSelect } from "./db-http";
+import { httpDeleteAllForUser, httpDetachUser, httpSelectAllPaged, isMemoryMode, memoryTableForTests } from "./db-http";
+import getSupabaseAdmin from "./supabase";
 import { getStore, STORE_USER_TABLES } from "./lupa/store";
 
 const STORE_LABELS: Record<(typeof STORE_USER_TABLES)[number], string> = {
@@ -61,29 +62,59 @@ export interface SectionResult {
 /** Tabela ausente em bancos antigos não é falha da pessoa: aparece como "não existe neste ambiente". */
 const missingTable = (msg: string) => /relation .* does not exist|could not find the table|schema cache/i.test(msg);
 
+export interface SectionExport extends SectionResult {
+  /** "sem dados" (consulta ok, nada encontrado) é diferente de falha */
+  nota?: string;
+}
+
 export async function exportUserData(userId: string) {
   const dados: Record<string, unknown[]> = {};
-  const secoes: SectionResult[] = [];
+  const secoes: SectionExport[] = [];
   try {
     const fromStore = await getStore().exportUser(userId);
     for (const t of STORE_USER_TABLES) {
-      dados[t] = fromStore[t] ?? [];
-      secoes.push({ table: t, rotulo: STORE_LABELS[t], ok: true, linhas: dados[t].length });
+      const r = fromStore[t] ?? { rows: [], complete: false, error: "não lido" };
+      dados[t] = r.rows;
+      secoes.push({ table: t, rotulo: STORE_LABELS[t], ok: r.complete, linhas: r.rows.length, ...(r.complete ? {} : { erro: `leitura interrompida (${r.rows.length} linha(s) lidas)` }) });
     }
   } catch {
     for (const t of STORE_USER_TABLES) secoes.push({ table: t, rotulo: STORE_LABELS[t], ok: false, linhas: 0, erro: "não foi possível ler agora" });
   }
   for (const t of [...USER_TABLES, ...DETACH_TABLES]) {
-    try {
-      const rows = await httpSelect(t.table, { user_id: userId }, { limit: 5000 });
-      dados[t.table] = rows;
-      secoes.push({ table: t.table, rotulo: t.rotulo, ok: true, linhas: rows.length });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      secoes.push({ table: t.table, rotulo: t.rotulo, ok: missingTable(msg), linhas: 0, ...(missingTable(msg) ? {} : { erro: "não foi possível ler agora" }) });
+    const r = await httpSelectAllPaged<Record<string, unknown>>(t.table, { user_id: userId });
+    if (!r.complete && r.error && missingTable(r.error)) {
+      dados[t.table] = [];
+      secoes.push({ table: t.table, rotulo: t.rotulo, ok: true, linhas: 0, nota: "tabela não existe neste ambiente" });
+      continue;
+    }
+    dados[t.table] = r.rows;
+    secoes.push({ table: t.table, rotulo: t.rotulo, ok: r.complete, linhas: r.rows.length, ...(r.complete ? {} : { erro: `leitura interrompida após ${r.rows.length} linha(s)` }) });
+    // Mensagens das conversas DESTA pessoa (tabela filha, sem user_id)
+    if (t.table === "conversations") {
+      const ids = r.rows.map((c) => c.id);
+      const m = ids.length ? await httpSelectAllPaged<Record<string, unknown>>("messages", { col: "conversation_id", values: ids }) : { rows: [], complete: r.complete, pages: 0 };
+      dados.messages = m.rows;
+      secoes.push({ table: "messages", rotulo: "Mensagens das conversas", ok: m.complete && r.complete, linhas: m.rows.length, ...(m.complete && r.complete ? {} : { erro: "mensagens não lidas por completo" }) });
     }
   }
+  // Só é completo se TODAS as seções foram lidas até a última página
   return { gerado_em: new Date().toISOString(), user_id: userId, completo: secoes.every((s) => s.ok), secoes, dados };
+}
+
+/** Apaga as mensagens das conversas da pessoa (no banco há ON DELETE CASCADE; em memória, explícito). */
+async function deleteConversationMessages(userId: string): Promise<number> {
+  const conv = await httpSelectAllPaged<Record<string, unknown>>("conversations", { user_id: userId });
+  const ids = conv.rows.map((c) => c.id);
+  if (!ids.length) return 0;
+  if (isMemoryMode()) {
+    const t = memoryTableForTests("messages")!;
+    const before = t.length;
+    for (let i = t.length - 1; i >= 0; i--) if (ids.includes(t[i].conversation_id)) t.splice(i, 1);
+    return before - t.length;
+  }
+  const { data, error } = await getSupabaseAdmin().from("messages").delete().in("conversation_id", ids as number[]).select("id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
 }
 
 export async function deleteUserData(userId: string) {
@@ -93,6 +124,11 @@ export async function deleteUserData(userId: string) {
     for (const t of STORE_USER_TABLES) secoes.push({ table: t, rotulo: STORE_LABELS[t], ok: true, linhas: counts[t] ?? 0 });
   } catch {
     for (const t of STORE_USER_TABLES) secoes.push({ table: t, rotulo: STORE_LABELS[t], ok: false, linhas: 0, erro: "não foi possível apagar agora" });
+  }
+  try {
+    secoes.push({ table: "messages", rotulo: "Mensagens das conversas", ok: true, linhas: await deleteConversationMessages(userId) });
+  } catch {
+    secoes.push({ table: "messages", rotulo: "Mensagens das conversas", ok: false, linhas: 0, erro: "não foi possível apagar agora" });
   }
   for (const t of USER_TABLES) {
     try {

@@ -33,6 +33,7 @@ import type { Request, Response } from "express";
 import getSupabaseAdmin, { getReqUserId, requireAuth } from "../lib/supabase";
 import { z } from "zod";
 import { ResearchProjectWriteSchema } from "@workspace/project-contract";
+import { isMemoryMode, memoryTableForTests } from "../lib/db-http";
 import crypto from "node:crypto";
 
 const router = Router();
@@ -67,19 +68,12 @@ function tableNameIsAllowed(name: string) {
 // ── Modo memória (SOMENTE testes/E2E: LUPA_STORE=memory, recusado em produção) ──
 // Mesmo formato de linha do banco (snake_case), sempre filtrado pelo dono.
 type MemRow = Record<string, unknown> & { id: string; user_id: string; created_at: string; updated_at: string };
-const memRows = new Map<string, MemRow[]>();
-function memoryMode(): boolean {
-  if (process.env.LUPA_STORE !== "memory") return false;
-  if (process.env.NODE_ENV === "production") throw new Error("LUPA_STORE=memory não é permitido em produção.");
-  return true;
-}
-const memTable = (t: string) => {
-  if (!memRows.has(t)) memRows.set(t, []);
-  return memRows.get(t)!;
-};
+// Mesmo armazenamento em memória do db-http (exportação/exclusão enxergam os mesmos dados)
+const memoryMode = (): boolean => isMemoryMode();
+const memTable = (t: string) => memoryTableForTests(t) as MemRow[];
 /** Exportado para testes. */
 export function resetResourceMemory() {
-  memRows.clear();
+  for (const t of ALLOWED_TABLES) memTable(t)?.splice(0);
 }
 
 /** O registro existe e pertence a este usuário? (usado para vincular projeto à participação) */

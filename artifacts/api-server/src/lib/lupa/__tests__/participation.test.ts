@@ -318,6 +318,65 @@ describe("ferramentas NIASci (recursos)", () => {
   });
 });
 
+describe("exportação completa (paginada) e exclusão", () => {
+  it("lê além de uma página, inclui mensagens das conversas e recursos NIASci; não mistura usuários", async () => {
+    const db = await import("../../db-http");
+    (await import("../../../routes/resources")).resetResourceMemory();
+    db.setExportTestOptions({ pageSize: 2 });
+    try {
+      for (let i = 0; i < 5; i++) await db.httpInsert("agent_results", { user_id: "usuaria-a", agent_id: "simples", title: `a${i}`, original_text: "t", result_json: {} });
+      await db.httpInsert("agent_results", { user_id: "usuario-b", agent_id: "simples", title: "b", original_text: "t", result_json: {} });
+      const conv = await db.httpInsert<Record<string, unknown>>("conversations", { user_id: "usuaria-a", title: "conversa A" });
+      await db.httpInsert("messages", { conversation_id: conv.id, role: "user", content: "pergunta da A" });
+      const convB = await db.httpInsert<Record<string, unknown>>("conversations", { user_id: "usuario-b", title: "conversa B" });
+      await db.httpInsert("messages", { conversation_id: convB.id, role: "user", content: "pergunta do B" });
+      await call("POST", "/resources/research_projects", A, { title: "Projeto NIASci da A" });
+
+      const ex = (await call("GET", "/me/export", A)).body;
+      expect(ex.completo).toBe(true);
+      expect(ex.dados.agent_results).toHaveLength(5);
+      expect(ex.dados.messages.map((m: any) => m.content)).toEqual(["pergunta da A"]);
+      expect(ex.dados.research_projects.map((p: any) => p.title)).toEqual(["Projeto NIASci da A"]);
+      expect(JSON.stringify(ex)).not.toContain("pergunta do B");
+
+      const del = (await call("DELETE", "/me/data", A, { confirmacao: "EXCLUIR MEUS DADOS" })).body;
+      expect(del.concluido).toBe(true);
+      const after = (await call("GET", "/me/export", A)).body;
+      expect(after.dados.agent_results).toHaveLength(0);
+      expect(after.dados.messages).toHaveLength(0);
+      expect(after.dados.research_projects).toHaveLength(0);
+      // B intacto
+      const exB = (await call("GET", "/me/export", B)).body;
+      expect(exB.dados.agent_results).toHaveLength(1);
+      expect(exB.dados.messages.map((m: any) => m.content)).toEqual(["pergunta do B"]);
+    } finally {
+      db.setExportTestOptions(null);
+    }
+  });
+
+  it("falha no meio da leitura → exportação marcada como incompleta, com o que foi lido", async () => {
+    const db = await import("../../db-http");
+    db.setExportTestOptions({ pageSize: 2, failTable: "agent_results", failAfterPages: 1 });
+    try {
+      for (let i = 0; i < 5; i++) await db.httpInsert("agent_results", { user_id: "usuaria-a", agent_id: "simples", title: `x${i}`, original_text: "t", result_json: {} });
+      const ex = (await call("GET", "/me/export", A)).body;
+      expect(ex.completo).toBe(false);
+      const sec = ex.secoes.find((x: any) => x.table === "agent_results");
+      expect(sec.ok).toBe(false);
+      expect(sec.erro).toContain("interrompida");
+      expect(ex.dados.agent_results).toHaveLength(2);
+    } finally {
+      db.setExportTestOptions(null);
+    }
+  });
+
+  it("sem dados não é falha", async () => {
+    const ex = (await call("GET", "/me/export", B)).body;
+    expect(ex.completo).toBe(true);
+    expect(ex.secoes.find((x: any) => x.table === "agent_results")).toMatchObject({ ok: true, linhas: 0 });
+  });
+});
+
 describe("compartilhamento", () => {
   it("sem login não cria link (para que possa ser revogado)", async () => {
     expect((await call("POST", "/edital/share", undefined, { agentId: "simples", title: "x", resultJson: {} })).status).toBe(401);

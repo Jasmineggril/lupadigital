@@ -288,10 +288,16 @@ export async function extractTextFromPdf(
   if (!head.includes("%PDF-")) throw new PdfExtractError("not_pdf", "Este arquivo não é um PDF. Envie um arquivo .pdf ou cole o texto na aba “Colar texto”.");
   let pdf: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>;
   try {
+    // Segurança (pdf.js 6.5.x, conferido nos tipos da versão instalada): só extraímos TEXTO.
+    // - XFA desligado explicitamente; sem visualizador, o JavaScript do documento nunca roda
+    //   (a API não tem sandbox de scripts — isso existe só no viewer, que não usamos);
+    // - "isEvalSupported" não existe mais nesta versão (o pdf.js deixou de usar eval);
+    // - versões < 6.2.108 tinham execução de código ao abrir PDF malicioso (GHSA-hq66-cqwq-w95j).
     pdf = await pdfjsLib.getDocument({
       data: arrayBuffer,
       useWorkerFetch: false,
       disableFontFace: true,
+      enableXfa: false,
     }).promise;
   } catch (err) {
     const name = (err as { name?: string })?.name ?? "";

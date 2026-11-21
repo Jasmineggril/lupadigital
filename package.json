@@ -20,5 +20,18 @@
   "devDependencies": {
     "prettier": "^3.9.4",
     "typescript": "~5.9.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "fast-uri@<3.1.9": "^3.1.9",
+      "brace-expansion@>=5 <5.0.10": "^5.0.10",
+      "markdown-it@>=14 <14.3.1": "^14.3.1",
+      "js-yaml@>=4 <4.3.2": "^4.3.2",
+      "source-map-js@<1.2.2": "^1.2.2",
+      "fast-copy@>=4 <4.1.0": "^4.1.0",
+      "postcss-selector-parser@>=6 <6.1.5": "^6.1.5",
+      "vite@>=7 <7.3.8": "^7.3.8"
+    },
+    "//overrides": "Segurança 2026-11-21: correções de mesma versão principal para dependências de FERRAMENTAS (orval, tailwind, pino-pretty) presas em versões exatas pelos pacotes pai; nada vai para o pacote publicado. Remover quando os pais publicarem versões corrigidas. Ver docs/seguranca/dependencias.md."
   }
 }

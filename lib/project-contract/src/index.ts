@@ -68,12 +68,12 @@ export const ResearchProjectWriteSchema = z.object({
 });
 export type ResearchProjectWrite = z.infer<typeof ResearchProjectWriteSchema>;
 
-export interface ResearchProjectRecord extends ResearchProjectWrite {
+export type ResearchProjectRecord = ResearchProjectWrite & {
   id: string;
   user_id: string;
   created_at: string;
   updated_at?: string | null;
-}
+};
 
 /**
  * Plano a exibir ao reabrir um registro. Registros novos: `plan` completo.

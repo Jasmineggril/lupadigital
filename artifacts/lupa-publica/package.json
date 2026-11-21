@@ -10,13 +10,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@workspace/project-contract": "workspace:*",
-    "@workspace/feature-catalog": "workspace:*",
     "@sentry/react": "^10.70.0",
     "@supabase/supabase-js": "^2.108.2",
+    "@workspace/feature-catalog": "workspace:*",
+    "@workspace/project-contract": "workspace:*",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
-    "pdfjs-dist": "^6.0.227",
+    "pdfjs-dist": "^6.5.438",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {

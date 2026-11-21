@@ -3058,7 +3058,7 @@ export async function analyzeAgent(
 
       const singleResult = {
         ...canonical,
-        ...validated.data,
+        ...(validated.data as Record<string, unknown>),
         type: agentId,
         agentResult: validated.data,
         analysisId: canonical.analysisId,

@@ -50,7 +50,20 @@ const ALLOWED_TABLES = new Set([
   "chat_messages",
   "documents",
   "ai_analyses",
+  "conversations",
 ]);
+
+/** Tabelas com controle de versão, favorito e idempotência (migração 20261130_continuidade). */
+const VERSIONED = new Set(["lattes_profiles", "article_analyses", "research_projects", "planetarium_contents", "conversations", "chat_messages"]);
+/** Coluna que guarda o título de cada tabela (renomear pelo histórico). */
+export const TITLE_COLUMN: Record<string, string> = {
+  lattes_profiles: "name",
+  article_analyses: "title",
+  research_projects: "title",
+  planetarium_contents: "title",
+  conversations: "title",
+  edital_analyses: "titulo",
+};
 
 /**
  * Verifica se o nome da tabela está na allowlist.
@@ -162,6 +175,11 @@ const ArticleAnalysisSchema = z.object({
 const ResearchProjectSchema = ResearchProjectWriteSchema.strict();
 
 /** Schema de validação para a tabela planetarium_contents */
+/** Conversas do Assistente (tabela conversations; mensagens em chat_messages.conversation_id) */
+const ConversationSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+});
+
 const PlanetariumContentSchema = z.object({
   title: z.string().optional(),
   content: z.string().nullable().optional(),
@@ -182,6 +200,7 @@ const SCHEMAS: Record<string, z.ZodTypeAny> = {
   chat_messages: ChatMessageSchema,
   documents: DocumentSchema,
   ai_analyses: AIAnalysisSchema,
+  conversations: ConversationSchema,
 };
 
 // ── Campos controlados pelo servidor ─────────────────────────────────────────
@@ -259,117 +278,118 @@ export function buildWritePayload(
 // Requisições sem JWT válido recebem 401 antes de chegarem a qualquer handler.
 router.use(requireAuth());
 
-// ── GET /resources/:table ─────────────────────────────────────────────────────
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const param = (v: unknown) => String(Array.isArray(v) ? v[0] : v);
+const nowIso = () => new Date().toISOString();
 
-/**
- * Lista todos os registros de uma tabela pertencentes ao usuário autenticado.
- * Retorna em ordem decrescente por created_at (mais recentes primeiro).
- *
- * @route GET /api/resources/:table
- * @param table - Nome da tabela (deve estar em ALLOWED_TABLES)
- * @returns 200 com array de registros | 404 tabela não permitida | 401 sem auth
- */
+/** Ordenação padrão: última alteração confirmada (cai para created_at em linhas antigas). */
+function byUpdatedDesc(a: MemRow, b: MemRow) {
+  return String(b.updated_at ?? b.created_at).localeCompare(String(a.updated_at ?? a.created_at));
+}
+
+/** Lista do usuário. Filtros aceitos: chat_messages?conversation_id=… (ordem de conversa). Paginação: limit/offset. */
 router.get("/resources/:table", async (req: Request, res: Response): Promise<void> => {
-  const rawTable = req.params.table;
-  const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  if (!tableNameIsAllowed(String(table))) {
+  const table = param(req.params.table);
+  if (!tableNameIsAllowed(table)) {
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
-  const userId = (req as any).user?.id;
+  const userId = getReqUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
+  const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 200));
+  const offset = Math.max(0, Number(req.query.offset) || 0);
+  // Correção (22/11/2026): o filtro por conversa era ignorado e a tela recebia as mensagens de
+  // TODAS as conversas, da mais nova para a mais antiga — as conversas apareciam misturadas.
+  const conversationId = table === "chat_messages" && typeof req.query.conversation_id === "string" ? req.query.conversation_id.slice(0, 100) : null;
   try {
     if (memoryMode()) {
-      res.json(memTable(String(table)).filter((r) => r.user_id === String(userId)).sort((a, b) => b.created_at.localeCompare(a.created_at)));
+      let rows = memTable(table).filter((r) => r.user_id === String(userId) && (!conversationId || r.conversation_id === conversationId));
+      rows = conversationId ? rows.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at))) : rows.sort(byUpdatedDesc);
+      res.json(rows.slice(offset, offset + limit));
       return;
     }
-    const { data, error } = await getSupabaseAdmin()
-      .from(String(table))
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+    let q = getSupabaseAdmin().from(table).select("*").eq("user_id", userId);
+    if (conversationId) q = q.eq("conversation_id", conversationId).order("created_at", { ascending: true });
+    else q = q.order(VERSIONED.has(table) ? "updated_at" : "created_at", { ascending: false });
+    const { data, error } = await q.range(offset, offset + limit - 1);
     if (error) throw error;
     res.json(data);
   } catch (err) {
-    const message = errMessage(err);
-    req.log?.error({ error: message, table, userId }, "resource:list:error");
+    req.log?.error({ error: errMessage(err), table }, "resource:list:error");
     unavailable(res, "carregar o histórico");
   }
 });
 
-// ── POST /resources/:table ────────────────────────────────────────────────────
-
 /**
- * Cria um novo registro em uma tabela.
- * O campo user_id é sempre injetado pelo servidor a partir do JWT —
- * nunca aceito do body para prevenir privilege escalation.
- *
- * @route POST /api/resources/:table
- * @param table - Nome da tabela (deve estar em ALLOWED_TABLES)
- * @body Payload validado pelo schema Zod da tabela correspondente
- * @returns 201 com o registro criado | 400 payload inválido | 404 tabela não permitida
+ * Cria. `Idempotency-Key` (uuid gerado no navegador) evita duplicar em clique repetido ou nova
+ * tentativa depois de falha de rede: o mesmo envio devolve o registro já criado (200).
  */
 router.post("/resources/:table", async (req: Request, res: Response): Promise<void> => {
-  const rawTable = req.params.table;
-  const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  if (!tableNameIsAllowed(String(table))) {
+  const table = param(req.params.table);
+  if (!tableNameIsAllowed(table)) {
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
-  const userId = (req as any).user?.id;
+  const userId = getReqUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
+  const built = buildWritePayload(table, req.body, "create", String(userId));
+  if (!built.ok) {
+    res.status(built.status).json(built.body);
+    return;
+  }
+  const idem = String(req.headers["idempotency-key"] ?? "");
+  const clientId = VERSIONED.has(table) && UUID_RE.test(idem) ? idem : null;
+  const values = { ...(built.data as Record<string, unknown>), ...(clientId ? { client_id: clientId } : {}) };
   try {
-    // Só dados validados; user_id vem do JWT (nunca do body)
-    const built = buildWritePayload(String(table), req.body, "create", String(userId));
-    if (!built.ok) {
-      res.status(built.status).json(built.body);
-      return;
-    }
     if (memoryMode()) {
-      const now = new Date().toISOString();
-      const row = { ...(built.data as Record<string, unknown>), id: crypto.randomUUID(), user_id: String(userId), created_at: now, updated_at: now } as MemRow;
-      memTable(String(table)).push(row);
+      const t = memTable(table);
+      const dup = clientId ? t.find((r) => r.user_id === String(userId) && r.client_id === clientId) : null;
+      if (dup) {
+        res.status(200).json(dup);
+        return;
+      }
+      const now = nowIso();
+      const row = { ...values, id: table === "conversations" ? t.length + 1 + Math.floor(Math.random() * 1e6) : crypto.randomUUID(), user_id: String(userId), created_at: now, updated_at: now, ...(VERSIONED.has(table) ? { version: 1, favorito: false } : {}) } as unknown as MemRow;
+      t.push(row);
       res.status(201).json(row);
       return;
     }
-    const { data, error } = await getSupabaseAdmin()
-      .from(String(table))
-      .insert([built.data])
-      .select()
-      .single();
-    if (error) throw error;
+    if (clientId) {
+      const { data: existing } = await getSupabaseAdmin().from(table).select("*").eq("user_id", userId).eq("client_id", clientId).maybeSingle();
+      if (existing) {
+        res.status(200).json(existing);
+        return;
+      }
+    }
+    const { data, error } = await getSupabaseAdmin().from(table).insert([values]).select().single();
+    if (error) {
+      // Duas tentativas simultâneas com a mesma chave: a segunda devolve a primeira
+      if ((error as { code?: string }).code === "23505" && clientId) {
+        const { data: existing } = await getSupabaseAdmin().from(table).select("*").eq("user_id", userId).eq("client_id", clientId).maybeSingle();
+        if (existing) {
+          res.status(200).json(existing);
+          return;
+        }
+      }
+      throw error;
+    }
     res.status(201).json(data);
   } catch (err) {
-    const message = errMessage(err);
-    req.log?.error({ error: message, table, userId }, "resource:create:error");
+    req.log?.error({ error: errMessage(err), table }, "resource:create:error");
     unavailable(res, "salvar");
   }
 });
 
-// ── GET /resources/:table/:id ─────────────────────────────────────────────────
-
-/**
- * Busca um registro específico verificando que pertence ao usuário autenticado.
- * Retorna 404 tanto quando o registro não existe quanto quando pertence a outro usuário
- * (para não revelar a existência de dados de outros usuários).
- *
- * @route GET /api/resources/:table/:id
- * @param table - Nome da tabela
- * @param id - ID do registro
- * @returns 200 com o registro | 404 não encontrado/sem permissão | 401 sem auth
- */
 router.get("/resources/:table/:id", async (req: Request, res: Response): Promise<void> => {
-  const rawTable = req.params.table;
-  const rawId = req.params.id;
-  const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  const id = Array.isArray(rawId) ? rawId[0] : rawId;
-  if (!tableNameIsAllowed(String(table))) {
+  const table = param(req.params.table);
+  const id = param(req.params.id);
+  if (!tableNameIsAllowed(table)) {
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
@@ -379,122 +399,134 @@ router.get("/resources/:table/:id", async (req: Request, res: Response): Promise
     return;
   }
   try {
-    if (memoryMode()) {
-      const row = memTable(String(table)).find((r) => r.id === String(id) && r.user_id === String(userId));
-      if (!row) res.status(404).json({ error: "Não encontrado" });
-      else res.json(row);
-      return;
-    }
-    const { data, error } = await getSupabaseAdmin()
-      .from(String(table))
-      .select("*")
-      .eq("id", id)
-      .eq("user_id", userId) // owner check: só retorna se pertencer ao usuário
-      .single();
-    if (error) {
-      // PGRST116 = "Row not found" (Supabase/PostgREST code)
-      if ((error as any).code === "PGRST116") {
-        res.status(404).json({ error: "Não encontrado" });
-        return;
-      }
-      throw error;
-    }
-    res.json(data);
+    const row = await findOwned(table, id, String(userId));
+    if (!row) res.status(404).json({ error: "Não encontrado" });
+    else res.json(row);
   } catch (err) {
-    const message = errMessage(err);
-    req.log?.error({ error: message, table, id, userId }, "resource:get:error");
+    req.log?.error({ error: errMessage(err), table }, "resource:get:error");
     unavailable(res, "abrir este item");
   }
 });
 
-// ── PUT /resources/:table/:id ─────────────────────────────────────────────────
+async function findOwned(table: string, id: string, userId: string): Promise<MemRow | null> {
+  if (memoryMode()) return memTable(table).find((r) => String(r.id) === id && r.user_id === userId) ?? null;
+  const { data, error } = await getSupabaseAdmin().from(table).select("*").eq("id", id).eq("user_id", userId).maybeSingle();
+  if (error) {
+    if ((error as { code?: string }).code === "22P02") return null; // id em formato inválido = inexistente
+    throw error;
+  }
+  return (data as MemRow | null) ?? null;
+}
 
 /**
- * Atualiza um registro existente, verificando que pertence ao usuário autenticado.
- * Usa .match({ id, user_id }) no Supabase para garantir o owner check de forma atômica.
- *
- * @route PUT /api/resources/:table/:id
- * @param table - Nome da tabela
- * @param id - ID do registro a atualizar
- * @body Campos a atualizar (validados pelo schema Zod)
- * @returns 200 com o registro atualizado | 404 não encontrado | 400 payload inválido
+ * Atualização com controle de versão. `If-Match: <versão>` (opcional): se o registro mudou desde
+ * essa versão (outra aba ou aparelho), responde 409 com a versão atual — nada é sobrescrito.
+ * Sem If-Match, a gravação usa a versão atual (compatível com telas antigas) e incrementa.
  */
+async function versionedUpdate(table: string, id: string, userId: string, values: Record<string, unknown>, expected: number | null) {
+  const current = await findOwned(table, id, userId);
+  if (!current) return { status: 404 as const };
+  if (!VERSIONED.has(table)) {
+    const patch = { ...values, ...(table === "edital_analyses" ? { updated_at: nowIso() } : {}) };
+    if (memoryMode()) {
+      Object.assign(current, patch, { updated_at: nowIso() });
+      return { status: 200 as const, row: current };
+    }
+    const { data, error } = await getSupabaseAdmin().from(table).update(patch).match({ id, user_id: userId }).select().maybeSingle();
+    if (error) throw error;
+    return data ? { status: 200 as const, row: data as MemRow } : { status: 404 as const };
+  }
+  const have = Number(current.version ?? 1);
+  if (expected !== null && expected !== have) return { status: 409 as const, row: current };
+  const patch = { ...values, version: have + 1, updated_at: nowIso() };
+  if (memoryMode()) {
+    Object.assign(current, patch);
+    return { status: 200 as const, row: current };
+  }
+  // Compare-and-set: só grava se ninguém gravou entre a leitura e esta escrita
+  const { data, error } = await getSupabaseAdmin().from(table).update(patch).eq("id", id).eq("user_id", userId).eq("version", have).select().maybeSingle();
+  if (error) throw error;
+  if (!data) return { status: 409 as const, row: (await findOwned(table, id, userId)) ?? current };
+  return { status: 200 as const, row: data as MemRow };
+}
+
+function ifMatch(req: Request): number | null {
+  const h = req.headers["if-match"];
+  const n = Number(String(h ?? "").replace(/"/g, ""));
+  return h !== undefined && Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function sendUpdate(res: Response, r: Awaited<ReturnType<typeof versionedUpdate>>) {
+  if (r.status === 404) res.status(404).json({ error: "Não encontrado ou sem permissão" });
+  else if (r.status === 409)
+    res.status(409).json({ error: "Este item foi alterado em outra aba ou aparelho. Nada foi sobrescrito.", code: "CONFLITO", atual: r.row });
+  else res.json(r.row);
+}
+
 router.put("/resources/:table/:id", async (req: Request, res: Response): Promise<void> => {
-  const rawTable = req.params.table;
-  const rawId = req.params.id;
-  const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  const id = Array.isArray(rawId) ? rawId[0] : rawId;
-  if (!tableNameIsAllowed(String(table))) {
+  const table = param(req.params.table);
+  const id = param(req.params.id);
+  if (!tableNameIsAllowed(table)) {
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
-  const userId = (req as any).user?.id;
+  const userId = getReqUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
+  const built = buildWritePayload(table, req.body, "update", String(userId));
+  if (!built.ok) {
+    res.status(built.status).json(built.body);
+    return;
+  }
   try {
-    // Só dados validados; id/user_id/timestamps nunca podem ser alterados
-    const built = buildWritePayload(String(table), req.body, "update", String(userId));
-    if (!built.ok) {
-      res.status(built.status).json(built.body);
-      return;
-    }
-    if (memoryMode()) {
-      const row = memTable(String(table)).find((r) => r.id === String(id) && r.user_id === String(userId));
-      if (!row) {
-        res.status(404).json({ error: "Não encontrado ou sem permissão" });
-        return;
-      }
-      Object.assign(row, built.data, { updated_at: new Date().toISOString() });
-      res.json(row);
-      return;
-    }
-    // Tabelas com updated_at (research_projects): data da última edição vem do servidor
-    const values = String(table) === "research_projects" ? { ...(built.data as Record<string, unknown>), updated_at: new Date().toISOString() } : built.data;
-    const { data, error } = await getSupabaseAdmin()
-      .from(String(table))
-      .update(values)
-      .match({ id, user_id: userId }) // atômico: só atualiza se id E user_id baterem
-      .select()
-      .single();
-    if (error) {
-      // PGRST116 = nenhuma linha (id inexistente ou de outro usuário)
-      if ((error as any).code === "PGRST116") {
-        res.status(404).json({ error: "Não encontrado ou sem permissão" });
-        return;
-      }
-      throw error;
-    }
-    if (!data) {
-      res.status(404).json({ error: "Não encontrado ou sem permissão" });
-      return;
-    }
-    res.json(data);
+    sendUpdate(res, await versionedUpdate(table, id, String(userId), built.data as Record<string, unknown>, ifMatch(req)));
   } catch (err) {
-    const message = errMessage(err);
-    req.log?.error({ error: message, table, id, userId }, "resource:update:error");
+    req.log?.error({ error: errMessage(err), table }, "resource:update:error");
     unavailable(res, "salvar a alteração");
   }
 });
 
-// ── DELETE /resources/:table/:id ──────────────────────────────────────────────
+/** Favoritar/fixar e renomear: comuns a todas as ferramentas (não passam pelo contrato de conteúdo). */
+const MetaSchema = z.object({ favorito: z.boolean().optional(), titulo: z.string().trim().min(1).max(200).optional() }).strict();
+router.patch("/resources/:table/:id/meta", async (req: Request, res: Response): Promise<void> => {
+  const table = param(req.params.table);
+  const id = param(req.params.id);
+  if (!tableNameIsAllowed(table) || !(VERSIONED.has(table) || table === "edital_analyses")) {
+    res.status(404).json({ error: "Tabela não permitida" });
+    return;
+  }
+  const userId = getReqUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const parsed = MetaSchema.safeParse(req.body ?? {});
+  if (!parsed.success || (parsed.data.favorito === undefined && parsed.data.titulo === undefined)) {
+    res.status(400).json({ code: "VALIDATION_ERROR", message: "Informe favorito e/ou titulo." });
+    return;
+  }
+  const values: Record<string, unknown> = {};
+  if (parsed.data.favorito !== undefined && table !== "chat_messages") values.favorito = parsed.data.favorito;
+  if (parsed.data.titulo !== undefined && TITLE_COLUMN[table]) values[TITLE_COLUMN[table]] = parsed.data.titulo;
+  if (!Object.keys(values).length) {
+    res.status(400).json({ code: "VALIDATION_ERROR", message: "Nada a alterar nesta ferramenta." });
+    return;
+  }
+  try {
+    sendUpdate(res, await versionedUpdate(table, id, String(userId), values, ifMatch(req)));
+  } catch (err) {
+    req.log?.error({ error: errMessage(err), table }, "resource:meta:error");
+    unavailable(res, "salvar a alteração");
+  }
+});
 
-/**
- * Remove um registro, verificando que pertence ao usuário autenticado.
- * Retorna 204 No Content em caso de sucesso (sem corpo na resposta).
- *
- * @route DELETE /api/resources/:table/:id
- * @param table - Nome da tabela
- * @param id - ID do registro a remover
- * @returns 204 sem corpo | 404 tabela não permitida | 401 sem auth
- */
+/** Exclui. Conversa: as mensagens dela vão junto (nenhuma mensagem órfã). */
 router.delete("/resources/:table/:id", async (req: Request, res: Response): Promise<void> => {
-  const rawTable = req.params.table;
-  const rawId = req.params.id;
-  const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  const id = Array.isArray(rawId) ? rawId[0] : rawId;
-  if (!tableNameIsAllowed(String(table))) {
+  const table = param(req.params.table);
+  const id = param(req.params.id);
+  if (!tableNameIsAllowed(table)) {
     res.status(404).json({ error: "Tabela não permitida" });
     return;
   }
@@ -505,21 +537,28 @@ router.delete("/resources/:table/:id", async (req: Request, res: Response): Prom
   }
   try {
     if (memoryMode()) {
-      const t = memTable(String(table));
-      const i = t.findIndex((r) => r.id === String(id) && r.user_id === String(userId));
+      const t = memTable(table);
+      const i = t.findIndex((r) => String(r.id) === id && r.user_id === String(userId));
       if (i >= 0) t.splice(i, 1);
+      if (table === "conversations" && i >= 0) {
+        const m = memTable("chat_messages");
+        for (let k = m.length - 1; k >= 0; k -= 1) if (m[k].user_id === String(userId) && m[k].conversation_id === id) m.splice(k, 1);
+      }
       res.sendStatus(204);
       return;
     }
-    const { error } = await getSupabaseAdmin()
-      .from(String(table))
-      .delete()
-      .match({ id, user_id: userId }); // owner check: só deleta se ambos baterem
-    if (error) throw error;
-    res.sendStatus(204); // 204 No Content: deleção bem-sucedida, sem corpo
+    if (table === "conversations") {
+      const owned = await findOwned(table, id, String(userId));
+      if (owned) {
+        const { error: e2 } = await getSupabaseAdmin().from("chat_messages").delete().eq("user_id", userId).eq("conversation_id", id);
+        if (e2) throw e2;
+      }
+    }
+    const { error } = await getSupabaseAdmin().from(table).delete().match({ id, user_id: userId });
+    if (error && (error as { code?: string }).code !== "22P02") throw error;
+    res.sendStatus(204);
   } catch (err) {
-    const message = errMessage(err);
-    req.log?.error({ error: message, table, id, userId }, "resource:delete:error");
+    req.log?.error({ error: errMessage(err), table }, "resource:delete:error");
     unavailable(res, "excluir");
   }
 });

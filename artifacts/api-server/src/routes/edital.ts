@@ -32,7 +32,7 @@ import * as cheerio from "cheerio";
 import { z } from "zod";
 import multer from "multer";
 import { randomUUID } from "crypto";
-import { httpSelect, httpSelectTwoFilters, httpInsert, httpDelete, httpCount, httpUpdate } from "../lib/db-http";
+import { httpSelect, httpSelectTwoFilters, httpInsert, httpDelete, httpCount, httpUpdate, httpUpdateVersioned } from "../lib/db-http";
 import {
   SimplifyEditalBody,
   SaveEditalBody,
@@ -130,6 +130,8 @@ const SaveAgentResultBodySchema = z.object({
   title: z.string().min(1).max(200),
   originalText: z.string().min(1),
   resultJson: z.record(z.string(), z.unknown()),
+  /** concluida | parcial — análise parcial também é guardada (identificada como parcial) */
+  status: z.enum(["concluida", "parcial"]).optional(),
 });
 
 const DeleteAgentResultParamsSchema = z.object({ id: z.coerce.number().int().positive() });
@@ -143,7 +145,7 @@ router.get("/edital/agent-history", async (req, res): Promise<void> => {
 
   try {
     // Mais recentes primeiro; limite evita respostas enormes (a tela pagina localmente)
-    const rows = await httpSelect("agent_results", { user_id: userId }, { order: "created_at", ascending: false, limit: 200 });
+    const rows = await httpSelect("agent_results", { user_id: userId }, { order: "updated_at", ascending: false, limit: 200 });
     res.json(rows);
   } catch (err) {
     req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:list");
@@ -214,7 +216,19 @@ router.post("/edital/agent-history", async (req, res): Promise<void> => {
   } catch (e) {
     req.log?.warn({ e }, "Erro não crítico preparando payload de agent-history");
   }
+  // Idempotência: o mesmo envio repetido (clique duplo, nova tentativa) devolve o registro já salvo
+  const idem = String(req.headers["idempotency-key"] ?? "");
+  const clientId = /^[0-9a-f-]{36}$/i.test(idem) ? idem : null;
+  if (clientId) payload.clientId = clientId;
+  if (!payload.status) payload.status = (payload.resultJson as { processing?: { complete?: boolean } } | undefined)?.processing?.complete === false ? "parcial" : "concluida";
   try {
+    if (clientId) {
+      const [existing] = await httpSelectTwoFilters("agent_results", "user_id", userId, "client_id", clientId, { limit: 1 });
+      if (existing) {
+        res.status(200).json(existing);
+        return;
+      }
+    }
     const saved = await httpInsert("agent_results", payload);
     res.status(201).json(saved);
   } catch (err) {
@@ -224,14 +238,21 @@ router.post("/edital/agent-history", async (req, res): Promise<void> => {
   }
 });
 
-const FavoriteBodySchema = z.object({ favorito: z.boolean() }).strict();
+const PatchAgentResultSchema = z
+  .object({
+    favorito: z.boolean().optional(),
+    titulo: z.string().trim().min(1).max(200).optional(),
+    /** Estado de trabalho: checklist marcado, anotações, perguntas e respostas do chat deste edital */
+    estado: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict()
+  .refine((b) => b.favorito !== undefined || b.titulo !== undefined || b.estado !== undefined, "Nada a alterar.");
 
-/** Marca/desmarca favorito — só no registro do próprio usuário. */
-router.patch("/edital/agent-history/:id", async (req, res): Promise<void> => {
+/** Reabre UMA análise (mesmo resultado, sem rodar a IA de novo) — só do próprio usuário. */
+router.get("/edital/agent-history/:id", async (req, res): Promise<void> => {
   const params = DeleteAgentResultParamsSchema.safeParse(req.params);
-  const body = FavoriteBodySchema.safeParse(req.body ?? {});
-  if (!params.success || !body.success) {
-    res.status(400).json({ error: "Requisição inválida." });
+  if (!params.success) {
+    res.status(404).json({ error: "Análise não encontrada." });
     return;
   }
   const userId = (req as any).user?.id ?? null;
@@ -240,15 +261,61 @@ router.patch("/edital/agent-history/:id", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const updated = await httpUpdate("agent_results", { favorito: body.data.favorito }, "id", params.data.id, "user_id", userId);
-    if (!updated) {
+    const [row] = await httpSelectTwoFilters("agent_results", "id", params.data.id, "user_id", userId, { limit: 1 });
+    if (!row) res.status(404).json({ error: "Análise não encontrada." });
+    else res.json(row);
+  } catch (err) {
+    req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:get");
+    res.status(503).json({ error: "Não foi possível abrir a análise agora. Tente novamente." });
+  }
+});
+
+/**
+ * Favorito, nome e estado de trabalho — só no registro do próprio usuário.
+ * `If-Match: <versão>`: se outra aba/aparelho gravou antes, 409 com a versão atual (nada é sobrescrito).
+ */
+router.patch("/edital/agent-history/:id", async (req, res): Promise<void> => {
+  const params = DeleteAgentResultParamsSchema.safeParse(req.params);
+  const body = PatchAgentResultSchema.safeParse(req.body ?? {});
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "Requisição inválida." });
+    return;
+  }
+  if (body.data.estado && JSON.stringify(body.data.estado).length > 300_000) {
+    res.status(413).json({ error: "As anotações desta análise passaram do limite de tamanho." });
+    return;
+  }
+  const userId = (req as any).user?.id ?? null;
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const expected = Number(String(req.headers["if-match"] ?? "").replace(/"/g, ""));
+  try {
+    const [current] = (await httpSelectTwoFilters("agent_results", "id", params.data.id, "user_id", userId, { limit: 1 })) as Array<Record<string, unknown>>;
+    if (!current) {
       res.status(404).json({ error: "Análise não encontrada." });
+      return;
+    }
+    const have = Number(current.version ?? 1);
+    if (Number.isInteger(expected) && expected > 0 && expected !== have) {
+      res.status(409).json({ error: "Esta análise foi alterada em outra aba ou aparelho. Nada foi sobrescrito.", code: "CONFLITO", atual: current });
+      return;
+    }
+    const patch: Record<string, unknown> = { version: have + 1, updated_at: new Date().toISOString() };
+    if (body.data.favorito !== undefined) patch.favorito = body.data.favorito;
+    if (body.data.titulo !== undefined) patch.title = body.data.titulo;
+    if (body.data.estado !== undefined) patch.estado = body.data.estado;
+    const updated = await httpUpdateVersioned("agent_results", patch, params.data.id, userId, have);
+    if (!updated) {
+      const [now] = await httpSelectTwoFilters("agent_results", "id", params.data.id, "user_id", userId, { limit: 1 });
+      res.status(409).json({ error: "Esta análise foi alterada em outra aba ou aparelho. Nada foi sobrescrito.", code: "CONFLITO", atual: now });
       return;
     }
     res.json(updated);
   } catch (err) {
-    req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:favorite");
-    res.status(503).json({ error: "Não foi possível atualizar o favorito. Tente novamente." });
+    req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:patch");
+    res.status(503).json({ error: "Não foi possível salvar a alteração. Nada foi alterado; tente novamente." });
   }
 });
 

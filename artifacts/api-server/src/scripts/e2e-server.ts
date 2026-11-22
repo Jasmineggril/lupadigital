@@ -14,7 +14,9 @@ if (process.env.NODE_ENV === "production") {
   console.error("e2e-server não pode rodar em produção.");
   process.exit(1);
 }
-process.env.LUPA_STORE = "memory";
+// LUPA_E2E_REAL_DB=1: usa o banco REAL de desenvolvimento (scripts/dev-db/stack.sh, Postgres +
+// PostgREST, mesmo caminho do Supabase) — prova de persistência durável, não memória.
+if (process.env.LUPA_E2E_REAL_DB !== "1") process.env.LUPA_STORE = "memory";
 process.env.NODE_ENV = "development";
 
 const { default: app } = await import("../app");
@@ -34,7 +36,7 @@ setDocumentFetcherFactoryForTests(
       ]),
     }).fetcher,
 );
-await getStore().updateSource("fapdf", { request_delay_ms: 0 });
+await getStore().updateSource("fapdf", { request_delay_ms: 0 }).catch(() => undefined); // banco real pode não ter a fonte
 
 // Análises longas: "IA" SIMULADA que só lê a parte recebida (sem provedor externo). Uma parte com
 // [SIMULAR-FALHA] falha nas 3 primeiras tentativas e funciona ao reprocessar.

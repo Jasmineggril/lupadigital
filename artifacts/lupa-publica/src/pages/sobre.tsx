@@ -11,6 +11,12 @@ export default function Sobre() {
       title="O que é o LUPA Digital"
       description="Um projeto do NIASci/UnDF para que encontrar uma oportunidade, entender se ela serve para você e saber como seguir seja mais simples."
     >
+      <ContentSection id="autoria" title="Quem criou">
+        <p>
+          O LUPA Digital foi idealizado e criado por <strong>Jasmine De Sá Araujo</strong>, autora do projeto, no âmbito do NIASci/UnDF.
+        </p>
+      </ContentSection>
+
       <ContentSection id="missao" title="Para que existe">
         <p>
           Editais decidem quem acessa bolsas, financiamento de pesquisa, vagas e programas públicos. Eles costumam ser longos, técnicos e espalhados por vários

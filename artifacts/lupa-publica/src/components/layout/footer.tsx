@@ -76,7 +76,9 @@ export function Footer() {
       </div>
 
       <div className="container mx-auto mt-12 flex max-w-[75rem] flex-col items-center justify-between gap-4 border-t border-white/15 px-4 pt-8 text-sm text-slate-300 sm:flex-row sm:px-6 lg:px-8">
-        <p>© {year} LUPA Digital. Todos os direitos reservados.</p>
+        <p>
+          © {year} LUPA Digital. Criado por <strong className="font-semibold text-white" data-testid="autoria">Jasmine De Sá Araujo</strong>. Todos os direitos reservados.
+        </p>
         <p>NIASci · Universidade do Distrito Federal</p>
       </div>
     </footer>

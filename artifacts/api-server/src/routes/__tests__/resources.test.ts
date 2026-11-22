@@ -65,6 +65,12 @@ vi.mock("../../lib/supabase", () => {
       match: (m: Row) => { Object.assign(state.filters, m); return builder; },
       order: () => builder,
       single: () => Promise.resolve(run(true)),
+      // Como o supabase-js: 0 linhas → data null sem erro; 1 linha → objeto
+      maybeSingle: () => {
+        const r = run(false) as { data: Row[]; error: null };
+        return Promise.resolve({ data: r.data[0] ?? null, error: null });
+      },
+      range: () => builder,
       then: (ok: any, fail: any) => Promise.resolve(run(false)).then(ok, fail),
     };
     return builder;
@@ -229,7 +235,8 @@ describe("PUT /resources/:table/:id", () => {
       campo_inventado: "x",
     });
     expect(res.status).toBe(200);
-    expect(db.updates[0].patch).toEqual({ titulo: "Novo", favorito: true });
+    // Só os campos validados + a data da alteração (definida pelo servidor)
+    expect(db.updates[0].patch).toEqual({ titulo: "Novo", favorito: true, updated_at: expect.any(String) });
     const row = db.tables.edital_analyses.find((r) => r.id === "row-a")!;
     expect(row).toMatchObject({ titulo: "Novo", favorito: true, user_id: ALICE });
     expect(row).not.toHaveProperty("campo_inventado");

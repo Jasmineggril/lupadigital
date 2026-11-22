@@ -46,7 +46,7 @@ type NavItem = { href: string; label: string };
 
 const TOOLS: NavItem[] = [
   { href: "/testar", label: "Analisar um edital (IA)" },
-  { href: "/historico", label: "Histórico de análises" },
+  { href: "/historico", label: "Meu histórico" },
   { href: "/aprender", label: "Aprender a ler um edital" },
   { href: "/glossario", label: "Glossário" },
   { href: "/niasci/elattes", label: "e-Lattes (leitura guiada)" },

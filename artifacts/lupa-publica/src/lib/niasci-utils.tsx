@@ -269,6 +269,9 @@ export function HistoryPanel<T extends { id?: string; created_at?: string }>({
   getLabel,
   isLoading = false,
   accentBg = "bg-primary/10",
+  error = null,
+  onRetry,
+  defaultOpen = false,
 }: {
   items: T[];
   onSelect: (item: T) => void;
@@ -276,9 +279,25 @@ export function HistoryPanel<T extends { id?: string; created_at?: string }>({
   getLabel: (item: T) => string;
   isLoading?: boolean;
   accentBg?: string;
+  /** Falha ao carregar: nunca mostrar "vazio" — os trabalhos continuam salvos */
+  error?: string | null;
+  onRetry?: () => void;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
+  if (error) {
+    return (
+      <div role="alert" className="mb-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900" data-testid="historico-niasci-erro">
+        {error}{" "}
+        {onRetry && (
+          <button type="button" className="font-semibold underline" onClick={onRetry}>
+            Tentar de novo
+          </button>
+        )}
+      </div>
+    );
+  }
   if (!isLoading && items.length === 0) return null;
 
   return (
@@ -292,7 +311,7 @@ export function HistoryPanel<T extends { id?: string; created_at?: string }>({
         data-testid="historico-niasci"
       >
         <History className="w-4 h-4" />
-        <span>Histórico de análises {items.length > 0 ? `(${items.length})` : ""}</span>
+        <span>Meus trabalhos anteriores nesta ferramenta {items.length > 0 ? `(${items.length})` : ""}</span>
         {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
       </button>
 
@@ -347,6 +366,10 @@ export function HistoryPanel<T extends { id?: string; created_at?: string }>({
                 ))}
               </div>
             )}
+            <p className="px-3 pt-2 text-xs text-muted-foreground">
+              Salvos na sua conta. Todos os seus trabalhos, de todas as ferramentas, estão em{" "}
+              <Link href="/historico" className="font-semibold underline">Meu histórico</Link>.
+            </p>
           </CardContent>
         </Card>
       )}

@@ -46,6 +46,9 @@ export const USER_TABLES: UserTable[] = [
   { table: "chat_messages", rotulo: "Mensagens do Assistente" },
   { table: "documents", rotulo: "Documentos" },
   { table: "ai_analyses", rotulo: "Análises de documentos" },
+  { table: "user_items", rotulo: "Progresso do Aprender, favoritos e consultas do glossário" },
+  // Partes (analysis_job_chunks) são apagadas junto (ON DELETE CASCADE)
+  { table: "analysis_jobs", rotulo: "Análises de documentos longos (tarefas em segundo plano)" },
 ];
 
 /** Mantidas, mas desassociadas da pessoa na exclusão. */

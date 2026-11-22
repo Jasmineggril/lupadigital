@@ -384,7 +384,7 @@ export async function listAiAnalyses() {
 }
 
 // ── Lattes Profiles ─────────────────────────────────────────────
-export async function saveLattesProfile(p: LattesProfile) {
+export async function saveLattesProfile(p: LattesProfile, opts?: { idempotencyKey?: string }) {
   if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-lattes") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...p }, ...items].slice(0, 50);
@@ -394,6 +394,7 @@ export async function saveLattesProfile(p: LattesProfile) {
 
   try {
     return await apiRequest<LattesProfile>("/resources/lattes_profiles", {
+      headers: opts?.idempotencyKey ? { "idempotency-key": opts.idempotencyKey } : undefined,
       method: "POST",
       body: JSON.stringify(p),
     });
@@ -415,7 +416,7 @@ export async function getLattesProfiles() {
 }
 
 // ── Article analyses, projects, planetarium and chat messages (basic) ─
-export async function saveArticleAnalysis(a: ArticleAnalysis) {
+export async function saveArticleAnalysis(a: ArticleAnalysis, opts?: { idempotencyKey?: string }) {
   if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-article-analyses") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...a }, ...items].slice(0, 100);
@@ -425,6 +426,7 @@ export async function saveArticleAnalysis(a: ArticleAnalysis) {
 
   try {
     return await apiRequest<ArticleAnalysis>("/resources/article_analyses", {
+      headers: opts?.idempotencyKey ? { "idempotency-key": opts.idempotencyKey } : undefined,
       method: "POST",
       body: JSON.stringify(a),
     });
@@ -453,7 +455,7 @@ export async function saveResearchProject(p: ResearchProjectWrite): Promise<Rese
   }
 }
 
-export async function savePlanetariumContent(c: PlanetariumContent) {
+export async function savePlanetariumContent(c: PlanetariumContent, opts?: { idempotencyKey?: string }) {
   if (!(await useBackend())) {
     const items = JSON.parse(window.localStorage.getItem("lupa-publica-planetarium") || "[]");
     const next = [{ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...c }, ...items].slice(0, 100);
@@ -463,6 +465,7 @@ export async function savePlanetariumContent(c: PlanetariumContent) {
 
   try {
     return await apiRequest<PlanetariumContent>("/resources/planetarium_contents", {
+      headers: opts?.idempotencyKey ? { "idempotency-key": opts.idempotencyKey } : undefined,
       method: "POST",
       body: JSON.stringify(c),
     });

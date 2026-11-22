@@ -221,9 +221,9 @@ await step("analisar → salvar na conta → Quero participar a partir da análi
   await p.getByTestId("input-edital-text").fill(EDITAL);
   await p.getByTestId("button-analyze").click();
   await p.locator('[data-testid="testar-etapa"]:not([data-stage="analisando"])').waitFor({ timeout: 60000 });
-  // Contingência (sem IA) não é salva sozinha: salvar manualmente
-  await p.getByRole("button", { name: "Salvar interpretação" }).click();
-  await p.getByText(/Disponível no histórico da sua conta/).first().waitFor();
+  // Logado: a análise parcial (contingência, sem IA) é salva na conta automaticamente, identificada como parcial
+  await p.getByText(/Análise parcial salva na sua conta/).first().waitFor();
+  await p.getByRole("button", { name: "Salvo" }).first().waitFor();
   await p.getByTestId("testar-proximos-passos").getByRole("button", { name: "Quero participar" }).waitFor();
   await p.screenshot({ path: `${SHOTS}/03-testar-proximos-passos.png`, fullPage: true });
 

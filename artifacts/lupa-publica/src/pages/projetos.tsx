@@ -21,6 +21,8 @@
  */
 
 import { apiFetch } from "@/lib/api";
+import { saveRequest, type SaveState } from "@/lib/persistence";
+import { SaveStatus } from "@/components/lupa/SaveStatus";
 import { planFromRecord, recordFromPlan, type ProjectPlan, type ProjectOrigin, type ResearchProjectRecord } from "@workspace/project-contract";
 import { useState, useRef, useEffect } from "react";
 import { Link, useSearch } from "wouter";
@@ -74,7 +76,12 @@ interface LocalProject {
   endDate: string;
   stages: LocalStage[];
   createdAt: string;
+  /** "Salvar versão": marcos guardados pela pessoa (no máximo 10, mais recentes primeiro) */
+  versoes?: ProjectSnapshot[];
 }
+
+type ProjectSnapshot = { em: string; title: string; objective: string; description: string; status: LocalProject["status"]; stages: LocalStage[] };
+const MAX_VERSOES = 10;
 
 /**
  * Etapa individual de um projeto com controle de status.
@@ -136,7 +143,10 @@ export default function Projetos() {
   // Vínculo com a participação (preenchido quando a página abre a partir de "Quero participar")
   const [origin, setOrigin] = useState<ProjectOrigin | null>(null);
   // ── Vindo de "Quero participar": ?participacao=<id> (só o id; contexto vem do servidor) ──
-  const participationId = new URLSearchParams(useSearch()).get("participacao");
+  const search = new URLSearchParams(useSearch());
+  const participationId = search.get("participacao");
+  // Reabrir pelo "Meu histórico": ?projeto=<id>
+  const projectParam = search.get("projeto");
   const [ctx, setCtx] = useState<ProjectContext | null>(null);
   const [ctxError, setCtxError] = useState<string | null>(null);
   useEffect(() => {
@@ -183,30 +193,139 @@ export default function Projetos() {
   const [legacyDrafts, setLegacyDrafts] = useState<LocalProject[]>([]);
   const [manualLoadError, setManualLoadError] = useState<string | null>(null);
 
-  /**
-   * Grava na conta o que mudou entre `prev` e `next` (criar, alterar, excluir). Em falha, a tela
-   * volta ao estado anterior e diz que não salvou — nunca simula gravação.
-   */
-  const saveLocalProjects = async (next: LocalProject[], prev: LocalProject[] = localProjects) => {
-    const before = new Map(prev.map((p) => [p.id, p]));
-    const after = new Map(next.map((p) => [p.id, p]));
-    try {
-      let result = next;
-      for (const p of next) {
-        const old = before.get(p.id);
-        if (!old) {
-          const rec = await apiFetch<ResearchProjectRecord>("/resources/research_projects", { method: "POST", body: JSON.stringify(manualBody(p)) });
-          result = result.map((x) => (x.id === p.id ? { ...x, id: rec.id } : x));
-        } else if (JSON.stringify(old) !== JSON.stringify(p)) {
-          await apiFetch(`/resources/research_projects/${p.id}`, { method: "PUT", body: JSON.stringify(manualBody(p)) });
+  // Versão de cada projeto no servidor: uma gravação com versão antiga recebe 409 (outra aba/aparelho)
+  const projectVersions = useRef(new Map<string, number>());
+  const [manualSave, setManualSave] = useState<{ state: SaveState; error: string | null; at: Date | null }>({ state: "idle", error: null, at: null });
+  // O que o servidor confirmou × o que está na tela. A sincronização envia só a diferença,
+  // uma de cada vez (sem corrida entre gravações) e com espera ao digitar (sem uma requisição por tecla).
+  const synced = useRef<LocalProject[]>([]);
+  const latest = useRef<LocalProject[]>([]);
+  const syncing = useRef(false);
+  const syncAgain = useRef(false);
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const swapId = (from: string, to: string) => {
+    latest.current = latest.current.map((x) => (x.id === from ? { ...x, id: to } : x));
+    setLocalProjects((cur) => cur.map((x) => (x.id === from ? { ...x, id: to } : x)));
+    setExpandedProject((e) => (e === from ? to : e));
+  };
+
+  const syncOnce = async (): Promise<boolean> => {
+    const before = new Map(synced.current.map((p) => [p.id, p]));
+    const now = latest.current;
+    for (const p of now) {
+      const old = before.get(p.id);
+      if (!old) {
+        // Criar: o id gerado no navegador é a chave de idempotência (repetir não duplica)
+        const r = await saveRequest<ResearchProjectRecord & { version?: number }>("/resources/research_projects", {
+          method: "POST",
+          body: manualBody(p),
+          idempotencyKey: /^[0-9a-f-]{36}$/i.test(p.id) ? p.id : undefined,
+        });
+        if (!r.ok) return failSync(r.error);
+        projectVersions.current.set(r.data.id, r.data.version ?? 1);
+        synced.current = [{ ...p, id: r.data.id }, ...synced.current];
+        if (r.data.id !== p.id) swapId(p.id, r.data.id);
+      } else if (JSON.stringify(old) !== JSON.stringify(p)) {
+        const r = await saveRequest<{ version?: number }>(`/resources/research_projects/${p.id}`, {
+          method: "PUT",
+          body: manualBody(p),
+          version: projectVersions.current.get(p.id) ?? null,
+        });
+        if (!r.ok && r.status === 409) {
+          // Outra aba ou aparelho mudou este projeto: nada é sobrescrito; mostra a versão salva
+          const atual = r.atual as (ResearchProjectRecord & { version?: number }) | undefined;
+          const server = atual?.manual ? { ...(atual.manual as LocalProject), id: p.id } : old;
+          projectVersions.current.set(p.id, atual?.version ?? projectVersions.current.get(p.id) ?? 1);
+          synced.current = synced.current.map((x) => (x.id === p.id ? server : x));
+          latest.current = latest.current.map((x) => (x.id === p.id ? server : x));
+          setLocalProjects((cur) => cur.map((x) => (x.id === p.id ? server : x)));
+          setManualSave({ state: "conflict", error: null, at: null });
+          toast({
+            title: "Projeto alterado em outra aba ou aparelho",
+            description: "Nada foi sobrescrito. Carregamos a versão salva na sua conta — refaça a última alteração se ainda quiser.",
+            variant: "destructive",
+          });
+          return false;
         }
+        if (!r.ok) return failSync(r.error);
+        projectVersions.current.set(p.id, r.data.version ?? (projectVersions.current.get(p.id) ?? 1) + 1);
+        synced.current = synced.current.map((x) => (x.id === p.id ? p : x));
       }
-      for (const id of before.keys()) if (!after.has(id)) await apiFetch(`/resources/research_projects/${id}`, { method: "DELETE" });
-      setLocalProjects(result);
-    } catch (e) {
-      setLocalProjects(prev);
-      toast({ title: "Não foi salvo", description: e instanceof Error ? e.message : "A alteração não foi gravada na sua conta. Tente novamente.", variant: "destructive" });
     }
+    const ids = new Set(latest.current.map((p) => p.id));
+    for (const old of [...synced.current]) {
+      if (ids.has(old.id)) continue;
+      const r = await saveRequest(`/resources/research_projects/${old.id}`, { method: "DELETE" });
+      if (!r.ok && r.status !== 404) return failSync(r.error);
+      projectVersions.current.delete(old.id);
+      synced.current = synced.current.filter((x) => x.id !== old.id);
+    }
+    return true;
+  };
+  const failSync = (error: string) => {
+    // O conteúdo CONTINUA na tela (não é descartado); só não chegou à conta
+    setManualSave({ state: "error", error: `${error} O que está na tela ainda não chegou à sua conta.`, at: null });
+    return false;
+  };
+  const syncNow = async () => {
+    if (syncing.current) {
+      syncAgain.current = true;
+      return;
+    }
+    syncing.current = true;
+    setManualSave((m) => ({ ...m, state: "saving", error: null }));
+    let ok = false;
+    try {
+      ok = await syncOnce();
+    } finally {
+      syncing.current = false;
+    }
+    if (syncAgain.current) {
+      syncAgain.current = false;
+      return void syncNow();
+    }
+    if (ok) setManualSave({ state: "saved", error: null, at: new Date() });
+  };
+  /** Mostra a mudança na tela e agenda a gravação (`delay` > 0 enquanto a pessoa digita). */
+  const saveLocalProjects = (next: LocalProject[], delay = 0) => {
+    latest.current = next;
+    setManualSave((m) => ({ ...m, state: "dirty" }));
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => void syncNow(), delay);
+  };
+  const retryManualSave = () => void syncNow();
+  // Voltou a conexão ou a aba foi escondida com algo pendente: tenta de novo
+  useEffect(() => {
+    const pendingSync = () => JSON.stringify(latest.current) !== JSON.stringify(synced.current) && void syncNow();
+    const onHide = () => document.visibilityState === "hidden" && pendingSync();
+    window.addEventListener("online", pendingSync);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("online", pendingSync);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** "Salvar versão": guarda um marco do projeto (título, objetivo, situação e etapas). */
+  const saveProjectVersion = (id: string) => {
+    const updated = localProjects.map((p) => {
+      if (p.id !== id) return p;
+      const snap: ProjectSnapshot = { em: new Date().toISOString(), title: p.title, objective: p.objective, description: p.description, status: p.status, stages: p.stages };
+      return { ...p, versoes: [snap, ...(p.versoes ?? [])].slice(0, MAX_VERSOES) };
+    });
+    setLocalProjects(updated);
+    saveLocalProjects(updated);
+  };
+  const restoreProjectVersion = (id: string, snap: ProjectSnapshot) => {
+    if (!window.confirm(`Voltar o projeto para a versão de ${new Date(snap.em).toLocaleString("pt-BR")}? O estado atual vira uma nova versão guardada antes.`)) return;
+    const updated = localProjects.map((p) => {
+      if (p.id !== id) return p;
+      const atual: ProjectSnapshot = { em: new Date().toISOString(), title: p.title, objective: p.objective, description: p.description, status: p.status, stages: p.stages };
+      return { ...p, title: snap.title, objective: snap.objective, description: snap.description, status: snap.status, stages: snap.stages, versoes: [atual, ...(p.versoes ?? [])].slice(0, MAX_VERSOES) };
+    });
+    setLocalProjects(updated);
+    saveLocalProjects(updated);
   };
 
   const importLegacy = async () => {
@@ -218,9 +337,13 @@ export default function Projetos() {
       }
       clearLegacyDrafts();
       setLegacyDrafts([]);
+      synced.current = [...created, ...synced.current];
+      latest.current = [...created, ...latest.current];
       setLocalProjects((cur) => [...created, ...cur]);
       toast({ title: "Rascunhos importados", description: `${created.length} projeto(s) agora estão na sua conta.` });
     } catch (e) {
+      synced.current = [...created, ...synced.current];
+      latest.current = [...created, ...latest.current];
       setLocalProjects((cur) => [...created, ...cur]);
       setLegacyDrafts((cur) => cur.slice(created.length));
       toast({ title: "Importação incompleta", description: `${created.length} importado(s). ${e instanceof Error ? e.message : "Tente de novo."}`, variant: "destructive" });
@@ -244,6 +367,15 @@ export default function Projetos() {
       .then((items) => {
         setAiHistory(items.filter((i) => i.source !== "manual"));
         setLocalProjects(items.filter((i) => i.source === "manual" && i.manual).map((i) => ({ ...(i.manual as LocalProject), id: i.id })));
+        for (const i of items) projectVersions.current.set(i.id, (i as { version?: number }).version ?? 1);
+        synced.current = latest.current = items.filter((i) => i.source === "manual" && i.manual).map((i) => ({ ...(i.manual as LocalProject), id: i.id }));
+        if (projectParam) {
+          const hit = items.find((i) => i.id === projectParam);
+          if (hit?.source === "manual") {
+            setPageTab("projetos");
+            setExpandedProject(hit.id);
+          } else if (hit) handleHistorySelect(hit);
+        }
         setManualLoadError(null);
       })
       .catch((e: unknown) => {
@@ -381,7 +513,7 @@ export default function Projetos() {
     };
     const updated = [project, ...localProjects];
     setLocalProjects(updated);
-    void saveLocalProjects(updated);
+    saveLocalProjects(updated);
     setNewTitle("");
     setNewObjective("");
     setNewProjectForm(false);
@@ -393,7 +525,7 @@ export default function Projetos() {
   const deleteLocalProject = (id: string) => {
     const updated = localProjects.filter((p) => p.id !== id);
     setLocalProjects(updated);
-    void saveLocalProjects(updated);
+    saveLocalProjects(updated);
     if (expandedProject === id) setExpandedProject(null);
   };
 
@@ -413,7 +545,7 @@ export default function Projetos() {
       };
     });
     setLocalProjects(updated);
-    void saveLocalProjects(updated);
+    saveLocalProjects(updated);
   };
 
   /** Avança o status de uma etapa no ciclo: pendente → em andamento → concluída → pendente. */
@@ -431,7 +563,7 @@ export default function Projetos() {
       };
     });
     setLocalProjects(updated);
-    void saveLocalProjects(updated);
+    saveLocalProjects(updated);
   };
 
   /** Atualiza o nome de uma etapa. */
@@ -441,7 +573,7 @@ export default function Projetos() {
       return { ...p, stages: p.stages.map((s) => s.id === stageId ? { ...s, name } : s) };
     });
     setLocalProjects(updated);
-    void saveLocalProjects(updated);
+    saveLocalProjects(updated, 1200); // grava depois de uma pausa na digitação
   };
 
   /** Remove uma etapa do projeto. */
@@ -451,7 +583,7 @@ export default function Projetos() {
       return { ...p, stages: p.stages.filter((s) => s.id !== stageId) };
     });
     setLocalProjects(updated);
-    void saveLocalProjects(updated);
+    saveLocalProjects(updated);
   };
 
   /** Calcula o percentual de progresso de um projeto com base nas etapas concluídas. */
@@ -845,7 +977,7 @@ export default function Projetos() {
                     };
                     const updated = [project, ...localProjects];
                     setLocalProjects(updated);
-                    void saveLocalProjects(updated);
+                    saveLocalProjects(updated);
                     setPageTab("projetos");
                     setExpandedProject(project.id);
                     toast({ title: "Projeto salvo!", description: "Acesse a aba Meus Projetos para acompanhar." });
@@ -889,6 +1021,13 @@ export default function Projetos() {
           <p role="note" className="mb-3 text-xs text-slate-600">
             Seus projetos ficam na sua conta: aparecem em qualquer aparelho em que você entrar e entram em “Baixar meus dados” e “Excluir meus dados”.
           </p>
+          <SaveStatus
+            className="mb-3"
+            state={manualSave.state}
+            error={manualSave.error}
+            savedAt={manualSave.at}
+            onRetry={retryManualSave}
+          />
           {manualLoadError && (
             <p role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
               {manualLoadError} Nada foi alterado.
@@ -1013,6 +1152,8 @@ export default function Projetos() {
                           </button>
                           <input
                             value={s.name}
+                            aria-label="Nome da etapa"
+                            data-testid="etapa-nome"
                             onChange={(e) => updateStageName(project.id, s.id, e.target.value)}
                             className={`flex-1 text-sm bg-transparent border-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 transition-colors
                               ${s.status === "concluída" ? "line-through text-muted-foreground/50" : ""}
@@ -1035,6 +1176,26 @@ export default function Projetos() {
                     >
                       <Plus className="w-3 h-3" /> Adicionar etapa
                     </Button>
+                    <div className="mt-3 border-t pt-3" data-testid="projeto-versoes">
+                      <Button size="sm" variant="outline" onClick={() => saveProjectVersion(project.id)} data-testid="salvar-versao">
+                        Salvar versão
+                      </Button>
+                      <span className="ml-2 text-xs text-muted-foreground">Guarda um marco deste projeto (até {MAX_VERSOES}) para comparar ou voltar depois.</span>
+                      {(project.versoes?.length ?? 0) > 0 && (
+                        <ul className="mt-2 space-y-1 text-xs">
+                          {project.versoes!.map((v) => (
+                            <li key={v.em} className="flex flex-wrap items-center gap-2">
+                              <span>
+                                Versão de {new Date(v.em).toLocaleString("pt-BR")} — {v.stages.length} etapa(s), {v.status}
+                              </span>
+                              <button type="button" className="font-semibold text-lens underline underline-offset-2" onClick={() => restoreProjectVersion(project.id, v)}>
+                                Restaurar
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </CardContent>
                 )}
               </Card>

@@ -19,11 +19,13 @@ import niasciRouter from "./niasci";
 import diagRouter from "./diag";
 import lupaRouter from "./lupa";
 import analysisJobsRouter from "./analysisJobs";
+import continuidadeRouter from "./continuidade";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(diagRouter);   // antes de edital/niasci (não requer auth Supabase)
+router.use(continuidadeRouter); // Meu histórico e itens do usuário (auth por rota)
 router.use(analysisJobsRouter); // documentos longos em segundo plano (auth por rota)
 router.use(editalRouter);
 router.use(niasciRouter);   // antes do resourcesRouter (que tem requireAuth global)

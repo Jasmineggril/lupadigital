@@ -119,6 +119,8 @@ const waitStatus = (p, re, timeout = 240_000) => p.waitForFunction((r) => new Re
 
 const U = { email: "longo.a@exemplo.test", password: "Teste2026segura", name: "Pessoa Fictícia" };
 await authPost("/__test/seed", { ...U, confirmed: true });
+const U2 = { email: "longo.b@exemplo.test", password: "Teste2026segura", name: "Pessoa Fictícia B" };
+await authPost("/__test/seed", { ...U2, confirmed: true });
 
 await step("~600 mil caracteres: leitura completa com progresso real; início, meio e fim no resultado", async () => {
   const { page: p, ctx } = await newPage();
@@ -176,14 +178,31 @@ await step("~1 milhão de caracteres, parte com falha: atualizar a página retom
   await ctx.close();
 });
 
-await step("sem login: documento longo pede para entrar e NÃO pede para escolher trechos", async () => {
+await step("sem login: pede o CADASTRO (não erro), guarda o documento e, ao entrar, começa a leitura completa sozinha", async () => {
   const { page: p, ctx } = await newPage();
   await p.goto(`${WEB}/testar`);
-  await paste(p, longEdital(500_000)); // acima do limite da análise direta (450 mil)
+  const doc = longEdital(500_000); // acima do limite da análise direta (450 mil)
+  await paste(p, doc);
   await p.getByTestId("button-analyze").click();
-  const msg = await p.getByText(/entre para continuar/).first().innerText();
-  assert(/Você não precisa escolher trechos/.test(msg), `mensagem sem a garantia de leitura completa: ${msg}`);
-  assert(!/só as partes|só as páginas/i.test(msg), "pede para escolher trechos");
+  const box = p.getByTestId("documento-grande-cadastro");
+  await box.waitFor();
+  const msg = await box.innerText();
+  assert(/faça o cadastro para ler por inteiro/.test(msg) && /não precisa escolher trechos/.test(msg), `convite ao cadastro ausente: ${msg}`);
+  assert((await p.getByText("Não foi possível concluir a interpretação").count()) === 0, "aparece como erro");
+  assert((await p.getByTestId("cadastro-documento-grande").getAttribute("href")) === "/cadastro?next=%2Ftestar", "botão de cadastro não volta ao /testar");
+  await box.scrollIntoViewIfNeeded();
+  await box.screenshot({ path: `${SHOTS}/longo-05-convite-cadastro.png` });
+  await p.getByRole("link", { name: "Já tenho conta — entrar" }).click();
+  await p.waitForURL(/\/login/);
+  await p.getByLabel("E-mail").fill(U2.email);
+  await p.getByLabel("Senha", { exact: true }).fill(U2.password);
+  await p.getByTestId("login-submit").click();
+  await p.waitForURL(`${WEB}/testar`);
+  await progress(p).waitFor({ timeout: 30_000 }); // começou sozinha, com o documento guardado
+  const recebido = await p.getByTestId("longdoc-progresso").innerText();
+  assert(recebido.includes(doc.length.toLocaleString("pt-BR")), `documento restaurado com outro tamanho: ${recebido.slice(0, 200)}`);
+  await waitStatus(p, /^concluida$/);
+  assert(await p.evaluate(() => localStorage.getItem("lupa-documento-pendente-v1") === null), "documento guardado não foi apagado depois de usado");
   await ctx.close();
 });
 

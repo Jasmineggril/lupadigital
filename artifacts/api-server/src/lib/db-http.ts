@@ -135,7 +135,9 @@ export async function httpInsert<T = Record<string, unknown>>(
   values: Record<string, unknown>,
 ): Promise<T> {
   if (memoryMode()) {
-    const row: Row = { id: ++memorySeq, created_at: new Date().toISOString(), favorito: false, ...structuredClone(unmapKeys(values)) };
+    const at = new Date().toISOString();
+    // Mesmos padrões do banco (migração 20261130): versão 1, favorito falso, updated_at = criação
+    const row: Row = { id: ++memorySeq, created_at: at, updated_at: at, favorito: false, ...(table === "agent_results" ? { version: 1, estado: {} } : {}), ...structuredClone(unmapKeys(values)) };
     memTable(table).push(row);
     return mapKeys(structuredClone(row)) as T;
   }
@@ -227,6 +229,23 @@ export async function httpUpdate<T = Record<string, unknown>>(
  * Apaga TODAS as linhas de um usuário em uma tabela (exclusão de dados a pedido do titular).
  * Retorna quantas linhas saíram.
  */
+/**
+ * UPDATE com controle de versão (compare-and-set): só grava se `version` ainda for `expectedVersion`.
+ * Devolve null quando outra gravação chegou antes (o chamador responde 409).
+ */
+export async function httpUpdateVersioned<T = Record<string, unknown>>(table: string, values: Record<string, unknown>, id: unknown, userId: string, expectedVersion: number): Promise<T | null> {
+  const snake = unmapKeys(values);
+  if (memoryMode()) {
+    const row = memTable(table).find((r) => memMatch(r, { id, user_id: userId }) && Number(r.version ?? 1) === expectedVersion);
+    if (!row) return null;
+    Object.assign(row, structuredClone(snake));
+    return mapKeys(structuredClone(row)) as T;
+  }
+  const { data, error } = await getSupabaseAdmin().from(table).update(snake).eq("id", id).eq("user_id", userId).eq("version", expectedVersion).select().maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? (mapKeys(data) as T) : null;
+}
+
 export async function httpDeleteAllForUser(table: string, userId: string): Promise<number> {
   if (memoryMode()) {
     const t = memTable(table);

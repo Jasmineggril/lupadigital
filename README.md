@@ -4,6 +4,8 @@
 
 ## Inteligência Artificial para democratização do acesso à informação científica e pública
 
+**Criado por Jasmine De Sá Araujo** — idealizadora e autora do projeto LUPA Digital (NIASci/UnDF).
+
 O LUPA Digital é um artefato de pesquisa desenvolvido no contexto do **NIASci — Núcleo de Inteligência Artificial para a Ciência**.
 
 A plataforma utiliza Inteligência Artificial Generativa para interpretar, organizar e simplificar documentos científicos, acadêmicos e administrativos, preservando o significado original das informações.

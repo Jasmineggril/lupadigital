@@ -49,6 +49,23 @@ export const ManualProjectSchema = z.object({
     .max(100)
     .default([]),
   createdAt: str(40).optional(),
+  /** "Salvar versão": marcos guardados pela pessoa (até 10) */
+  versoes: z
+    .array(
+      z.object({
+        em: str(40),
+        title: str(300),
+        objective: str(4000).default(""),
+        description: str(8000).default(""),
+        status: z.enum(["planejamento", "em andamento", "concluído", "pausado"]),
+        stages: z
+          .array(z.object({ id: str(80), name: str(300), description: str(2000).default(""), deadline: str(20).default(""), status: z.enum(["pendente", "em andamento", "concluída"]) }))
+          .max(100)
+          .default([]),
+      }),
+    )
+    .max(10)
+    .optional(),
 });
 export type ManualProject = z.infer<typeof ManualProjectSchema>;
 

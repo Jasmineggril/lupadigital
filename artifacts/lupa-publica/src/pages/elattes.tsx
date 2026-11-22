@@ -27,6 +27,7 @@
 import { apiFetch } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
+import { newKey } from "@/lib/persistence";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -122,12 +123,33 @@ export default function ELattes() {
    * Carrega o histórico de análises ao montar o componente.
    * getLattesProfiles() usa Supabase se autenticado, localStorage como fallback.
    */
-  useEffect(() => {
+  // Trabalhos anteriores: falha ao carregar aparece como falha (antes virava lista vazia, parecendo perda)
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const loadHistory = () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
     getLattesProfiles()
       .then((profiles) => setHistory(profiles as LattesProfile[]))
-      .catch(() => setHistory([]))
+      .catch(() => setHistoryError("Não foi possível carregar seus trabalhos anteriores agora. Eles continuam salvos na sua conta."))
       .finally(() => setHistoryLoading(false));
-  }, []);
+  };
+  useEffect(loadHistory, []);
+  // Chave de idempotência da análise atual (clique repetido ou nova tentativa não duplica)
+  const saveKeyRef = useRef(newKey());
+  // Aberto pelo Meu histórico (?item=ID): o MESMO resultado salvo, sem rodar a IA de novo
+  const openedFromUrl = useRef(false);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("item");
+    if (!id || openedFromUrl.current || historyLoading) return;
+    openedFromUrl.current = true;
+    const found = history.find((h) => String(h.id) === id);
+    if (found) handleHistorySelect(found);
+    else
+      apiFetch<LattesProfile>(`/resources/lattes_profiles/${encodeURIComponent(id)}`)
+        .then((item) => handleHistorySelect(item))
+        .catch(() => toast({ title: "Item não encontrado", description: "Este trabalho não está na sua conta (ou foi excluído).", variant: "destructive" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyLoading]);
 
   /**
    * Limpa o timer de animação de estágios ao desmontar o componente.
@@ -191,6 +213,7 @@ export default function ELattes() {
     }
 
     setResult(null);
+    saveKeyRef.current = newKey(); // nova análise = novo registro (nunca sobrescreve outra)
     setErrorMessage("");
     startStageAnimation();
 
@@ -206,10 +229,11 @@ export default function ELattes() {
       // Persiste no Supabase ou localStorage
       const saved = await saveLattesProfile({
         name: data.nomeInferido ?? "Pesquisador",
-        lattes_xml: text.slice(0, 2000),
+        // Currículo guardado (até 60 mil caracteres) para reabrir esta versão e continuar a revisão
+        lattes_xml: text.slice(0, 60_000),
         summary: data.resumo ?? "",
-        metadata: { result: data } as any,
-      }).catch((e: unknown) => {
+        metadata: { result: data, caracteres: text.length, guardado_integral: text.length <= 60_000 } as any,
+      }, { idempotencyKey: saveKeyRef.current }).catch((e: unknown) => {
         // A análise está pronta; só a gravação falhou — dizer isso, sem marcar a análise como erro
         toast({ title: "Resultado pronto, mas não foi salvo", description: e instanceof Error ? e.message : "Não foi possível salvar no histórico.", variant: "destructive" });
         return null;
@@ -237,7 +261,9 @@ export default function ELattes() {
     if (resultData) {
       setResult(resultData as LattesResult);
       setStage("completed");
-      toast({ title: "Análise restaurada", description: "Resultado carregado do histórico." });
+      // Volta também o texto do currículo desta versão: dá para revisar e analisar de novo
+      if (typeof item.lattes_xml === "string" && item.lattes_xml.length > 0) setText(item.lattes_xml);
+      toast({ title: "Versão reaberta", description: "Leitura e currículo desta versão carregados da sua conta, sem nova análise. Nada foi alterado no seu perfil." });
     }
   };
 
@@ -288,9 +314,11 @@ export default function ELattes() {
       {/* Histórico de análises anteriores */}
       <HistoryPanel
         items={history}
+        error={historyError}
+        onRetry={loadHistory}
         onSelect={handleHistorySelect}
         onDelete={handleHistoryDelete}
-        getLabel={(p) => (p.metadata as any)?.result?.resumo?.slice(0, 80) ?? p.name ?? "Análise sem título"}
+        getLabel={(p) => `Versão — ${(p.metadata as any)?.result?.nomeInferido ?? p.name ?? "currículo"}: ${((p.metadata as any)?.result?.resumo ?? "").slice(0, 60)}`}
         isLoading={historyLoading}
         accentBg="bg-lens-tint"
       />

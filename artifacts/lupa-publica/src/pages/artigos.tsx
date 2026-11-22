@@ -27,6 +27,10 @@
 import { apiFetch } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
+import { newKey, saveRequest, useAutosave } from "@/lib/persistence";
+import { SaveStatus } from "@/components/lupa/SaveStatus";
+
+const ARTIGO_MAX_CHARS = 20_000;
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -93,6 +97,25 @@ export default function Artigos() {
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<ArtigoResult | null>(null);
 
+  // Leitura integral ou parcial do último resultado, item aberto e anotações (salvas na conta)
+  const [leitura, setLeitura] = useState<{ integral: boolean; caracteres_lidos: number; caracteres_totais: number } | null>(null);
+  const [currentItem, setCurrentItem] = useState<ArticleAnalysis | null>(null);
+  const [notes, setNotes] = useState("");
+  const notesVersion = useRef<number | null>(null);
+  const notesSave = useAutosave<string>({
+    enabled: Boolean(currentItem?.id),
+    value: notes,
+    save: async (v) => {
+      const meta = { ...((currentItem?.metadata as Record<string, unknown>) ?? {}), anotacoes: v };
+      const r = await saveRequest<{ version: number; metadata: unknown }>(`/resources/article_analyses/${currentItem!.id}`, { method: "PUT", body: { metadata: meta }, version: notesVersion.current });
+      if (r.ok) {
+        notesVersion.current = r.data.version;
+        setCurrentItem((c) => (c ? ({ ...c, metadata: r.data.metadata } as ArticleAnalysis) : c));
+      }
+      return r;
+    },
+  });
+
   // Histórico de artigos analisados
   const [history, setHistory] = useState<ArticleAnalysis[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -103,12 +126,33 @@ export default function Artigos() {
    * Carrega histórico de análises de artigos ao montar.
    * listArticleAnalyses() usa Supabase se autenticado, localStorage como fallback.
    */
-  useEffect(() => {
+  // Trabalhos anteriores: falha ao carregar aparece como falha (antes virava lista vazia, parecendo perda)
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const loadHistory = () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
     listArticleAnalyses()
       .then((items) => setHistory(items))
-      .catch(() => setHistory([]))
+      .catch(() => setHistoryError("Não foi possível carregar seus trabalhos anteriores agora. Eles continuam salvos na sua conta."))
       .finally(() => setHistoryLoading(false));
-  }, []);
+  };
+  useEffect(loadHistory, []);
+  // Chave de idempotência da análise atual (clique repetido ou nova tentativa não duplica)
+  const saveKeyRef = useRef(newKey());
+  // Aberto pelo Meu histórico (?item=ID): o MESMO resultado salvo, sem rodar a IA de novo
+  const openedFromUrl = useRef(false);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("item");
+    if (!id || openedFromUrl.current || historyLoading) return;
+    openedFromUrl.current = true;
+    const found = history.find((h) => String(h.id) === id);
+    if (found) handleHistorySelect(found);
+    else
+      apiFetch<ArticleAnalysis>(`/resources/article_analyses/${encodeURIComponent(id)}`)
+        .then((item) => handleHistorySelect(item))
+        .catch(() => toast({ title: "Item não encontrado", description: "Este trabalho não está na sua conta (ou foi excluído).", variant: "destructive" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyLoading]);
 
   useEffect(() => {
     return () => { if (stageTimerRef.current) clearInterval(stageTimerRef.current); };
@@ -163,12 +207,17 @@ export default function Artigos() {
     }
 
     setResult(null);
+    saveKeyRef.current = newKey(); // nova análise = novo registro (nunca sobrescreve outra)
     setErrorMessage("");
     startStageAnimation();
 
     try {
       // Chamada autenticada: a sessão vai junto (limite de uso da conta, não de visitante)
-      const data = await apiFetch<ArtigoResult>("/niasci/artigos/analyze", { method: "POST", body: JSON.stringify({ text }) });
+      // O servidor lê até 20 mil caracteres por artigo: acima disso, a leitura é PARCIAL e isso fica dito
+      const sent = text.slice(0, ARTIGO_MAX_CHARS);
+      const leitura = { integral: text.length <= ARTIGO_MAX_CHARS, caracteres_lidos: sent.length, caracteres_totais: text.length };
+      const data = await apiFetch<ArtigoResult>("/niasci/artigos/analyze", { method: "POST", body: JSON.stringify({ text: sent }) });
+      setLeitura(leitura);
 
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
       setStage("completed");
@@ -179,14 +228,21 @@ export default function Artigos() {
         title: data.titulo ?? "Artigo sem título",
         authors: [],
         summary: data.resumo ?? "",
-        metadata: { result: data } as any,
-      }).catch((e: unknown) => {
+        // Só o resultado e a fonte (título); o texto do artigo NÃO é guardado
+        metadata: { result: data, leitura, anotacoes: "" } as any,
+      }, { idempotencyKey: saveKeyRef.current }).catch((e: unknown) => {
         // A análise está pronta; só a gravação falhou — dizer isso, sem marcar a análise como erro
         toast({ title: "Resultado pronto, mas não foi salvo", description: e instanceof Error ? e.message : "Não foi possível salvar no histórico.", variant: "destructive" });
         return null;
       });
 
-      if (saved) setHistory((prev) => [saved as ArticleAnalysis, ...prev].slice(0, 20));
+      if (saved) {
+        setHistory((prev) => [saved as ArticleAnalysis, ...prev].slice(0, 20));
+        setCurrentItem(saved as ArticleAnalysis);
+        setNotes("");
+        notesVersion.current = (saved as { version?: number }).version ?? 1;
+        setTimeout(() => notesSave.markSaved(), 0);
+      }
       toast({ title: "Artigo analisado!", description: "A análise completa está pronta." });
     } catch (err) {
       if (stageTimerRef.current) clearInterval(stageTimerRef.current);
@@ -204,6 +260,11 @@ export default function Artigos() {
     const r = (item.metadata as any)?.result;
     if (r) {
       setResult(r as ArtigoResult);
+      setLeitura(((item.metadata as any)?.leitura as typeof leitura) ?? null);
+      setCurrentItem(item);
+      setNotes(String((item.metadata as any)?.anotacoes ?? ""));
+      notesVersion.current = (item as { version?: number }).version ?? 1;
+      setTimeout(() => notesSave.markSaved(), 0);
       setStage("completed");
       toast({ title: "Análise restaurada", description: "Resultado carregado do histórico." });
     }
@@ -253,6 +314,8 @@ export default function Artigos() {
 
       <HistoryPanel
         items={history}
+        error={historyError}
+        onRetry={loadHistory}
         onSelect={handleHistorySelect}
         onDelete={handleHistoryDelete}
         getLabel={(a) => (a.metadata as any)?.result?.titulo ?? a.title ?? "Artigo sem título"}
@@ -291,6 +354,54 @@ export default function Artigos() {
             </div>
             <ExportButton filename={`artigo-${result.titulo ?? "analise"}`} sections={buildExportSections()} />
           </div>
+
+          {leitura && (
+            <p
+              data-testid="artigo-leitura"
+              data-integral={leitura.integral ? "1" : "0"}
+              className={`mb-3 rounded-md border p-2 text-xs ${leitura.integral ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-300 bg-amber-50 text-amber-950"}`}
+            >
+              {leitura.integral
+                ? `Leitura integral: ${leitura.caracteres_totais.toLocaleString("pt-BR")} caracteres analisados.`
+                : `Leitura PARCIAL: foram analisados ${leitura.caracteres_lidos.toLocaleString("pt-BR")} de ${leitura.caracteres_totais.toLocaleString("pt-BR")} caracteres (início do texto). Seções finais podem não estar refletidas.`}
+            </p>
+          )}
+
+          {currentItem?.id && (
+            <div className="mb-4 rounded-lg border p-3">
+              <label htmlFor="artigo-anotacoes" className="text-sm font-semibold">Minhas anotações sobre este artigo</label>
+              <p className="text-xs text-muted-foreground">Salvas automaticamente na sua conta junto com o resultado. O texto do artigo não é guardado — só a análise e as anotações.</p>
+              <textarea
+                id="artigo-anotacoes"
+                data-testid="artigo-anotacoes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value.slice(0, 20_000))}
+                rows={3}
+                className="mt-2 w-full rounded-md border bg-background p-2 text-sm"
+              />
+              <SaveStatus
+                state={notesSave.state}
+                error={notesSave.error}
+                savedAt={notesSave.savedAt}
+                onRetry={notesSave.retry}
+                onResolveConflict={(c) => {
+                  const atual = notesSave.conflict as ArticleAnalysis | null;
+                  if (!atual) return;
+                  notesVersion.current = (atual as { version?: number }).version ?? null;
+                  setCurrentItem(atual);
+                  if (c === "servidor") {
+                    const n = String((atual.metadata as any)?.anotacoes ?? "");
+                    setNotes(n);
+                    notesSave.markSaved(n);
+                  } else {
+                    // Manter a minha: grava por cima da versão atual (agora conhecida)
+                    notesSave.markSaved(String((atual.metadata as any)?.anotacoes ?? ""));
+                    setTimeout(() => notesSave.retry(), 0);
+                  }
+                }}
+              />
+            </div>
+          )}
 
           {/* Palavras-chave em destaque */}
           {(result.keywords?.length ?? 0) > 0 && (

@@ -106,11 +106,13 @@ import {
 } from "@/lib/agents";
 // Leitor de PDF (pdf.js + OCR) só é baixado quando a pessoa envia um PDF (~515 KB a menos no /testar)
 import type { PdfStructuredData } from "@/lib/pdf";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, ApiError } from "@/lib/api";
 import { QueroParticipar } from "@/components/lupa/QueroParticipar";
 import { deleteLocalHistory, listLocalHistory, saveLocalHistory, setLocalFavorite, type LocalAgentRecord } from "@/lib/localHistory";
 import { DocumentTimeline, QuickViewContent, ResultValidity, StageBanner, isPartialResult, type RealStage } from "@/components/testar/AnalysisPanels";
 import { LongDocProgress, type LongJobView } from "@/components/testar/LongDocProgress";
+import { SaveStatus } from "@/components/lupa/SaveStatus";
+import { newKey, saveRequest, useAutosave, type SaveResult } from "@/lib/persistence";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
 import {
   buildChecklistItems,
@@ -2544,6 +2546,13 @@ export default function TestarIA() {
   const [answerHistory, setAnswerHistory] = useState<
     { question: string; answer: string; source?: "ia" | "automatica" }[]
   >([]);
+  /** Minhas anotações sobre esta análise (salvas na conta junto da análise) */
+  const [notes, setNotes] = useState("");
+  /** Versão do registro no servidor (conflito entre abas/aparelhos) */
+  const workspaceVersion = useRef<number | null>(null);
+  /** Chave de idempotência da análise atual: salvar de novo (clique repetido, nova tentativa) não duplica */
+  const saveKey = useRef<string>(newKey());
+  const [savingAnalysis, setSavingAnalysis] = useState(false);
   /** Texto exato que gerou o resultado na tela: liga resultado ↔ documento */
   const [analyzedText, setAnalyzedText] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -2571,6 +2580,9 @@ export default function TestarIA() {
   // ── Documentos longos: leitura completa em segundo plano (estado no servidor) ──
   const [longJob, setLongJob] = useState<LongJobView | null>(null);
   const [longRunning, setLongRunning] = useState(false);
+  // Documento grande sem login: convite ao cadastro (não é erro) e documento guardado neste navegador
+  const [needsAccount, setNeedsAccount] = useState<number | null>(null);
+  const pendingAutoStart = useRef(false);
   const longJobActive = Boolean(longJob && ["pendente", "processando", "aguardando_cota"].includes(longJob.status));
   const longLoop = useRef(0);
   const [docLimits, setDocLimits] = useState<{ syncMax: number; syncHard: number; maxChars: number; background: boolean }>({ syncMax: 45_000, syncHard: 450_000, maxChars: 1_200_000, background: false });
@@ -2646,6 +2658,9 @@ export default function TestarIA() {
   /** Limpa TUDO o que pertence ao documento atual (resultado, análise, chat, compartilhamento). Não toca no histórico salvo. */
   const resetAnalysis = () => {
     analyzeSeq.current++;
+    saveKey.current = newKey(); // uma nova análise nunca sobrescreve outra: novo registro
+    workspaceVersion.current = null;
+    setNotes("");
     setAgentResult(null);
     setCanonicalAnalysis(null);
     setAnalyzedText(null);
@@ -2660,6 +2675,7 @@ export default function TestarIA() {
     setIsFavorite(false);
     setChecklistState([]);
     setAnalysisStage("idle");
+    setNeedsAccount(null);
     // Tarefa longa ainda ativa continua visível (com Cancelar); terminada sai junto com o resultado
     setLongJob((j) => (j && ["pendente", "processando", "aguardando_cota"].includes(j.status) ? j : null));
   };
@@ -2857,8 +2873,17 @@ export default function TestarIA() {
     const title = sourceText.trim().slice(0, 80).replace(/\n/g, " ") || `Interpretação ${AGENTS.find((a) => a.id === agentIdOverride)?.name ?? currentAgentMeta.name}`;
     const resultJson = (canonicalData ? { ...canonicalData, type: agentIdOverride } : result ? { ...result } : { type: agentIdOverride }) as Record<string, unknown>;
     if (user) {
+      setSavingAnalysis(true);
       try {
-        const savedAgent = await saveAgentResultMutation.mutateAsync({ data: { agentId: agentIdOverride, title, originalText: sourceText, resultJson } });
+        const partial = (resultJson as { processing?: { complete?: boolean } }).processing?.complete === false;
+        const r = await saveRequest<{ id: number; version?: number }>("/edital/agent-history", {
+          method: "POST",
+          idempotencyKey: saveKey.current,
+          body: { agentId: agentIdOverride, title, originalText: sourceText, resultJson, status: partial ? "parcial" : "concluida" },
+        });
+        if (!r.ok) throw new Error(r.error);
+        const savedAgent = r.data;
+        workspaceVersion.current = savedAgent?.version ?? 1;
         const id = savedAgent?.id != null ? String(savedAgent.id) : null;
         if (savedAgent?.id && canonicalData) setCanonicalAnalysis((prev) => (prev ? { ...prev, historyId: savedAgent.id } : prev));
         setSavedThisResult(Boolean(id));
@@ -2869,6 +2894,8 @@ export default function TestarIA() {
       } catch (err) {
         setSavedThisResult(false);
         return { ok: false, where: "conta", id: null, error: err instanceof Error ? err.message : "Falha ao salvar." };
+      } finally {
+        setSavingAnalysis(false);
       }
     }
     const saved = saveLocalHistory({ agentId: agentIdOverride, title, originalText: sourceText, resultJson });
@@ -2880,6 +2907,38 @@ export default function TestarIA() {
 
   // ── Documento longo ────────────────────────────────────────────────────────
   const LONG_KEY = "lupa-analise-longa-v1";
+  const PENDING_KEY = "lupa-documento-pendente-v1";
+
+  // Voltou do cadastro/login: restaura o documento guardado e, já com conta, começa a leitura completa
+  useEffect(() => {
+    let pending: { text: string; agentId: AgentId; at: number } | null = null;
+    try {
+      const raw = localStorage.getItem(PENDING_KEY);
+      pending = raw ? JSON.parse(raw) : null;
+      if (pending && Date.now() - pending.at > 24 * 3600_000) {
+        localStorage.removeItem(PENDING_KEY);
+        pending = null;
+      }
+    } catch {
+      pending = null;
+    }
+    if (!pending) return;
+    if (!text) {
+      setText(pending.text);
+      setSelectedAgent(pending.agentId);
+      setManualAgentSelection(true);
+    }
+    if (user) {
+      try {
+        localStorage.removeItem(PENDING_KEY);
+      } catch {
+        /* nada */
+      }
+      setNeedsAccount(null);
+      pendingAutoStart.current = true;
+    } else setNeedsAccount(pending.text.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
   const rememberJob = (id: string | null) => {
     try {
       if (id) localStorage.setItem(LONG_KEY, id);
@@ -2937,10 +2996,14 @@ export default function TestarIA() {
   const startLongJob = async (agentIdToUse: AgentId, textAtStart: string) => {
     if (!user) {
       setIsAnalyzePressed(false);
-      setAnalysisStage("error");
-      setAnalysisError(
-        `Este documento tem ${textAtStart.length.toLocaleString("pt-BR")} caracteres. Para lê-lo por inteiro, a análise roda em segundo plano e o andamento fica guardado na sua conta: entre para continuar. Você não precisa escolher trechos.`,
-      );
+      setAnalysisStage("idle");
+      setNeedsAccount(textAtStart.length);
+      // Guarda o documento NESTE navegador para não se perder no cadastro/login (24 h; apagado ao usar)
+      try {
+        localStorage.setItem(PENDING_KEY, JSON.stringify({ text: textAtStart, agentId: agentIdToUse, at: Date.now() }));
+      } catch {
+        /* armazenamento cheio ou bloqueado: a pessoa cola de novo depois de entrar */
+      }
       return;
     }
     try {
@@ -2993,11 +3056,14 @@ export default function TestarIA() {
     if (!user) return;
     let alive = true;
     (async () => {
-      let id: string | null = null;
-      try {
-        id = localStorage.getItem(LONG_KEY);
-      } catch {
-        id = null;
+      // Vindo do Meu histórico (?tarefa=ID) ou tarefa lembrada neste navegador
+      let id: string | null = new URLSearchParams(window.location.search).get("tarefa");
+      if (!id) {
+        try {
+          id = localStorage.getItem(LONG_KEY);
+        } catch {
+          id = null;
+        }
       }
       if (!id) {
         const list = await apiFetch<{ jobs: Array<{ id: string; status: string }> }>("/edital/jobs").catch(() => ({ jobs: [] as Array<{ id: string; status: string }> }));
@@ -3025,6 +3091,44 @@ export default function TestarIA() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // ── Área de trabalho da análise (checklist marcado, anotações, perguntas do chat) ──
+  type AnalysisEstado = { checklist?: boolean[]; anotacoes?: string; chat?: Array<{ question: string; answer: string; source?: "ia" | "automatica" }> };
+  const applyEstado = (e?: AnalysisEstado | null) => {
+    if (!e) return;
+    if (Array.isArray(e.checklist)) setChecklistState((prev) => prev.map((c, i) => ({ ...c, checked: Boolean(e.checklist![i]) })));
+    setNotes(typeof e.anotacoes === "string" ? e.anotacoes : "");
+    if (Array.isArray(e.chat)) setAnswerHistory(e.chat.slice(0, 20));
+  };
+  const estado: AnalysisEstado = useMemo(
+    () => ({ checklist: checklistState.map((c) => Boolean(c.checked)), anotacoes: notes, chat: answerHistory.slice(0, 20) }),
+    [checklistState, notes, answerHistory],
+  );
+  const accountRecordId = user && currentSavedId && !currentSavedId.startsWith("local-") ? currentSavedId : null;
+  const workspace = useAutosave<AnalysisEstado>({
+    enabled: Boolean(accountRecordId),
+    value: estado,
+    draft: accountRecordId && user ? { userId: user.id, key: `edital:${accountRecordId}` } : null,
+    save: async (v): Promise<SaveResult> => {
+      const r = await saveRequest<{ version: number }>(`/edital/agent-history/${accountRecordId}`, { method: "PATCH", body: { estado: v }, version: workspaceVersion.current });
+      if (r.ok) workspaceVersion.current = r.data.version;
+      return r;
+    },
+  });
+  // Registro recém-aberto ou recém-salvo: o estado atual é a referência (não reenviar à toa)
+  useEffect(() => {
+    if (accountRecordId) workspace.markSaved();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountRecordId]);
+  const resolveWorkspaceConflict = (choice: "servidor" | "minha") => {
+    const atual = workspace.conflict as { version?: number; estado?: AnalysisEstado } | null;
+    if (!atual) return;
+    workspaceVersion.current = atual.version ?? workspaceVersion.current;
+    if (choice === "servidor") {
+      applyEstado(atual.estado ?? {});
+      setTimeout(() => workspace.markSaved(), 0);
+    } else workspace.retry();
+  };
+
   /** Mostra e salva uma análise concluída — mesma rotina para a análise direta e a longa. */
   const acceptAnalysis = async (data: unknown, agentIdToUse: AgentId, textAtStart: string) => {
     const canonicalPayload = data as unknown as CanonicalAnalysisLike;
@@ -3043,9 +3147,14 @@ export default function TestarIA() {
       const convite = !user && textAtStart.length > docLimits.syncMax ? " Entre na sua conta para que o documento inteiro seja lido em segundo plano." : "";
       toast({
         title: "Análise parcialmente concluída",
-        description: `${partialReason}${lidas}${convite} O resultado é limitado e não foi salvo automaticamente; você pode tentar de novo ou salvar manualmente.`,
+        description: `${partialReason}${lidas}${convite} O resultado é limitado; você pode tentar de novo.`,
         variant: "destructive",
       });
+      if (user) {
+        // Logado: a análise parcial também fica na conta, identificada como PARCIAL (antes se perdia ao sair)
+        const savedPartial = await persistCurrentAnalysis(result, canonicalPayload, agentIdToUse, textAtStart);
+        if (savedPartial.ok) toast({ title: "Análise parcial salva na sua conta", description: "Ela aparece no Meu histórico como parcial. Você pode reabrir e tentar completar depois." });
+      }
       return;
     }
     const saved = await persistCurrentAnalysis(result, canonicalPayload, agentIdToUse, textAtStart);
@@ -3119,6 +3228,14 @@ export default function TestarIA() {
       },
     );
   };
+
+  useEffect(() => {
+    if (pendingAutoStart.current && user && text.length > docLimits.syncMax) {
+      pendingAutoStart.current = false;
+      handleAnalyze();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, text, docLimits.syncMax]);
 
   const handleToggleFavorite = async () => {
     if (!agentResult) {
@@ -3289,9 +3406,26 @@ export default function TestarIA() {
     const withHistoryId = { ...parsedCanonical, historyId: item.id } as CanonicalAnalysisLike;
     setCanonicalAnalysis(withHistoryId && typeof withHistoryId === "object" ? withHistoryId : null);
     applyResult(parsed);
+    applyEstado((item as { estado?: AnalysisEstado }).estado);
+    workspaceVersion.current = (item as { version?: number }).version ?? 1;
     setSavedThisResult(true);
     setShowHistory(false);
   };
+
+  // Reabrir pelo endereço (?analise=ID, vindo do Meu histórico): o MESMO resultado, sem rodar a IA
+  const reopenedFromUrl = useRef(false);
+  useEffect(() => {
+    if (!user || reopenedFromUrl.current) return;
+    const id = new URLSearchParams(window.location.search).get("analise");
+    if (!id || !/^\d+$/.test(id)) return;
+    reopenedFromUrl.current = true;
+    apiFetch<AgentResultRecord>(`/edital/agent-history/${id}`)
+      .then((item) => handleAgentHistorySelect(item))
+      .catch((err) => {
+        setAnalysisError(err instanceof ApiError && err.status === 404 ? "Esta análise não foi encontrada na sua conta." : `Não foi possível abrir a análise salva agora (ela continua na sua conta). ${getFriendlyErrorMessage(err)}`);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const BASE = ((import.meta.env.BASE_URL as string) || "/").replace(/\/$/, "");
 
@@ -3862,6 +3996,24 @@ export default function TestarIA() {
                 Você pode usar texto, URL pública ou PDF. A IA interpreta e organiza o conteúdo sem alterar o sentido original do documento, e salva a interpretação no histórico quando há sessão ativa.
               </div>
             )}
+            {needsAccount !== null && !user && (
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950" role="region" aria-labelledby="precisa-conta" data-testid="documento-grande-cadastro">
+                <p id="precisa-conta" className="font-semibold">Documento muito grande: faça o cadastro para ler por inteiro</p>
+                <p className="mt-1">
+                  Este documento tem {needsAccount.toLocaleString("pt-BR")} caracteres. Documentos assim são lidos inteiros, parte por parte, e o
+                  andamento fica guardado na sua conta. O cadastro é gratuito e você não precisa escolher trechos.
+                </p>
+                <p className="mt-1 text-xs text-sky-900">Guardamos o texto neste navegador enquanto você se cadastra; ao voltar, a leitura começa sozinha.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button asChild size="sm" className="rounded-xl">
+                    <Link href="/cadastro?next=%2Ftestar" data-testid="cadastro-documento-grande">Criar conta grátis</Link>
+                  </Button>
+                  <Button asChild size="sm" variant="outline" className="rounded-xl bg-white">
+                    <Link href="/login?next=%2Ftestar">Já tenho conta — entrar</Link>
+                  </Button>
+                </div>
+              </div>
+            )}
             {analysisError && !isAnalyzing && (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                 <div className="flex items-start gap-2">
@@ -3987,10 +4139,10 @@ export default function TestarIA() {
                     className={`rounded-xl h-12 px-5 text-sm gap-2 animate-in fade-in ${savedThisResult ? "text-emerald-600 border-emerald-200 bg-emerald-50" : ""}`}
                     onClick={handleSaveAgent}
                     disabled={
-                      savedThisResult || saveAgentResultMutation.isPending
+                      savedThisResult || savingAnalysis
                     }
                   >
-                    {saveAgentResultMutation.isPending ? (
+                    {savingAnalysis ? (
                       <>
                         <div className="w-4 h-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
                         Salvando…
@@ -4007,6 +4159,15 @@ export default function TestarIA() {
                       </>
                     )}
                   </Button>
+                  <SaveStatus
+                    className="w-full"
+                    guest={!user}
+                    state={accountRecordId ? workspace.state : "idle"}
+                    error={workspace.error}
+                    savedAt={workspace.savedAt}
+                    onRetry={workspace.retry}
+                    onResolveConflict={resolveWorkspaceConflict}
+                  />
                   <Button
                     size="lg"
                     variant="outline"
@@ -4252,6 +4413,23 @@ export default function TestarIA() {
                           }
                         />
                       )}
+                      <div className="rounded-2xl border border-border bg-white p-4">
+                        <label htmlFor="anotacoes-edital" className="text-sm font-semibold text-slate-900">Minhas anotações sobre este edital</label>
+                        <p className="mt-0.5 text-xs text-slate-600">
+                          {user ? "Salvas automaticamente na sua conta, junto desta análise (inclui o que você marcou no checklist e as perguntas do chat)." : "Sem login, as anotações não são salvas. Entre para guardar na sua conta."}
+                        </p>
+                        <textarea
+                          id="anotacoes-edital"
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value.slice(0, 20000))}
+                          rows={4}
+                          className="mt-2 w-full rounded-xl border border-field bg-white px-3 py-2 text-sm"
+                          placeholder="Ex.: pedir a carta de anuência ao coordenador até sexta."
+                          data-testid="anotacoes-edital"
+                        />
+                        {user && !accountRecordId && <p className="mt-1 text-xs text-slate-600">As anotações começam a ser salvas quando a análise estiver salva na sua conta.</p>}
+                        {accountRecordId && <SaveStatus state={workspace.state} error={workspace.error} savedAt={workspace.savedAt} onRetry={workspace.retry} onResolveConflict={resolveWorkspaceConflict} />}
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -4464,6 +4642,11 @@ export default function TestarIA() {
                       resetAnalysis();
                       setText("");
                       setUrlInput("");
+                      try {
+                        localStorage.removeItem("lupa-documento-pendente-v1"); // documento guardado para depois do cadastro
+                      } catch {
+                        /* nada */
+                      }
                       setPdfStructuredData(null);
                       setPdfError(null);
                       toast({ title: "Entrada limpa", description: "Texto, link e resultado da tela foram limpos. O histórico salvo continua disponível." });

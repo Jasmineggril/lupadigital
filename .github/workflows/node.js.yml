@@ -26,6 +26,7 @@ jobs:
     - run: node scripts/check-serverless.mjs
     - run: pnpm --filter @workspace/lupa-publica run build
     - run: pnpm --filter @workspace/api-server test
+    - run: pnpm --filter @workspace/lupa-publica test
 
   # Segurança: auditoria de dependências com política explícita; migrações num Postgres 17 limpo
   # (mesma versão principal de produção), aplicadas DUAS vezes (idempotência); RLS ligada em todas as

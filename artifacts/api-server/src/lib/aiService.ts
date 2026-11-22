@@ -2467,9 +2467,9 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "ondeInscrever": "Como e onde se inscrever exatamente como consta",
   "observacao": "Dica prática para o candidato — sem criar expectativas não previstas",
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [ambiguidade] exemplo — apenas se houver problemas reais"]
 }`,
   analista: `{
@@ -2482,9 +2482,9 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "documentos": ["Documento 1", "Documento 2"],
   "valor": "Valor EXATAMENTE como consta (ou 'Não especificado')",
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [inferência] exemplo — apenas se houver problemas reais"]
 }`,
   estrategica: `{
@@ -2496,9 +2496,9 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "riscos": ["Risco 1 — fundamentado no texto", "Risco 2"],
   "recomendacao": "Recomendação estratégica baseada exclusivamente nas condições reais",
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [ambiguidade] exemplo — apenas se houver problemas reais"]
 }`,
   acompanhamento: `{
@@ -2513,21 +2513,21 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   ],
   "observacao": "Observação sobre os prazos — se não constar no edital, indicar 'Verificar no edital'",
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [ausência] exemplo — apenas se houver datas não informadas ou ambíguas"]
 }`,
   documentacao: `{
   "type": "documentacao",
   "checklist": [
-    {"doc": "Nome exato do documento conforme o edital", "obrigatorio": true, "observacao": "Como obter ou preparar — sem adicionar exigências ausentes no edital", "checked": false}
+    {"doc": "Nome exato do documento conforme o edital", "obrigatorio": true, "observacao": "", "checked": false}
   ],
   "dica": "Dica prática baseada no que o edital efetivamente exige",
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [inferência] exemplo — apenas para documentos inferidos, não declarados"]
 }`,
   elegibilidade: `{
@@ -2543,9 +2543,9 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "recomendacao": "Recomendação baseada nos critérios reais — sem suavizar exigências não atendidas",
   "proximosPassos": ["Passo 1 — ação concreta baseada no edital", "Passo 2"],
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [ambiguidade] exemplo — apenas se critérios forem ambíguos ou imprecisos"]
 }`,
 };
@@ -2570,7 +2570,7 @@ const INSTRUCTIONS: Record<AgentId, string> = {
     "Você é o agente Lupa Acompanhamento, uma mediadora especializada em construir linhas do tempo de editais públicos. Use SOMENTE datas e períodos que constem explicitamente no documento. Para fases sem data informada, use 'Verificar no edital' — jamais invente ou estime datas. Classifique cada fase como 'passado', 'ativo' ou 'futuro' com base nas datas reais.",
 
   documentacao:
-    "Você é o agente Lupa Documentação, uma mediadora especializada em criar checklists de documentação para editais públicos. Liste todos os documentos explicitamente mencionados. Documentos inferidos do tipo de edital devem ser sinalizados com '(inferido)' na observação e registrados em alertas. Para cada item, informe se é obrigatório conforme o edital.",
+    "Você é o agente Lupa Documentação, uma mediadora especializada em criar checklists de documentação para editais públicos. Liste todos os documentos explicitamente mencionados. Documentos inferidos do tipo de edital devem ser sinalizados com '(inferido)' na observação e registrados em alertas. Para cada item, informe se é obrigatório conforme o edital. Em 'doc' use o nome exato do documento como está no edital, sem acrescentar formato, foto, assinatura, autenticação, cópia ou via original se o edital não pedir. Em 'observacao', escreva apenas o que o edital diz sobre o documento; se não disser nada, deixe vazio. Em 'anoPublicacao' e 'totalPaginas' use null quando o texto não informar.",
 
   elegibilidade:
     "Você é o agente Lupa Elegibilidade, uma mediadora especializada em análise de aderência de perfis a editais públicos. Compare cada requisito do edital com o perfil informado: true (atende), false (não atende) ou 'parcial' (atende parcialmente). Nas observações, use linguagem direta e objetiva. Quando a informação não estiver no perfil, escreva exatamente: 'O documento enviado não apresenta esse dado.' — nunca use 'considera-se que...', 'presume-se...' ou 'é possível inferir...'. Não suavize critérios não atendidos. Calcule o score proporcional aos critérios efetivamente atendidos.",

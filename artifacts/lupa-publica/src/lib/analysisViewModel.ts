@@ -12,7 +12,7 @@ type CanonicalAnalysisLike = {
     items?: Array<{ fase: string; periodo: string; descricao: string; status?: string }>;
   };
   checklist?: {
-    items?: Array<{ doc: string; obrigatorio?: boolean; observacao?: string; checked?: boolean }>;
+    items?: Array<ChecklistItemLike>;
   };
   elegibilidade?: {
     score?: number;
@@ -30,7 +30,35 @@ type CanonicalAnalysisLike = {
   alertas?: Array<string | { descricao?: string }>;
   /** Base documental comum (servidor): igual para todos os agentes, com trechos */
   base?: DocumentBase;
+  /** Fatos conferidos no texto (servidor, lib/analysisFacts.ts) */
+  fatos?: AnalysisFacts;
 };
+
+type ChecklistItemLike = {
+  doc?: string;
+  obrigatorio?: boolean;
+  observacao?: string;
+  checked?: boolean;
+  origem?: "edital" | "sugestao" | "desconhecido";
+  evidencia?: string | null;
+  condicao?: ItemCondition;
+  nao_confirmado?: string[];
+  conferir?: boolean;
+  motivo?: string | null;
+};
+
+export type ItemCondition = "obrigatorio" | "listado" | "opcional" | "alternativa" | "com_dispensa" | "nao_informado";
+
+export interface AnalysisFacts {
+  versao: number;
+  documento_hash: string;
+  prazo_inscricao: { iso: string; hora: string | null; fuso: string | null; texto: string; evidencia: string; prorrogado: boolean; fases: string[]; situacao: "aberta" | "encerrada"; origem: "edital" } | null;
+  prazo_ia: string | null;
+  conflitos: Array<{ campo: string; documento: string; ia: string; evidencia: string | null; mensagem: string }>;
+  exigencias: Array<{ texto: string; texto_ia: string; origem: "edital" | "sugestao" | "desconhecido"; evidencia: string | null; nao_confirmado: string[]; condicao: ItemCondition; conferir: boolean; motivo: string | null }>;
+  campos: Array<{ campo: string; rotulo: string; estado: "encontrado" | "parcial" | "incerto" | "nao_localizado"; fonte: "documento" | "ia" | "nenhuma"; evidencia: string | null; observacao: string }>;
+  qualificadores_sem_respaldo: string[];
+}
 
 export interface DocumentBase {
   versao: number;
@@ -68,6 +96,15 @@ export type ChecklistItemSummary = {
   done: boolean;
   hint: string;
   evidence?: string;
+  /** edital = trecho localizado; desconhecido = sem trecho (pode ser sugestão da IA) */
+  origin?: "edital" | "sugestao" | "desconhecido";
+  /** O que o trecho diz sobre a obrigatoriedade */
+  condition?: ItemCondition;
+  /** Detalhes que a IA acrescentou e o edital não traz */
+  unconfirmed?: string[];
+  check?: boolean;
+  /** Orientação prática (não é exigência do edital) */
+  guidance?: string;
 };
 
 export type EligibilitySummary = {
@@ -107,6 +144,126 @@ function getDocumentSummary(canonical: CanonicalAnalysisLike | null | undefined)
   return [];
 }
 
+// ── Resolvedor único de fatos ───────────────────────────────────────────────
+// Toda ferramenta (resumo, cronograma, chat, FAQ, visão rápida, exportação) lê prazo,
+// documentos e pendências DAQUI. Antes, o chat lia `interpretation.deadlines` ("Prazo não
+// informado") enquanto o cronograma lia as datas do documento (20/12/2026).
+
+const PLACEHOLDER_RE = /n[ãa]o\s+(foi\s+)?(informad|encontrad|identificad|localizad|especificad|mencionad|consta|h[áa]\s+(prazo|data))|sem\s+(prazo|data)|a\s+confirmar|indefinid|desconhecid|^\s*[-–—]?\s*$/i;
+
+export function isPlaceholderText(value: unknown): boolean {
+  return typeof value !== "string" || PLACEHOLDER_RE.test(value.trim());
+}
+
+export type ResolvedDeadline = {
+  /** Texto para mostrar ("20/12/2026" ou o que a IA disse, quando não há data no documento) */
+  text: string;
+  iso: string | null;
+  evidence: string | null;
+  /** documento = trecho do edital; ia = só a IA citou, sem trecho localizado */
+  source: "documento" | "ia";
+  conflict: string | null;
+};
+
+export type MissingField = { label: string; state: "nao_localizado" | "incerto" | "parcial"; note: string };
+
+export type ResolvedFacts = {
+  deadline: ResolvedDeadline | null;
+  conflicts: string[];
+  documents: ChecklistItemSummary[];
+  missing: MissingField[];
+  unsupportedQualifiers: string[];
+};
+
+const LEGACY_FIELD_OK: Record<string, (b: DocumentBase) => boolean> = {
+  "documentos exigidos": (b) => b.documentos.length > 0,
+  "datas e prazos": (b) => b.datas.length > 0,
+  requisitos: (b) => b.requisitos.length > 0,
+  valores: (b) => b.valores.length > 0,
+  "critérios de avaliação": (b) => b.criterios.length > 0,
+  "canal de inscrição": (b) => b.canal_inscricao.length > 0,
+};
+
+export function resolveAnalysisFacts(canonical: CanonicalAnalysisLike | null | undefined): ResolvedFacts {
+  const fatos = canonical?.fatos;
+  const base = canonical?.base;
+  const conflicts = (fatos?.conflitos ?? []).map((c) => c.mensagem);
+
+  // Prazo: fatos do servidor → datas da base (análises salvas antes dos fatos) → IA (identificada)
+  let deadline: ResolvedDeadline | null = null;
+  if (fatos?.prazo_inscricao) {
+    const p = fatos.prazo_inscricao;
+    deadline = { text: p.texto, iso: p.iso, evidence: p.evidencia, source: "documento", conflict: conflicts[0] ?? null };
+  } else {
+    const fromBase = [...(base?.datas ?? [])].filter((d) => d.rotulo === "inscrições" && d.iso).pop();
+    if (fromBase) deadline = { text: formatIsoDate(fromBase.iso), iso: fromBase.iso, evidence: fromBase.evidencia, source: "documento", conflict: null };
+    else {
+      const ai = resolveText(canonical?.interpretation?.deadlines);
+      if (ai && !isPlaceholderText(ai)) deadline = { text: ai, iso: null, evidence: null, source: "ia", conflict: null };
+    }
+  }
+
+  // Pendências: estados conciliados no servidor; para análises antigas, concilia com a própria base
+  let missing: MissingField[];
+  if (fatos?.campos?.length) {
+    missing = fatos.campos
+      .filter((c) => c.estado !== "encontrado")
+      .map((c) => ({ label: c.rotulo, state: c.estado as MissingField["state"], note: c.observacao }));
+  } else {
+    missing = (base?.ausentes ?? [])
+      .filter((label) => !(base && LEGACY_FIELD_OK[label]?.(base)))
+      .filter((label) => !(label === "público elegível" && (base?.requisitos.length ?? 0) > 0))
+      .map((label) => ({ label, state: "nao_localizado" as const, note: "Não localizado automaticamente no texto. Confira o documento completo." }));
+  }
+
+  return {
+    deadline,
+    conflicts,
+    documents: buildChecklistItems(canonical, null),
+    missing,
+    unsupportedQualifiers: fatos?.qualificadores_sem_respaldo ?? [],
+  };
+}
+
+/** "20/12/2026 (trecho do edital)" ou "… (segundo a IA; não localizado no texto)". */
+export function describeDeadline(d: ResolvedDeadline | null): string {
+  if (!d) return "O prazo de inscrição não foi localizado no texto do documento. Confira no edital oficial.";
+  const base = d.source === "documento" ? `Inscrições até ${d.text}, conforme o trecho do edital: "${(d.evidence ?? "").slice(0, 220)}"` : `${d.text} (segundo a IA; a data não foi localizada no texto do documento — confira)`;
+  return d.conflict ? `${base}. Atenção: ${d.conflict}` : base;
+}
+
+const CONDITION_TEXT: Record<ItemCondition, string> = {
+  obrigatorio: "Obrigatório segundo o edital.",
+  listado: "Listado no edital.",
+  opcional: "Opcional segundo o edital.",
+  alternativa: "O edital aceita alternativas.",
+  com_dispensa: "O edital prevê dispensa em alguns casos.",
+  nao_informado: "Citado no edital.",
+};
+
+function summarizeItem(item: ChecklistItemLike, fallbackHint: string): ChecklistItemSummary {
+  const label = resolveText(item.doc) || "Documento não identificado";
+  const guidance = resolveText(item.observacao);
+  if (!item.origem) {
+    return { label, done: Boolean(item.checked), hint: guidance || fallbackHint };
+  }
+  const hint =
+    item.origem === "edital"
+      ? [CONDITION_TEXT[item.condicao ?? "nao_informado"], item.motivo ?? ""].filter(Boolean).join(" ")
+      : item.motivo || "Não localizado no texto do edital. Pode ser sugestão da IA: confira no documento oficial.";
+  return {
+    label,
+    done: Boolean(item.checked),
+    hint,
+    evidence: item.evidencia ?? undefined,
+    origin: item.origem,
+    condition: item.condicao,
+    unconfirmed: item.nao_confirmado ?? [],
+    check: Boolean(item.conferir),
+    guidance: guidance || undefined,
+  };
+}
+
 export function buildTimelineSteps(
   canonical: CanonicalAnalysisLike | null | undefined,
   agentResult?: { type?: string; timeline?: Array<{ fase: string; periodo: string; descricao: string; status?: string }> | null } | null,
@@ -139,13 +296,15 @@ export function buildTimelineSteps(
     }));
   }
 
-  const deadline = resolveText(canonical?.interpretation?.deadlines);
+  const resolved = resolveAnalysisFacts(canonical).deadline;
   const summary = resolveText(canonical?.interpretation?.summary);
-  if (deadline) {
+  if (resolved) {
     return [{
-      title: "Prazo principal",
-      date: deadline,
-      description: summary || "Prazo destacado pela interpretação do edital.",
+      title: "Prazo de inscrição",
+      date: resolved.text,
+      description: resolved.source === "documento" ? "Prazo localizado no texto do edital." : "Prazo indicado pela IA; a data não foi localizada no texto do documento.",
+      evidence: resolved.evidence ?? undefined,
+      iso: resolved.iso,
     }];
   }
 
@@ -166,24 +325,16 @@ export function buildChecklistItems(
 ): ChecklistItemSummary[] {
   const canonicalItems = canonical?.checklist?.items ?? [];
   if (canonicalItems.length > 0) {
-    return canonicalItems.map((item) => ({
-      label: resolveText(item.doc) || "Documento não identificado",
-      done: Boolean(item.checked),
-      hint: resolveText(item.observacao) || "Documento listado na interpretação do edital.",
-    }));
+    return canonicalItems.map((item) => summarizeItem(item, "Documento listado na interpretação do edital."));
   }
 
   if (agentResult?.type === "documentacao" && Array.isArray(agentResult.checklist)) {
-    return agentResult.checklist.map((item) => ({
-      label: resolveText(item.doc) || "Documento não identificado",
-      done: Boolean(item.checked),
-      hint: resolveText(item.observacao) || "Documento listado no resultado da IA.",
-    }));
+    return agentResult.checklist.map((item) => summarizeItem(item as ChecklistItemLike, "Documento listado no resultado da IA."));
   }
 
   const baseDocs = canonical?.base?.documentos ?? [];
   if (baseDocs.length > 0) {
-    return baseDocs.map((d) => ({ label: d.texto, done: false, hint: "Identificado no texto do edital.", evidence: d.evidencia }));
+    return baseDocs.map((d) => ({ label: d.texto, done: false, hint: "Identificado no texto do edital.", evidence: d.evidencia, origin: "edital" as const }));
   }
 
   const docs = getDocumentSummary(canonical);
@@ -236,8 +387,9 @@ export function buildFaqItems(
   canonical: CanonicalAnalysisLike | null | undefined,
 ): FaqItem[] {
   const audience = resolveText(canonical?.interpretation?.targetAudience);
-  const deadlines = resolveText(canonical?.interpretation?.deadlines);
-  const docs = getDocumentSummary(canonical);
+  const facts = resolveAnalysisFacts(canonical);
+  const deadlines = facts.deadline || facts.conflicts.length ? describeDeadline(facts.deadline) : "";
+  const docs = facts.documents.length ? facts.documents.map(documentLine) : getDocumentSummary(canonical);
   const registration = resolveText(canonical?.interpretation?.registrationLocation);
   const recommendation = resolveText(canonical?.elegibilidade?.recommendation);
 
@@ -273,30 +425,32 @@ export function buildFaqItems(
   return items;
 }
 
+/** "Comprovante de matrícula" ou "RG e CPF (não localizado no edital — confira)". */
+export function documentLine(d: ChecklistItemSummary): string {
+  if (d.origin === "desconhecido") return `${d.label} (não localizado no edital — confira)`;
+  if (d.unconfirmed?.length) return `${d.label} (o edital não menciona ${d.unconfirmed.join(", ")})`;
+  if (d.condition === "opcional") return `${d.label} (opcional)`;
+  return d.label;
+}
+
 export function buildChatSuggestions(
   canonical: CanonicalAnalysisLike | null | undefined,
   timelineSteps: TimelineStep[],
   checklistItems: ChecklistItemSummary[],
 ): string[] {
+  // As sugestões que dependem do documento vêm antes das genéricas (antes, o corte em 6 as descartava)
+  const specific: string[] = [];
+  if (canonical?.documento?.orgao) specific.push("Qual órgão publicou este edital?");
+  if (timelineSteps.some((step) => step.date !== "A confirmar")) specific.push("Quais datas precisam de atenção?");
+  if (checklistItems.some((item) => item.done)) specific.push("Quais documentos já foram detectados?");
   const suggestions = [
+    ...specific,
     "Qual é o prazo principal?",
     "Quais documentos preciso enviar?",
     "Explique este edital em linguagem simples",
     "Meu perfil parece elegível?",
     "Qual é o cronograma completo?",
   ];
-
-  if (canonical?.documento?.orgao) {
-    suggestions.unshift("Qual órgão publicou este edital?");
-  }
-
-  if (timelineSteps.some((step) => step.date !== "A confirmar")) {
-    suggestions.push("Quais datas precisam de atenção?");
-  }
-
-  if (checklistItems.some((item) => item.done)) {
-    suggestions.push("Quais documentos já foram detectados?");
-  }
 
   return suggestions.slice(0, 6);
 }

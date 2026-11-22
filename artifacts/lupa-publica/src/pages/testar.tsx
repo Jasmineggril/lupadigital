@@ -115,6 +115,9 @@ import {
   buildChatSuggestions,
   buildFaqItems,
   buildTimelineSteps,
+  describeDeadline,
+  documentLine,
+  resolveAnalysisFacts,
   type ChecklistItemSummary,
   type TimelineStep,
 } from "@/lib/analysisViewModel";
@@ -307,10 +310,13 @@ function getCanonicalAnswer(question: string, text: string, canonical: Canonical
   }
 
   const interpretation = canonical.interpretation ?? {};
-  const deadline = normalizeCanonicalText(interpretation.deadlines);
-  const docs = canonical.documentosExigidos?.items?.length
-    ? canonical.documentosExigidos.items.join("; ")
-    : normalizeCanonicalText(interpretation.requirements?.join("; "));
+  // Mesmo resolvedor do cronograma, da visão rápida, do FAQ e da exportação
+  const facts = resolveAnalysisFacts(canonical as never);
+  const docs = facts.documents.length
+    ? facts.documents.map(documentLine).join("; ")
+    : canonical.documentosExigidos?.items?.length
+      ? canonical.documentosExigidos.items.join("; ")
+      : normalizeCanonicalText(interpretation.requirements?.join("; "));
   const summary = normalizeCanonicalText(interpretation.summary);
   const audience = normalizeCanonicalText(interpretation.targetAudience);
   const recommendation = canonical.elegibilidade?.recommendation
@@ -322,15 +328,13 @@ function getCanonicalAnswer(question: string, text: string, canonical: Canonical
   }
 
   if (/prazo|data|inscri/i.test(normalized)) {
-    return deadline !== missingInfoText
-      ? `O prazo principal identificado é: ${deadline}.` 
-      : "Não foi possível localizar informações de prazo no documento.";
+    return describeDeadline(facts.deadline);
   }
 
   if (/document|anexo|arquivo|comprov/i.test(normalized)) {
-    return docs !== missingInfoText
-      ? `Documentos identificados: ${docs}`
-      : "Não foi possível localizar os documentos exigidos no documento.";
+    if (docs === missingInfoText) return "Os documentos exigidos não foram localizados automaticamente no texto. Confira o edital completo.";
+    const extra = facts.unsupportedQualifiers.length ? ` O edital não menciona: ${facts.unsupportedQualifiers.join(", ")} — não providencie isso sem conferir.` : "";
+    return `Documentos identificados: ${docs}.${extra}`;
   }
 
   if (/cronograma|timeline|fase|etapa/i.test(normalized)) {
@@ -915,6 +919,7 @@ async function exportToPDF(result: AgentResult, title: string, canonicalData?: C
   // Identificação do documento e estado da análise (mesma versão exibida na tela)
   const extra = (canonicalData ?? {}) as {
     base?: { caracteres?: number; documento_hash?: string; datas?: Array<{ rotulo: string; iso: string | null; evidencia: string }>; valores?: Array<{ texto: string }>; documentos?: Array<{ texto: string; evidencia: string }>; ausentes?: string[] };
+    fatos?: unknown;
     verificacao?: Array<{ mensagem: string }>;
     processing?: { mode?: string; complete?: boolean };
     analysisId?: string;
@@ -1041,6 +1046,19 @@ async function exportToPDF(result: AgentResult, title: string, canonicalData?: C
   }
 
   // Base documental comum: as mesmas datas, valores e documentos para qualquer agente
+  // Mesmo resolvedor da tela: prazo, documentos (com origem) e pendências conciliadas
+  const facts = resolveAnalysisFacts((canonicalData ?? null) as never);
+  writeSectionTitle("Prazo de inscrição", theme.accent);
+  writeText(describeDeadline(facts.deadline), 10.5);
+  if (facts.documents.some((d) => d.origin)) {
+    writeSectionTitle("Documentos (conferidos no texto do edital)", theme.accent);
+    writeBullets(facts.documents.map((d) => `${documentLine(d)}${d.evidence ? ` — "${d.evidence.slice(0, 160)}"` : ""}`), theme.accent);
+  }
+  if (facts.unsupportedQualifiers.length) {
+    writeSectionTitle("Não confirmado no edital", [180, 83, 9]);
+    writeText(`A análise mencionou ${facts.unsupportedQualifiers.join(", ")}, mas o documento não fala disso. Não trate como exigência sem conferir.`, 10.5);
+  }
+
   if (extra.base) {
     if (extra.base.datas?.length) {
       writeSectionTitle("Datas encontradas no documento", theme.accent);
@@ -1057,9 +1075,10 @@ async function exportToPDF(result: AgentResult, title: string, canonicalData?: C
       writeSectionTitle("Documentos exigidos (trechos do documento)", theme.accent);
       writeBullets(extra.base.documentos.map((d) => d.texto.slice(0, 220)), theme.accent);
     }
-    if (extra.base.ausentes?.length) {
-      writeSectionTitle("Não encontrado no documento", [180, 83, 9]);
-      writeText(extra.base.ausentes.join(", "), 10.5);
+    if (facts.missing.length) {
+      writeSectionTitle("Não localizado automaticamente no texto", [180, 83, 9]);
+      writeText("Isso não significa que o edital não trate do assunto: confira o documento completo.", 9.5, { color: [71, 85, 105] });
+      writeBullets(facts.missing.map((m) => `${m.label} — ${m.state === "parcial" ? "parcial" : m.state === "incerto" ? "só a IA indicou, sem trecho" : "não localizado"}`), [180, 83, 9]);
     }
   }
 
@@ -3157,7 +3176,15 @@ export default function TestarIA() {
     }
 
     try {
+      const facts = resolveAnalysisFacts(canonicalAnalysis as never);
+      const factLines = [
+        `Prazo de inscrição: ${describeDeadline(facts.deadline)}`,
+        facts.documents.length ? `Documentos: ${facts.documents.map(documentLine).join("; ")}` : "",
+        facts.unsupportedQualifiers.length ? `Não afirmar como exigência (o edital não menciona): ${facts.unsupportedQualifiers.join(", ")}` : "",
+        facts.missing.length ? `Não localizado automaticamente no texto: ${facts.missing.map((m) => m.label).join(", ")}` : "",
+      ].filter(Boolean);
       const ctx = [
+        `FATOS CONFERIDOS NO DOCUMENTO (prevalecem sobre a interpretação):\n${factLines.join("\n")}`,
         text ? `TEXTO DO EDITAL (trecho):\n${text.slice(0, 4000)}` : "",
         `INTERPRETAÇÃO CANÔNICA:\n${JSON.stringify(canonicalAnalysis, null, 2).slice(0, 3000)}`,
       ].filter(Boolean).join("\n\n");
@@ -3974,7 +4001,27 @@ export default function TestarIA() {
                           <div className={`mt-1 h-4 w-4 rounded-full ${item.done ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                           <div className="min-w-0">
                             <p className={`text-sm font-semibold ${item.done ? "text-emerald-800" : "text-slate-900"}`}>{item.label}</p>
+                            {item.origin && (
+                              <p className="mt-1 text-xs font-medium" data-testid="checklist-origem" data-origem={item.origin}>
+                                {item.origin === "edital" ? (
+                                  <span className="text-emerald-800">Consta no edital</span>
+                                ) : (
+                                  <span className="text-amber-800">Não localizado no edital — conferir</span>
+                                )}
+                              </p>
+                            )}
                             <p className="text-sm text-muted-foreground mt-2"><AutoTerms text={item.hint} /></p>
+                            {item.unconfirmed && item.unconfirmed.length > 0 && (
+                              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900" data-testid="checklist-nao-confirmado">
+                                Não confirmado no edital: {item.unconfirmed.join(", ")}.
+                              </p>
+                            )}
+                            {item.evidence && (
+                              <blockquote className="evidence mt-2 text-[0.8125rem] leading-relaxed">“{item.evidence.length > 260 ? `${item.evidence.slice(0, 260)}…` : item.evidence}”</blockquote>
+                            )}
+                            {item.guidance && item.origin && (
+                              <p className="mt-2 text-xs text-slate-600"><span className="font-semibold">Orientação (não é exigência do edital):</span> {item.guidance}</p>
+                            )}
                           </div>
                         </div>
                       )) : (

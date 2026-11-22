@@ -25,6 +25,7 @@
  */
 
 import { buildDocumentBase, normalizeEligibilityCriteria, verifyAgainstText } from "../lib/documentBase";
+import { applyAnalysisFacts, factIssues } from "../lib/analysisFacts";
 import { getStore } from "../lib/lupa/store";
 import { Router, type IRouter } from "express";
 import * as cheerio from "cheerio";
@@ -118,8 +119,11 @@ async function withDocumentBase(result: unknown, text: string, userId: string | 
       teacher = null; // sem perfil docente (ou banco indisponível): elegibilidade fica sem comparação
     }
   }
-  out.base = buildDocumentBase(text, teacher);
-  out.verificacao = verifyAgainstText(result, text);
+  const base = buildDocumentBase(text, teacher);
+  // Fatos conferidos contra o texto: exigências com evidência, prazo único e campos conciliados
+  const grounded = applyAnalysisFacts(out, text, base);
+  Object.assign(out, grounded);
+  out.verificacao = [...verifyAgainstText(result, text), ...factIssues(grounded.fatos)];
   if (Array.isArray(out.criterios)) out.criterios = normalizeEligibilityCriteria(out.criterios);
   const agent = out.agentResult as Record<string, unknown> | undefined;
   if (agent && Array.isArray(agent.criterios)) out.agentResult = { ...agent, criterios: normalizeEligibilityCriteria(agent.criterios) };

@@ -135,6 +135,21 @@ describe("prazo único", () => {
   });
 });
 
+describe("marcadores genéricos da IA", () => {
+  it("objetivo, público e canal 'não informado' viram o trecho do edital (com o texto da IA guardado)", () => {
+    const r = run({ interpretation: { objective: "Objetivo não explicitado no documento.", targetAudience: "Público-alvo conforme o edital.", registrationLocation: "Local de inscrição não informado." } });
+    const i = r.interpretation as Record<string, unknown>;
+    expect(i.registrationLocation).toBe("Conforme o edital: Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição.");
+    expect(i.registrationLocation_ia).toBe("Local de inscrição não informado.");
+    expect(i.targetAudience).toContain("estar regularmente matriculado");
+    expect(i.objective).toBe("Objeto: seleção de estudantes de graduação para bolsas de iniciação científica.");
+  });
+  it("texto real da IA não é substituído", () => {
+    const r = run({ interpretation: { registrationLocation: "Sistema eletrônico da instituição" } });
+    expect((r.interpretation as Record<string, unknown>).registrationLocation).toBe("Sistema eletrônico da instituição");
+  });
+});
+
 describe("campos ausentes conciliados", () => {
   it("lista explícita de documentos não aparece como ausente", () => {
     const r = run({ interpretation: {} });

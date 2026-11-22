@@ -1,5 +1,7 @@
 # Matriz funcional — LUPA Digital
 
+> Revisão de 22/11/2026: resumo no formato função → entrada → ação → resultado → persistência → permissão → teste → situação, prazos e exigências conferidos no texto, catálogo e responsividade em [`revisao-final-2026-11.md`](revisao-final-2026-11.md).
+
 Rotas conferidas em `artifacts/lupa-publica/src/App.tsx`. Endpoints conferidos em
 `artifacts/api-server/src/routes/*.ts`, todos com prefixo `/api`.
 
@@ -93,7 +95,7 @@ Fluxo: entrada → extração → análise → resultado → histórico → chat
 | IA indisponível | V/U | Resultado de contingência identificado como "sem IA"; não é salvo automaticamente | idem | ✅ API, E2E-T |
 | Base documental comum | — | Mesmas datas, valores, documentos e requisitos, com trecho, para todos os agentes; datas e valores da IA ausentes do texto → "Conferir no documento" | `documentBase.ts` | ✅ API (incl. respostas reais de produção) |
 | Elegibilidade | V/U | 3 estados (atendido, não atendido, pendente); logado: comparação com o perfil docente | idem | ✅ API |
-| Visão rápida | V/U | Síntese da análise exibida: objeto, inscrições, valores, datas, documentos, elegibilidade, ausentes | — | ✅ E2E-T |
+| Visão rápida | V/U | Síntese da análise exibida: objeto, inscrições (mesmo resolvedor do chat, FAQ e PDF, com divergências explícitas), valores, datas, documentos (com quantos sem trecho), parciais e não localizados | — | ✅ E2E-T, E2E-R |
 | Ver linha do tempo completa | V/U | Datas do edital, cada uma com o trecho | — | ✅ E2E-T |
 | Salvar interpretação | V | Histórico **deste navegador**, com o resultado completo | localStorage (`lupa-historico-local-v1`) | ✅ E2E-T |
 | Salvar interpretação | U | Histórico **da conta**; falha → "não foi salva" | `POST /edital/agent-history` · `agent_results` | ✅ E2E-T, API |

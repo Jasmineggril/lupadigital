@@ -295,7 +295,7 @@ export function groundItem(item: string, text: string, observacao = ""): Grounde
 
 // ── Prazo único ─────────────────────────────────────────────────────────────
 
-const PLACEHOLDER_RE = /n[ãa]o\s+(foi\s+)?(informad|encontrad|identificad|localizad|especificad|mencionad|consta|h[áa]\s+(prazo|data))|sem\s+(prazo|data)|a\s+confirmar|indefinid|desconhecid|^\s*[-–—]?\s*$/i;
+const PLACEHOLDER_RE = /n[ãa]o\s+(foi\s+)?(informad|encontrad|identificad|localizad|especificad|mencionad|explicitad|definid|indicad|declarad|consta|h[áa]\s+(prazo|data))|sem\s+(prazo|data|informa)|a\s+confirmar|indefinid|desconhecid|^\s*[-–—]?\s*$|^\s*([\wÀ-ú-]+\s+){0,3}(conforme|segundo)\s+(o\s+)?edital\.?\s*$/i;
 
 export function isPlaceholder(s: unknown): boolean {
   return typeof s !== "string" || PLACEHOLDER_RE.test(s.trim());
@@ -486,6 +486,19 @@ export function applyAnalysisFacts<T extends AnyRecord>(result: T, text: string,
         });
       }
     }
+  }
+  // Mesmo princípio para objetivo, público e canal: marcador genérico da IA não esconde o que o texto diz
+  if (interp) {
+    const fill = (key: string, evidence: string | undefined, prefix = "") => {
+      if (!evidence || !isPlaceholder(interp[key])) return;
+      interp[`${key}_ia`] = interp[key] ?? null;
+      interp[key] = `${prefix}${evidence.replace(/^\s*\d+(\.\d+)*\.?\s*/, "")}`;
+      interp[`${key}_origem`] = "documento";
+    };
+    const fields = fieldsOf(text);
+    fill("objective", base.objeto?.evidencia);
+    fill("registrationLocation", base.canal_inscricao[0]?.evidencia, "Conforme o edital: ");
+    fill("targetAudience", fields.elegibilidade?.[0]?.evidence ?? base.requisitos[0]?.evidencia, "Conforme o edital: ");
   }
   if (interp) out.interpretation = interp;
 

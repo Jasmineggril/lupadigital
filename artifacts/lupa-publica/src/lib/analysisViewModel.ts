@@ -149,7 +149,7 @@ function getDocumentSummary(canonical: CanonicalAnalysisLike | null | undefined)
 // documentos e pendências DAQUI. Antes, o chat lia `interpretation.deadlines` ("Prazo não
 // informado") enquanto o cronograma lia as datas do documento (20/12/2026).
 
-const PLACEHOLDER_RE = /n[ãa]o\s+(foi\s+)?(informad|encontrad|identificad|localizad|especificad|mencionad|consta|h[áa]\s+(prazo|data))|sem\s+(prazo|data)|a\s+confirmar|indefinid|desconhecid|^\s*[-–—]?\s*$/i;
+const PLACEHOLDER_RE = /n[ãa]o\s+(foi\s+)?(informad|encontrad|identificad|localizad|especificad|mencionad|explicitad|definid|indicad|declarad|consta|h[áa]\s+(prazo|data))|sem\s+(prazo|data|informa)|a\s+confirmar|indefinid|desconhecid|^\s*[-–—]?\s*$|^\s*([\wÀ-ú-]+\s+){0,3}(conforme|segundo)\s+(o\s+)?edital\.?\s*$/i;
 
 export function isPlaceholderText(value: unknown): boolean {
   return typeof value !== "string" || PLACEHOLDER_RE.test(value.trim());
@@ -173,6 +173,9 @@ export type ResolvedFacts = {
   documents: ChecklistItemSummary[];
   missing: MissingField[];
   unsupportedQualifiers: string[];
+  /** Quem pode participar / como se inscrever: texto da IA ou, se for marcador genérico, o trecho do edital */
+  audience: string;
+  registration: string;
 };
 
 const LEGACY_FIELD_OK: Record<string, (b: DocumentBase) => boolean> = {
@@ -222,7 +225,17 @@ export function resolveAnalysisFacts(canonical: CanonicalAnalysisLike | null | u
     documents: buildChecklistItems(canonical, null),
     missing,
     unsupportedQualifiers: fatos?.qualificadores_sem_respaldo ?? [],
+    audience: pickText(canonical?.interpretation?.targetAudience, base?.requisitos[0]?.evidencia),
+    registration: pickText(canonical?.interpretation?.registrationLocation, base?.canal_inscricao[0]?.evidencia),
   };
+}
+
+/** Texto da análise, a menos que seja marcador genérico — aí o trecho do edital (análises salvas antes dos fatos). */
+function pickText(ai: string | undefined, evidence: string | undefined): string {
+  const value = resolveText(ai);
+  if (value && !isPlaceholderText(value)) return value;
+  if (evidence) return `Conforme o edital: ${evidence.replace(/^\s*\d+(\.\d+)*\.?\s*/, "")}`;
+  return "";
 }
 
 /** "20/12/2026 (trecho do edital)" ou "… (segundo a IA; não localizado no texto)". */
@@ -386,11 +399,11 @@ export function buildEligibilitySummary(
 export function buildFaqItems(
   canonical: CanonicalAnalysisLike | null | undefined,
 ): FaqItem[] {
-  const audience = resolveText(canonical?.interpretation?.targetAudience);
   const facts = resolveAnalysisFacts(canonical);
+  const audience = facts.audience;
   const deadlines = facts.deadline || facts.conflicts.length ? describeDeadline(facts.deadline) : "";
   const docs = facts.documents.length ? facts.documents.map(documentLine) : getDocumentSummary(canonical);
-  const registration = resolveText(canonical?.interpretation?.registrationLocation);
+  const registration = facts.registration;
   const recommendation = resolveText(canonical?.elegibilidade?.recommendation);
 
   const items: FaqItem[] = [];

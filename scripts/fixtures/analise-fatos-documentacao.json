@@ -1,7 +1,7 @@
 {
   "text": "EDITAL Nº 07/2026 — PROGRAMA DE BOLSAS DE INICIAÇÃO CIENTÍFICA (TEXTO FICTÍCIO DE TESTE)\n1. Objeto: seleção de estudantes de graduação para bolsas de iniciação científica.\n2. Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição.\n3. Requisitos: estar regularmente matriculado em curso de graduação.\n4. Documentos: comprovante de matrícula e proposta de até 3 páginas.\n5. Valor da bolsa: R$ 700,00 mensais.\n6. Resultado: divulgado em 15/01/2027.",
   "response": {
-    "analysisId": "analysis-6fa252f6-4541-447c-b248-cbccd08dd3d3",
+    "analysisId": "analysis-a40e46a6-9d00-4dcf-b4c1-ad44d04370fb",
     "schemaVersion": "1.0.1",
     "processing": {
       "mode": "single",
@@ -12,21 +12,27 @@
     },
     "source": {
       "agentId": "documentacao",
-      "generatedAt": "2026-11-22T01:41:30.402Z",
+      "generatedAt": "2026-11-22T02:26:35.089Z",
       "textLength": 471,
       "documentHash": "41ad9fb283205f17bc08a1de0ca21f1f0ce7ff6b5fe750d3457e8fecdeb08da1"
     },
     "documento": {},
     "interpretation": {
       "summary": "Interpretação consolidada do edital.",
-      "objective": "Objetivo não explicitado no documento.",
-      "targetAudience": "Público-alvo conforme o edital.",
+      "objective": "Objeto: seleção de estudantes de graduação para bolsas de iniciação científica.",
+      "targetAudience": "Conforme o edital: Requisitos: estar regularmente matriculado em curso de graduação.",
       "deadlines": "Inscrições até 20/12/2026",
-      "registrationLocation": "Local de inscrição não informado.",
+      "registrationLocation": "Conforme o edital: Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição.",
       "requirements": [],
       "simpleLanguage": "Separe os documentos com antecedência.",
       "deadlines_ia": "Prazo não informado.",
-      "deadlines_origem": "documento"
+      "deadlines_origem": "documento",
+      "objective_ia": "Objetivo não explicitado no documento.",
+      "objective_origem": "documento",
+      "registrationLocation_ia": "Local de inscrição não informado.",
+      "registrationLocation_origem": "documento",
+      "targetAudience_ia": "Público-alvo conforme o edital.",
+      "targetAudience_origem": "documento"
     },
     "cronograma": {
       "items": []

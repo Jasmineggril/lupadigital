@@ -328,9 +328,17 @@ await step("R1–R3: checklist com origem, mesmo prazo no chat/visão rápida/PD
     await p.getByRole("button", { name: "Perguntar" }).click();
     await p.getByText(/o edital não menciona foto, assinatura/).first().waitFor();
     assert((await p.getByText(/Prazo não informado|Não foi possível localizar informações de prazo/).count()) === 0, `${label}: chat contradiz o prazo`);
+    assert((await p.getByText(/Local de inscrição não informado/).count()) === 0, `${label}: FAQ contradiz o canal de inscrição`);
+    await p.getByPlaceholder("Ex: Qual é o prazo final?").fill("Como faço a inscrição?");
+    await p.getByRole("button", { name: "Perguntar" }).click();
+    await p.getByText(/Conforme o edital: Inscrições: de 01\/12\/2026 até 20\/12\/2026, pelo sistema eletrônico/).first().waitFor();
   };
   await check("analise");
-  await p.screenshot({ path: `${SHOTS}/r1-chat.png`, fullPage: false });
+  const chatCard = p.getByText("Chat contextual").locator("xpath=ancestor::div[contains(@class,'rounded-3xl')][1]");
+  await chatCard.scrollIntoViewIfNeeded();
+  await chatCard.screenshot({ path: `${SHOTS}/r1-chat.png` });
+  await p.getByRole("tab", { name: /Checklist/ }).click();
+  await p.getByRole("tabpanel").filter({ hasText: "Checklist" }).last().screenshot({ path: `${SHOTS}/r1-checklist.png` });
 
   // Exportação: mesmo prazo e pendências
   await p.getByRole("tab", { name: /Exportação/ }).click();

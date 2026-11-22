@@ -110,6 +110,12 @@ describe("resolveAnalysisFacts", () => {
     expect(describeDeadline(facts.deadline)).toContain("Atenção: A IA indica 15/12/2026");
   });
 
+  it("FAQ: 'Local de inscrição não informado' de análise antiga dá lugar ao trecho do edital", () => {
+    const faq = buildFaqItems({ interpretation: { registrationLocation: "Local de inscrição não informado.", targetAudience: "Público-alvo conforme o edital." }, base: { ...baseDoc, canal_inscricao: [{ texto: "x", evidencia: "2. Inscrições pelo sistema eletrônico." }] } });
+    expect(faq.find((f) => /inscrição\?/.test(f.question))?.answer).toBe("Conforme o edital: Inscrições pelo sistema eletrônico.");
+    expect(faq.find((f) => /participar/.test(f.question))?.answer).toBe("Conforme o edital: Requisitos: estar matriculado");
+  });
+
   it("ausentes de análise antiga são conciliados com a própria base", () => {
     const facts = resolveAnalysisFacts({ base: baseDoc });
     expect(facts.missing.map((m) => m.label)).toEqual(["áreas", "critérios de avaliação"]);

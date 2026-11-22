@@ -319,13 +319,20 @@ function getCanonicalAnswer(question: string, text: string, canonical: Canonical
       ? canonical.documentosExigidos.items.join("; ")
       : normalizeCanonicalText(interpretation.requirements?.join("; "));
   const summary = normalizeCanonicalText(interpretation.summary);
-  const audience = normalizeCanonicalText(interpretation.targetAudience);
   const recommendation = canonical.elegibilidade?.recommendation
     ? normalizeCanonicalText(canonical.elegibilidade.recommendation)
     : missingInfoText;
 
   if (/resumo|simples|linguagem simples|explicar/i.test(normalized)) {
     return summary;
+  }
+
+  if (/(como|onde)\b.{0,25}inscri|canal|plataforma|sistema de inscri/i.test(normalized)) {
+    return facts.registration || "O canal de inscrição não foi localizado automaticamente no texto. Confira no edital.";
+  }
+
+  if (/quem pode|p[úu]blico|pode participar/i.test(normalized)) {
+    return facts.audience ? `${facts.audience}` : "O público elegível não foi localizado automaticamente no texto. Confira no edital.";
   }
 
   if (/prazo|data|inscri/i.test(normalized)) {

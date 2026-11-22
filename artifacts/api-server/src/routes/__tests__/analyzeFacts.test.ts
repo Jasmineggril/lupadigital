@@ -78,6 +78,8 @@ describe("/edital/analyze — fatos conferidos no texto", () => {
     expect(r.interpretation.deadlines).toContain("20/12/2026");
 
     expect(r.base.ausentes).not.toContain("documentos exigidos");
+    // O agente não descreve o canal: o trecho do edital entra no lugar de "não informado"
+    expect(r.interpretation.registrationLocation).toContain("sistema eletrônico da instituição");
     expect(r.base.ausentes).toEqual(["áreas", "critérios de avaliação"]);
 
     // Resposta real da rota (IA simulada) usada pela jornada de navegador scripts/e2e-regressao.mjs

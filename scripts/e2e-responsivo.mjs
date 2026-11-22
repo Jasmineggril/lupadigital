@@ -34,6 +34,14 @@ const VIEWPORTS = [
   { nome: "1024 paisagem", width: 1366, height: 1024, touch: true },
   { nome: "1440 paisagem", width: 1440, height: 900, touch: false },
   { nome: "1440 retrato", width: 900, height: 1440, touch: false },
+  // Tablets comuns
+  { nome: "tablet 820 retrato", width: 820, height: 1180, touch: true },
+  { nome: "tablet 1280 paisagem", width: 1280, height: 800, touch: true },
+  // Videogame (navegador do console em 720p) e TVs
+  { nome: "console 1280×720", width: 1280, height: 720, touch: false },
+  { nome: "TV Full HD 1920×1080", width: 1920, height: 1080, touch: false, tela: "grande" },
+  { nome: "TV/monitor 2560×1440", width: 2560, height: 1440, touch: false, tela: "grande" },
+  { nome: "TV 4K 3840×2160", width: 3840, height: 2160, touch: false, tela: "grande" },
 ];
 
 const browser = await chromium.launch();
@@ -135,6 +143,15 @@ for (const vp of VIEWPORTS) {
         await p.locator("main").first().waitFor({ state: "visible", timeout: 10000 });
         if (kind !== "publica" && /\/login/.test(p.url())) row.problemas.push("sessão não aceita (redirecionou ao login)");
         const [sw, iw] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+        // Telas grandes: o conteúdo cresce junto (não pode virar uma coluna estreita no meio da tela)
+        if (vp.tela === "grande" && route === "/") {
+          const [fs, frac] = await p.evaluate(() => {
+            const h = document.querySelector("main h1")?.closest("div.container, .container") ?? document.querySelector("main .container");
+            return [parseFloat(getComputedStyle(document.documentElement).fontSize), h ? h.getBoundingClientRect().width / window.innerWidth : 0];
+          });
+          if (fs <= 16) throw new Error(`tela grande sem ampliação (fonte base ${fs}px)`);
+          if (frac < 0.5) throw new Error(`conteúdo ocupa só ${Math.round(frac * 100)}% da largura`);
+        }
         if (sw > iw + 1) row.problemas.push(`rolagem horizontal ${sw}>${iw}`);
         if (route === "/") row.menu = await checkMenu(p, vp);
         if (AXE && (vp.nome === "390 retrato" || vp.nome === "1440 paisagem")) {

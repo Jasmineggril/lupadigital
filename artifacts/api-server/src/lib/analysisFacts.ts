@@ -21,7 +21,7 @@
  * Determinístico: não chama IA, não acessa rede. A resposta da IA nunca é usada como evidência.
  */
 
-import { extractFields, datesAsCandidates, type ParsedPage } from "./lupa/collector/parse";
+import { extractFields, datesAsCandidates } from "./lupa/collector/parse";
 import { officialSubmissionDeadline, formatDeadline } from "./lupa/deadlines";
 import type { DocumentBase } from "./documentBase";
 
@@ -170,10 +170,37 @@ function conditionOf(evidence: string, segment: string): ItemCondition {
   return "nao_informado";
 }
 
-function scoreAgainst(itemTokens: string[], foldedClause: string): number {
+function scoreAgainst(itemTokens: string[], foldedClause: string | Set<string>): number {
   if (itemTokens.length === 0) return 0;
-  const clauseTokens = new Set(tokens(foldedClause));
+  const clauseTokens = typeof foldedClause === "string" ? new Set(tokens(foldedClause)) : foldedClause;
   return itemTokens.filter((t) => clauseTokens.has(t)).length / itemTokens.length;
+}
+
+/** Orações e suas palavras, calculadas UMA vez por texto (edital de 450 mil caracteres: de ~3 s para dezenas de ms). */
+interface TextIndex {
+  clauses: string[];
+  clauseTokens: Array<Set<string>>;
+  /** palavra → orações em que aparece */
+  postings: Map<string, number[]>;
+  /** qualificadores presentes em qualquer parte do documento */
+  qualifiers: string[];
+}
+let lastIndex: { text: string; index: TextIndex } | null = null;
+function indexOf(text: string): TextIndex {
+  if (lastIndex?.text === text) return lastIndex.index;
+  const cl = clauses(text);
+  const clauseTokens = cl.map((c) => new Set(tokens(c)));
+  const postings = new Map<string, number[]>();
+  clauseTokens.forEach((set, i) => {
+    for (const t of set) {
+      const list = postings.get(t);
+      if (list) list.push(i);
+      else postings.set(t, [i]);
+    }
+  });
+  const index = { clauses: cl, clauseTokens, postings, qualifiers: qualifiersIn(text) };
+  lastIndex = { text, index };
+  return index;
 }
 
 /** Partes de uma lista "Documentos: A, B e C" — "ou" fica junto (alternativa é uma exigência só). */
@@ -206,12 +233,15 @@ function coreTokens(item: string): string[] {
 
 export function groundItem(item: string, text: string, observacao = ""): GroundedItem {
   const itemTokens = coreTokens(item);
-  const all = clauses(text);
+  const { clauses: all, clauseTokens, postings, qualifiers: docQualifiers } = indexOf(text);
+  // Só as orações que têm ao menos uma palavra do item
+  const candidates = new Set<number>();
+  for (const t of itemTokens) for (const i of postings.get(t) ?? []) candidates.add(i);
   let best: { clause: string; score: number; idx: number } | null = null;
-  all.forEach((c, idx) => {
-    const score = scoreAgainst(itemTokens, c);
-    if (score > (best?.score ?? 0)) best = { clause: c, score, idx };
-  });
+  for (const idx of [...candidates].sort((a, b) => a - b)) {
+    const score = scoreAgainst(itemTokens, clauseTokens[idx]);
+    if (score > (best?.score ?? 0)) best = { clause: all[idx], score, idx };
+  }
   const found = best as { clause: string; score: number; idx: number } | null;
   // Pelo menos 60% das palavras do item no mesmo trecho (e 2 palavras quando o item tem 3 ou mais)
   const matched = found ? Math.round(found.score * itemTokens.length) : 0;
@@ -224,7 +254,7 @@ export function groundItem(item: string, text: string, observacao = ""): Grounde
       texto_ia: item,
       origem: "desconhecido",
       evidencia: null,
-      nao_confirmado: claimed.filter((q) => !qualifiersIn(text).includes(q)),
+      nao_confirmado: claimed.filter((q) => !docQualifiers.includes(q)),
       condicao: "nao_informado",
       conferir: true,
       motivo: "Não localizamos este item no texto do edital. Pode ser uma sugestão da IA: confira no documento oficial antes de providenciar.",
@@ -275,9 +305,14 @@ function datesIn(s: string): string[] {
   return [...s.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)].map((m) => `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`);
 }
 
+let lastFields: { text: string; fields: ReturnType<typeof extractFields>["fields"] } | null = null;
+function fieldsOf(text: string) {
+  if (lastFields?.text !== text) lastFields = { text, fields: extractFields({ url: "", title: "", text, links: [] }).fields };
+  return lastFields.fields;
+}
+
 export function resolveDeadline(text: string, today = new Date().toISOString().slice(0, 10)): ResolvedDeadline | null {
-  const page: ParsedPage = { url: "", title: "", text, links: [] };
-  const { fields } = extractFields(page);
+  const fields = fieldsOf(text);
   const d = officialSubmissionDeadline(datesAsCandidates(fields), today);
   if (!d) return null;
   return { iso: d.iso, hora: d.hora, fuso: d.fuso, texto: formatDeadline(d), evidencia: d.evidencia ?? "", prorrogado: d.prorrogado, fases: d.fases, situacao: d.situacao, origem: "edital" };
@@ -296,7 +331,7 @@ function strList(v: unknown): string[] {
 }
 
 export function reconcileFields(base: DocumentBase, text: string, ai: AnyRecord, grounded: GroundedItem[]): FieldStatus[] {
-  const { fields } = extractFields({ url: "", title: "", text, links: [] });
+  const fields = fieldsOf(text);
   const interp = (ai.interpretation ?? {}) as AnyRecord;
   const fromDoc = (campo: string, rotulo: string, evidencia: string | null | undefined, observacao = "Localizado no texto do documento."): FieldStatus => ({
     campo, rotulo, estado: "encontrado", fonte: "documento", evidencia: evidencia ?? null, observacao,

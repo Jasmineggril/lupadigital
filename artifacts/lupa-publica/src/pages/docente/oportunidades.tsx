@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { apiFetch } from "@/lib/api";
-import { formatDateTime, SOURCE_NAMES, STATUS_LABELS, type CatalogResponse, type OpportunityStatus } from "@/lib/lupa-types";
+import { formatDateTime, SOURCE_NAMES, STATUS_LABELS, emptyCatalogMessage, type CatalogResponse, type OpportunityStatus } from "@/lib/lupa-types";
 import { EmptyState, ErrorState, LoadingState, PageHeader, inputClass, useAsync } from "@/components/lupa/ui";
 import { OpportunityCard } from "@/components/lupa/opportunity";
 import { Button } from "@/components/ui/button";
@@ -156,8 +156,8 @@ export default function Oportunidades() {
           <ErrorState message={error} onRetry={reload} />
         ) : !data || data.opportunities.length === 0 ? (
           <EmptyState
-            title={filtered ? "Nenhum edital corresponde aos filtros" : "Catálogo vazio"}
-            description={filtered ? "Tente outros termos ou limpe os filtros." : "Ainda não há editais coletados. A administração executa a coleta da FAPDF."}
+            title={filtered ? "Nenhum edital corresponde aos filtros" : emptyCatalogMessage(data?.coleta).title}
+            description={filtered ? "Tente outros termos ou limpe os filtros." : emptyCatalogMessage(data?.coleta).description}
             action={filtered ? <Button variant="outline" onClick={clear}>Limpar filtros</Button> : undefined}
           />
         ) : (

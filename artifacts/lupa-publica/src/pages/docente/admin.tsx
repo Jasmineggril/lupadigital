@@ -388,7 +388,7 @@ export default function Admin() {
           ) : runs.data!.runs.length === 0 ? (
             <p className="mt-2 text-sm text-slate-600">Nenhuma coleta executada ainda.</p>
           ) : (
-            <div className="mt-3 overflow-x-auto">
+            <div className="mt-3 overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela: execuções da coleta (role para o lado em telas estreitas)">
               <table className="w-full min-w-[640px] text-left text-sm tabular">
                 <caption className="sr-only">Histórico de execuções da coleta</caption>
                 <thead className="text-xs uppercase text-slate-500">

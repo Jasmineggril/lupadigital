@@ -137,6 +137,18 @@ export function Navbar() {
   useDismiss(accountOpen, () => setAccountOpen(false), accountRef, accountBtn);
 
   useEffect(() => setMobileOpen(false), [location]);
+  // Menu do celular: Escape fecha e devolve o foco ao botão (WCAG 2.1.2 / 2.4.3)
+  const mobileBtn = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setMobileOpen(false);
+      mobileBtn.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
   const unread = useUnreadCount(Boolean(user), location);
   const bellLabel = unread > 0 ? `Avisos — ${unread} não ${unread === 1 ? "lido" : "lidos"}` : "Avisos";
 
@@ -252,6 +264,7 @@ export function Navbar() {
         </nav>
 
         <button
+          ref={mobileBtn}
           type="button"
           className={`p-2 xl:hidden ${focusRing}`}
           aria-expanded={mobileOpen}

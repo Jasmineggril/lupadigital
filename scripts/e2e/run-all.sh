@@ -9,7 +9,7 @@ mkdir -p "$OUT"
 export AXE_PATH=${AXE_PATH:-$PWD/scripts/node_modules/axe-core/axe.min.js}
 status=0
 first=1
-for suite in e2e-testar e2e-docente e2e-jornadas e2e-regressao; do
+for suite in e2e-testar e2e-docente e2e-jornadas e2e-regressao e2e-responsivo; do
   if [ $first = 1 ] && [ "${1:-}" = "--build" ]; then bash scripts/e2e/stack.sh --build || exit 1; else bash scripts/e2e/stack.sh || exit 1; fi
   first=0
   echo "── $suite"

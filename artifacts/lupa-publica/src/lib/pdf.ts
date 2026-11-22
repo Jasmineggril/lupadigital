@@ -287,67 +287,76 @@ export async function extractTextFromPdf(
   const head = new TextDecoder("latin1").decode(new Uint8Array(arrayBuffer.slice(0, 1024)));
   if (!head.includes("%PDF-")) throw new PdfExtractError("not_pdf", "Este arquivo não é um PDF. Envie um arquivo .pdf ou cole o texto na aba “Colar texto”.");
   let pdf: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>;
+  let task: ReturnType<typeof pdfjsLib.getDocument> | null = null;
   try {
     // Segurança (pdf.js 6.5.x, conferido nos tipos da versão instalada): só extraímos TEXTO.
     // - XFA desligado explicitamente; sem visualizador, o JavaScript do documento nunca roda
     //   (a API não tem sandbox de scripts — isso existe só no viewer, que não usamos);
     // - "isEvalSupported" não existe mais nesta versão (o pdf.js deixou de usar eval);
     // - versões < 6.2.108 tinham execução de código ao abrir PDF malicioso (GHSA-hq66-cqwq-w95j).
-    pdf = await pdfjsLib.getDocument({
+    task = pdfjsLib.getDocument({
       data: arrayBuffer,
       useWorkerFetch: false,
       disableFontFace: true,
       enableXfa: false,
-    }).promise;
+    });
+    pdf = await task.promise;
   } catch (err) {
+    void task?.destroy().catch(() => undefined);
     const name = (err as { name?: string })?.name ?? "";
     if (name === "PasswordException") throw new PdfExtractError("protected", "Este PDF é protegido por senha. Remova a proteção ou cole o texto na aba “Colar texto”.");
     throw new PdfExtractError("invalid", "Não foi possível abrir este PDF: o arquivo parece corrompido ou incompleto.");
   }
-  if (pdf.numPages === 0) throw new PdfExtractError("empty", "O PDF não tem páginas.");
+  // Libera o documento e o worker do pdf.js ao terminar — com sucesso, erro ou OCR (memória)
+  try {
+    if (pdf.numPages === 0) throw new PdfExtractError("empty", "O PDF não tem páginas.");
 
-  // ── Fast path: text layer extraction ──────────────────────────────
-  onStatus?.("Extraindo texto do PDF…");
-  const chunks: string[] = [];
-  for (let pageIndex = 1; pageIndex <= pdf.numPages; pageIndex += 1) {
-    const page = await pdf.getPage(pageIndex);
-    const content = await page.getTextContent();
-    const pageText = content.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ");
-    chunks.push(pageText);
+    // ── Fast path: text layer extraction ──────────────────────────────
+    onStatus?.("Extraindo texto do PDF…");
+    const chunks: string[] = [];
+    for (let pageIndex = 1; pageIndex <= pdf.numPages; pageIndex += 1) {
+      const page = await pdf.getPage(pageIndex);
+      const content = await page.getTextContent();
+    page.cleanup();
+      const pageText = content.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join(" ");
+      chunks.push(pageText);
+    }
+
+    const rawText = chunks.join("\n");
+    const text = normalizeText(rawText);
+    const score = readabilityScore(text);
+
+    if (text && score >= 0.45) {
+      // Text layer is readable — return immediately
+      return { text, structured: buildStructured(text, pdf.numPages) };
+    }
+
+    // ── Slow path: OCR via GPT-4o Vision ─────────────────────────────
+    // The PDF uses a custom/embedded font without a ToUnicode CMap,
+    // so the text layer is garbled. Render pages to images and OCR them.
+    onStatus?.("PDF com fonte codificada — extraindo via OCR (pode demorar alguns segundos)…");
+
+    const pageImages = await renderPdfPagesToBase64(pdf);
+
+    if (pageImages.length === 0) {
+      throw new Error("Não foi possível renderizar as páginas deste PDF.");
+    }
+
+    onStatus?.(`Enviando ${pageImages.length} página(s) para OCR…`);
+    const ocrRaw = await ocrPdfWithFallback(pageImages, onStatus);
+    const ocrText = normalizeText(ocrRaw);
+
+    if (!ocrText.trim()) {
+      throw new Error(
+        "Não foi possível extrair texto deste PDF mesmo com OCR. " +
+          "Tente copiar o texto manualmente e cole na aba 'Colar Texto'.",
+      );
+    }
+
+    return { text: ocrText, structured: buildStructured(ocrText, pdf.numPages) };
+  } finally {
+    await task.destroy().catch(() => undefined);
   }
-
-  const rawText = chunks.join("\n");
-  const text = normalizeText(rawText);
-  const score = readabilityScore(text);
-
-  if (text && score >= 0.45) {
-    // Text layer is readable — return immediately
-    return { text, structured: buildStructured(text, pdf.numPages) };
-  }
-
-  // ── Slow path: OCR via GPT-4o Vision ─────────────────────────────
-  // The PDF uses a custom/embedded font without a ToUnicode CMap,
-  // so the text layer is garbled. Render pages to images and OCR them.
-  onStatus?.("PDF com fonte codificada — extraindo via OCR (pode demorar alguns segundos)…");
-
-  const pageImages = await renderPdfPagesToBase64(pdf);
-
-  if (pageImages.length === 0) {
-    throw new Error("Não foi possível renderizar as páginas deste PDF.");
-  }
-
-  onStatus?.(`Enviando ${pageImages.length} página(s) para OCR…`);
-  const ocrRaw = await ocrPdfWithFallback(pageImages, onStatus);
-  const ocrText = normalizeText(ocrRaw);
-
-  if (!ocrText.trim()) {
-    throw new Error(
-      "Não foi possível extrair texto deste PDF mesmo com OCR. " +
-        "Tente copiar o texto manualmente e cole na aba 'Colar Texto'.",
-    );
-  }
-
-  return { text: ocrText, structured: buildStructured(ocrText, pdf.numPages) };
 }

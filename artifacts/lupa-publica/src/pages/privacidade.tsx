@@ -48,7 +48,7 @@ export default function Privacidade() {
           <h2 id="dados" className="text-xl font-semibold text-ink">
             O que tratamos e para quê
           </h2>
-          <div className="mt-3 overflow-x-auto">
+          <div className="mt-3 overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela: dados tratados (role para o lado em telas estreitas)">
             <table className="w-full min-w-[34rem] text-left text-sm">
               <caption className="sr-only">Dados tratados, finalidade e onde ficam</caption>
               <thead>

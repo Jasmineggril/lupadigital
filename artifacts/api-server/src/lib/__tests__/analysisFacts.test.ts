@@ -175,3 +175,14 @@ describe("campos ausentes conciliados", () => {
     expect(twice.base.ausentes).toEqual(once.base.ausentes);
   });
 });
+
+describe("desempenho", () => {
+  it("edital no limite (~440 mil caracteres) com 60 itens: bem abaixo de 1,5 s (medido: ~0,15 s; antes do índice: ~2,9 s)", () => {
+    let text = "";
+    while (text.length < 440_000) text += `${EDITAL}\n`;
+    const items = Array.from({ length: 60 }, (_, i) => ({ doc: `Documento ${i} com foto e assinatura`, obrigatorio: true }));
+    const t = Date.now();
+    run({ interpretation: { deadlines: "Prazo não informado" }, checklist: { items } }, text);
+    expect(Date.now() - t).toBeLessThan(1500);
+  });
+});

@@ -104,7 +104,8 @@ import {
   type UserProfile,
   type ChecklistItem,
 } from "@/lib/agents";
-import { extractTextFromPdf, PdfExtractError, type PdfStructuredData } from "@/lib/pdf";
+// Leitor de PDF (pdf.js + OCR) só é baixado quando a pessoa envia um PDF (~515 KB a menos no /testar)
+import type { PdfStructuredData } from "@/lib/pdf";
 import { apiFetch } from "@/lib/api";
 import { QueroParticipar } from "@/components/lupa/QueroParticipar";
 import { deleteLocalHistory, listLocalHistory, saveLocalHistory, setLocalFavorite, type LocalAgentRecord } from "@/lib/localHistory";
@@ -2994,8 +2995,11 @@ export default function TestarIA() {
     setIsPdfLoading(true);
     setPdfError(null);
     setPdfStructuredData(null);
+    let PdfExtractError: (typeof import("@/lib/pdf"))["PdfExtractError"] | null = null;
     try {
-      const { text: extracted, structured } = await extractTextFromPdf(file);
+      const pdfLib = await import("@/lib/pdf");
+      PdfExtractError = pdfLib.PdfExtractError;
+      const { text: extracted, structured } = await pdfLib.extractTextFromPdf(file);
       if (!extracted?.trim())
         throw new PdfExtractError("empty", "Nenhum texto legível encontrado no PDF.");
       resetAnalysis();
@@ -3008,7 +3012,8 @@ export default function TestarIA() {
       });
     } catch (err) {
       setPdfStructuredData(null);
-      setAnalysisError(err instanceof PdfExtractError ? err.message : getFriendlyErrorMessage(err));
+      const isPdfError = Boolean(PdfExtractError && err instanceof PdfExtractError);
+      setAnalysisError(isPdfError ? (err as Error).message : getFriendlyErrorMessage(err));
       setPdfError(
         err instanceof Error
           ? err.message
@@ -3016,7 +3021,7 @@ export default function TestarIA() {
       );
       toast({
         title: "Não foi possível ler este PDF",
-        description: err instanceof PdfExtractError ? err.message : "Verifique se o arquivo contém texto legível e tente novamente.",
+        description: isPdfError ? (err as Error).message : "Verifique se o arquivo contém texto legível e tente novamente.",
         variant: "destructive",
       });
     } finally {

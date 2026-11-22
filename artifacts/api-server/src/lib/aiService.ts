@@ -787,7 +787,7 @@ function buildChunkFactPrompt(agentId: AgentId, chunkText: string, profile?: z.i
   return { system, user };
 }
 
-async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null; chunkTimeoutMs?: number; chunkId?: string }) {
+async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null; chunkTimeoutMs?: number; chunkId?: string; usage?: { tokens: number } }) {
   const { system, user } = buildChunkFactPrompt(agentId, chunkText, profile);
   const chunkStart = Date.now();
   const timeoutMs = opts?.chunkTimeoutMs ?? 60_000;
@@ -830,6 +830,7 @@ async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: 
       ? (completionResult.usage.prompt_tokens ?? 0) + (completionResult.usage.completion_tokens ?? 0)
       : 0;
     recordTpmUsage(usageTokens || estimatedPromptTokens + requestedMaxOutputTokens);
+    if (opts?.usage) opts.usage.tokens = usageTokens || estimatedPromptTokens + requestedMaxOutputTokens;
   } catch (error) {
     const errMessage = error instanceof Error ? error.message : String(error);
     const httpMatch = errMessage.match(/status[_\s]*(\d{3})/i) ?? errMessage.match(/\b(4\d{2}|5\d{2})\b/);
@@ -3799,4 +3800,76 @@ export async function chatNiasci(
     logger.warn({ reason: message }, "Chat provider failed; returning fallback reply");
     return fallbackReply;
   }
+}
+
+
+// ── Documentos longos (execução durável, lib/longdoc) ───────────────────────────────────────────
+
+/**
+ * Lê UMA parte de um documento longo com o mesmo prompt de extração de fatos das análises em
+ * partes. Devolve os fatos e os tokens efetivamente gastos (para o orçamento da tarefa).
+ */
+export async function analyzeLongDocChunk(
+  agentId: AgentId,
+  promptText: string,
+  profile: unknown,
+  opts: { userId: string | null; chunkId: string; timeoutMs: number },
+): Promise<{ facts: ChunkAnalysisFacts; tokens: number }> {
+  const parsedProfile = AgentUserProfileSchema.safeParse(profile ?? undefined);
+  const usage = { tokens: 0 };
+  const facts = await analyzeChunkFacts(agentId, promptText, parsedProfile.success ? parsedProfile.data : undefined, {
+    userId: opts.userId,
+    chunkId: opts.chunkId,
+    chunkTimeoutMs: opts.timeoutMs,
+    usage,
+  });
+  return { facts, tokens: usage.tokens };
+}
+
+/** Tokens previstos para ler uma parte (entrada com margem + saída máxima), para o ritmo por minuto. */
+export function longDocChunkReservation(promptText: string): number {
+  return Math.ceil(estimateTokens(promptText) * PROMPT_BUDGET_SAFETY) + CHUNK_FACT_MAX_OUTPUT + 400;
+}
+
+/** Espera prevista pelo limite de tokens por minuto do provedor antes da próxima parte. */
+export function longDocTpmWaitMs(promptText: string): number {
+  return estimateTpmWaitMs(longDocChunkReservation(promptText));
+}
+
+/**
+ * Consolida os fatos de TODAS as partes lidas na mesma estrutura das análises curtas (resumo,
+ * cronograma, checklist, elegibilidade…), para que todas as telas leiam uma análise só.
+ * O texto original NÃO vai dentro do resultado (o navegador já o tem; 1 milhão de caracteres).
+ */
+export function finalizeLongDocAnalysis(
+  agentId: AgentId,
+  chunkResults: Array<{ chunkId: string; facts: ChunkAnalysisFacts }>,
+  text: string,
+  profile: unknown,
+  processing: Record<string, unknown>,
+): Record<string, unknown> {
+  const parsedProfile = AgentUserProfileSchema.safeParse(profile ?? undefined);
+  const prof = parsedProfile.success ? parsedProfile.data : undefined;
+  const consolidated = buildConsolidatedAgentResult(agentId, chunkResults, text, prof) as Record<string, unknown>;
+  delete consolidated.originalText;
+  consolidated.processing = processing;
+  const canonical = buildCanonicalAnalysis(agentId, consolidated, text, prof) as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = {
+    ...canonical,
+    ...consolidated,
+    type: agentId,
+    agentResult: consolidated,
+    analysisId: canonical.analysisId,
+    schemaVersion: canonical.schemaVersion,
+    interpretation: canonical.interpretation,
+    cronograma: canonical.cronograma,
+    checklist: canonical.checklist,
+    elegibilidade: canonical.elegibilidade,
+    valores: canonical.valores,
+    documentosExigidos: canonical.documentosExigidos,
+    alertas: canonical.alertas,
+    processing,
+  };
+  delete out.originalText;
+  return out;
 }

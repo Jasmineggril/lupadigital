@@ -40,7 +40,12 @@ export interface PdfStructuredData {
 export interface ExtractedPdfResult {
   text: string;
   structured: PdfStructuredData;
+  /** PDF escaneado maior que o limite do OCR: quantas páginas foram lidas de quantas */
+  ocrTruncated?: { lidas: number; total: number };
 }
+
+/** Páginas lidas por OCR no navegador (cada página leva segundos; o restante é informado, nunca omitido). */
+export const MAX_OCR_PAGES = 25;
 
 // ── Base URL for API calls ──────────────────────────────────────────
 const API_BASE = `${((import.meta.env.BASE_URL as string) || "/").replace(/\/$/, "")}/api`;
@@ -158,7 +163,7 @@ const buildStructured = (text: string, numPages: number): PdfStructuredData => (
  */
 async function renderPdfPagesToBase64(
   pdf: pdfjsLib.PDFDocumentProxy,
-  maxPages = 25,
+  maxPages = MAX_OCR_PAGES,
 ): Promise<string[]> {
   const total = Math.min(pdf.numPages, maxPages);
   const images: string[] = [];
@@ -355,6 +360,12 @@ export async function extractTextFromPdf(
       );
     }
 
+    if (pdf.numPages > pageImages.length) {
+      // Corte explícito: o aviso vai no próprio texto (aparece na análise) e no retorno (aparece na tela)
+      const lidas = pageImages.length;
+      const notice = `\n\n[Aviso do LUPA: este PDF escaneado tem ${pdf.numPages} páginas; o reconhecimento de texto (OCR) leu as páginas 1–${lidas}. As páginas ${lidas + 1}–${pdf.numPages} NÃO foram lidas.]`;
+      return { text: ocrText + notice, structured: buildStructured(ocrText, pdf.numPages), ocrTruncated: { lidas, total: pdf.numPages } };
+    }
     return { text: ocrText, structured: buildStructured(ocrText, pdf.numPages) };
   } finally {
     await task.destroy().catch(() => undefined);

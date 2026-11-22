@@ -110,6 +110,7 @@ import { apiFetch } from "@/lib/api";
 import { QueroParticipar } from "@/components/lupa/QueroParticipar";
 import { deleteLocalHistory, listLocalHistory, saveLocalHistory, setLocalFavorite, type LocalAgentRecord } from "@/lib/localHistory";
 import { DocumentTimeline, QuickViewContent, ResultValidity, StageBanner, isPartialResult, type RealStage } from "@/components/testar/AnalysisPanels";
+import { LongDocProgress, type LongJobView } from "@/components/testar/LongDocProgress";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
 import {
   buildChecklistItems,
@@ -2567,6 +2568,20 @@ export default function TestarIA() {
   const [location] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
+  // ── Documentos longos: leitura completa em segundo plano (estado no servidor) ──
+  const [longJob, setLongJob] = useState<LongJobView | null>(null);
+  const [longRunning, setLongRunning] = useState(false);
+  const longJobActive = Boolean(longJob && ["pendente", "processando", "aguardando_cota"].includes(longJob.status));
+  const longLoop = useRef(0);
+  const [docLimits, setDocLimits] = useState<{ syncMax: number; syncHard: number; maxChars: number; background: boolean }>({ syncMax: 45_000, syncHard: 450_000, maxChars: 1_200_000, background: false });
+  useEffect(() => {
+    apiFetch<{ analise_direta_max_caracteres: number; analise_direta_limite_rigido?: number; documento_max_caracteres: number; processa_sem_pagina_aberta?: boolean }>("/edital/limits", { auth: false })
+      .then((l) => setDocLimits({ syncMax: l.analise_direta_max_caracteres, syncHard: l.analise_direta_limite_rigido ?? 450_000, maxChars: l.documento_max_caracteres, background: Boolean(l.processa_sem_pagina_aberta) }))
+      .catch(() => undefined);
+    return () => {
+      longLoop.current++; // sai da página: o laço para; o andamento continua salvo no servidor
+    };
+  }, []);
   const [showQuickView, setShowQuickView] = useState(false);
   const [showTimelinePopup, setShowTimelinePopup] = useState(false);
   const extractUrlMutation = useExtractEditalFromUrl();
@@ -2645,12 +2660,14 @@ export default function TestarIA() {
     setIsFavorite(false);
     setChecklistState([]);
     setAnalysisStage("idle");
+    // Tarefa longa ainda ativa continua visível (com Cancelar); terminada sai junto com o resultado
+    setLongJob((j) => (j && ["pendente", "processando", "aguardando_cota"].includes(j.status) ? j : null));
   };
 
   const realStage: RealStage =
     isPdfLoading || extractUrlMutation.isPending
       ? "extraindo"
-      : analyzeEditalMutation.isPending
+      : analyzeEditalMutation.isPending || (longJobActive && longRunning)
         ? "analisando"
         : analysisStage === "error"
           ? "falha"
@@ -2668,7 +2685,7 @@ export default function TestarIA() {
     textColor: currentAgentMeta.textColor,
     iconName: currentAgentMeta.iconName,
   };
-  const isAnalyzing = analyzeEditalMutation.isPending;
+  const isAnalyzing = analyzeEditalMutation.isPending || (longJobActive && longRunning);
   const analyzeButtonLabel = "Analisar Documento";
   
   /**
@@ -2861,6 +2878,191 @@ export default function TestarIA() {
     return saved ? { ok: true, where: "navegador", id: saved.id } : { ok: false, where: "navegador", id: null, error: "O navegador não permitiu guardar (armazenamento cheio ou bloqueado)." };
   };
 
+  // ── Documento longo ────────────────────────────────────────────────────────
+  const LONG_KEY = "lupa-analise-longa-v1";
+  const rememberJob = (id: string | null) => {
+    try {
+      if (id) localStorage.setItem(LONG_KEY, id);
+      else localStorage.removeItem(LONG_KEY);
+    } catch {
+      /* navegador sem armazenamento: a retomada usa a lista do servidor */
+    }
+  };
+
+  /** Avança a tarefa enquanto a página estiver aberta; para ao concluir, falhar, cancelar ou sair. */
+  const runLongJob = async (id: string, textAtStart: string) => {
+    const loop = ++longLoop.current;
+    setLongRunning(true);
+    try {
+      for (;;) {
+        if (loop !== longLoop.current) return;
+        let v: LongJobView;
+        try {
+          v = await apiFetch<LongJobView>(`/edital/jobs/${id}/advance`, { method: "POST" });
+        } catch (err) {
+          // Falha de rede/servidor: o andamento está salvo; espera e tenta de novo
+          if (loop !== longLoop.current) return;
+          const status = (err as unknown as { status?: number } | null)?.status;
+          if (status === 404 || status === 401) {
+            setAnalysisError(getFriendlyErrorMessage(err));
+            setAnalysisStage("error");
+            rememberJob(null);
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 15_000));
+          continue;
+        }
+        if (loop !== longLoop.current) return;
+        setLongJob(v);
+        if (v.status === "concluida" || v.status === "parcial") {
+          if (v.resultado) await acceptAnalysis(v.resultado, v.agentId as AgentId, textAtStart);
+          if (v.status === "concluida") rememberJob(null);
+          return;
+        }
+        if (v.status === "falhou" || v.status === "cancelada") {
+          setAnalysisStage(v.status === "falhou" ? "error" : "idle");
+          if (v.status === "falhou") setAnalysisError(v.erro ?? "A análise longa não pôde continuar.");
+          rememberJob(null);
+          return;
+        }
+        // Espera indicada pelo servidor (cota do provedor ou limite por minuto); senão, segue já
+        const waitMs = v.proxima_tentativa ? Math.max(0, new Date(v.proxima_tentativa).getTime() - Date.now()) : 0;
+        if (waitMs > 0) await new Promise((r) => setTimeout(r, Math.min(Math.max(waitMs, 5_000), 10 * 60_000)));
+      }
+    } finally {
+      if (loop === longLoop.current) setLongRunning(false);
+    }
+  };
+
+  const startLongJob = async (agentIdToUse: AgentId, textAtStart: string) => {
+    if (!user) {
+      setIsAnalyzePressed(false);
+      setAnalysisStage("error");
+      setAnalysisError(
+        `Este documento tem ${textAtStart.length.toLocaleString("pt-BR")} caracteres. Para lê-lo por inteiro, a análise roda em segundo plano e o andamento fica guardado na sua conta: entre para continuar. Você não precisa escolher trechos.`,
+      );
+      return;
+    }
+    try {
+      const v = await apiFetch<LongJobView>("/edital/jobs", {
+        method: "POST",
+        body: JSON.stringify({ agentId: agentIdToUse, text: textAtStart, ...(agentIdToUse === "elegibilidade" ? { profile } : {}) }),
+      });
+      setLongJob(v);
+      rememberJob(v.id);
+      void runLongJob(v.id, textAtStart);
+    } catch (err) {
+      setIsAnalyzePressed(false);
+      setAnalysisStage("error");
+      setAnalysisError(getFriendlyErrorMessage(err));
+    }
+  };
+
+  const cancelLongJob = async () => {
+    if (!longJob) return;
+    longLoop.current++;
+    try {
+      const v = await apiFetch<LongJobView>(`/edital/jobs/${longJob.id}/cancel`, { method: "POST" });
+      setLongJob(v);
+      setLongRunning(false);
+      setIsAnalyzePressed(false);
+      setAnalysisStage("idle");
+      rememberJob(null);
+      toast({ title: "Análise cancelada", description: "O documento enviado foi apagado do servidor." });
+    } catch (err) {
+      toast({ title: "Não foi possível cancelar", description: getFriendlyErrorMessage(err), variant: "destructive" });
+    }
+  };
+
+  const retryLongJob = async () => {
+    if (!longJob) return;
+    try {
+      const v = await apiFetch<LongJobView>(`/edital/jobs/${longJob.id}/retry-failed`, { method: "POST" });
+      setLongJob(v);
+      setCanonicalAnalysis(null);
+      setAgentResult(null);
+      rememberJob(v.id);
+      void runLongJob(v.id, analyzedText ?? text);
+    } catch (err) {
+      toast({ title: "Não foi possível reprocessar", description: getFriendlyErrorMessage(err), variant: "destructive" });
+    }
+  };
+
+  // Retomar depois de atualizar a página: tarefa lembrada neste navegador ou ativa na conta
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    (async () => {
+      let id: string | null = null;
+      try {
+        id = localStorage.getItem(LONG_KEY);
+      } catch {
+        id = null;
+      }
+      if (!id) {
+        const list = await apiFetch<{ jobs: Array<{ id: string; status: string }> }>("/edital/jobs").catch(() => ({ jobs: [] as Array<{ id: string; status: string }> }));
+        id = list.jobs.find((j) => ["pendente", "processando", "aguardando_cota"].includes(j.status))?.id ?? null;
+      }
+      if (!id || !alive) return;
+      const v = await apiFetch<LongJobView>(`/edital/jobs/${id}`).catch(() => null);
+      if (!v || !alive) {
+        rememberJob(null);
+        return;
+      }
+      setLongJob(v);
+      setSelectedAgent(v.agentId as AgentId);
+      if (["pendente", "processando", "aguardando_cota"].includes(v.status)) {
+        setIsAnalyzePressed(true);
+        void runLongJob(v.id, text);
+      } else if ((v.status === "parcial" || v.status === "concluida") && v.resultado) {
+        await acceptAnalysis(v.resultado, v.agentId as AgentId, text);
+        if (v.status === "concluida") rememberJob(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  /** Mostra e salva uma análise concluída — mesma rotina para a análise direta e a longa. */
+  const acceptAnalysis = async (data: unknown, agentIdToUse: AgentId, textAtStart: string) => {
+    const canonicalPayload = data as unknown as CanonicalAnalysisLike;
+    const result = canonicalToAgentResult(canonicalPayload) ?? (data as unknown as AgentResult);
+    setCanonicalAnalysis(canonicalPayload);
+    setAnalyzedText(textAtStart);
+    applyResult(result);
+    setAnalysisStage("completed");
+    const partial = isPartialResult(canonicalPayload as never);
+    if (partial) {
+      // Resultado de contingência/incompleto não é salvo automaticamente
+      // Motivo real (vindo do servidor) + quanto do edital foi lido
+      const proc = canonicalPayload.processing as { userMessage?: string; totalChunks?: number; processedChunks?: number } | undefined;
+      const partialReason = proc?.userMessage ?? "A IA não concluiu o processamento.";
+      const lidas = proc?.totalChunks && proc.totalChunks > 1 && !/partes não foram analisadas/.test(partialReason) ? ` Foram lidas ${proc.processedChunks ?? 0} de ${proc.totalChunks} partes do edital.` : "";
+      const convite = !user && textAtStart.length > docLimits.syncMax ? " Entre na sua conta para que o documento inteiro seja lido em segundo plano." : "";
+      toast({
+        title: "Análise parcialmente concluída",
+        description: `${partialReason}${lidas}${convite} O resultado é limitado e não foi salvo automaticamente; você pode tentar de novo ou salvar manualmente.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    const saved = await persistCurrentAnalysis(result, canonicalPayload, agentIdToUse, textAtStart);
+    toast(
+      saved.ok
+        ? {
+            title: "Interpretação concluída",
+            description: saved.where === "conta" ? "Salva no histórico da sua conta." : "Salva no histórico deste navegador (entre na conta para guardar no servidor).",
+          }
+        : {
+            title: "Interpretação concluída, mas não foi salva",
+            description: saved.error ?? "Não foi possível salvar no histórico. Use o botão Salvar para tentar de novo.",
+            variant: "destructive",
+          },
+    );
+  };
+
   const handleAnalyze = () => {
     if (!text.trim() || text.length < 20) {
       setIsAnalyzePressed(false);
@@ -2882,6 +3084,14 @@ export default function TestarIA() {
     setIsAnalyzePressed(true);
     setAnalysisStage("reading");
 
+    // Documento longo: lido por INTEIRO em segundo plano (nunca pede para escolher trechos)
+    // Visitante sem conta: até o limite da análise direta segue como antes (resultado parcial é
+    // identificado e convida a entrar para ler tudo); acima disso, precisa entrar.
+    if (text.length > docLimits.syncMax && (user || text.length > docLimits.syncHard)) {
+      void startLongJob(agentIdToUse, textAtStart);
+      return;
+    }
+
     analyzeEditalMutation.mutate(
       {
         data: {
@@ -2894,39 +3104,7 @@ export default function TestarIA() {
         onSuccess: async (data) => {
           // Outro documento entrou (ou a tela foi limpa) durante a análise: descarta este resultado
           if (seq !== analyzeSeq.current) return;
-          const canonicalPayload = data as unknown as CanonicalAnalysisLike;
-          const result = canonicalToAgentResult(canonicalPayload) ?? (data as unknown as AgentResult);
-          setCanonicalAnalysis(canonicalPayload);
-          setAnalyzedText(textAtStart);
-          applyResult(result);
-          setAnalysisStage("completed");
-          const partial = isPartialResult(canonicalPayload as never);
-          if (partial) {
-            // Resultado de contingência/incompleto não é salvo automaticamente
-            // Motivo real (vindo do servidor) + quanto do edital foi lido
-            const proc = canonicalPayload.processing as { userMessage?: string; totalChunks?: number; processedChunks?: number } | undefined;
-            const partialReason = proc?.userMessage ?? "A IA não concluiu o processamento.";
-            const lidas = proc?.totalChunks && proc.totalChunks > 1 ? ` Foram lidas ${proc.processedChunks ?? 0} de ${proc.totalChunks} partes do edital.` : "";
-            toast({
-              title: "Análise parcialmente concluída",
-              description: `${partialReason}${lidas} O resultado é limitado e não foi salvo automaticamente; você pode salvar manualmente, tentar de novo ou analisar só a parte que faltou.`,
-              variant: "destructive",
-            });
-            return;
-          }
-          const saved = await persistCurrentAnalysis(result, canonicalPayload, agentIdToUse, textAtStart);
-          toast(
-            saved.ok
-              ? {
-                  title: "Interpretação concluída",
-                  description: saved.where === "conta" ? "Salva no histórico da sua conta." : "Salva no histórico deste navegador (entre na conta para guardar no servidor).",
-                }
-              : {
-                  title: "Interpretação concluída, mas não foi salva",
-                  description: saved.error ?? "Não foi possível salvar no histórico. Use o botão Salvar para tentar de novo.",
-                  variant: "destructive",
-                },
-          );
+          await acceptAnalysis(data, agentIdToUse, textAtStart);
         },
         onError: (error) => {
           setIsAnalyzePressed(false);
@@ -3006,17 +3184,25 @@ export default function TestarIA() {
     try {
       const pdfLib = await import("@/lib/pdf");
       PdfExtractError = pdfLib.PdfExtractError;
-      const { text: extracted, structured } = await pdfLib.extractTextFromPdf(file);
+      const { text: extracted, structured, ocrTruncated } = await pdfLib.extractTextFromPdf(file);
       if (!extracted?.trim())
         throw new PdfExtractError("empty", "Nenhum texto legível encontrado no PDF.");
       resetAnalysis();
       setText(extracted.trim());
       setPdfStructuredData(structured);
       setActiveTab("pdf");
-      toast({
-        title: "PDF processado com sucesso.",
-        description: "O texto legível foi extraído e está pronto para interpretação.",
-      });
+      toast(
+        ocrTruncated
+          ? {
+              title: "PDF escaneado lido em parte",
+              description: `O reconhecimento de texto leu ${ocrTruncated.lidas} de ${ocrTruncated.total} páginas. As páginas ${ocrTruncated.lidas + 1}–${ocrTruncated.total} não foram lidas; o aviso fica no texto e na análise. Se tiver o PDF com texto (não escaneado), envie-o para a leitura completa.`,
+              variant: "destructive",
+            }
+          : {
+              title: "PDF processado com sucesso.",
+              description: `O texto legível foi extraído (${extracted.trim().length.toLocaleString("pt-BR")} caracteres) e está pronto para interpretação.`,
+            },
+      );
     } catch (err) {
       setPdfStructuredData(null);
       const isPdfError = Boolean(PdfExtractError && err instanceof PdfExtractError);
@@ -3742,10 +3928,20 @@ export default function TestarIA() {
               </div>
             )}
 
-            {(isAnalyzing || isPdfLoading || extractUrlMutation.isPending || realStage === "falha" || realStage === "parcial" || realStage === "concluido") && (
+            {(isAnalyzing || longJob || isPdfLoading || extractUrlMutation.isPending || realStage === "falha" || realStage === "parcial" || realStage === "concluido") && (
               <div className="space-y-3">
                 <StageBanner stage={realStage} elapsedSeconds={elapsedSeconds} agentName={currentAgentMeta.name} />
-                {isAnalyzing && text.length > 8000 && (
+                {longJob && (
+                  <LongDocProgress
+                    job={longJob}
+                    runningHere={longRunning}
+                    backgroundAvailable={docLimits.background}
+                    onCancel={() => void cancelLongJob()}
+                    onRetryFailed={() => void retryLongJob()}
+                    onResume={() => void runLongJob(longJob.id, analyzedText ?? text)}
+                  />
+                )}
+                {isAnalyzing && !longJob && text.length > 8000 && (
                   <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                     Documento extenso ({text.length.toLocaleString("pt-BR")} caracteres): a análise é feita em partes e pode demorar mais.
                   </p>

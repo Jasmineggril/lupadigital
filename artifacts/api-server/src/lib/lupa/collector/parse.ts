@@ -118,13 +118,13 @@ function grab(lines: string[], re: RegExp, url: string, limit = 6): Evidenced[] 
 }
 
 
-function extractDates(lines: string[], url: string) {
+function extractDates(lines: string[], url: string, max = 16) {
   // Regra única (deadlines.ts): só datas reais; rótulo do trecho anterior; horário/fuso só se informados
   const out: NonNullable<OpportunityFields["datas"]> = [];
   for (const s of lines) {
     for (const d of parseDateMentions(s)) {
       out.push({ label: d.rotulo, value: s, evidence: s, source_url: url, iso: d.iso, ...(d.hora ? { hora: d.hora } : {}), ...(d.fuso ? { fuso: d.fuso } : {}) });
-      if (out.length >= 16) return out;
+      if (out.length >= max) return out;
     }
   }
   return out;
@@ -164,7 +164,13 @@ export function isLinkOnlyLine(line: string, links: Array<{ text: string }>): bo
   return rest.replace(/[^\p{L}\p{N}]+/gu, "").length < 6 && rest.length < line.length;
 }
 
-export function extractFields(page: ParsedPage): { fields: OpportunityFields; missing: string[] } {
+/**
+ * `limits`: quantos trechos guardar por campo. O coletor usa os padrões (páginas curtas); a análise
+ * de documentos usa limites maiores — com os padrões, num documento de 1 milhão de caracteres, uma
+ * prorrogação no fim ficava de fora do prazo oficial.
+ */
+export function extractFields(page: ParsedPage, limits: { perField?: number; dates?: number } = {}): { fields: OpportunityFields; missing: string[] } {
+  const perField = limits.perField ?? 6;
   const lines = sentences(page.text).filter((s) => !isLinkOnlyLine(s, page.links ?? []));
   const url = page.url;
   const fields: OpportunityFields = {};
@@ -182,31 +188,31 @@ export function extractFields(page: ParsedPage): { fields: OpportunityFields; mi
     if (items.length) fields.areas = { value: items, evidence: areaLine, source_url: url };
   }
 
-  const eleg = grab(lines, /poder[aã]o\s+(participar|concorrer|submeter)|eleg[ií]ve|\bproponente\b.*\b(dever[áa]|deve)\b|t[ií]tulo de (doutor|mestre)|v[ií]nculo (empregat[ií]cio|funcional|institucional|efetivo)|sediad[ao]s?\s+no\s+(distrito federal|df)/i, url);
+  const eleg = grab(lines, /poder[aã]o\s+(participar|concorrer|submeter)|eleg[ií]ve|\bproponente\b.*\b(dever[áa]|deve)\b|t[ií]tulo de (doutor|mestre)|v[ií]nculo (empregat[ií]cio|funcional|institucional|efetivo)|sediad[ao]s?\s+no\s+(distrito federal|df)/i, url, perField);
   if (eleg.length) fields.elegibilidade = eleg;
 
-  const req = grab(lines, /\brequisitos?\b|\bexig[eê]ncias?\b|\bdever[aá]\s+(apresentar|possuir|comprovar)/i, url);
+  const req = grab(lines, /\brequisitos?\b|\bexig[eê]ncias?\b|\bdever[aá]\s+(apresentar|possuir|comprovar)/i, url, perField);
   if (req.length) fields.requisitos = req;
 
-  const valores = grab(lines, /R\$\s?\d/i, url);
+  const valores = grab(lines, /R\$\s?\d/i, url, perField);
   if (valores.length) fields.valores = valores;
 
-  const docs = grab(lines, /documentos?\s+(necess[aá]rios|exigidos|obrigat[oó]rios)|dever[aá]\s+anexar|curr[ií]culo lattes|plano de trabalho/i, url);
+  const docs = grab(lines, /documentos?\s+(necess[aá]rios|exigidos|obrigat[oó]rios)|dever[aá]\s+anexar|curr[ií]culo lattes|plano de trabalho/i, url, perField);
   if (docs.length) fields.documentos = docs;
 
-  const datas = extractDates(lines, url);
+  const datas = extractDates(lines, url, limits.dates ?? 16);
   if (datas.length) fields.datas = datas;
 
-  const restr = grab(lines, /\bvedad[oa]s?\b|n[aã]o\s+poder[aã]o|[ée]\s+proibid|n[aã]o\s+ser[aã]o\s+aceit/i, url);
+  const restr = grab(lines, /\bvedad[oa]s?\b|n[aã]o\s+poder[aã]o|[ée]\s+proibid|n[aã]o\s+ser[aã]o\s+aceit/i, url, perField);
   if (restr.length) fields.restricoes = restr;
 
-  const contra = grab(lines, /\bcontrapartida/i, url);
+  const contra = grab(lines, /\bcontrapartida/i, url, perField);
   if (contra.length) fields.contrapartidas = contra;
 
-  const parc = grab(lines, /\bparceri|\bcoopera[cç][aã]o\s+(com|entre)|\bconsórcio|\binstitui[cç][aã]o\s+parceira|\bco-?executora/i, url);
+  const parc = grab(lines, /\bparceri|\bcoopera[cç][aã]o\s+(com|entre)|\bconsórcio|\binstitui[cç][aã]o\s+parceira|\bco-?executora/i, url, perField);
   if (parc.length) fields.parcerias = parc;
 
-  const crit = grab(lines, /crit[eé]rios?\s+(de\s+)?(avalia[cç][aã]o|julgamento|sele[cç][aã]o|classifica[cç][aã]o)|\bpontua[cç][aã]o\b|\bnota\s+(m[ií]nima|final)/i, url);
+  const crit = grab(lines, /crit[eé]rios?\s+(de\s+)?(avalia[cç][aã]o|julgamento|sele[cç][aã]o|classifica[cç][aã]o)|\bpontua[cç][aã]o\b|\bnota\s+(m[ií]nima|final)/i, url, perField);
   if (crit.length) fields.criterios_avaliacao = crit;
 
   const canal = grab(lines, /(inscri[cç][õo]es|propostas|submiss[aã]o)\s+(ser[aã]o|dever[aã]o ser)\s+(realizad|feit|enviad|submetid)|\bsistema\s+[A-Z]|\bplataforma\b|\bformul[aá]rio\s+eletr[oô]nico|\bpor\s+meio\s+do\s+(site|sistema|endere[cç]o)/i, url, 3);

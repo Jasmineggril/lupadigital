@@ -72,6 +72,8 @@ jobs:
       run: |
         psql "$PGURL" -q -v ON_ERROR_STOP=1 -f scripts/security/local-supabase-grants.sql
         LUPA_ALLOW_RLS_TEST=sim DATABASE_URL="$PGURL" node scripts/security/rls-isolation.mjs
+    - name: Análises longas — reserva atômica no Postgres (20 processadores)
+      run: LUPA_ALLOW_RLS_TEST=sim DATABASE_URL="$PGURL" node scripts/security/longdoc-claim.mjs
     - name: Limites compartilhados (atomicidade real, duas conexões)
       run: pnpm --filter @workspace/api-server exec vitest run src/lib/limits
       env:

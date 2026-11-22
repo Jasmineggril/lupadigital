@@ -23,7 +23,7 @@
 
 import { extractFields, datesAsCandidates } from "./lupa/collector/parse";
 import { officialSubmissionDeadline, formatDeadline } from "./lupa/deadlines";
-import type { DocumentBase } from "./documentBase";
+import { fieldLimitsFor, type DocumentBase } from "./documentBase";
 
 export const ANALYSIS_FACTS_VERSION = 1;
 
@@ -307,7 +307,7 @@ function datesIn(s: string): string[] {
 
 let lastFields: { text: string; fields: ReturnType<typeof extractFields>["fields"] } | null = null;
 function fieldsOf(text: string) {
-  if (lastFields?.text !== text) lastFields = { text, fields: extractFields({ url: "", title: "", text, links: [] }).fields };
+  if (lastFields?.text !== text) lastFields = { text, fields: extractFields({ url: "", title: "", text, links: [] }, fieldLimitsFor(text)).fields };
   return lastFields.fields;
 }
 

@@ -55,7 +55,10 @@ describe("/edital/analyze — base documental comum", () => {
   it("texto acima do limite → 413 com orientação; texto ilegível → 422", async () => {
     const big = await analyze({ agentId: "simples", text: "a".repeat(460_000) });
     expect(big.status).toBe(413);
-    expect(((await big.json()) as any).error).toMatch(/limite/);
+    // Não pede para cortar o documento: indica a leitura completa em segundo plano
+    const bigBody = (await big.json()) as any;
+    expect(bigBody.code).toBe("USAR_ANALISE_LONGA");
+    expect(bigBody.error).toMatch(/lido por inteiro/);
     const junk = await analyze({ agentId: "simples", text: "\u0000\u0001\u0002 ... ,,, ;;; \u0003\u0004" });
     expect([400, 422]).toContain(junk.status);
   }, 60_000);

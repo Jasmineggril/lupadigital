@@ -49,6 +49,24 @@ if (Number.isNaN(port) || port <= 0) {
 // Migrações no início: DESLIGADO por padrão. Em produção quem aplica as migrações é a integração
 // GitHub → Supabase ao mesclar na main. Um servidor extra (ex.: CIIA) apontando para o MESMO banco
 // não pode alterar o esquema por conta própria. Ligue só num banco exclusivo deste servidor.
+// Servidor próprio (ex.: CIIA): laço que avança as análises longas mesmo com a página fechada.
+// Estado no banco; o laço só pega tarefas cuja reserva venceu (sem disputa com o navegador).
+if (process.env.LONGDOC_WORKER === "1") {
+  let busy = false;
+  const every = Number(process.env.LONGDOC_WORKER_INTERVAL_MS ?? 30_000);
+  setInterval(() => {
+    if (busy) return;
+    busy = true;
+    import("./lib/longdoc/jobs")
+      .then(({ tickLongDocJobs }) => tickLongDocJobs(240_000))
+      .catch((err) => logger.warn({ err: err instanceof Error ? err.message : String(err) }, "longdoc worker: falha"))
+      .finally(() => {
+        busy = false;
+      });
+  }, every).unref();
+  logger.info({ every }, "Laço de análises longas ligado (LONGDOC_WORKER=1)");
+}
+
 const migrate = process.env.LUPA_RUN_MIGRATIONS_ON_START === "true" ? runMigrations : async () => logger.info("Migrações no início desligadas (LUPA_RUN_MIGRATIONS_ON_START != true)");
 migrate()
   .then(() => {

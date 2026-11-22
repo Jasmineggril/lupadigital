@@ -70,7 +70,7 @@ const tables = (
 ).rows.map((r) => r.table_name);
 
 // Valores aceitos por restrições CHECK conhecidas (o resto usa valor fictício genérico)
-const OVERRIDES = { notifications: { kind: "'recomendacao'" } };
+const OVERRIDES = { notifications: { kind: "'recomendacao'" }, analysis_jobs: { status: "'pendente'" } };
 
 /** Edital fictício (fonte + oportunidade) dentro da transação, para as chaves estrangeiras. */
 async function fixtureOpportunity() {

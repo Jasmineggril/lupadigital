@@ -76,13 +76,13 @@ var require_ms = __commonJS({
         "val is not a non-empty string or a valid number. val=" + JSON.stringify(val2)
       );
     };
-    function parse11(str3) {
-      str3 = String(str3);
-      if (str3.length > 100) {
+    function parse11(str4) {
+      str4 = String(str4);
+      if (str4.length > 100) {
         return;
       }
       var match = /^(-?(?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)?$/i.exec(
-        str3
+        str4
       );
       if (!match) {
         return;
@@ -683,7 +683,7 @@ var require_node = __commonJS({
     var { formatters: formatters2 } = module.exports;
     formatters2.o = function(v) {
       this.inspectOpts.colors = this.useColors;
-      return util3.inspect(v, this.inspectOpts).split("\n").map((str3) => str3.trim()).join(" ");
+      return util3.inspect(v, this.inspectOpts).split("\n").map((str4) => str4.trim()).join(" ");
     };
     formatters2.O = function(v) {
       this.inspectOpts.colors = this.useColors;
@@ -709,8 +709,8 @@ var require_depd = __commonJS({
     var relative = __require("path").relative;
     module.exports = depd;
     var basePath = process.cwd();
-    function containsNamespace(str3, namespace) {
-      var vals = str3.split(/[ ,]+/);
+    function containsNamespace(str4, namespace) {
+      var vals = str4.split(/[ ,]+/);
       var ns = String(namespace).toLowerCase();
       for (var i = 0; i < vals.length; i++) {
         var val2 = vals[i];
@@ -737,21 +737,21 @@ var require_depd = __commonJS({
       return descriptor;
     }
     function createArgumentsString(arity) {
-      var str3 = "";
+      var str4 = "";
       for (var i = 0; i < arity; i++) {
-        str3 += ", arg" + i;
+        str4 += ", arg" + i;
       }
-      return str3.substr(2);
+      return str4.substr(2);
     }
     function createStackString(stack) {
-      var str3 = this.name + ": " + this.namespace;
+      var str4 = this.name + ": " + this.namespace;
       if (this.message) {
-        str3 += " deprecated " + this.message;
+        str4 += " deprecated " + this.message;
       }
       for (var i = 0; i < stack.length; i++) {
-        str3 += "\n    at " + stack[i].toString();
+        str4 += "\n    at " + stack[i].toString();
       }
-      return str3;
+      return str4;
     }
     function depd(namespace) {
       if (!namespace) {
@@ -780,15 +780,15 @@ var require_depd = __commonJS({
       if (process.noDeprecation) {
         return true;
       }
-      var str3 = process.env.NO_DEPRECATION || "";
-      return containsNamespace(str3, namespace);
+      var str4 = process.env.NO_DEPRECATION || "";
+      return containsNamespace(str4, namespace);
     }
     function istraced(namespace) {
       if (process.traceDeprecation) {
         return true;
       }
-      var str3 = process.env.TRACE_DEPRECATION || "";
-      return containsNamespace(str3, namespace);
+      var str4 = process.env.TRACE_DEPRECATION || "";
+      return containsNamespace(str4, namespace);
     }
     function log2(message2, site) {
       var haslisteners = eehaslisteners(process, "deprecation");
@@ -1222,8 +1222,8 @@ var require_toidentifier = __commonJS({
   "../../node_modules/.pnpm/toidentifier@1.0.1/node_modules/toidentifier/index.js"(exports, module) {
     "use strict";
     module.exports = toIdentifier;
-    function toIdentifier(str3) {
-      return str3.split(" ").map(function(token) {
+    function toIdentifier(str4) {
+      return str4.split(" ").map(function(token) {
         return token.slice(0, 1).toUpperCase() + token.slice(1);
       }).join("").replace(/[^ _0-9a-z]/gi, "");
     }
@@ -1447,16 +1447,16 @@ var require_bytes = __commonJS({
         }
       }
       var val2 = value / map3[unit.toLowerCase()];
-      var str3 = val2.toFixed(decimalPlaces);
+      var str4 = val2.toFixed(decimalPlaces);
       if (!fixedDecimals) {
-        str3 = str3.replace(formatDecimalsRegExp, "$1");
+        str4 = str4.replace(formatDecimalsRegExp, "$1");
       }
       if (thousandsSeparator) {
-        str3 = str3.split(".").map(function(s, i) {
+        str4 = str4.split(".").map(function(s, i) {
           return i === 0 ? s.replace(formatThousandsRegExp, thousandsSeparator) : s;
         }).join(".");
       }
-      return str3 + unitSeparator + unit;
+      return str4 + unitSeparator + unit;
     }
     function parse11(val2) {
       if (typeof val2 === "number" && !isNaN(val2)) {
@@ -1561,12 +1561,12 @@ var require_bom_handling = __commonJS({
       this.encoder = encoder2;
       this.addBOM = true;
     }
-    PrependBOMWrapper.prototype.write = function(str3) {
+    PrependBOMWrapper.prototype.write = function(str4) {
       if (this.addBOM) {
-        str3 = BOMChar + str3;
+        str4 = BOMChar + str4;
         this.addBOM = false;
       }
-      return this.encoder.write(str3);
+      return this.encoder.write(str4);
     };
     PrependBOMWrapper.prototype.end = function() {
       return this.encoder.end();
@@ -1665,31 +1665,31 @@ var require_internal = __commonJS({
     function InternalEncoder(options, codec2) {
       this.enc = codec2.enc;
     }
-    InternalEncoder.prototype.write = function(str3) {
-      return Buffer7.from(str3, this.enc);
+    InternalEncoder.prototype.write = function(str4) {
+      return Buffer7.from(str4, this.enc);
     };
     InternalEncoder.prototype.end = function() {
     };
     function InternalEncoderBase64(options, codec2) {
       this.prevStr = "";
     }
-    InternalEncoderBase64.prototype.write = function(str3) {
-      str3 = this.prevStr + str3;
-      var completeQuads = str3.length - str3.length % 4;
-      this.prevStr = str3.slice(completeQuads);
-      str3 = str3.slice(0, completeQuads);
-      return Buffer7.from(str3, "base64");
+    InternalEncoderBase64.prototype.write = function(str4) {
+      str4 = this.prevStr + str4;
+      var completeQuads = str4.length - str4.length % 4;
+      this.prevStr = str4.slice(completeQuads);
+      str4 = str4.slice(0, completeQuads);
+      return Buffer7.from(str4, "base64");
     };
     InternalEncoderBase64.prototype.end = function() {
       return Buffer7.from(this.prevStr, "base64");
     };
     function InternalEncoderCesu8(options, codec2) {
     }
-    InternalEncoderCesu8.prototype.write = function(str3) {
-      var buf = Buffer7.alloc(str3.length * 3);
+    InternalEncoderCesu8.prototype.write = function(str4) {
+      var buf = Buffer7.alloc(str4.length * 3);
       var bufIdx = 0;
-      for (var i = 0; i < str3.length; i++) {
-        var charCode = str3.charCodeAt(i);
+      for (var i = 0; i < str4.length; i++) {
+        var charCode = str4.charCodeAt(i);
         if (charCode < 128) {
           buf[bufIdx++] = charCode;
         } else if (charCode < 2048) {
@@ -1770,25 +1770,25 @@ var require_internal = __commonJS({
     function InternalEncoderUtf8(options, codec2) {
       this.highSurrogate = "";
     }
-    InternalEncoderUtf8.prototype.write = function(str3) {
+    InternalEncoderUtf8.prototype.write = function(str4) {
       if (this.highSurrogate) {
-        str3 = this.highSurrogate + str3;
+        str4 = this.highSurrogate + str4;
         this.highSurrogate = "";
       }
-      if (str3.length > 0) {
-        var charCode = str3.charCodeAt(str3.length - 1);
+      if (str4.length > 0) {
+        var charCode = str4.charCodeAt(str4.length - 1);
         if (charCode >= 55296 && charCode < 56320) {
-          this.highSurrogate = str3[str3.length - 1];
-          str3 = str3.slice(0, str3.length - 1);
+          this.highSurrogate = str4[str4.length - 1];
+          str4 = str4.slice(0, str4.length - 1);
         }
       }
-      return Buffer7.from(str3, this.enc);
+      return Buffer7.from(str4, this.enc);
     };
     InternalEncoderUtf8.prototype.end = function() {
       if (this.highSurrogate) {
-        var str3 = this.highSurrogate;
+        var str4 = this.highSurrogate;
         this.highSurrogate = "";
-        return Buffer7.from(str3, this.enc);
+        return Buffer7.from(str4, this.enc);
       }
     };
   }
@@ -1815,8 +1815,8 @@ var require_utf32 = __commonJS({
       this.isLE = codec2.isLE;
       this.highSurrogate = 0;
     }
-    Utf32Encoder.prototype.write = function(str3) {
-      var src = Buffer7.from(str3, "ucs2");
+    Utf32Encoder.prototype.write = function(str4) {
+      var src = Buffer7.from(str4, "ucs2");
       var dst = Buffer7.alloc(src.length * 2 + 4);
       var write32 = this.isLE ? dst.writeUInt32LE : dst.writeUInt32BE;
       var offset = 0;
@@ -1941,8 +1941,8 @@ var require_utf32 = __commonJS({
       }
       this.encoder = codec2.iconv.getEncoder(options.defaultEncoding || "utf-32le", options);
     }
-    Utf32AutoEncoder.prototype.write = function(str3) {
-      return this.encoder.write(str3);
+    Utf32AutoEncoder.prototype.write = function(str4) {
+      return this.encoder.write(str4);
     };
     Utf32AutoEncoder.prototype.end = function() {
       return this.encoder.end();
@@ -2042,8 +2042,8 @@ var require_utf16 = __commonJS({
     Utf16BECodec.prototype.bomAware = true;
     function Utf16BEEncoder() {
     }
-    Utf16BEEncoder.prototype.write = function(str3) {
-      var buf = Buffer7.from(str3, "ucs2");
+    Utf16BEEncoder.prototype.write = function(str4) {
+      var buf = Buffer7.from(str4, "ucs2");
       for (var i = 0; i < buf.length; i += 2) {
         var tmp = buf[i];
         buf[i] = buf[i + 1];
@@ -2092,8 +2092,8 @@ var require_utf16 = __commonJS({
       }
       this.encoder = codec2.iconv.getEncoder("utf-16le", options);
     }
-    Utf16Encoder.prototype.write = function(str3) {
-      return this.encoder.write(str3);
+    Utf16Encoder.prototype.write = function(str4) {
+      return this.encoder.write(str4);
     };
     Utf16Encoder.prototype.end = function() {
       return this.encoder.end();
@@ -2189,8 +2189,8 @@ var require_utf7 = __commonJS({
     function Utf7Encoder(options, codec2) {
       this.iconv = codec2.iconv;
     }
-    Utf7Encoder.prototype.write = function(str3) {
-      return Buffer7.from(str3.replace(nonDirectChars, function(chunk) {
+    Utf7Encoder.prototype.write = function(str4) {
+      return Buffer7.from(str4.replace(nonDirectChars, function(chunk) {
         return "+" + (chunk === "+" ? "" : this.iconv.encode(chunk, "utf16-be").toString("base64").replace(/=+$/, "")) + "-";
       }.bind(this)));
     };
@@ -2274,14 +2274,14 @@ var require_utf7 = __commonJS({
       this.base64Accum = Buffer7.alloc(6);
       this.base64AccumIdx = 0;
     }
-    Utf7IMAPEncoder.prototype.write = function(str3) {
+    Utf7IMAPEncoder.prototype.write = function(str4) {
       var inBase64 = this.inBase64;
       var base64Accum = this.base64Accum;
       var base64AccumIdx = this.base64AccumIdx;
-      var buf = Buffer7.alloc(str3.length * 5 + 10);
+      var buf = Buffer7.alloc(str4.length * 5 + 10);
       var bufIdx = 0;
-      for (var i2 = 0; i2 < str3.length; i2++) {
-        var uChar = str3.charCodeAt(i2);
+      for (var i2 = 0; i2 < str4.length; i2++) {
+        var uChar = str4.charCodeAt(i2);
         if (uChar >= 32 && uChar <= 126) {
           if (inBase64) {
             if (base64AccumIdx > 0) {
@@ -2422,10 +2422,10 @@ var require_sbcs_codec = __commonJS({
     function SBCSEncoder(options, codec2) {
       this.encodeBuf = codec2.encodeBuf;
     }
-    SBCSEncoder.prototype.write = function(str3) {
-      var buf = Buffer7.alloc(str3.length);
-      for (var i = 0; i < str3.length; i++) {
-        buf[i] = this.encodeBuf[str3.charCodeAt(i)];
+    SBCSEncoder.prototype.write = function(str4) {
+      var buf = Buffer7.alloc(str4.length);
+      for (var i = 0; i < str4.length; i++) {
+        buf[i] = this.encodeBuf[str4.charCodeAt(i)];
       }
       return buf;
     };
@@ -3301,8 +3301,8 @@ var require_dbcs_codec = __commonJS({
       this.defaultCharSingleByte = codec2.defCharSB;
       this.gb18030 = codec2.gb18030;
     }
-    DBCSEncoder.prototype.write = function(str3) {
-      var newBuf = Buffer7.alloc(str3.length * (this.gb18030 ? 4 : 3));
+    DBCSEncoder.prototype.write = function(str4) {
+      var newBuf = Buffer7.alloc(str4.length * (this.gb18030 ? 4 : 3));
       var leadSurrogate = this.leadSurrogate;
       var seqObj = this.seqObj;
       var nextChar = -1;
@@ -3310,8 +3310,8 @@ var require_dbcs_codec = __commonJS({
       var j = 0;
       while (true) {
         if (nextChar === -1) {
-          if (i2 == str3.length) break;
-          var uCode = str3.charCodeAt(i2++);
+          if (i2 == str4.length) break;
+          var uCode = str4.charCodeAt(i2++);
         } else {
           var uCode = nextChar;
           nextChar = -1;
@@ -5149,10 +5149,10 @@ var require_lib = __commonJS({
     module.exports.encodings = null;
     module.exports.defaultCharUnicode = "\uFFFD";
     module.exports.defaultCharSingleByte = "?";
-    module.exports.encode = function encode5(str3, encoding, options) {
-      str3 = "" + (str3 || "");
+    module.exports.encode = function encode5(str4, encoding, options) {
+      str4 = "" + (str4 || "");
       var encoder2 = module.exports.getEncoder(encoding, options);
-      var res = encoder2.write(str3);
+      var res = encoder2.write(str4);
       var trail = encoder2.end();
       return trail && trail.length > 0 ? Buffer7.concat([res, trail]) : res;
     };
@@ -5760,9 +5760,9 @@ var require_dist = __commonJS({
       }
       return { type, index: index2, parameters };
     }
-    function skipValue(str3, index2, len, stopChar) {
+    function skipValue(str4, index2, len, stopChar) {
       while (index2 < len) {
-        const code = str3.charCodeAt(index2);
+        const code = str4.charCodeAt(index2);
         if (code === SEMI || code === stopChar)
           break;
         index2++;
@@ -5787,12 +5787,12 @@ var require_dist = __commonJS({
       }
       return end2;
     }
-    function qstring(str3) {
-      if (TOKEN_REGEXP.test(str3))
-        return str3;
-      if (TEXT_REGEXP.test(str3))
-        return `"${str3.replace(QUOTE_REGEXP, "\\$&")}"`;
-      throw new TypeError(`Invalid parameter value: ${str3}`);
+    function qstring(str4) {
+      if (TOKEN_REGEXP.test(str4))
+        return str4;
+      if (TEXT_REGEXP.test(str4))
+        return `"${str4.replace(QUOTE_REGEXP, "\\$&")}"`;
+      throw new TypeError(`Invalid parameter value: ${str4}`);
     }
   }
 });
@@ -15228,11 +15228,11 @@ var require_mime_types = __commonJS({
       }
       return false;
     }
-    function contentType(str3) {
-      if (!str3 || typeof str3 !== "string") {
+    function contentType(str4) {
+      if (!str4 || typeof str4 !== "string") {
         return false;
       }
-      var mime = str3.indexOf("/") === -1 ? exports.lookup(str3) : str3;
+      var mime = str4.indexOf("/") === -1 ? exports.lookup(str4) : str4;
       if (!mime) {
         return false;
       }
@@ -15581,14 +15581,14 @@ var require_read = __commonJS({
             return;
           }
         }
-        let str3 = body;
+        let str4 = body;
         try {
           debug2("parse body");
-          str3 = typeof body !== "string" && encoding !== null ? iconv2.decode(body, encoding) : body;
-          req.body = parse11(str3, encoding);
+          str4 = typeof body !== "string" && encoding !== null ? iconv2.decode(body, encoding) : body;
+          req.body = parse11(str4, encoding);
         } catch (err) {
           next2(createError(400, err, {
-            body: str3,
+            body: str4,
             type: err.type || "entity.parse.failed"
           }));
           return;
@@ -15743,11 +15743,11 @@ var require_json = __commonJS({
         }
       };
     }
-    function createStrictSyntaxError(str3, char) {
-      const index2 = str3.indexOf(char);
+    function createStrictSyntaxError(str4, char) {
+      const index2 = str4.indexOf(char);
       let partial2 = "";
       if (index2 !== -1) {
-        partial2 = str3.substring(0, index2) + JSON_SYNTAX_CHAR.repeat(str3.length - index2);
+        partial2 = str4.substring(0, index2) + JSON_SYNTAX_CHAR.repeat(str4.length - index2);
       }
       try {
         JSON.parse(partial2);
@@ -15755,14 +15755,14 @@ var require_json = __commonJS({
       } catch (e) {
         return normalizeJsonSyntaxError(e, {
           message: e.message.replace(JSON_SYNTAX_REGEXP, function(placeholder) {
-            return str3.substring(index2, index2 + placeholder.length);
+            return str4.substring(index2, index2 + placeholder.length);
           }),
           stack: e.stack
         });
       }
     }
-    function firstNonWhitespaceChar(str3) {
-      const match = FIRST_NON_WHITESPACE_REGEXP.exec(str3);
+    function firstNonWhitespaceChar(str4) {
+      const match = FIRST_NON_WHITESPACE_REGEXP.exec(str4);
       return match && match[1] ? match[1] : void 0;
     }
     function normalizeJsonSyntaxError(error63, obj) {
@@ -15885,14 +15885,14 @@ var require_stringWidth = __commonJS({
     var starts = [];
     var ends = [];
     var widths = [];
-    var tokens = $split.call(ranges, ",");
+    var tokens2 = $split.call(ranges, ",");
     var previousEnd = -1;
-    for (t = 0; t < tokens.length; t++) {
-      dot = $indexOf.call(tokens[t], ".");
-      starts[t] = previousEnd + 1 + $parseInt($slice.call(tokens[t], 1, dot), 36);
-      previousEnd = starts[t] + $parseInt($slice.call(tokens[t], dot + 1), 36);
+    for (t = 0; t < tokens2.length; t++) {
+      dot = $indexOf.call(tokens2[t], ".");
+      starts[t] = previousEnd + 1 + $parseInt($slice.call(tokens2[t], 1, dot), 36);
+      previousEnd = starts[t] + $parseInt($slice.call(tokens2[t], dot + 1), 36);
       ends[t] = previousEnd;
-      widths[t] = Number($slice.call(tokens[t], 0, 1));
+      widths[t] = Number($slice.call(tokens2[t], 0, 1));
     }
     var dot;
     var t;
@@ -15911,12 +15911,12 @@ var require_stringWidth = __commonJS({
       }
       return 1;
     }
-    function unicodeWidth(str3) {
+    function unicodeWidth(str4) {
       var width = 0;
-      for (var i = 0; i < str3.length; i++) {
-        var code = $charCodeAt.call(str3, i);
-        if (code >= 55296 && code <= 56319 && i + 1 < str3.length) {
-          var next2 = $charCodeAt.call(str3, i + 1);
+      for (var i = 0; i < str4.length; i++) {
+        var code = $charCodeAt.call(str4, i);
+        if (code >= 55296 && code <= 56319 && i + 1 < str4.length) {
+          var next2 = $charCodeAt.call(str4, i + 1);
           if (next2 >= 56320 && next2 <= 57343) {
             code = (code - 55296) * 1024 + (next2 - 56320) + 65536;
             i += 1;
@@ -15926,12 +15926,12 @@ var require_stringWidth = __commonJS({
       }
       return width;
     }
-    module.exports = function getStringWidth(str3) {
+    module.exports = function getStringWidth(str4) {
       var width = 0;
-      for (var i = 0; i < str3.length; i++) {
-        var code = $charCodeAt.call(str3, i);
+      for (var i = 0; i < str4.length; i++) {
+        var code = $charCodeAt.call(str4, i);
         if (code >= 127) {
-          var rest = $slice.call(str3, i);
+          var rest = $slice.call(str4, i);
           return width + unicodeWidth($normalize ? $normalize.call(rest, "NFC") : rest);
         }
         width += code >= 32 ? 1 : 0;
@@ -16017,20 +16017,20 @@ var require_object_inspect = __commonJS({
     var TypedArray;
     var lengthGetter;
     var ta;
-    function addNumericSeparator(num, str3) {
-      if (num === Infinity || num === -Infinity || num !== num || num && num > -1e3 && num < 1e3 || $test.call(/e/, str3)) {
-        return str3;
+    function addNumericSeparator(num2, str4) {
+      if (num2 === Infinity || num2 === -Infinity || num2 !== num2 || num2 && num2 > -1e3 && num2 < 1e3 || $test.call(/e/, str4)) {
+        return str4;
       }
       var sepRegex = /[0-9](?=(?:[0-9]{3})+(?![0-9]))/g;
-      if (typeof num === "number") {
-        var int2 = num < 0 ? -$floor(-num) : $floor(num);
-        if (int2 !== num) {
+      if (typeof num2 === "number") {
+        var int2 = num2 < 0 ? -$floor(-num2) : $floor(num2);
+        if (int2 !== num2) {
           var intStr = String(int2);
-          var dec = $slice.call(str3, intStr.length + 1);
+          var dec = $slice.call(str4, intStr.length + 1);
           return $replace.call(intStr, sepRegex, "$&_") + "." + $replace.call($replace.call(dec, /([0-9]{3})/g, "$&_"), /_$/, "");
         }
       }
-      return $replace.call(str3, sepRegex, "$&_");
+      return $replace.call(str4, sepRegex, "$&_");
     }
     var utilInspect = require_util_inspect();
     var getStringWidth = require_stringWidth();
@@ -16092,8 +16092,8 @@ var require_object_inspect = __commonJS({
         if (obj === 0) {
           return Infinity / obj > 0 ? "0" : "-0";
         }
-        var str3 = String(obj);
-        return numericSeparator ? addNumericSeparator(obj, str3) : str3;
+        var str4 = String(obj);
+        return numericSeparator ? addNumericSeparator(obj, str4) : str4;
       }
       if (typeof obj === "bigint") {
         var bigIntStr = String(obj) + "n";
@@ -16116,7 +16116,7 @@ var require_object_inspect = __commonJS({
       } : null;
       if (typeof seen === "undefined") {
         seen = [];
-      } else if (indexOf(seen, obj) >= 0) {
+      } else if (indexOf2(seen, obj) >= 0) {
         return "[Circular]";
       }
       function inspect(value, from, noIndent) {
@@ -16415,7 +16415,7 @@ var require_object_inspect = __commonJS({
       }
       return null;
     }
-    function indexOf(xs, x) {
+    function indexOf2(xs, x) {
       if (xs.indexOf) {
         return xs.indexOf(x);
       }
@@ -16510,15 +16510,15 @@ var require_object_inspect = __commonJS({
       }
       return typeof x.nodeName === "string" && typeof x.getAttribute === "function";
     }
-    function inspectString(str3, opts) {
-      if (str3.length > opts.maxStringLength) {
-        var remaining = str3.length - opts.maxStringLength;
+    function inspectString(str4, opts) {
+      if (str4.length > opts.maxStringLength) {
+        var remaining = str4.length - opts.maxStringLength;
         var trailer = "... " + remaining + " more character" + (remaining > 1 ? "s" : "");
-        return inspectString($slice.call(str3, 0, opts.maxStringLength), opts) + trailer;
+        return inspectString($slice.call(str4, 0, opts.maxStringLength), opts) + trailer;
       }
       var quoteRE = quoteREs[opts.quoteStyle || "single"];
       quoteRE.lastIndex = 0;
-      var s = $replace.call($replace.call(str3, quoteRE, "\\$1"), opts.multilineStrings ? /[\x00-\x09\x0b-\x1f]/g : /[\x00-\x1f]/g, lowbyte);
+      var s = $replace.call($replace.call(str4, quoteRE, "\\$1"), opts.multilineStrings ? /[\x00-\x09\x0b-\x1f]/g : /[\x00-\x1f]/g, lowbyte);
       return wrapQuotes(s, "single", opts);
     }
     function lowbyte(c) {
@@ -16535,8 +16535,8 @@ var require_object_inspect = __commonJS({
       }
       return "\\x" + (n2 < 16 ? "0" : "") + $toUpperCase.call(n2.toString(16));
     }
-    function markBoxed(str3) {
-      return "Object(" + str3 + ")";
+    function markBoxed(str4) {
+      return "Object(" + str4 + ")";
     }
     function weakCollectionOf(type) {
       return type + " { ? }";
@@ -16561,9 +16561,9 @@ var require_object_inspect = __commonJS({
       }
       return true;
     }
-    function padTo(str3, width, atStart) {
-      var fill2 = width > str3.length ? $join.call(Array(width - str3.length + 1), " ") : "";
-      return atStart ? fill2 + str3 : str3 + fill2;
+    function padTo(str4, width, atStart) {
+      var fill2 = width > str4.length ? $join.call(Array(width - str4.length + 1), " ") : "";
+      return atStart ? fill2 + str4 : str4 + fill2;
     }
     function groupArrayElements(entries, layout, value) {
       var separatorSpace = 2;
@@ -16615,14 +16615,14 @@ var require_object_inspect = __commonJS({
       var grouped = [];
       for (var row = 0; row < outputLength; row += columns) {
         var max = $min(row + columns, outputLength);
-        var str3 = "";
+        var str4 = "";
         var col = row;
         for (; col < max - 1; col++) {
-          str3 += padTo(entries[col] + ", ", maxLineLength[col - row] + (entries[col].length - dataLen[col]), numeric);
+          str4 += padTo(entries[col] + ", ", maxLineLength[col - row] + (entries[col].length - dataLen[col]), numeric);
         }
         var lastPadding = maxLineLength[col - row] + (entries[col].length - dataLen[col]) - separatorSpace;
-        str3 += numeric ? padTo(entries[col], lastPadding, true) : entries[col];
-        grouped.push(str3);
+        str4 += numeric ? padTo(entries[col], lastPadding, true) : entries[col];
+        grouped.push(str4);
       }
       if (outputLength < entries.length) {
         grouped.push(entries[outputLength]);
@@ -16644,7 +16644,7 @@ var require_object_inspect = __commonJS({
         var start = output2.length + layout.indent.prev.length + braces[0].length + braces[2].length + 10;
         if (isBelowBreakLength(output2, start, layout.breakLength)) {
           var joined = $join.call(output2, ", ");
-          if (indexOf(joined, "\n") < 0) {
+          if (indexOf2(joined, "\n") < 0) {
             return base2 + braces[0] + braces[3] + joined + braces[3] + braces[1];
           }
         }
@@ -16653,7 +16653,7 @@ var require_object_inspect = __commonJS({
     }
     function singleLineValues(xs) {
       for (var i = 0; i < xs.length; i++) {
-        if (indexOf(xs[i], "\n") >= 0) {
+        if (indexOf2(xs[i], "\n") >= 0) {
           return false;
         }
       }
@@ -17123,14 +17123,14 @@ var require_implementation = __commonJS({
       return arr;
     };
     var joiny = function(arr, joiner) {
-      var str3 = "";
+      var str4 = "";
       for (var i = 0; i < arr.length; i += 1) {
-        str3 += arr[i];
+        str4 += arr[i];
         if (i + 1 < arr.length) {
-          str3 += joiner;
+          str4 += joiner;
         }
       }
-      return str3;
+      return str4;
     };
     module.exports = function bind(that) {
       var target = this;
@@ -17932,9 +17932,9 @@ var require_utils2 = __commonJS({
       var max = min;
       var keys = Object.keys(obj);
       for (var i = 0; i < keys.length; ++i) {
-        var num = parseInt(keys[i], 10);
-        if (String(num) === keys[i] && num > max) {
-          max = num;
+        var num2 = parseInt(keys[i], 10);
+        if (String(num2) === keys[i] && num2 > max) {
+          max = num2;
         }
       }
       return max;
@@ -18073,11 +18073,11 @@ var require_utils2 = __commonJS({
         return acc;
       }, target);
     };
-    var decode4 = function(str3, defaultDecoder, charset) {
-      if (typeof str3 === "string" && str3.indexOf("%") === -1) {
-        return str3.indexOf("+") === -1 ? str3 : str3.replace(/\+/g, " ");
+    var decode4 = function(str4, defaultDecoder, charset) {
+      if (typeof str4 === "string" && str4.indexOf("%") === -1) {
+        return str4.indexOf("+") === -1 ? str4 : str4.replace(/\+/g, " ");
       }
-      var strWithoutPlus = str3.replace(/\+/g, " ");
+      var strWithoutPlus = str4.replace(/\+/g, " ");
       if (charset === "iso-8859-1") {
         return strWithoutPlus.replace(/%[0-9a-f]{2}/gi, unescape);
       }
@@ -18134,15 +18134,15 @@ var require_utils2 = __commonJS({
       return objectToString2.call(value);
     };
     var limit2 = 1024;
-    var encode5 = function encode6(str3, defaultEncoder, charset, kind, format) {
-      if (str3.length === 0) {
-        return str3;
+    var encode5 = function encode6(str4, defaultEncoder, charset, kind, format) {
+      if (str4.length === 0) {
+        return str4;
       }
-      var string4 = str3;
-      if (typeof str3 === "symbol") {
-        string4 = Symbol.prototype.toString.call(str3);
-      } else if (typeof str3 !== "string") {
-        string4 = String(toCoercible(str3));
+      var string4 = str4;
+      if (typeof str4 === "symbol") {
+        string4 = Symbol.prototype.toString.call(str4);
+      } else if (typeof str4 !== "string") {
+        string4 = String(toCoercible(str4));
       }
       if (charset === "iso-8859-1") {
         return escape(string4).replace(/%u[0-9a-f]{4}/gi, function($0) {
@@ -18644,8 +18644,8 @@ var require_parse = __commonJS({
       strictNullHandling: false,
       throwOnLimitExceeded: false
     };
-    var interpretNumericEntities = function(str3) {
-      return str3.replace(/&#(\d+);/g, function($0, numberStr) {
+    var interpretNumericEntities = function(str4) {
+      return str4.replace(/&#(\d+);/g, function($0, numberStr) {
         var c = parseInt(numberStr, 10);
         if (c > 65535 && c <= 1114111) {
           c -= 65536;
@@ -18676,9 +18676,9 @@ var require_parse = __commonJS({
     };
     var isoSentinel = "utf8=%26%2310003%3B";
     var charsetSentinel = "utf8=%E2%9C%93";
-    var parseValues = function parseQueryStringValues(str3, options) {
+    var parseValues = function parseQueryStringValues(str4, options) {
       var obj = { __proto__: null };
-      var cleanStr = options.ignoreQueryPrefix ? str3.replace(/^\?/, "") : str3;
+      var cleanStr = options.ignoreQueryPrefix ? str4.replace(/^\?/, "") : str4;
       cleanStr = cleanStr.replace(/%5B/gi, "[").replace(/%5D/gi, "]");
       var limit2 = options.parameterLimit === Infinity ? void 0 : options.parameterLimit;
       var parts = cleanStr.split(
@@ -18958,17 +18958,17 @@ var require_parse = __commonJS({
         throwOnLimitExceeded: typeof opts.throwOnLimitExceeded === "boolean" ? opts.throwOnLimitExceeded : false
       };
     };
-    module.exports = function(str3, opts) {
+    module.exports = function(str4, opts) {
       var options = normalizeParseOptions(opts);
-      if (str3 === "" || str3 === null || typeof str3 === "undefined") {
+      if (str4 === "" || str4 === null || typeof str4 === "undefined") {
         return options.plainObjects ? { __proto__: null } : {};
       }
-      var tempObj = typeof str3 === "string" ? parseValues(str3, options) : copyInput(str3);
+      var tempObj = typeof str4 === "string" ? parseValues(str4, options) : copyInput(str4);
       var obj = options.plainObjects ? { __proto__: null } : {};
       var keys = Object.keys(tempObj);
       for (var i = 0; i < keys.length; ++i) {
         var key = keys[i];
-        var newObj = parseKeys(key, tempObj[key], options, typeof str3 === "string");
+        var newObj = parseKeys(key, tempObj[key], options, typeof str4 === "string");
         obj = utils.merge(obj, newObj, options);
       }
       if (options.allowSparse === true) {
@@ -19140,17 +19140,17 @@ var require_escape_html = __commonJS({
     var matchHtmlRegExp = /["'&<>]/;
     module.exports = escapeHtml;
     function escapeHtml(string4) {
-      var str3 = "" + string4;
-      var match = matchHtmlRegExp.exec(str3);
+      var str4 = "" + string4;
+      var match = matchHtmlRegExp.exec(str4);
       if (!match) {
-        return str3;
+        return str4;
       }
       var escape3;
       var html3 = "";
       var index2 = 0;
-      var lastIndex = 0;
-      for (index2 = match.index; index2 < str3.length; index2++) {
-        switch (str3.charCodeAt(index2)) {
+      var lastIndex2 = 0;
+      for (index2 = match.index; index2 < str4.length; index2++) {
+        switch (str4.charCodeAt(index2)) {
           case 34:
             escape3 = "&quot;";
             break;
@@ -19169,13 +19169,13 @@ var require_escape_html = __commonJS({
           default:
             continue;
         }
-        if (lastIndex !== index2) {
-          html3 += str3.substring(lastIndex, index2);
+        if (lastIndex2 !== index2) {
+          html3 += str4.substring(lastIndex2, index2);
         }
-        lastIndex = index2 + 1;
+        lastIndex2 = index2 + 1;
         html3 += escape3;
       }
-      return lastIndex !== index2 ? html3 + str3.substring(lastIndex, index2) : html3;
+      return lastIndex2 !== index2 ? html3 + str4.substring(lastIndex2, index2) : html3;
     }
   }
 });
@@ -19215,20 +19215,20 @@ var require_parseurl = __commonJS({
       parsed._raw = url3;
       return req._parsedOriginalUrl = parsed;
     }
-    function fastparse(str3) {
-      if (typeof str3 !== "string" || str3.charCodeAt(0) !== 47) {
-        return parse11(str3);
+    function fastparse(str4) {
+      if (typeof str4 !== "string" || str4.charCodeAt(0) !== 47) {
+        return parse11(str4);
       }
-      var pathname = str3;
+      var pathname = str4;
       var query = null;
       var search = null;
-      for (var i = 1; i < str3.length; i++) {
-        switch (str3.charCodeAt(i)) {
+      for (var i = 1; i < str4.length; i++) {
+        switch (str4.charCodeAt(i)) {
           case 63:
             if (search === null) {
-              pathname = str3.substring(0, i);
-              query = str3.substring(i + 1);
-              search = str3.substring(i);
+              pathname = str4.substring(0, i);
+              query = str4.substring(i + 1);
+              search = str4.substring(i);
             }
             break;
           case 9:
@@ -19245,12 +19245,12 @@ var require_parseurl = __commonJS({
           /* #  */
           case 160:
           case 65279:
-            return parse11(str3);
+            return parse11(str4);
         }
       }
       var url3 = Url !== void 0 ? new Url() : {};
-      url3.path = str3;
-      url3.href = str3;
+      url3.path = str4;
+      url3.href = str4;
       url3.pathname = pathname;
       if (search !== null) {
         url3.query = query;
@@ -20263,11 +20263,11 @@ var require_proxy_addr = __commonJS({
     }
     function parseipNotation(note) {
       var pos = note.lastIndexOf("/");
-      var str3 = pos !== -1 ? note.substring(0, pos) : note;
-      if (!isip(str3)) {
-        throw new TypeError("invalid IP address: " + str3);
+      var str4 = pos !== -1 ? note.substring(0, pos) : note;
+      if (!isip(str4)) {
+        throw new TypeError("invalid IP address: " + str4);
       }
-      var ip = parseip(str3);
+      var ip = parseip(str4);
       if (pos === -1 && ip.kind() === "ipv6" && ip.isIPv4MappedAddress()) {
         ip = ip.toIPv4Address();
       }
@@ -20392,22 +20392,22 @@ var require_utils3 = __commonJS({
     exports.normalizeTypes = function(types4) {
       return types4.map(exports.normalizeType);
     };
-    function acceptParams(str3) {
-      var length = str3.length;
-      var colonIndex = str3.indexOf(";");
+    function acceptParams(str4) {
+      var length = str4.length;
+      var colonIndex = str4.indexOf(";");
       var index2 = colonIndex === -1 ? length : colonIndex;
-      var ret = { value: str3.slice(0, index2).trim(), quality: 1, params: {} };
+      var ret = { value: str4.slice(0, index2).trim(), quality: 1, params: {} };
       while (index2 < length) {
-        var splitIndex = str3.indexOf("=", index2);
+        var splitIndex = str4.indexOf("=", index2);
         if (splitIndex === -1) break;
-        var colonIndex = str3.indexOf(";", index2);
+        var colonIndex = str4.indexOf(";", index2);
         var endIndex = colonIndex === -1 ? length : colonIndex;
         if (splitIndex > endIndex) {
-          index2 = str3.lastIndexOf(";", splitIndex - 1) + 1;
+          index2 = str4.lastIndexOf(";", splitIndex - 1) + 1;
           continue;
         }
-        var key = str3.slice(index2, splitIndex).trim();
-        var value = str3.slice(splitIndex + 1, endIndex).trim();
+        var key = str4.slice(index2, splitIndex).trim();
+        var value = str4.slice(splitIndex + 1, endIndex).trim();
         if (key === "q") {
           ret.quality = parseFloat(value);
         } else {
@@ -20490,8 +20490,8 @@ var require_utils3 = __commonJS({
         return etag(buf, options);
       };
     }
-    function parseExtendedQueryString(str3) {
-      return qs.parse(str3, {
+    function parseExtendedQueryString(str4) {
+      return qs.parse(str4, {
         allowPrototypes: true
       });
     }
@@ -20599,15 +20599,15 @@ var require_dist2 = __commonJS({
     var ID_START = /^[$_\p{ID_Start}]$/u;
     var ID_CONTINUE = /^[$\u200c\u200d\p{ID_Continue}]$/u;
     var ID = /^[$_\p{ID_Start}][$\u200c\u200d\p{ID_Continue}]*$/u;
-    function escapeText3(str3) {
-      return str3.replace(/[{}()\[\]+?!:*\\]/g, "\\$&");
+    function escapeText3(str4) {
+      return str4.replace(/[{}()\[\]+?!:*\\]/g, "\\$&");
     }
-    function escape3(str3) {
-      return str3.replace(/[.+*?^${}()[\]|/\\]/g, "\\$&");
+    function escape3(str4) {
+      return str4.replace(/[.+*?^${}()[\]|/\\]/g, "\\$&");
     }
     var TokenData = class {
-      constructor(tokens, originalPath) {
-        this.tokens = tokens;
+      constructor(tokens2, originalPath) {
+        this.tokens = tokens2;
         this.originalPath = originalPath;
       }
     };
@@ -20623,9 +20623,9 @@ var require_dist2 = __commonJS({
       }
     };
     exports.PathError = PathError;
-    function parse11(str3, options = {}) {
+    function parse11(str4, options = {}) {
       const { encodePath = NOOP_VALUE } = options;
-      const chars = [...str3];
+      const chars = [...str4];
       let index2 = 0;
       function consumeUntil(end2) {
         const output2 = [];
@@ -20647,7 +20647,7 @@ var require_dist2 = __commonJS({
           }
           if (value === "\\") {
             if (index2 === chars.length) {
-              throw new PathError(`Unexpected end after \\ at index ${index2}`, str3);
+              throw new PathError(`Unexpected end after \\ at index ${index2}`, str4);
             }
             path3 += chars[index2++];
             continue;
@@ -20672,11 +20672,11 @@ var require_dist2 = __commonJS({
                 name += chars[index2];
               }
               if (quoteStart) {
-                throw new PathError(`Unterminated quote at index ${quoteStart}`, str3);
+                throw new PathError(`Unterminated quote at index ${quoteStart}`, str4);
               }
             }
             if (!name) {
-              throw new PathError(`Missing parameter name at index ${index2}`, str3);
+              throw new PathError(`Missing parameter name at index ${index2}`, str4);
             }
             writePath();
             output2.push({ type, name });
@@ -20691,17 +20691,17 @@ var require_dist2 = __commonJS({
             continue;
           }
           if (value === "}" || value === "(" || value === ")" || value === "[" || value === "]" || value === "+" || value === "?" || value === "!") {
-            throw new PathError(`Unexpected ${value} at index ${index2 - 1}`, str3);
+            throw new PathError(`Unexpected ${value} at index ${index2 - 1}`, str4);
           }
           path3 += value;
         }
         if (end2) {
-          throw new PathError(`Unexpected end at index ${index2}, expected ${end2}`, str3);
+          throw new PathError(`Unexpected end at index ${index2}, expected ${end2}`, str4);
         }
         writePath();
         return output2;
       }
-      return new TokenData(consumeUntil(""), str3);
+      return new TokenData(consumeUntil(""), str4);
     }
     function compile5(path3, options = {}) {
       const { encode: encode5 = encodeURIComponent, delimiter = DEFAULT_DELIMITER } = options;
@@ -20716,8 +20716,8 @@ var require_dist2 = __commonJS({
         return path5;
       };
     }
-    function tokensToFunction(tokens, delimiter, encode5) {
-      const encoders = tokens.map((token) => tokenToFunction(token, delimiter, encode5));
+    function tokensToFunction(tokens2, delimiter, encode5) {
+      const encoders = tokens2.map((token) => tokenToFunction(token, delimiter, encode5));
       return (data2, missing) => {
         let result = "";
         for (const encoder2 of encoders) {
@@ -20813,13 +20813,13 @@ var require_dist2 = __commonJS({
           return;
         }
         const data2 = typeof path4 === "object" ? path4 : parse11(path4, options);
-        flatten(data2.tokens, 0, [], (tokens) => {
+        flatten(data2.tokens, 0, [], (tokens2) => {
           if (combinations >= 256) {
             throw new PathError("Too many path combinations", data2.originalPath);
           }
           if (combinations > 0)
             source += "|";
-          source += toRegExpSource(tokens, delimiter, keys, data2.originalPath);
+          source += toRegExpSource(tokens2, delimiter, keys, data2.originalPath);
           combinations++;
         });
       }
@@ -20830,12 +20830,12 @@ var require_dist2 = __commonJS({
       pattern += end2 ? "$" : "(?=" + escape3(delimiter) + "|$)";
       return { regexp: new RegExp(pattern, sensitive ? "" : "i"), keys };
     }
-    function flatten(tokens, index2, result, callback) {
-      while (index2 < tokens.length) {
-        const token = tokens[index2++];
+    function flatten(tokens2, index2, result, callback) {
+      while (index2 < tokens2.length) {
+        const token = tokens2[index2++];
         if (token.type === "group") {
           const len = result.length;
-          flatten(token.tokens, 0, result, (seq) => flatten(tokens, index2, seq, callback));
+          flatten(token.tokens, 0, result, (seq) => flatten(tokens2, index2, seq, callback));
           result.length = len;
           continue;
         }
@@ -20843,7 +20843,7 @@ var require_dist2 = __commonJS({
       }
       callback(result);
     }
-    function toRegExpSource(tokens, delimiter, keys, originalPath) {
+    function toRegExpSource(tokens2, delimiter, keys, originalPath) {
       let result = "";
       let backtrack = "";
       let wildcardBacktrack = "";
@@ -20851,8 +20851,8 @@ var require_dist2 = __commonJS({
       let hasSegmentCapture = 0;
       let index2 = 0;
       function hasInSegment(index3, type) {
-        while (index3 < tokens.length) {
-          const token = tokens[index3++];
+        while (index3 < tokens2.length) {
+          const token = tokens2[index3++];
           if (token.type === type)
             return true;
           if (token.type === "text") {
@@ -20864,16 +20864,16 @@ var require_dist2 = __commonJS({
       }
       function peekText(index3) {
         let result2 = "";
-        while (index3 < tokens.length) {
-          const token = tokens[index3++];
+        while (index3 < tokens2.length) {
+          const token = tokens2[index3++];
           if (token.type !== "text")
             break;
           result2 += token.value;
         }
         return result2;
       }
-      while (index2 < tokens.length) {
-        const token = tokens[index2++];
+      while (index2 < tokens2.length) {
+        const token = tokens2[index2++];
         if (token.type === "text") {
           result += escape3(token.value);
           backtrack += token.value;
@@ -20914,10 +20914,10 @@ var require_dist2 = __commonJS({
         return `(?:(?!${escape3(a)})[^${escape3(b)}])`;
       return `[^${escape3(a + b)}]`;
     }
-    function stringifyTokens(tokens, index2) {
+    function stringifyTokens(tokens2, index2) {
       let value = "";
-      while (index2 < tokens.length) {
-        const token = tokens[index2++];
+      while (index2 < tokens2.length) {
+        const token = tokens2[index2++];
         if (token.type === "text") {
           value += escapeText3(token.value);
           continue;
@@ -20927,11 +20927,11 @@ var require_dist2 = __commonJS({
           continue;
         }
         if (token.type === "param") {
-          value += ":" + stringifyName(token.name, tokens[index2]);
+          value += ":" + stringifyName(token.name, tokens2[index2]);
           continue;
         }
         if (token.type === "wildcard") {
-          value += "*" + stringifyName(token.name, tokens[index2]);
+          value += "*" + stringifyName(token.name, tokens2[index2]);
           continue;
         }
         throw new TypeError(`Unknown token type: ${token.type}`);
@@ -21236,27 +21236,27 @@ var require_router = __commonJS({
     var slice2 = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router8;
+    module.exports = Router9;
     module.exports.Route = Route;
-    function Router8(options) {
-      if (!(this instanceof Router8)) {
-        return new Router8(options);
+    function Router9(options) {
+      if (!(this instanceof Router9)) {
+        return new Router9(options);
       }
       const opts = options || {};
-      function router8(req, res, next2) {
-        router8.handle(req, res, next2);
+      function router9(req, res, next2) {
+        router9.handle(req, res, next2);
       }
-      Object.setPrototypeOf(router8, this);
-      router8.caseSensitive = opts.caseSensitive;
-      router8.mergeParams = opts.mergeParams;
-      router8.params = {};
-      router8.strict = opts.strict;
-      router8.stack = [];
-      return router8;
+      Object.setPrototypeOf(router9, this);
+      router9.caseSensitive = opts.caseSensitive;
+      router9.mergeParams = opts.mergeParams;
+      router9.params = {};
+      router9.strict = opts.strict;
+      router9.stack = [];
+      return router9;
     }
-    Router8.prototype = function() {
+    Router9.prototype = function() {
     };
-    Router8.prototype.param = function param(name, fn) {
+    Router9.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -21276,7 +21276,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router8.prototype.handle = function handle(req, res, callback) {
+    Router9.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -21403,7 +21403,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router8.prototype.use = function use(handler) {
+    Router9.prototype.use = function use(handler) {
       let offset = 0;
       let path3 = "/";
       if (typeof handler !== "function") {
@@ -21436,7 +21436,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router8.prototype.route = function route(path3) {
+    Router9.prototype.route = function route(path3) {
       const route2 = new Route(path3);
       const layer = new Layer(path3, {
         sensitive: this.caseSensitive,
@@ -21451,7 +21451,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router8.prototype[method] = function(path3) {
+      Router9.prototype[method] = function(path3) {
         const route = this.route(path3);
         route[method].apply(route, slice2.call(arguments, 1));
         return this;
@@ -21634,13 +21634,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once2 = require_once();
-    var Router8 = require_router();
+    var Router9 = require_router();
     var slice2 = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router8 = null;
+      var router9 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21649,13 +21649,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router8 === null) {
-            router8 = new Router8({
+          if (router9 === null) {
+            router9 = new Router9({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router8;
+          return router9;
         }
       });
     };
@@ -21726,15 +21726,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router8 = this.router;
+      var router9 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router8.use(path3, fn2);
+          return router9.use(path3, fn2);
         }
         debug2(".use app under %s", path3);
         fn2.mountpath = path3;
         fn2.parent = this;
-        router8.use(path3, function mounted_app(req, res, next2) {
+        router9.use(path3, function mounted_app(req, res, next2) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -21899,8 +21899,8 @@ var require_charset = __commonJS({
       accepts.length = j;
       return accepts;
     }
-    function parseCharset(str3, i) {
-      var match = simpleCharsetRegExp.exec(str3);
+    function parseCharset(str4, i) {
+      var match = simpleCharsetRegExp.exec(str4);
       if (!match) return null;
       var charset = match[1];
       var q = 1;
@@ -21997,8 +21997,8 @@ var require_encoding = __commonJS({
       accepts.length = j;
       return accepts;
     }
-    function parseEncoding(str3, i) {
-      var match = simpleEncodingRegExp.exec(str3);
+    function parseEncoding(str4, i) {
+      var match = simpleEncodingRegExp.exec(str4);
       if (!match) return null;
       var encoding = match[1];
       var q = 1;
@@ -22099,8 +22099,8 @@ var require_language = __commonJS({
       accepts.length = j;
       return accepts;
     }
-    function parseLanguage(str3, i) {
-      var match = simpleLanguageRegExp.exec(str3);
+    function parseLanguage(str4, i) {
+      var match = simpleLanguageRegExp.exec(str4);
       if (!match) return null;
       var prefix = match[1];
       var suffix = match[2];
@@ -22194,8 +22194,8 @@ var require_mediaType = __commonJS({
       accepts.length = j;
       return accepts;
     }
-    function parseMediaType(str3, i) {
-      var match = simpleMediaTypeRegExp.exec(str3);
+    function parseMediaType(str4, i) {
+      var match = simpleMediaTypeRegExp.exec(str4);
       if (!match) return null;
       var params = /* @__PURE__ */ Object.create(null);
       var q = 1;
@@ -22296,15 +22296,15 @@ var require_mediaType = __commonJS({
       }
       return count;
     }
-    function splitKeyValuePair(str3) {
-      var index2 = str3.indexOf("=");
+    function splitKeyValuePair(str4) {
+      var index2 = str4.indexOf("=");
       var key;
       var val2;
       if (index2 === -1) {
-        key = str3;
+        key = str4;
       } else {
-        key = str3.slice(0, index2);
-        val2 = str3.slice(index2 + 1);
+        key = str4.slice(0, index2);
+        val2 = str4.slice(index2 + 1);
       }
       return [key, val2];
     }
@@ -22320,8 +22320,8 @@ var require_mediaType = __commonJS({
       accepts.length = j + 1;
       return accepts;
     }
-    function splitParameters(str3) {
-      var parameters = str3.split(";");
+    function splitParameters(str4) {
+      var parameters = str4.split(";");
       for (var i = 1, j = 0; i < parameters.length; i++) {
         if (quoteCount(parameters[j]) % 2 == 0) {
           parameters[++j] = parameters[i];
@@ -22521,19 +22521,19 @@ var require_fresh = __commonJS({
       var timestamp = date5 && Date.parse(date5);
       return typeof timestamp === "number" ? timestamp : NaN;
     }
-    function parseTokenList(str3) {
+    function parseTokenList(str4) {
       var end2 = 0;
       var list = [];
       var start = 0;
-      for (var i = 0, len = str3.length; i < len; i++) {
-        switch (str3.charCodeAt(i)) {
+      for (var i = 0, len = str4.length; i < len; i++) {
+        switch (str4.charCodeAt(i)) {
           case 32:
             if (start === end2) {
               start = end2 = i + 1;
             }
             break;
           case 44:
-            list.push(str3.substring(start, end2));
+            list.push(str4.substring(start, end2));
             start = end2 = i + 1;
             break;
           default:
@@ -22541,7 +22541,7 @@ var require_fresh = __commonJS({
             break;
         }
       }
-      list.push(str3.substring(start, end2));
+      list.push(str4.substring(start, end2));
       return list;
     }
   }
@@ -22552,24 +22552,24 @@ var require_range_parser = __commonJS({
   "../../node_modules/.pnpm/range-parser@1.3.0/node_modules/range-parser/index.js"(exports, module) {
     "use strict";
     module.exports = rangeParser;
-    function rangeParser(size, str3, options) {
-      if (typeof str3 !== "string") {
+    function rangeParser(size, str4, options) {
+      if (typeof str4 !== "string") {
         throw new TypeError("argument str must be a string");
       }
-      var index2 = str3.indexOf("=");
+      var index2 = str4.indexOf("=");
       if (index2 === -1) {
         return -2;
       }
-      var arr = str3.slice(index2 + 1).split(",");
+      var arr = str4.slice(index2 + 1).split(",");
       var ranges = [];
-      ranges.type = str3.slice(0, index2);
+      ranges.type = str4.slice(0, index2);
       for (var i = 0; i < arr.length; i++) {
-        var indexOf = arr[i].indexOf("-");
-        if (indexOf === -1) {
+        var indexOf2 = arr[i].indexOf("-");
+        if (indexOf2 === -1) {
           return -2;
         }
-        var startStr = arr[i].slice(0, indexOf).trim();
-        var endStr = arr[i].slice(indexOf + 1).trim();
+        var startStr = arr[i].slice(0, indexOf2).trim();
+        var endStr = arr[i].slice(indexOf2 + 1).trim();
         var start = parsePos(startStr);
         var end2 = parsePos(endStr);
         if (startStr.length === 0) {
@@ -22597,8 +22597,8 @@ var require_range_parser = __commonJS({
       }
       return options && options.combine ? combineRanges(ranges) : ranges;
     }
-    function parsePos(str3) {
-      if (/^\d+$/.test(str3)) return Number(str3);
+    function parsePos(str4) {
+      if (/^\d+$/.test(str4)) return Number(str4);
       return NaN;
     }
     function combineRanges(ranges) {
@@ -22940,17 +22940,17 @@ var require_dist3 = __commonJS({
         "filename*": encodeExtended(filename)
       };
     }
-    function decodeExtended(str3) {
-      const charsetEnd = str3.indexOf("'");
+    function decodeExtended(str4) {
+      const charsetEnd = str4.indexOf("'");
       if (charsetEnd <= 0) {
         return void 0;
       }
-      const languageEnd = str3.indexOf("'", charsetEnd + 1);
+      const languageEnd = str4.indexOf("'", charsetEnd + 1);
       if (languageEnd === -1) {
         return void 0;
       }
-      const charset = str3.slice(0, charsetEnd).toLowerCase();
-      const encoded = str3.slice(languageEnd + 1);
+      const charset = str4.slice(0, charsetEnd).toLowerCase();
+      const encoded = str4.slice(languageEnd + 1);
       switch (charset) {
         case "iso-8859-1": {
           return decodeHexEscapes(encoded);
@@ -22962,34 +22962,34 @@ var require_dist3 = __commonJS({
       }
       return void 0;
     }
-    function tryDecodeURIComponent(str3) {
+    function tryDecodeURIComponent(str4) {
       try {
-        return decodeURIComponent(str3);
+        return decodeURIComponent(str4);
       } catch {
         return void 0;
       }
     }
-    function parseToken(str3, index2, len) {
+    function parseToken(str4, index2, len) {
       while (index2 < len) {
-        const char = str3.charCodeAt(index2);
+        const char = str4.charCodeAt(index2);
         if (char === SEMI)
           break;
         index2++;
       }
       return index2;
     }
-    function skipOWS(str3, index2, len) {
+    function skipOWS(str4, index2, len) {
       while (index2 < len) {
-        const char = str3.charCodeAt(index2);
+        const char = str4.charCodeAt(index2);
         if (char !== SP && char !== HTAB)
           break;
         index2++;
       }
       return index2;
     }
-    function trailingOWS(str3, start, end2) {
+    function trailingOWS(str4, start, end2) {
       while (end2 > start) {
-        const char = str3.charCodeAt(end2 - 1);
+        const char = str4.charCodeAt(end2 - 1);
         if (char !== SP && char !== HTAB)
           break;
         end2--;
@@ -23036,11 +23036,11 @@ var require_dist3 = __commonJS({
     function pencode(char) {
       return "%" + char.charCodeAt(0).toString(16).toUpperCase();
     }
-    function qstring(str3) {
-      return '"' + str3.replace(QUOTE_REGEXP, "\\$&") + '"';
+    function qstring(str4) {
+      return '"' + str4.replace(QUOTE_REGEXP, "\\$&") + '"';
     }
-    function qmultipart(str3) {
-      return '"' + str3.replace(/[\n\r"]/g, multipartEscape) + '"';
+    function qmultipart(str4) {
+      return '"' + str4.replace(/[\n\r"]/g, multipartEscape) + '"';
     }
     function multipartEscape(char) {
       if (char === "\n")
@@ -23049,8 +23049,8 @@ var require_dist3 = __commonJS({
         return "%0D";
       return "%22";
     }
-    function encodeExtended(str3) {
-      const encoded = encodeURIComponent(str3).replace(ENCODE_URL_ATTR_CHAR_REGEXP, pencode);
+    function encodeExtended(str4) {
+      const encoded = encodeURIComponent(str4).replace(ENCODE_URL_ATTR_CHAR_REGEXP, pencode);
       return "UTF-8''" + encoded;
     }
     function isHexDigit(char) {
@@ -23059,17 +23059,17 @@ var require_dist3 = __commonJS({
       code >= 65 && code <= 70 || // A-F
       code >= 97 && code <= 102;
     }
-    function decodeHexEscapes(str3) {
-      const firstEscape = str3.indexOf("%");
+    function decodeHexEscapes(str4) {
+      const firstEscape = str4.indexOf("%");
       if (firstEscape === -1)
-        return str3;
-      let result = str3.slice(0, firstEscape);
-      for (let idx = firstEscape; idx < str3.length; idx++) {
-        if (str3[idx] === "%" && idx + 2 < str3.length && isHexDigit(str3[idx + 1]) && isHexDigit(str3[idx + 2])) {
-          result += String.fromCharCode(Number.parseInt(str3[idx + 1] + str3[idx + 2], 16));
+        return str4;
+      let result = str4.slice(0, firstEscape);
+      for (let idx = firstEscape; idx < str4.length; idx++) {
+        if (str4[idx] === "%" && idx + 2 < str4.length && isHexDigit(str4[idx + 1]) && isHexDigit(str4[idx + 2])) {
+          result += String.fromCharCode(Number.parseInt(str4[idx + 1] + str4[idx + 2], 16));
           idx += 2;
         } else {
-          result += str3[idx];
+          result += str4[idx];
         }
       }
       return result;
@@ -23107,54 +23107,54 @@ var require_cookie = __commonJS({
     var cookieValueRegExp = /^("?)[\u0021\u0023-\u002B\u002D-\u003A\u003C-\u005B\u005D-\u007E]*\1$/;
     var domainValueRegExp = /^([.]?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)([.][a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
     var pathValueRegExp = /^[\u0020-\u003A\u003D-\u007E]*$/;
-    function parse11(str3, opt) {
-      if (typeof str3 !== "string") {
+    function parse11(str4, opt) {
+      if (typeof str4 !== "string") {
         throw new TypeError("argument str must be a string");
       }
       var obj = {};
-      var len = str3.length;
+      var len = str4.length;
       if (len < 2) return obj;
       var dec = opt && opt.decode || decode4;
       var index2 = 0;
       var eqIdx = 0;
       var endIdx = 0;
       do {
-        eqIdx = str3.indexOf("=", index2);
+        eqIdx = str4.indexOf("=", index2);
         if (eqIdx === -1) break;
-        endIdx = str3.indexOf(";", index2);
+        endIdx = str4.indexOf(";", index2);
         if (endIdx === -1) {
           endIdx = len;
         } else if (eqIdx > endIdx) {
-          index2 = str3.lastIndexOf(";", eqIdx - 1) + 1;
+          index2 = str4.lastIndexOf(";", eqIdx - 1) + 1;
           continue;
         }
-        var keyStartIdx = startIndex(str3, index2, eqIdx);
-        var keyEndIdx = endIndex(str3, eqIdx, keyStartIdx);
-        var key = str3.slice(keyStartIdx, keyEndIdx);
+        var keyStartIdx = startIndex(str4, index2, eqIdx);
+        var keyEndIdx = endIndex(str4, eqIdx, keyStartIdx);
+        var key = str4.slice(keyStartIdx, keyEndIdx);
         if (!__hasOwnProperty.call(obj, key)) {
-          var valStartIdx = startIndex(str3, eqIdx + 1, endIdx);
-          var valEndIdx = endIndex(str3, endIdx, valStartIdx);
-          if (str3.charCodeAt(valStartIdx) === 34 && str3.charCodeAt(valEndIdx - 1) === 34) {
+          var valStartIdx = startIndex(str4, eqIdx + 1, endIdx);
+          var valEndIdx = endIndex(str4, endIdx, valStartIdx);
+          if (str4.charCodeAt(valStartIdx) === 34 && str4.charCodeAt(valEndIdx - 1) === 34) {
             valStartIdx++;
             valEndIdx--;
           }
-          var val2 = str3.slice(valStartIdx, valEndIdx);
+          var val2 = str4.slice(valStartIdx, valEndIdx);
           obj[key] = tryDecode(val2, dec);
         }
         index2 = endIdx + 1;
       } while (index2 < len);
       return obj;
     }
-    function startIndex(str3, index2, max) {
+    function startIndex(str4, index2, max) {
       do {
-        var code = str3.charCodeAt(index2);
+        var code = str4.charCodeAt(index2);
         if (code !== 32 && code !== 9) return index2;
       } while (++index2 < max);
       return max;
     }
-    function endIndex(str3, index2, min) {
+    function endIndex(str4, index2, min) {
       while (index2 > min) {
-        var code = str3.charCodeAt(--index2);
+        var code = str4.charCodeAt(--index2);
         if (code !== 32 && code !== 9) return index2 + 1;
       }
       return min;
@@ -23171,54 +23171,54 @@ var require_cookie = __commonJS({
       if (!cookieValueRegExp.test(value)) {
         throw new TypeError("argument val is invalid");
       }
-      var str3 = name + "=" + value;
-      if (!opt) return str3;
+      var str4 = name + "=" + value;
+      if (!opt) return str4;
       if (null != opt.maxAge) {
         var maxAge = Math.floor(opt.maxAge);
         if (!isFinite(maxAge)) {
           throw new TypeError("option maxAge is invalid");
         }
-        str3 += "; Max-Age=" + maxAge;
+        str4 += "; Max-Age=" + maxAge;
       }
       if (opt.domain) {
         if (!domainValueRegExp.test(opt.domain)) {
           throw new TypeError("option domain is invalid");
         }
-        str3 += "; Domain=" + opt.domain;
+        str4 += "; Domain=" + opt.domain;
       }
       if (opt.path) {
         if (!pathValueRegExp.test(opt.path)) {
           throw new TypeError("option path is invalid");
         }
-        str3 += "; Path=" + opt.path;
+        str4 += "; Path=" + opt.path;
       }
       if (opt.expires) {
         var expires = opt.expires;
         if (!isDate(expires) || isNaN(expires.valueOf())) {
           throw new TypeError("option expires is invalid");
         }
-        str3 += "; Expires=" + expires.toUTCString();
+        str4 += "; Expires=" + expires.toUTCString();
       }
       if (opt.httpOnly) {
-        str3 += "; HttpOnly";
+        str4 += "; HttpOnly";
       }
       if (opt.secure) {
-        str3 += "; Secure";
+        str4 += "; Secure";
       }
       if (opt.partitioned) {
-        str3 += "; Partitioned";
+        str4 += "; Partitioned";
       }
       if (opt.priority) {
         var priority = typeof opt.priority === "string" ? opt.priority.toLowerCase() : opt.priority;
         switch (priority) {
           case "low":
-            str3 += "; Priority=Low";
+            str4 += "; Priority=Low";
             break;
           case "medium":
-            str3 += "; Priority=Medium";
+            str4 += "; Priority=Medium";
             break;
           case "high":
-            str3 += "; Priority=High";
+            str4 += "; Priority=High";
             break;
           default:
             throw new TypeError("option priority is invalid");
@@ -23228,34 +23228,34 @@ var require_cookie = __commonJS({
         var sameSite = typeof opt.sameSite === "string" ? opt.sameSite.toLowerCase() : opt.sameSite;
         switch (sameSite) {
           case true:
-            str3 += "; SameSite=Strict";
+            str4 += "; SameSite=Strict";
             break;
           case "lax":
-            str3 += "; SameSite=Lax";
+            str4 += "; SameSite=Lax";
             break;
           case "strict":
-            str3 += "; SameSite=Strict";
+            str4 += "; SameSite=Strict";
             break;
           case "none":
-            str3 += "; SameSite=None";
+            str4 += "; SameSite=None";
             break;
           default:
             throw new TypeError("option sameSite is invalid");
         }
       }
-      return str3;
+      return str4;
     }
-    function decode4(str3) {
-      return str3.indexOf("%") !== -1 ? decodeURIComponent(str3) : str3;
+    function decode4(str4) {
+      return str4.indexOf("%") !== -1 ? decodeURIComponent(str4) : str4;
     }
     function isDate(val2) {
       return __toString.call(val2) === "[object Date]";
     }
-    function tryDecode(str3, decode5) {
+    function tryDecode(str4, decode5) {
       try {
-        return decode5(str3);
+        return decode5(str4);
       } catch (e) {
-        return str3;
+        return str4;
       }
     }
   }
@@ -23654,13 +23654,13 @@ var require_send = __commonJS({
         res.removeHeader(header);
       }
     }
-    function collapseLeadingSlashes(str3) {
-      for (var i = 0; i < str3.length; i++) {
-        if (str3[i] !== "/") {
+    function collapseLeadingSlashes(str4) {
+      for (var i = 0; i < str4.length; i++) {
+        if (str4[i] !== "/") {
           break;
         }
       }
-      return i > 1 ? "/" + str3.substr(i) : str3;
+      return i > 1 ? "/" + str4.substr(i) : str4;
     }
     function containsDotFile(parts) {
       for (var i = 0; i < parts.length; i++) {
@@ -23707,12 +23707,12 @@ var require_send = __commonJS({
       var timestamp = date5 && Date.parse(date5);
       return typeof timestamp === "number" ? timestamp : NaN;
     }
-    function parseTokenList(str3) {
+    function parseTokenList(str4) {
       var end2 = 0;
       var list = [];
       var start = 0;
-      for (var i = 0, len = str3.length; i < len; i++) {
-        switch (str3.charCodeAt(i)) {
+      for (var i = 0, len = str4.length; i < len; i++) {
+        switch (str4.charCodeAt(i)) {
           case 32:
             if (start === end2) {
               start = end2 = i + 1;
@@ -23720,7 +23720,7 @@ var require_send = __commonJS({
             break;
           case 44:
             if (start !== end2) {
-              list.push(str3.substring(start, end2));
+              list.push(str4.substring(start, end2));
             }
             start = end2 = i + 1;
             break;
@@ -23730,7 +23730,7 @@ var require_send = __commonJS({
         }
       }
       if (start !== end2) {
-        list.push(str3.substring(start, end2));
+        list.push(str4.substring(start, end2));
       }
       return list;
     }
@@ -24194,9 +24194,9 @@ var require_response = __commonJS({
         opts = {};
       }
       opts._locals = self2.locals;
-      done = done || function(err, str3) {
+      done = done || function(err, str4) {
         if (err) return req.next(err);
-        self2.send(str3);
+        self2.send(str4);
       };
       app2.render(view, opts, done);
     };
@@ -24352,13 +24352,13 @@ var require_serve_static = __commonJS({
         stream.pipe(res);
       };
     }
-    function collapseLeadingSlashes(str3) {
-      for (var i = 0; i < str3.length; i++) {
-        if (str3.charCodeAt(i) !== 47) {
+    function collapseLeadingSlashes(str4) {
+      for (var i = 0; i < str4.length; i++) {
+        if (str4.charCodeAt(i) !== 47) {
           break;
         }
       }
-      return i > 1 ? "/" + str3.substr(i) : str3;
+      return i > 1 ? "/" + str4.substr(i) : str4;
     }
     function createHtmlDocument(title, body) {
       return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<title>' + title + "</title>\n</head>\n<body>\n<pre>" + body + "</pre>\n</body>\n</html>\n";
@@ -24399,7 +24399,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router8 = require_router();
+    var Router9 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -24421,8 +24421,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router8.Route;
-    exports.Router = Router8;
+    exports.Route = Router9.Route;
+    exports.Router = Router9;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -24519,7 +24519,7 @@ var init_semver = __esm({
 });
 
 // ../../node_modules/.pnpm/@opentelemetry+api@1.9.1/node_modules/@opentelemetry/api/build/esm/internal/global-utils.js
-function registerGlobal(type, instance, diag3, allowOverride = false) {
+function registerGlobal(type, instance2, diag3, allowOverride = false) {
   var _a9;
   const api = _global[GLOBAL_OPENTELEMETRY_API_KEY] = (_a9 = _global[GLOBAL_OPENTELEMETRY_API_KEY]) !== null && _a9 !== void 0 ? _a9 : {
     version: VERSION
@@ -24534,7 +24534,7 @@ function registerGlobal(type, instance, diag3, allowOverride = false) {
     diag3.error(err.stack || err.message);
     return false;
   }
-  api[type] = instance;
+  api[type] = instance2;
   diag3.debug(`@opentelemetry/api: Registered a global for ${type} v${VERSION}.`);
   return true;
 }
@@ -24768,15 +24768,15 @@ var init_symbol = __esm({
 function createBaggage(entries = {}) {
   return new BaggageImpl(new Map(Object.entries(entries)));
 }
-function baggageEntryMetadataFromString(str3) {
-  if (typeof str3 !== "string") {
-    diag.error(`Cannot create baggage metadata from unknown type: ${typeof str3}`);
-    str3 = "";
+function baggageEntryMetadataFromString(str4) {
+  if (typeof str4 !== "string") {
+    diag.error(`Cannot create baggage metadata from unknown type: ${typeof str4}`);
+    str4 = "";
   }
   return {
     __TYPE__: baggageEntryMetadataSymbol,
     toString() {
-      return str3;
+      return str4;
     }
   };
 }
@@ -26044,8 +26044,8 @@ var require_global_utils = __commonJS({
     exports.API_BACKWARDS_COMPATIBILITY_VERSION = exports.makeGetter = exports._global = exports.GLOBAL_LOGS_API_KEY = void 0;
     exports.GLOBAL_LOGS_API_KEY = /* @__PURE__ */ Symbol.for("io.opentelemetry.js.api.logs");
     exports._global = globalThis;
-    function makeGetter(requiredVersion, instance, fallback) {
-      return (version4) => version4 === requiredVersion ? instance : fallback;
+    function makeGetter(requiredVersion, instance2, fallback) {
+      return (version4) => version4 === requiredVersion ? instance2 : fallback;
     }
     exports.makeGetter = makeGetter;
     exports.API_BACKWARDS_COMPATIBILITY_VERSION = 1;
@@ -28025,9 +28025,9 @@ var require_semconvStability = __commonJS({
       SemconvStability2[SemconvStability2["OLD"] = 2] = "OLD";
       SemconvStability2[SemconvStability2["DUPLICATE"] = 3] = "DUPLICATE";
     })(SemconvStability = exports.SemconvStability || (exports.SemconvStability = {}));
-    function semconvStabilityFromStr(namespace, str3) {
+    function semconvStabilityFromStr(namespace, str4) {
       let semconvStability = SemconvStability.OLD;
-      const entries = str3?.split(",").map((v) => v.trim()).filter((s) => s !== "");
+      const entries = str4?.split(",").map((v) => v.trim()).filter((s) => s !== "");
       for (const entry of entries ?? []) {
         if (entry.toLowerCase() === namespace + "/dup") {
           semconvStability = SemconvStability.DUPLICATE;
@@ -31100,7 +31100,7 @@ function __addDisposableResource(env, value, async) {
   return value;
 }
 function __disposeResources(env) {
-  function fail2(e) {
+  function fail3(e) {
     env.error = env.hasError ? new _SuppressedError(e, env.error, "An error was suppressed during disposal.") : e;
     env.hasError = true;
   }
@@ -31112,12 +31112,12 @@ function __disposeResources(env) {
         if (r.dispose) {
           var result = r.dispose.call(r.value);
           if (r.async) return s |= 2, Promise.resolve(result).then(next2, function(e) {
-            fail2(e);
+            fail3(e);
             return next2();
           });
         } else s |= 1;
       } catch (e) {
-        fail2(e);
+        fail3(e);
       }
     }
     if (s === 1) return env.hasError ? Promise.reject(env.error) : Promise.resolve();
@@ -36171,19 +36171,19 @@ var require_base64url = __commonJS({
         throw new Error(`Invalid Base64-URL character "${String.fromCharCode(charCode)}"`);
       }
     }
-    function stringToBase64URL(str3) {
+    function stringToBase64URL(str4) {
       const base643 = [];
       const emitter = (char) => {
         base643.push(char);
       };
       const state = { queue: 0, queuedBits: 0 };
-      stringToUTF8(str3, (byte) => {
+      stringToUTF8(str4, (byte) => {
         byteToBase64URL(byte, state, emitter);
       });
       byteToBase64URL(null, state, emitter);
       return base643.join("");
     }
-    function stringFromBase64URL(str3) {
+    function stringFromBase64URL(str4) {
       const conv = [];
       const utf8Emit = (codepoint) => {
         conv.push(String.fromCodePoint(codepoint));
@@ -36196,8 +36196,8 @@ var require_base64url = __commonJS({
       const byteEmit = (byte) => {
         stringFromUTF8(byte, utf8State, utf8Emit);
       };
-      for (let i = 0; i < str3.length; i += 1) {
-        byteFromBase64URL(str3.charCodeAt(i), b64State, byteEmit);
+      for (let i = 0; i < str4.length; i += 1) {
+        byteFromBase64URL(str4.charCodeAt(i), b64State, byteEmit);
       }
       return conv.join("");
     }
@@ -36223,12 +36223,12 @@ var require_base64url = __commonJS({
       }
       throw new Error(`Unrecognized Unicode codepoint: ${codepoint.toString(16)}`);
     }
-    function stringToUTF8(str3, emit) {
-      for (let i = 0; i < str3.length; i += 1) {
-        let codepoint = str3.charCodeAt(i);
+    function stringToUTF8(str4, emit) {
+      for (let i = 0; i < str4.length; i += 1) {
+        let codepoint = str4.charCodeAt(i);
         if (codepoint > 55295 && codepoint <= 56319) {
           const highSurrogate2 = (codepoint - 55296) * 1024 & 65535;
-          const lowSurrogate = str3.charCodeAt(i + 1) - 56320 & 65535;
+          const lowSurrogate = str4.charCodeAt(i + 1) - 56320 & 65535;
           codepoint = (lowSurrogate | highSurrogate2) + 65536;
           i += 1;
         }
@@ -36268,20 +36268,20 @@ var require_base64url = __commonJS({
         }
       }
     }
-    function base64UrlToUint8Array(str3) {
+    function base64UrlToUint8Array(str4) {
       const result = [];
       const state = { queue: 0, queuedBits: 0 };
       const onByte = (byte) => {
         result.push(byte);
       };
-      for (let i = 0; i < str3.length; i += 1) {
-        byteFromBase64URL(str3.charCodeAt(i), state, onByte);
+      for (let i = 0; i < str4.length; i += 1) {
+        byteFromBase64URL(str4.charCodeAt(i), state, onByte);
       }
       return new Uint8Array(result);
     }
-    function stringToUint8Array(str3) {
+    function stringToUint8Array(str4) {
       const result = [];
-      stringToUTF8(str3, (byte) => result.push(byte));
+      stringToUTF8(str4, (byte) => result.push(byte));
       return new Uint8Array(result);
     }
     function bytesToBase64URL(bytes) {
@@ -36307,7 +36307,7 @@ var require_helpers2 = __commonJS({
     exports.generateCallbackId = generateCallbackId;
     exports.parseParametersFromURL = parseParametersFromURL;
     exports.decodeJWT = decodeJWT;
-    exports.sleep = sleep3;
+    exports.sleep = sleep4;
     exports.retryable = retryable;
     exports.generatePKCEVerifier = generatePKCEVerifier;
     exports.generatePKCEChallenge = generatePKCEChallenge;
@@ -36445,7 +36445,7 @@ var require_helpers2 = __commonJS({
       };
       return data2;
     }
-    async function sleep3(time3) {
+    async function sleep4(time3) {
       return await new Promise((accept) => {
         setTimeout(() => accept(null), time3);
       });
@@ -36560,8 +36560,8 @@ var require_helpers2 = __commonJS({
       }
     }
     var UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-    function validateUUID(str3) {
-      if (!UUID_REGEX.test(str3)) {
+    function validateUUID(str4) {
+      if (!UUID_REGEX.test(str4)) {
         throw new Error("@supabase/auth-js: Expected parameter to be UUID but is not");
       }
     }
@@ -43096,7 +43096,7 @@ var require_GoTrueClient = __commonJS({
           try {
             await this._acquireLock(0, async () => {
               try {
-                const now = Date.now();
+                const now2 = Date.now();
                 try {
                   return await this._useSession(async (result) => {
                     const { data: { session } } = result;
@@ -43104,7 +43104,7 @@ var require_GoTrueClient = __commonJS({
                       this._debug("#_autoRefreshTokenTick()", "no session");
                       return;
                     }
-                    const expiresInTicks = Math.floor((session.expires_at * 1e3 - now) / constants_1.AUTO_REFRESH_TICK_DURATION_MS);
+                    const expiresInTicks = Math.floor((session.expires_at * 1e3 - now2) / constants_1.AUTO_REFRESH_TICK_DURATION_MS);
                     this._debug("#_autoRefreshTokenTick()", `access token expires in ${expiresInTicks} ticks, a tick lasts ${constants_1.AUTO_REFRESH_TICK_DURATION_MS}ms, refresh threshold is ${constants_1.AUTO_REFRESH_TICK_THRESHOLD} ticks`);
                     if (expiresInTicks <= constants_1.AUTO_REFRESH_TICK_THRESHOLD) {
                       await this._callRefreshToken(session.refresh_token);
@@ -43131,7 +43131,7 @@ var require_GoTrueClient = __commonJS({
           return;
         }
         try {
-          const now = Date.now();
+          const now2 = Date.now();
           try {
             await this._useSession(async (result) => {
               const { data: { session } } = result;
@@ -43139,7 +43139,7 @@ var require_GoTrueClient = __commonJS({
                 this._debug("#_autoRefreshTokenTick()", "no session");
                 return;
               }
-              const expiresInTicks = Math.floor((session.expires_at * 1e3 - now) / constants_1.AUTO_REFRESH_TICK_DURATION_MS);
+              const expiresInTicks = Math.floor((session.expires_at * 1e3 - now2) / constants_1.AUTO_REFRESH_TICK_DURATION_MS);
               this._debug("#_autoRefreshTokenTick()", `access token expires in ${expiresInTicks} ticks, a tick lasts ${constants_1.AUTO_REFRESH_TICK_DURATION_MS}ms, refresh threshold is ${constants_1.AUTO_REFRESH_TICK_THRESHOLD} ticks`);
               if (expiresInTicks <= constants_1.AUTO_REFRESH_TICK_THRESHOLD) {
                 await this._callRefreshToken(session.refresh_token);
@@ -43631,9 +43631,9 @@ var require_GoTrueClient = __commonJS({
         if (jwk) {
           return jwk;
         }
-        const now = Date.now();
+        const now2 = Date.now();
         jwk = this.jwks.keys.find((key) => key.kid === kid);
-        if (jwk && this.jwks_cached_at + constants_1.JWKS_TTL > now) {
+        if (jwk && this.jwks_cached_at + constants_1.JWKS_TTL > now2) {
           return jwk;
         }
         const { data: data2, error: error63 } = await (0, fetch_1._request)(this.fetch, "GET", `${this.url}/.well-known/jwks.json`, {
@@ -43646,7 +43646,7 @@ var require_GoTrueClient = __commonJS({
           return null;
         }
         this.jwks = data2;
-        this.jwks_cached_at = now;
+        this.jwks_cached_at = now2;
         jwk = data2.keys.find((key) => key.kid === kid);
         if (!jwk) {
           return null;
@@ -45066,10 +45066,10 @@ var require_redaction = __commonJS({
     var strict = false;
     function redaction(opts, serialize3) {
       const { paths, censor, remove: remove3 } = handle(opts);
-      const shape = paths.reduce((o, str3) => {
+      const shape = paths.reduce((o, str4) => {
         rx.lastIndex = 0;
-        const first2 = rx.exec(str3);
-        const next2 = rx.exec(str3);
+        const first2 = rx.exec(str4);
+        const next2 = rx.exec(str4);
         let ns = first2[1] !== void 0 ? first2[1].replace(/^(?:"|'|`)(.*)(?:"|'|`)$/, "$1") : first2[0];
         if (ns === "*") {
           ns = wildcardFirstSym;
@@ -45082,7 +45082,7 @@ var require_redaction = __commonJS({
           return o;
         }
         const { index: index2 } = next2;
-        const nextPath = `${str3.substr(index2, str3.length - 1)}`;
+        const nextPath = `${str4.substr(index2, str4.length - 1)}`;
         o[ns] = o[ns] || [];
         if (ns !== wildcardFirstSym && o[ns].length === 0) {
           o[ns].push(...o[wildcardFirstSym] || []);
@@ -45198,7 +45198,7 @@ var require_quick_format_unescaped = __commonJS({
       }
       var argLen = args.length;
       if (argLen === 0) return f;
-      var str3 = "";
+      var str4 = "";
       var a = 1 - offset;
       var lastPos = -1;
       var flen = f && f.length || 0;
@@ -45213,8 +45213,8 @@ var require_quick_format_unescaped = __commonJS({
                 break;
               if (args[a] == null) break;
               if (lastPos < i)
-                str3 += f.slice(lastPos, i);
-              str3 += Number(args[a]);
+                str4 += f.slice(lastPos, i);
+              str4 += Number(args[a]);
               lastPos = i + 2;
               i++;
               break;
@@ -45223,8 +45223,8 @@ var require_quick_format_unescaped = __commonJS({
                 break;
               if (args[a] == null) break;
               if (lastPos < i)
-                str3 += f.slice(lastPos, i);
-              str3 += Math.floor(Number(args[a]));
+                str4 += f.slice(lastPos, i);
+              str4 += Math.floor(Number(args[a]));
               lastPos = i + 2;
               i++;
               break;
@@ -45237,21 +45237,21 @@ var require_quick_format_unescaped = __commonJS({
                 break;
               if (args[a] === void 0) break;
               if (lastPos < i)
-                str3 += f.slice(lastPos, i);
+                str4 += f.slice(lastPos, i);
               var type = typeof args[a];
               if (type === "string") {
-                str3 += "'" + args[a] + "'";
+                str4 += "'" + args[a] + "'";
                 lastPos = i + 2;
                 i++;
                 break;
               }
               if (type === "function") {
-                str3 += args[a].name || "<anonymous>";
+                str4 += args[a].name || "<anonymous>";
                 lastPos = i + 2;
                 i++;
                 break;
               }
-              str3 += ss(args[a]);
+              str4 += ss(args[a]);
               lastPos = i + 2;
               i++;
               break;
@@ -45259,15 +45259,15 @@ var require_quick_format_unescaped = __commonJS({
               if (a >= argLen)
                 break;
               if (lastPos < i)
-                str3 += f.slice(lastPos, i);
-              str3 += String(args[a]);
+                str4 += f.slice(lastPos, i);
+              str4 += String(args[a]);
               lastPos = i + 2;
               i++;
               break;
             case 37:
               if (lastPos < i)
-                str3 += f.slice(lastPos, i);
-              str3 += "%";
+                str4 += f.slice(lastPos, i);
+              str4 += "%";
               lastPos = i + 2;
               i++;
               a--;
@@ -45280,9 +45280,9 @@ var require_quick_format_unescaped = __commonJS({
       if (lastPos === -1)
         return f;
       else if (lastPos < flen) {
-        str3 += f.slice(lastPos);
+        str4 += f.slice(lastPos);
       }
-      return str3;
+      return str4;
     }
   }
 });
@@ -45292,7 +45292,7 @@ var require_atomic_sleep = __commonJS({
   "../../node_modules/.pnpm/atomic-sleep@1.0.0/node_modules/atomic-sleep/index.js"(exports, module) {
     "use strict";
     if (typeof SharedArrayBuffer !== "undefined" && typeof Atomics !== "undefined") {
-      let sleep3 = function(ms) {
+      let sleep4 = function(ms) {
         const valid = ms > 0 && ms < Infinity;
         if (valid === false) {
           if (typeof ms !== "number" && typeof ms !== "bigint") {
@@ -45303,9 +45303,9 @@ var require_atomic_sleep = __commonJS({
         Atomics.wait(nil, 0, 0, Number(ms));
       };
       const nil = new Int32Array(new SharedArrayBuffer(4));
-      module.exports = sleep3;
+      module.exports = sleep4;
     } else {
-      let sleep3 = function(ms) {
+      let sleep4 = function(ms) {
         const valid = ms > 0 && ms < Infinity;
         if (valid === false) {
           if (typeof ms !== "number" && typeof ms !== "bigint") {
@@ -45317,7 +45317,7 @@ var require_atomic_sleep = __commonJS({
         while (target > Date.now()) {
         }
       };
-      module.exports = sleep3;
+      module.exports = sleep4;
     }
   }
 });
@@ -45330,7 +45330,7 @@ var require_sonic_boom = __commonJS({
     var EventEmitter = __require("events");
     var inherits = __require("util").inherits;
     var path3 = __require("path");
-    var sleep3 = require_atomic_sleep();
+    var sleep4 = require_atomic_sleep();
     var assert2 = __require("assert");
     var BUSY_WRITE_TIMEOUT = 100;
     var kEmptyBuffer = Buffer.allocUnsafe(0);
@@ -45476,7 +45476,7 @@ var require_sonic_boom = __commonJS({
           if ((err.code === "EAGAIN" || err.code === "EBUSY") && this.retryEAGAIN(err, this._writingBuf.length, this._len - this._writingBuf.length)) {
             if (this.sync) {
               try {
-                sleep3(BUSY_WRITE_TIMEOUT);
+                sleep4(BUSY_WRITE_TIMEOUT);
                 this.release(void 0, 0);
               } catch (err2) {
                 this.release(err2);
@@ -45789,7 +45789,7 @@ var require_sonic_boom = __commonJS({
           if (shouldRetry2 && !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
             throw err;
           }
-          sleep3(BUSY_WRITE_TIMEOUT);
+          sleep4(BUSY_WRITE_TIMEOUT);
         }
       }
       try {
@@ -45826,7 +45826,7 @@ var require_sonic_boom = __commonJS({
           if (shouldRetry2 && !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
             throw err;
           }
-          sleep3(BUSY_WRITE_TIMEOUT);
+          sleep4(BUSY_WRITE_TIMEOUT);
         }
       }
     }
@@ -46079,7 +46079,7 @@ var require_wait = __commonJS({
         return;
       }
       let prior = current2;
-      const check3 = (backoff) => {
+      const check4 = (backoff) => {
         if (Date.now() > max) {
           done(null, "timed-out");
         } else {
@@ -46087,7 +46087,7 @@ var require_wait = __commonJS({
             prior = current2;
             current2 = Atomics.load(state, index2);
             if (current2 === prior) {
-              check3(backoff >= MAX_TIMEOUT ? MAX_TIMEOUT : backoff * 2);
+              check4(backoff >= MAX_TIMEOUT ? MAX_TIMEOUT : backoff * 2);
             } else {
               if (current2 === expected) done(null, "ok");
               else done(null, "not-equal");
@@ -46095,7 +46095,7 @@ var require_wait = __commonJS({
           }, backoff);
         }
       };
-      check3(1);
+      check4(1);
     }
     function waitDiff(state, index2, expected, timeout, done) {
       const max = Date.now() + timeout;
@@ -46104,7 +46104,7 @@ var require_wait = __commonJS({
         done(null, "ok");
         return;
       }
-      const check3 = (backoff) => {
+      const check4 = (backoff) => {
         if (Date.now() > max) {
           done(null, "timed-out");
         } else {
@@ -46113,12 +46113,12 @@ var require_wait = __commonJS({
             if (current2 !== expected) {
               done(null, "ok");
             } else {
-              check3(backoff >= MAX_TIMEOUT ? MAX_TIMEOUT : backoff * 2);
+              check4(backoff >= MAX_TIMEOUT ? MAX_TIMEOUT : backoff * 2);
             }
           }, backoff);
         }
       };
-      check3(1);
+      check4(1);
     }
     module.exports = { wait, waitDiff };
   }
@@ -46567,7 +46567,7 @@ var require_transport = __commonJS({
     var { createRequire } = __require("module");
     var getCallers = require_caller();
     var { join, isAbsolute, sep } = __require("node:path");
-    var sleep3 = require_atomic_sleep();
+    var sleep4 = require_atomic_sleep();
     var onExit = require_on_exit_leak_free();
     var ThreadStream = require_thread_stream();
     function setupOnExit(stream) {
@@ -46601,7 +46601,7 @@ var require_transport = __commonJS({
           return;
         }
         stream.flushSync();
-        sleep3(100);
+        sleep4(100);
         stream.end();
       }
       return stream;
@@ -46768,38 +46768,38 @@ var require_tools = __commonJS({
         }
       }
     }
-    function asString(str3) {
+    function asString(str4) {
       let result = "";
       let last2 = 0;
       let found = false;
       let point = 255;
-      const l = str3.length;
+      const l = str4.length;
       if (l > 100) {
-        return JSON.stringify(str3);
+        return JSON.stringify(str4);
       }
       for (var i = 0; i < l && point >= 32; i++) {
-        point = str3.charCodeAt(i);
+        point = str4.charCodeAt(i);
         if (point === 34 || point === 92) {
-          result += str3.slice(last2, i) + "\\";
+          result += str4.slice(last2, i) + "\\";
           last2 = i;
           found = true;
         }
       }
       if (!found) {
-        result = str3;
+        result = str4;
       } else {
-        result += str3.slice(last2);
+        result += str4.slice(last2);
       }
-      return point < 32 ? JSON.stringify(str3) : '"' + result + '"';
+      return point < 32 ? JSON.stringify(str4) : '"' + result + '"';
     }
-    function asJson(obj, msg, num, time3) {
+    function asJson(obj, msg, num2, time3) {
       if (asJsonChan.hasSubscribers === false) {
-        return _asJson.call(this, obj, msg, num, time3);
+        return _asJson.call(this, obj, msg, num2, time3);
       }
       const store = { instance: this, arguments };
-      return asJsonChan.traceSync(_asJson, store, this, obj, msg, num, time3);
+      return asJsonChan.traceSync(_asJson, store, this, obj, msg, num2, time3);
     }
-    function _asJson(obj, msg, num, time3) {
+    function _asJson(obj, msg, num2, time3) {
       const stringify4 = this[stringifySym];
       const stringifySafe = this[stringifySafeSym];
       const stringifiers = this[stringifiersSym];
@@ -46809,7 +46809,7 @@ var require_tools = __commonJS({
       const formatters2 = this[formattersSym];
       const messageKey = this[messageKeySym];
       const errorKey = this[errorKeySym];
-      let data2 = this[lsCacheSym][num] + time3;
+      let data2 = this[lsCacheSym][num2] + time3;
       data2 = data2 + chindings;
       let value;
       if (formatters2.log) {
@@ -46880,15 +46880,15 @@ var require_tools = __commonJS({
         return data2 + propStr + msgStr + end2;
       }
     }
-    function asChindings(instance, bindings) {
+    function asChindings(instance2, bindings) {
       let value;
-      let data2 = instance[chindingsSym];
-      const stringify4 = instance[stringifySym];
-      const stringifySafe = instance[stringifySafeSym];
-      const stringifiers = instance[stringifiersSym];
+      let data2 = instance2[chindingsSym];
+      const stringify4 = instance2[stringifySym];
+      const stringifySafe = instance2[stringifySafeSym];
+      const stringifiers = instance2[stringifiersSym];
       const wildcardStringifier = stringifiers[wildcardFirstSym];
-      const serializers = instance[serializersSym];
-      const formatter = instance[formattersSym].bindings;
+      const serializers = instance2[serializersSym];
+      const formatter = instance2[formattersSym].bindings;
       bindings = formatter(bindings);
       for (const key in bindings) {
         value = bindings[key];
@@ -46941,7 +46941,7 @@ var require_tools = __commonJS({
       }
     }
     function createArgsNormalizer(defaultOptions2) {
-      return function normalizeArgs(instance, caller, opts = {}, stream) {
+      return function normalizeArgs(instance2, caller, opts = {}, stream) {
         if (typeof opts === "string") {
           stream = buildSafeSonicBoom({ dest: opts });
           opts = {};
@@ -47093,16 +47093,16 @@ var require_levels = __commonJS({
       o[k] = '{"level":' + Number(k);
       return o;
     }, {});
-    function genLsCache(instance) {
-      const formatter = instance[formattersSym].level;
-      const { labels } = instance.levels;
+    function genLsCache(instance2) {
+      const formatter = instance2[formattersSym].level;
+      const { labels } = instance2.levels;
       const cache2 = {};
       for (const label in labels) {
         const level = formatter(labels[label], Number(label));
         cache2[label] = JSON.stringify(level).slice(0, -1);
       }
-      instance[lsCacheSym] = cache2;
-      return instance;
+      instance2[lsCacheSym] = cache2;
+      return instance2;
     }
     function isStandardLevel(level, useOnlyCustomLevels) {
       if (useOnlyCustomLevels) {
@@ -47348,50 +47348,50 @@ var require_proto = __commonJS({
       }
       const serializers = this[serializersSym];
       const formatters2 = this[formattersSym];
-      const instance = Object.create(this);
+      const instance2 = Object.create(this);
       if (options == null) {
-        if (instance[formattersSym].bindings !== resetChildingsFormatter) {
-          instance[formattersSym] = buildFormatters(
+        if (instance2[formattersSym].bindings !== resetChildingsFormatter) {
+          instance2[formattersSym] = buildFormatters(
             formatters2.level,
             resetChildingsFormatter,
             formatters2.log
           );
         }
-        instance[chindingsSym] = asChindings(instance, bindings2);
-        instance[setLevelSym](this.level);
+        instance2[chindingsSym] = asChindings(instance2, bindings2);
+        instance2[setLevelSym](this.level);
         if (this.onChild !== noop2) {
-          this.onChild(instance);
+          this.onChild(instance2);
         }
-        return instance;
+        return instance2;
       }
       if (options.hasOwnProperty("serializers") === true) {
-        instance[serializersSym] = /* @__PURE__ */ Object.create(null);
+        instance2[serializersSym] = /* @__PURE__ */ Object.create(null);
         for (const k in serializers) {
-          instance[serializersSym][k] = serializers[k];
+          instance2[serializersSym][k] = serializers[k];
         }
         const parentSymbols = Object.getOwnPropertySymbols(serializers);
         for (var i = 0; i < parentSymbols.length; i++) {
           const ks = parentSymbols[i];
-          instance[serializersSym][ks] = serializers[ks];
+          instance2[serializersSym][ks] = serializers[ks];
         }
         for (const bk in options.serializers) {
-          instance[serializersSym][bk] = options.serializers[bk];
+          instance2[serializersSym][bk] = options.serializers[bk];
         }
         const bindingsSymbols = Object.getOwnPropertySymbols(options.serializers);
         for (var bi = 0; bi < bindingsSymbols.length; bi++) {
           const bks = bindingsSymbols[bi];
-          instance[serializersSym][bks] = options.serializers[bks];
+          instance2[serializersSym][bks] = options.serializers[bks];
         }
-      } else instance[serializersSym] = serializers;
+      } else instance2[serializersSym] = serializers;
       if (options.hasOwnProperty("formatters")) {
         const { level, bindings: chindings, log: log2 } = options.formatters;
-        instance[formattersSym] = buildFormatters(
+        instance2[formattersSym] = buildFormatters(
           level || formatters2.level,
           chindings || resetChildingsFormatter,
           log2 || formatters2.log
         );
       } else {
-        instance[formattersSym] = buildFormatters(
+        instance2[formattersSym] = buildFormatters(
           formatters2.level,
           resetChildingsFormatter,
           formatters2.log
@@ -47399,25 +47399,25 @@ var require_proto = __commonJS({
       }
       if (options.hasOwnProperty("customLevels") === true) {
         assertNoLevelCollisions(this.levels, options.customLevels);
-        instance.levels = mappings(options.customLevels, instance[useOnlyCustomLevelsSym]);
-        genLsCache(instance);
+        instance2.levels = mappings(options.customLevels, instance2[useOnlyCustomLevelsSym]);
+        genLsCache(instance2);
       }
       if (typeof options.redact === "object" && options.redact !== null || Array.isArray(options.redact)) {
-        instance.redact = options.redact;
-        const stringifiers = redaction(instance.redact, stringify3);
+        instance2.redact = options.redact;
+        const stringifiers = redaction(instance2.redact, stringify3);
         const formatOpts = { stringify: stringifiers[redactFmtSym] };
-        instance[stringifySym] = stringify3;
-        instance[stringifiersSym] = stringifiers;
-        instance[formatOptsSym] = formatOpts;
+        instance2[stringifySym] = stringify3;
+        instance2[stringifiersSym] = stringifiers;
+        instance2[formatOptsSym] = formatOpts;
       }
       if (typeof options.msgPrefix === "string") {
-        instance[msgPrefixSym] = (this[msgPrefixSym] || "") + options.msgPrefix;
+        instance2[msgPrefixSym] = (this[msgPrefixSym] || "") + options.msgPrefix;
       }
-      instance[chindingsSym] = asChindings(instance, bindings2);
+      instance2[chindingsSym] = asChindings(instance2, bindings2);
       const childLevel = options.level || this.level;
-      instance[setLevelSym](childLevel);
-      this.onChild(instance);
-      return instance;
+      instance2[setLevelSym](childLevel);
+      this.onChild(instance2);
+      return instance2;
     }
     function bindings() {
       const chindings = this[chindingsSym];
@@ -47435,7 +47435,7 @@ var require_proto = __commonJS({
     function defaultMixinMergeStrategy(mergeObject, mixinObject) {
       return Object.assign(mixinObject, mergeObject);
     }
-    function write(_obj, msg, num) {
+    function write(_obj, msg, num2) {
       const t = this[timeSym]();
       const mixin = this[mixinSym];
       const errorKey = this[errorKeySym];
@@ -47457,12 +47457,12 @@ var require_proto = __commonJS({
         }
       }
       if (mixin) {
-        obj = mixinMergeStrategy(obj, mixin(obj, num, this));
+        obj = mixinMergeStrategy(obj, mixin(obj, num2, this));
       }
-      const s = this[asJsonSym](obj, msg, num, t);
+      const s = this[asJsonSym](obj, msg, num2, t);
       const stream = this[streamSym];
       if (stream[needsMetadataGsym] === true) {
-        stream.lastLevel = num;
+        stream.lastLevel = num2;
         stream.lastObj = obj;
         stream.lastMsg = msg;
         stream.lastTime = t.slice(this[timeSliceIndexSym]);
@@ -47495,11 +47495,11 @@ var require_safe_stable_stringify = __commonJS({
     exports.configure = configure;
     module.exports = stringify3;
     var strEscapeSequencesRegExp = /[\u0000-\u001f\u0022\u005c\ud800-\udfff]/;
-    function strEscape(str3) {
-      if (str3.length < 5e3 && !strEscapeSequencesRegExp.test(str3)) {
-        return `"${str3}"`;
+    function strEscape(str4) {
+      if (str4.length < 5e3 && !strEscapeSequencesRegExp.test(str4)) {
+        return `"${str4}"`;
       }
-      return JSON.stringify(str3);
+      return JSON.stringify(str4);
     }
     function sort(array2, comparator) {
       if (array2.length > 200 || comparator) {
@@ -47626,8 +47626,8 @@ var require_safe_stable_stringify = __commonJS({
     }
     function configure(options) {
       options = { ...options };
-      const fail2 = getStrictOption(options);
-      if (fail2) {
+      const fail3 = getStrictOption(options);
+      if (fail3) {
         if (options.bigint === void 0) {
           options.bigint = false;
         }
@@ -47738,7 +47738,7 @@ ${originalIndentation}`;
             return `{${res}}`;
           }
           case "number":
-            return isFinite(value) ? String(value) : fail2 ? fail2(value) : "null";
+            return isFinite(value) ? String(value) : fail3 ? fail3(value) : "null";
           case "boolean":
             return value === true ? "true" : "false";
           case "undefined":
@@ -47749,7 +47749,7 @@ ${originalIndentation}`;
             }
           // fallthrough
           default:
-            return fail2 ? fail2(value) : void 0;
+            return fail3 ? fail3(value) : void 0;
         }
       }
       function stringifyArrayReplacer(key, value, stack, replacer, spacer, indentation) {
@@ -47829,7 +47829,7 @@ ${originalIndentation}`;
             return `{${res}}`;
           }
           case "number":
-            return isFinite(value) ? String(value) : fail2 ? fail2(value) : "null";
+            return isFinite(value) ? String(value) : fail3 ? fail3(value) : "null";
           case "boolean":
             return value === true ? "true" : "false";
           case "undefined":
@@ -47840,7 +47840,7 @@ ${originalIndentation}`;
             }
           // fallthrough
           default:
-            return fail2 ? fail2(value) : void 0;
+            return fail3 ? fail3(value) : void 0;
         }
       }
       function stringifyIndent(key, value, stack, spacer, indentation) {
@@ -47941,7 +47941,7 @@ ${originalIndentation}`;
             return `{${res}}`;
           }
           case "number":
-            return isFinite(value) ? String(value) : fail2 ? fail2(value) : "null";
+            return isFinite(value) ? String(value) : fail3 ? fail3(value) : "null";
           case "boolean":
             return value === true ? "true" : "false";
           case "undefined":
@@ -47952,7 +47952,7 @@ ${originalIndentation}`;
             }
           // fallthrough
           default:
-            return fail2 ? fail2(value) : void 0;
+            return fail3 ? fail3(value) : void 0;
         }
       }
       function stringifySimple(key, value, stack) {
@@ -48037,7 +48037,7 @@ ${originalIndentation}`;
             return `{${res}}`;
           }
           case "number":
-            return isFinite(value) ? String(value) : fail2 ? fail2(value) : "null";
+            return isFinite(value) ? String(value) : fail3 ? fail3(value) : "null";
           case "boolean":
             return value === true ? "true" : "false";
           case "undefined":
@@ -48048,7 +48048,7 @@ ${originalIndentation}`;
             }
           // fallthrough
           default:
-            return fail2 ? fail2(value) : void 0;
+            return fail3 ? fail3(value) : void 0;
         }
       }
       function stringify4(value, replacer, space) {
@@ -48334,8 +48334,8 @@ var require_pino = __commonJS({
     var normalize3 = createArgsNormalizer(defaultOptions2);
     var serializers = Object.assign(/* @__PURE__ */ Object.create(null), stdSerializers);
     function pino2(...args) {
-      const instance = {};
-      const { opts, stream } = normalize3(instance, caller(), ...args);
+      const instance2 = {};
+      const { opts, stream } = normalize3(instance2, caller(), ...args);
       if (opts.level && typeof opts.level === "string" && DEFAULT_LEVELS[opts.level.toLowerCase()] !== void 0) opts.level = opts.level.toLowerCase();
       const {
         redact,
@@ -48403,7 +48403,7 @@ var require_pino = __commonJS({
       }
       assertLevelComparison(levelComparison);
       const levelCompFunc = genLevelComparison(levelComparison);
-      Object.assign(instance, {
+      Object.assign(instance2, {
         levels,
         [levelCompSym]: levelCompFunc,
         [useOnlyCustomLevelsSym]: useOnlyCustomLevels,
@@ -48430,10 +48430,10 @@ var require_pino = __commonJS({
         onChild,
         [msgPrefixSym]: msgPrefix
       });
-      Object.setPrototypeOf(instance, proto());
-      genLsCache(instance);
-      instance[setLevelSym](level);
-      return instance;
+      Object.setPrototypeOf(instance2, proto());
+      genLsCache(instance2);
+      instance2[setLevelSym](level);
+      return instance2;
     }
     module.exports = pino2;
     module.exports.destination = (dest = process.stdout.fd) => {
@@ -48795,8 +48795,8 @@ var require_parse2 = __commonJS({
         String.fromCharCode(high >> 10 | 55296, high & 1023 | 56320)
       );
     }
-    function unescapeCSS(str3) {
-      return str3.replace(reEscape, funescape);
+    function unescapeCSS(str4) {
+      return str4.replace(reEscape, funescape);
     }
     function isQuote(c) {
       return c === 39 || c === 34;
@@ -48814,7 +48814,7 @@ var require_parse2 = __commonJS({
     }
     exports.parse = parse11;
     function parseSelector(subselects2, selector, selectorIndex) {
-      var tokens = [];
+      var tokens2 = [];
       function getName3(offset) {
         var match = selector.slice(selectorIndex + offset).match(reName);
         if (!match) {
@@ -48853,20 +48853,20 @@ var require_parse2 = __commonJS({
         return (slashCount & 1) === 1;
       }
       function ensureNotTraversal() {
-        if (tokens.length > 0 && isTraversal3(tokens[tokens.length - 1])) {
+        if (tokens2.length > 0 && isTraversal3(tokens2[tokens2.length - 1])) {
           throw new Error("Did not expect successive traversals.");
         }
       }
       function addTraversal(type) {
-        if (tokens.length > 0 && tokens[tokens.length - 1].type === types_1.SelectorType.Descendant) {
-          tokens[tokens.length - 1].type = type;
+        if (tokens2.length > 0 && tokens2[tokens2.length - 1].type === types_1.SelectorType.Descendant) {
+          tokens2[tokens2.length - 1].type = type;
           return;
         }
         ensureNotTraversal();
-        tokens.push({ type });
+        tokens2.push({ type });
       }
       function addSpecialAttribute(name, action2) {
-        tokens.push({
+        tokens2.push({
           type: types_1.SelectorType.Attribute,
           name,
           action: action2,
@@ -48876,13 +48876,13 @@ var require_parse2 = __commonJS({
         });
       }
       function finalizeSubselector() {
-        if (tokens.length && tokens[tokens.length - 1].type === types_1.SelectorType.Descendant) {
-          tokens.pop();
+        if (tokens2.length && tokens2[tokens2.length - 1].type === types_1.SelectorType.Descendant) {
+          tokens2.pop();
         }
-        if (tokens.length === 0) {
+        if (tokens2.length === 0) {
           throw new Error("Empty sub-selector");
         }
-        subselects2.push(tokens);
+        subselects2.push(tokens2);
       }
       stripWhitespace(0);
       if (selector.length === selectorIndex) {
@@ -48897,9 +48897,9 @@ var require_parse2 = __commonJS({
           case 10:
           case 12:
           case 13: {
-            if (tokens.length === 0 || tokens[0].type !== types_1.SelectorType.Descendant) {
+            if (tokens2.length === 0 || tokens2[0].type !== types_1.SelectorType.Descendant) {
               ensureNotTraversal();
-              tokens.push({ type: types_1.SelectorType.Descendant });
+              tokens2.push({ type: types_1.SelectorType.Descendant });
             }
             stripWhitespace(1);
             break;
@@ -49006,12 +49006,12 @@ var require_parse2 = __commonJS({
               namespace,
               ignoreCase
             };
-            tokens.push(attributeSelector);
+            tokens2.push(attributeSelector);
             break;
           }
           case 58: {
             if (selector.charCodeAt(selectorIndex + 1) === 58) {
-              tokens.push({
+              tokens2.push({
                 type: types_1.SelectorType.PseudoElement,
                 name: getName3(2).toLowerCase(),
                 data: selector.charCodeAt(selectorIndex) === 40 ? readValueWithParenthesis() : null
@@ -49042,12 +49042,12 @@ var require_parse2 = __commonJS({
                 data2 = unescapeCSS(data2);
               }
             }
-            tokens.push({ type: types_1.SelectorType.Pseudo, name: name_2, data: data2 });
+            tokens2.push({ type: types_1.SelectorType.Pseudo, name: name_2, data: data2 });
             break;
           }
           case 44: {
             finalizeSubselector();
-            tokens = [];
+            tokens2 = [];
             stripWhitespace(1);
             break;
           }
@@ -49058,7 +49058,7 @@ var require_parse2 = __commonJS({
                 throw new Error("Comment was not terminated");
               }
               selectorIndex = endIndex + 2;
-              if (tokens.length === 0) {
+              if (tokens2.length === 0) {
                 stripWhitespace(0);
               }
               break;
@@ -49089,7 +49089,7 @@ var require_parse2 = __commonJS({
                 name_3 = getName3(1);
               }
             }
-            tokens.push(name_3 === "*" ? { type: types_1.SelectorType.Universal, namespace } : { type: types_1.SelectorType.Tag, name: name_3, namespace });
+            tokens2.push(name_3 === "*" ? { type: types_1.SelectorType.Universal, namespace } : { type: types_1.SelectorType.Tag, name: name_3, namespace });
           }
         }
       }
@@ -49209,16 +49209,16 @@ var require_stringify2 = __commonJS({
     function getNamespace(namespace) {
       return namespace !== null ? "".concat(namespace === "*" ? "*" : escapeName(namespace, charsToEscapeInName), "|") : "";
     }
-    function escapeName(str3, charsToEscape) {
+    function escapeName(str4, charsToEscape) {
       var lastIdx = 0;
       var ret = "";
-      for (var i = 0; i < str3.length; i++) {
-        if (charsToEscape.has(str3.charCodeAt(i))) {
-          ret += "".concat(str3.slice(lastIdx, i), "\\").concat(str3.charAt(i));
+      for (var i = 0; i < str4.length; i++) {
+        if (charsToEscape.has(str4.charCodeAt(i))) {
+          ret += "".concat(str4.slice(lastIdx, i), "\\").concat(str4.charAt(i));
           lastIdx = i + 1;
         }
       }
-      return ret.length > 0 ? ret + str3.slice(lastIdx) : str3;
+      return ret.length > 0 ? ret + str4.slice(lastIdx) : str4;
     }
   }
 });
@@ -49284,12 +49284,12 @@ var require_bom_handling2 = __commonJS({
       this.encoder = encoder2;
       this.addBOM = true;
     }
-    PrependBOMWrapper.prototype.write = function(str3) {
+    PrependBOMWrapper.prototype.write = function(str4) {
       if (this.addBOM) {
-        str3 = BOMChar + str3;
+        str4 = BOMChar + str4;
         this.addBOM = false;
       }
-      return this.encoder.write(str3);
+      return this.encoder.write(str4);
     };
     PrependBOMWrapper.prototype.end = function() {
       return this.encoder.end();
@@ -49371,30 +49371,30 @@ var require_internal2 = __commonJS({
     function InternalEncoder(options, codec2) {
       this.enc = codec2.enc;
     }
-    InternalEncoder.prototype.write = function(str3) {
-      return Buffer7.from(str3, this.enc);
+    InternalEncoder.prototype.write = function(str4) {
+      return Buffer7.from(str4, this.enc);
     };
     InternalEncoder.prototype.end = function() {
     };
     function InternalEncoderBase64(options, codec2) {
       this.prevStr = "";
     }
-    InternalEncoderBase64.prototype.write = function(str3) {
-      str3 = this.prevStr + str3;
-      var completeQuads = str3.length - str3.length % 4;
-      this.prevStr = str3.slice(completeQuads);
-      str3 = str3.slice(0, completeQuads);
-      return Buffer7.from(str3, "base64");
+    InternalEncoderBase64.prototype.write = function(str4) {
+      str4 = this.prevStr + str4;
+      var completeQuads = str4.length - str4.length % 4;
+      this.prevStr = str4.slice(completeQuads);
+      str4 = str4.slice(0, completeQuads);
+      return Buffer7.from(str4, "base64");
     };
     InternalEncoderBase64.prototype.end = function() {
       return Buffer7.from(this.prevStr, "base64");
     };
     function InternalEncoderCesu8(options, codec2) {
     }
-    InternalEncoderCesu8.prototype.write = function(str3) {
-      var buf = Buffer7.alloc(str3.length * 3), bufIdx = 0;
-      for (var i = 0; i < str3.length; i++) {
-        var charCode = str3.charCodeAt(i);
+    InternalEncoderCesu8.prototype.write = function(str4) {
+      var buf = Buffer7.alloc(str4.length * 3), bufIdx = 0;
+      for (var i = 0; i < str4.length; i++) {
+        var charCode = str4.charCodeAt(i);
         if (charCode < 128)
           buf[bufIdx++] = charCode;
         else if (charCode < 2048) {
@@ -49491,8 +49491,8 @@ var require_utf322 = __commonJS({
       this.isLE = codec2.isLE;
       this.highSurrogate = 0;
     }
-    Utf32Encoder.prototype.write = function(str3) {
-      var src = Buffer7.from(str3, "ucs2");
+    Utf32Encoder.prototype.write = function(str4) {
+      var src = Buffer7.from(str4, "ucs2");
       var dst = Buffer7.alloc(src.length * 2);
       var write32 = this.isLE ? dst.writeUInt32LE : dst.writeUInt32BE;
       var offset = 0;
@@ -49607,8 +49607,8 @@ var require_utf322 = __commonJS({
         options.addBOM = true;
       this.encoder = codec2.iconv.getEncoder(options.defaultEncoding || "utf-32le", options);
     }
-    Utf32AutoEncoder.prototype.write = function(str3) {
-      return this.encoder.write(str3);
+    Utf32AutoEncoder.prototype.write = function(str4) {
+      return this.encoder.write(str4);
     };
     Utf32AutoEncoder.prototype.end = function() {
       return this.encoder.end();
@@ -49702,8 +49702,8 @@ var require_utf162 = __commonJS({
     Utf16BECodec.prototype.bomAware = true;
     function Utf16BEEncoder() {
     }
-    Utf16BEEncoder.prototype.write = function(str3) {
-      var buf = Buffer7.from(str3, "ucs2");
+    Utf16BEEncoder.prototype.write = function(str4) {
+      var buf = Buffer7.from(str4, "ucs2");
       for (var i = 0; i < buf.length; i += 2) {
         var tmp = buf[i];
         buf[i] = buf[i + 1];
@@ -49748,8 +49748,8 @@ var require_utf162 = __commonJS({
         options.addBOM = true;
       this.encoder = codec2.iconv.getEncoder("utf-16le", options);
     }
-    Utf16Encoder.prototype.write = function(str3) {
-      return this.encoder.write(str3);
+    Utf16Encoder.prototype.write = function(str4) {
+      return this.encoder.write(str4);
     };
     Utf16Encoder.prototype.end = function() {
       return this.encoder.end();
@@ -49840,8 +49840,8 @@ var require_utf72 = __commonJS({
     function Utf7Encoder(options, codec2) {
       this.iconv = codec2.iconv;
     }
-    Utf7Encoder.prototype.write = function(str3) {
-      return Buffer7.from(str3.replace(nonDirectChars, function(chunk) {
+    Utf7Encoder.prototype.write = function(str4) {
+      return Buffer7.from(str4.replace(nonDirectChars, function(chunk) {
         return "+" + (chunk === "+" ? "" : this.iconv.encode(chunk, "utf16-be").toString("base64").replace(/=+$/, "")) + "-";
       }.bind(this)));
     };
@@ -49919,10 +49919,10 @@ var require_utf72 = __commonJS({
       this.base64Accum = Buffer7.alloc(6);
       this.base64AccumIdx = 0;
     }
-    Utf7IMAPEncoder.prototype.write = function(str3) {
-      var inBase64 = this.inBase64, base64Accum = this.base64Accum, base64AccumIdx = this.base64AccumIdx, buf = Buffer7.alloc(str3.length * 5 + 10), bufIdx = 0;
-      for (var i2 = 0; i2 < str3.length; i2++) {
-        var uChar = str3.charCodeAt(i2);
+    Utf7IMAPEncoder.prototype.write = function(str4) {
+      var inBase64 = this.inBase64, base64Accum = this.base64Accum, base64AccumIdx = this.base64AccumIdx, buf = Buffer7.alloc(str4.length * 5 + 10), bufIdx = 0;
+      for (var i2 = 0; i2 < str4.length; i2++) {
+        var uChar = str4.charCodeAt(i2);
         if (32 <= uChar && uChar <= 126) {
           if (inBase64) {
             if (base64AccumIdx > 0) {
@@ -50052,10 +50052,10 @@ var require_sbcs_codec2 = __commonJS({
     function SBCSEncoder(options, codec2) {
       this.encodeBuf = codec2.encodeBuf;
     }
-    SBCSEncoder.prototype.write = function(str3) {
-      var buf = Buffer7.alloc(str3.length);
-      for (var i = 0; i < str3.length; i++)
-        buf[i] = this.encodeBuf[str3.charCodeAt(i)];
+    SBCSEncoder.prototype.write = function(str4) {
+      var buf = Buffer7.alloc(str4.length);
+      for (var i = 0; i < str4.length; i++)
+        buf[i] = this.encodeBuf[str4.charCodeAt(i)];
       return buf;
     };
     SBCSEncoder.prototype.end = function() {
@@ -50903,12 +50903,12 @@ var require_dbcs_codec2 = __commonJS({
       this.defaultCharSingleByte = codec2.defCharSB;
       this.gb18030 = codec2.gb18030;
     }
-    DBCSEncoder.prototype.write = function(str3) {
-      var newBuf = Buffer7.alloc(str3.length * (this.gb18030 ? 4 : 3)), leadSurrogate = this.leadSurrogate, seqObj = this.seqObj, nextChar = -1, i2 = 0, j = 0;
+    DBCSEncoder.prototype.write = function(str4) {
+      var newBuf = Buffer7.alloc(str4.length * (this.gb18030 ? 4 : 3)), leadSurrogate = this.leadSurrogate, seqObj = this.seqObj, nextChar = -1, i2 = 0, j = 0;
       while (true) {
         if (nextChar === -1) {
-          if (i2 == str3.length) break;
-          var uCode = str3.charCodeAt(i2++);
+          if (i2 == str4.length) break;
+          var uCode = str4.charCodeAt(i2++);
         } else {
           var uCode = nextChar;
           nextChar = -1;
@@ -52732,10 +52732,10 @@ var require_lib4 = __commonJS({
     iconv2.encodings = null;
     iconv2.defaultCharUnicode = "\uFFFD";
     iconv2.defaultCharSingleByte = "?";
-    iconv2.encode = function encode5(str3, encoding, options) {
-      str3 = "" + (str3 || "");
+    iconv2.encode = function encode5(str4, encoding, options) {
+      str4 = "" + (str4 || "");
       var encoder2 = iconv2.getEncoder(encoding, options);
-      var res = encoder2.write(str3);
+      var res = encoder2.write(str4);
       var trail = encoder2.end();
       return trail && trail.length > 0 ? Buffer7.concat([res, trail]) : res;
     };
@@ -53480,8 +53480,8 @@ var require_errors2 = __commonJS({
         this.name = "UndiciError";
         this.code = "UND_ERR";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kUndiciError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kUndiciError] === true;
       }
       get [kUndiciError]() {
         return true;
@@ -53495,8 +53495,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Connect Timeout Error";
         this.code = "UND_ERR_CONNECT_TIMEOUT";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kConnectTimeoutError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kConnectTimeoutError] === true;
       }
       get [kConnectTimeoutError]() {
         return true;
@@ -53510,8 +53510,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Headers Timeout Error";
         this.code = "UND_ERR_HEADERS_TIMEOUT";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kHeadersTimeoutError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kHeadersTimeoutError] === true;
       }
       get [kHeadersTimeoutError]() {
         return true;
@@ -53525,8 +53525,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Headers Overflow Error";
         this.code = "UND_ERR_HEADERS_OVERFLOW";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kHeadersOverflowError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kHeadersOverflowError] === true;
       }
       get [kHeadersOverflowError]() {
         return true;
@@ -53540,8 +53540,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Body Timeout Error";
         this.code = "UND_ERR_BODY_TIMEOUT";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kBodyTimeoutError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kBodyTimeoutError] === true;
       }
       get [kBodyTimeoutError]() {
         return true;
@@ -53555,8 +53555,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Invalid Argument Error";
         this.code = "UND_ERR_INVALID_ARG";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kInvalidArgumentError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kInvalidArgumentError] === true;
       }
       get [kInvalidArgumentError]() {
         return true;
@@ -53570,8 +53570,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Invalid Return Value Error";
         this.code = "UND_ERR_INVALID_RETURN_VALUE";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kInvalidReturnValueError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kInvalidReturnValueError] === true;
       }
       get [kInvalidReturnValueError]() {
         return true;
@@ -53585,8 +53585,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "The operation was aborted";
         this.code = "UND_ERR_ABORT";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kAbortError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kAbortError] === true;
       }
       get [kAbortError]() {
         return true;
@@ -53600,8 +53600,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Request aborted";
         this.code = "UND_ERR_ABORTED";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kRequestAbortedError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kRequestAbortedError] === true;
       }
       get [kRequestAbortedError]() {
         return true;
@@ -53615,8 +53615,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Request information";
         this.code = "UND_ERR_INFO";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kInformationalError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kInformationalError] === true;
       }
       get [kInformationalError]() {
         return true;
@@ -53630,8 +53630,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Request body length does not match content-length header";
         this.code = "UND_ERR_REQ_CONTENT_LENGTH_MISMATCH";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kRequestContentLengthMismatchError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kRequestContentLengthMismatchError] === true;
       }
       get [kRequestContentLengthMismatchError]() {
         return true;
@@ -53645,8 +53645,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Response body length does not match content-length header";
         this.code = "UND_ERR_RES_CONTENT_LENGTH_MISMATCH";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kResponseContentLengthMismatchError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kResponseContentLengthMismatchError] === true;
       }
       get [kResponseContentLengthMismatchError]() {
         return true;
@@ -53660,8 +53660,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "The client is destroyed";
         this.code = "UND_ERR_DESTROYED";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kClientDestroyedError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kClientDestroyedError] === true;
       }
       get [kClientDestroyedError]() {
         return true;
@@ -53675,8 +53675,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "The client is closed";
         this.code = "UND_ERR_CLOSED";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kClientClosedError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kClientClosedError] === true;
       }
       get [kClientClosedError]() {
         return true;
@@ -53691,8 +53691,8 @@ var require_errors2 = __commonJS({
         this.code = "UND_ERR_SOCKET";
         this.socket = socket;
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kSocketError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kSocketError] === true;
       }
       get [kSocketError]() {
         return true;
@@ -53706,8 +53706,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Not supported error";
         this.code = "UND_ERR_NOT_SUPPORTED";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kNotSupportedError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kNotSupportedError] === true;
       }
       get [kNotSupportedError]() {
         return true;
@@ -53721,8 +53721,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "No upstream has been added to the BalancedPool";
         this.code = "UND_ERR_BPL_MISSING_UPSTREAM";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kBalancedPoolMissingUpstreamError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kBalancedPoolMissingUpstreamError] === true;
       }
       get [kBalancedPoolMissingUpstreamError]() {
         return true;
@@ -53736,8 +53736,8 @@ var require_errors2 = __commonJS({
         this.code = code ? `HPE_${code}` : void 0;
         this.data = data2 ? data2.toString() : void 0;
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kHTTPParserError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kHTTPParserError] === true;
       }
       get [kHTTPParserError]() {
         return true;
@@ -53751,8 +53751,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Response content exceeded max size";
         this.code = "UND_ERR_RES_EXCEEDED_MAX_SIZE";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kResponseExceededMaxSizeError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kResponseExceededMaxSizeError] === true;
       }
       get [kResponseExceededMaxSizeError]() {
         return true;
@@ -53769,8 +53769,8 @@ var require_errors2 = __commonJS({
         this.data = data2;
         this.headers = headers;
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kRequestRetryError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kRequestRetryError] === true;
       }
       get [kRequestRetryError]() {
         return true;
@@ -53787,8 +53787,8 @@ var require_errors2 = __commonJS({
         this.body = body;
         this.headers = headers;
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kResponseError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kResponseError] === true;
       }
       get [kResponseError]() {
         return true;
@@ -53803,8 +53803,8 @@ var require_errors2 = __commonJS({
         this.code = "UND_ERR_PRX_TLS";
         this.cause = cause;
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kSecureProxyConnectionError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kSecureProxyConnectionError] === true;
       }
       get [kSecureProxyConnectionError]() {
         return true;
@@ -53818,8 +53818,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Maximum allowed origins reached";
         this.code = "UND_ERR_MAX_ORIGINS_REACHED";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kMaxOriginsReachedError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kMaxOriginsReachedError] === true;
       }
       get [kMaxOriginsReachedError]() {
         return true;
@@ -53841,8 +53841,8 @@ var require_errors2 = __commonJS({
         this.message = message2 || "Max decompressed message size exceeded";
         this.code = "UND_ERR_WS_MESSAGE_SIZE_EXCEEDED";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kMessageSizeExceededError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kMessageSizeExceededError] === true;
       }
       get [kMessageSizeExceededError]() {
         return true;
@@ -55565,11 +55565,11 @@ var require_request2 = __commonJS({
           } else if (typeof val2[i] === "object") {
             throw new InvalidArgumentError(`invalid ${key} header`);
           } else {
-            const str3 = `${val2[i]}`;
-            if (!isValidHeaderValue(str3)) {
+            const str4 = `${val2[i]}`;
+            if (!isValidHeaderValue(str4)) {
               throw new InvalidArgumentError(`invalid ${key} header`);
             }
-            arr.push(str3);
+            arr.push(str4);
           }
         }
         val2 = arr;
@@ -57112,8 +57112,8 @@ var require_infra = __commonJS({
     }
     var ASCII_WHITESPACE_REPLACE_REGEX = /[\u0009\u000A\u000C\u000D\u0020]/g;
     var nonASCIIRegex = /[^\x00-\x7F]/;
-    function asciiLowercase(str3) {
-      return nonASCIIRegex.test(str3) ? str3.replace(/[A-Z]+/g, (upper) => upper.toLowerCase()) : str3.toLowerCase();
+    function asciiLowercase(str4) {
+      return nonASCIIRegex.test(str4) ? str4.replace(/[A-Z]+/g, (upper) => upper.toLowerCase()) : str4.toLowerCase();
     }
     function forgivingBase64(data2) {
       data2 = data2.replace(ASCII_WHITESPACE_REPLACE_REGEX, "");
@@ -57166,19 +57166,19 @@ var require_infra = __commonJS({
     function parseJSONFromBytes(bytes) {
       return JSON.parse(utf8DecodeBytes(bytes));
     }
-    function removeASCIIWhitespace(str3, leading = true, trailing = true) {
-      return removeChars(str3, leading, trailing, isASCIIWhitespace);
+    function removeASCIIWhitespace(str4, leading = true, trailing = true) {
+      return removeChars(str4, leading, trailing, isASCIIWhitespace);
     }
-    function removeChars(str3, leading, trailing, predicate) {
+    function removeChars(str4, leading, trailing, predicate) {
       let lead = 0;
-      let trail = str3.length - 1;
+      let trail = str4.length - 1;
       if (leading) {
-        while (lead < str3.length && predicate(str3.charCodeAt(lead))) lead++;
+        while (lead < str4.length && predicate(str4.charCodeAt(lead))) lead++;
       }
       if (trailing) {
-        while (trail > 0 && predicate(str3.charCodeAt(trail))) trail--;
+        while (trail > 0 && predicate(str4.charCodeAt(trail))) trail--;
       }
-      return lead === 0 && trail === str3.length - 1 ? str3 : str3.slice(lead, trail + 1);
+      return lead === 0 && trail === str4.length - 1 ? str4 : str4.slice(lead, trail + 1);
     }
     function serializeJavascriptValueToJSONString(value) {
       const result = JSON.stringify(value);
@@ -57430,8 +57430,8 @@ var require_data_url = __commonJS({
     function isHTTPWhiteSpace(char) {
       return char === 13 || char === 10 || char === 9 || char === 32;
     }
-    function removeHTTPWhitespace(str3, leading = true, trailing = true) {
-      return removeChars(str3, leading, trailing, isHTTPWhiteSpace);
+    function removeHTTPWhitespace(str4, leading = true, trailing = true) {
+      return removeChars(str4, leading, trailing, isHTTPWhiteSpace);
     }
     function minimizeSupportedMimeType(mimeType) {
       switch (mimeType.essence) {
@@ -57579,9 +57579,9 @@ var require_runtime_features = __commonJS({
         return result;
       }
     };
-    var instance = new RuntimeFeatures();
-    module.exports.runtimeFeatures = instance;
-    module.exports.default = instance;
+    var instance2 = new RuntimeFeatures();
+    module.exports.runtimeFeatures = instance2;
+    module.exports.default = instance2;
   }
 });
 
@@ -59552,7 +59552,7 @@ var require_body = __commonJS({
         const boundary = `----formdata-undici-0${`${random(1e11)}`.padStart(11, "0")}`;
         const prefix = `--${boundary}\r
 Content-Disposition: form-data`;
-        const formdataEscape = (str3) => str3.replace(/\n/g, "%0A").replace(/\r/g, "%0D").replace(/"/g, "%22");
+        const formdataEscape = (str4) => str4.replace(/\n/g, "%0A").replace(/\r/g, "%0D").replace(/"/g, "%22");
         const normalizeLinefeeds = (value) => value.replace(/\r?\n|\r/g, "\r\n");
         const blobParts = [];
         const rn = new Uint8Array([13, 10]);
@@ -59638,7 +59638,7 @@ Content-Type: ${value.type || "application/octet-stream"}\r
         source: body.source
       };
     }
-    function bodyMixinMethods(instance, getInternalState) {
+    function bodyMixinMethods(instance2, getInternalState) {
       const methods = {
         blob() {
           return consumeBody(this, (bytes) => {
@@ -59649,18 +59649,18 @@ Content-Type: ${value.type || "application/octet-stream"}\r
               mimeType = serializeAMimeType(mimeType);
             }
             return new Blob([bytes], { type: mimeType });
-          }, instance, getInternalState);
+          }, instance2, getInternalState);
         },
         arrayBuffer() {
           return consumeBody(this, (bytes) => {
             return new Uint8Array(bytes).buffer;
-          }, instance, getInternalState);
+          }, instance2, getInternalState);
         },
         text() {
-          return consumeBody(this, utf8DecodeBytes, instance, getInternalState);
+          return consumeBody(this, utf8DecodeBytes, instance2, getInternalState);
         },
         json() {
-          return consumeBody(this, parseJSONFromBytes, instance, getInternalState);
+          return consumeBody(this, parseJSONFromBytes, instance2, getInternalState);
         },
         formData() {
           return consumeBody(this, (value) => {
@@ -59686,12 +59686,12 @@ Content-Type: ${value.type || "application/octet-stream"}\r
             throw new TypeError(
               'Content-Type was not one of "multipart/form-data" or "application/x-www-form-urlencoded".'
             );
-          }, instance, getInternalState);
+          }, instance2, getInternalState);
         },
         bytes() {
           return consumeBody(this, (bytes) => {
             return new Uint8Array(bytes);
-          }, instance, getInternalState);
+          }, instance2, getInternalState);
         }
       };
       return methods;
@@ -59699,9 +59699,9 @@ Content-Type: ${value.type || "application/octet-stream"}\r
     function mixinBody(prototype, getInternalState) {
       Object.assign(prototype.prototype, bodyMixinMethods(prototype, getInternalState));
     }
-    function consumeBody(object2, convertBytesToJSValue, instance, getInternalState) {
+    function consumeBody(object2, convertBytesToJSValue, instance2, getInternalState) {
       try {
-        webidl.brandCheck(object2, instance);
+        webidl.brandCheck(object2, instance2);
       } catch (e) {
         return Promise.reject(e);
       }
@@ -65853,8 +65853,8 @@ var require_mock_errors = __commonJS({
         this.message = message2 || "The request does not match any registered mock dispatches";
         this.code = "UND_MOCK_ERR_MOCK_NOT_MATCHED";
       }
-      static [Symbol.hasInstance](instance) {
-        return instance && instance[kMockNotMatchedError] === true;
+      static [Symbol.hasInstance](instance2) {
+        return instance2 && instance2[kMockNotMatchedError] === true;
       }
       get [kMockNotMatchedError]() {
         return true;
@@ -68638,14 +68638,14 @@ var require_dns = __commonJS({
         maxItems: interceptorOpts?.maxItems ?? Infinity,
         storage: interceptorOpts?.storage
       };
-      const instance = new DNSInstance(opts);
+      const instance2 = new DNSInstance(opts);
       return (dispatch) => {
         return function dnsInterceptor(origDispatchOpts, handler) {
           const origin = origDispatchOpts.origin.constructor === URL ? origDispatchOpts.origin : new URL(origDispatchOpts.origin);
           if (isIP2(origin.hostname) !== 0) {
             return dispatch(origDispatchOpts, handler);
           }
-          instance.runLookup(origin, origDispatchOpts, (err, newOrigin) => {
+          instance2.runLookup(origin, origDispatchOpts, (err, newOrigin) => {
             if (err) {
               return handler.onResponseError(null, err);
             }
@@ -68658,7 +68658,7 @@ var require_dns = __commonJS({
             };
             dispatch(
               dispatchOpts,
-              instance.getHandler(
+              instance2.getHandler(
                 { origin, dispatch, handler, newOrigin },
                 origDispatchOpts
               )
@@ -69753,9 +69753,9 @@ var require_cache_handler = __commonJS({
     function appendConnectionHeaderTokens(headersToRemove, connectionHeader) {
       const values = Array.isArray(connectionHeader) ? connectionHeader : [connectionHeader];
       for (let i = 0; i < values.length; i++) {
-        const tokens = values[i].split(",");
-        for (let j = 0; j < tokens.length; j++) {
-          headersToRemove.push(trimOWS(tokens[j]).toLowerCase());
+        const tokens2 = values[i].split(",");
+        for (let j = 0; j < tokens2.length; j++) {
+          headersToRemove.push(trimOWS(tokens2[j]).toLowerCase());
         }
       }
     }
@@ -69904,7 +69904,7 @@ var require_cache_handler = __commonJS({
             }
           }
         }
-        const now = Date.now();
+        const now2 = Date.now();
         const redirectHopInfo = this.#history?.[kRedirectCacheControl];
         const redirectPolicy = redirectHopInfo?.length > 0 ? getRedirectPolicy(
           this.#cacheType,
@@ -69912,7 +69912,7 @@ var require_cache_handler = __commonJS({
           redirectHopInfo,
           this.#cacheKey.headers,
           this.#cacheByDefault,
-          now
+          now2
         ) : void 0;
         if (redirectHopInfo?.length > 0 && redirectPolicy === void 0) {
           return downstreamOnHeaders();
@@ -69946,10 +69946,10 @@ var require_cache_handler = __commonJS({
           deleteCachedValueIfNotModified(statusCode, this.#store, this.#cacheKey);
           return downstreamOnHeaders();
         }
-        const apparentAge = resDate ? Math.max(0, now - resDate.getTime()) : 0;
+        const apparentAge = resDate ? Math.max(0, now2 - resDate.getTime()) : 0;
         const currentAge = Math.max(apparentAge, resAge ?? 0);
         const hasValidator = typeof resHeaders.etag === "string" && isEtagUsable(resHeaders.etag) || typeof resHeaders["last-modified"] === "string";
-        const staleAt = determineStaleAt(this.#cacheType, now, resAge, resHeaders, resDate, cacheControlDirectives, hasValidator) ?? this.#cacheByDefault;
+        const staleAt = determineStaleAt(this.#cacheType, now2, resAge, resHeaders, resDate, cacheControlDirectives, hasValidator) ?? this.#cacheByDefault;
         const revalidationOnly = staleAt === 0 && hasValidator;
         if (staleAt === void 0 || currentAge >= staleAt && !revalidationOnly) {
           if (cacheControlHeader || staleAt !== void 0) {
@@ -69957,12 +69957,12 @@ var require_cache_handler = __commonJS({
           }
           return downstreamOnHeaders();
         }
-        const baseTime = now - currentAge;
+        const baseTime = now2 - currentAge;
         let absoluteStaleAt = staleAt + baseTime;
         if (redirectPolicy !== void 0) {
           absoluteStaleAt = Math.min(absoluteStaleAt, redirectPolicy.staleAt);
         }
-        if (now >= absoluteStaleAt && !revalidationOnly) {
+        if (now2 >= absoluteStaleAt && !revalidationOnly) {
           deleteCachedValueIfNotModified(statusCode, this.#store, this.#cacheKey);
           return downstreamOnHeaders();
         }
@@ -69997,7 +69997,7 @@ var require_cache_handler = __commonJS({
           }
         }
         const cachedAt = baseTime;
-        const deleteAt = determineDeleteAt(baseTime, now, effectiveCacheControlDirectives, absoluteStaleAt);
+        const deleteAt = determineDeleteAt(baseTime, now2, effectiveCacheControlDirectives, absoluteStaleAt);
         const strippedHeaders = stripNecessaryHeaders(resHeaders, cacheControlDirectives);
         const value = {
           statusCode,
@@ -70221,12 +70221,12 @@ var require_cache_handler = __commonJS({
       }
       return true;
     }
-    function getRedirectPolicy(cacheType, method, redirectHops, reqHeaders, cacheByDefault, now) {
+    function getRedirectPolicy(cacheType, method, redirectHops, reqHeaders, cacheByDefault, now2) {
       let staleAt = Infinity;
       let requiresRevalidation = false;
       for (const hop of redirectHops) {
         const hopPolicy = getRedirectHopPolicy(cacheType, method, hop, reqHeaders, cacheByDefault);
-        if (hopPolicy === void 0 || hopPolicy.staleAt <= now) {
+        if (hopPolicy === void 0 || hopPolicy.staleAt <= now2) {
           return void 0;
         }
         staleAt = Math.min(staleAt, hopPolicy.staleAt);
@@ -70319,7 +70319,7 @@ var require_cache_handler = __commonJS({
       }
       return Number(age) * 1e3;
     }
-    function determineStaleAt(cacheType, now, age, resHeaders, responseDate, cacheControlDirectives, hasValidator) {
+    function determineStaleAt(cacheType, now2, age, resHeaders, responseDate, cacheControlDirectives, hasValidator) {
       if (cacheType === "shared") {
         if (hasInvalidCacheControlDirective(cacheControlDirectives, "s-maxage")) {
           return 0;
@@ -70344,7 +70344,7 @@ var require_cache_handler = __commonJS({
         if (!expiresDate) {
           return 0;
         }
-        if (now >= expiresDate.getTime()) {
+        if (now2 >= expiresDate.getTime()) {
           return 0;
         }
         if (responseDate) {
@@ -70357,15 +70357,15 @@ var require_cache_handler = __commonJS({
           }
           return freshnessLifetime;
         }
-        return expiresDate.getTime() - now;
+        return expiresDate.getTime() - now2;
       }
       if (typeof resHeaders["last-modified"] === "string") {
         const lastModified = parseHttpDate(resHeaders["last-modified"]);
         if (lastModified) {
-          if (lastModified.getTime() >= now) {
+          if (lastModified.getTime() >= now2) {
             return void 0;
           }
-          const responseAge = now - lastModified.getTime();
+          const responseAge = now2 - lastModified.getTime();
           return responseAge * 0.1;
         }
       }
@@ -70502,9 +70502,9 @@ var require_memory_cache_store = __commonJS({
       get(key) {
         assertCacheKey(key);
         const topLevelKey = `${key.origin}:${key.path}`;
-        const now = Date.now();
+        const now2 = Date.now();
         const entries = this.#entries.get(topLevelKey);
-        const entry = entries ? findEntry(key, entries, now) : null;
+        const entry = entries ? findEntry(key, entries, now2) : null;
         return entry == null ? void 0 : {
           statusMessage: entry.statusMessage,
           statusCode: entry.statusCode,
@@ -70600,10 +70600,10 @@ var require_memory_cache_store = __commonJS({
         this.#entries.delete(topLevelKey);
       }
     };
-    function findEntry(key, entries, now) {
+    function findEntry(key, entries, now2) {
       for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
-        if (entry.deleteAt > now && entry.method === key.method && varyMatches(key, entry)) {
+        if (entry.deleteAt > now2 && entry.method === key.method && varyMatches(key, entry)) {
           return entry;
         }
       }
@@ -70897,16 +70897,16 @@ var require_cache2 = __commonJS({
       return responseEtag.slice(2) === cachedOpaqueTag;
     }
     function isStale(result, cacheControlDirectives, cacheType) {
-      const now = Date.now();
-      if (now > result.staleAt) {
+      const now2 = Date.now();
+      if (now2 > result.staleAt) {
         if (!staleResponseRequiresRevalidation(result, cacheType) && cacheControlDirectives?.["max-stale"]) {
           const gracePeriod = result.staleAt + cacheControlDirectives["max-stale"] * 1e3;
-          return now > gracePeriod;
+          return now2 > gracePeriod;
         }
         return true;
       }
       if (cacheControlDirectives?.["min-fresh"]) {
-        const timeLeftTillStale = result.staleAt - now;
+        const timeLeftTillStale = result.staleAt - now2;
         const threshold = cacheControlDirectives["min-fresh"] * 1e3;
         return timeLeftTillStale <= threshold;
       }
@@ -70917,9 +70917,9 @@ var require_cache2 = __commonJS({
       if (!staleWhileRevalidate || staleResponseRequiresRevalidation(result, cacheType)) {
         return false;
       }
-      const now = Date.now();
+      const now2 = Date.now();
       const staleWhileRevalidateExpiry = result.staleAt + staleWhileRevalidate * 1e3;
-      return now <= staleWhileRevalidateExpiry;
+      return now2 <= staleWhileRevalidateExpiry;
     }
     function handleUncachedResponse(dispatch, globalOpts, cacheKey, handler, opts, reqCacheControl) {
       if (reqCacheControl?.["only-if-cached"]) {
@@ -71031,11 +71031,11 @@ var require_cache2 = __commonJS({
         deleteCachedValue(globalOpts.store, cacheKey);
         return handleUncachedResponse(dispatch, globalOpts, cacheKey, handler, opts, reqCacheControl);
       }
-      const now = Date.now();
-      if (now > result.deleteAt) {
+      const now2 = Date.now();
+      if (now2 > result.deleteAt) {
         return dispatch(opts, new CacheHandler(globalOpts, cacheKey, handler));
       }
-      const age = Math.round((now - result.cachedAt) / 1e3);
+      const age = Math.round((now2 - result.cachedAt) / 1e3);
       const requestMaxAgeExpired = reqCacheControl?.["max-age"] !== void 0 && age >= reqCacheControl["max-age"];
       const stale = requestMaxAgeExpired || isStale(result, reqCacheControl, globalOpts.type);
       const revalidate = requestMaxAgeExpired || needsRevalidation(result, reqCacheControl, opts);
@@ -71075,7 +71075,7 @@ var require_cache2 = __commonJS({
         if (!staleResponseRequiresRevalidation(result, globalOpts.type)) {
           const staleIfErrorExpiry = result.cacheControlDirectives["stale-if-error"] ?? reqCacheControl?.["stale-if-error"];
           if (staleIfErrorExpiry) {
-            withinStaleIfErrorThreshold = now < result.staleAt + staleIfErrorExpiry * 1e3;
+            withinStaleIfErrorThreshold = now2 < result.staleAt + staleIfErrorExpiry * 1e3;
           }
         }
         const headers = makeRevalidationHeaders(opts, result);
@@ -72512,9 +72512,9 @@ var require_sqlite_cache_store = __commonJS({
         if (values.length === 0) {
           return void 0;
         }
-        const now = Date.now();
+        const now2 = Date.now();
         for (const value of values) {
-          if (now >= value.deleteAt && !canBeExpired) {
+          if (now2 >= value.deleteAt && !canBeExpired) {
             continue;
           }
           let matches = true;
@@ -76582,9 +76582,9 @@ var require_cookies = __commonJS({
       webidl.argumentLengthCheck(arguments, 2, "setCookie");
       brandChecks(headers);
       cookie = webidl.converters.Cookie(cookie);
-      const str3 = stringify3(cookie);
-      if (str3) {
-        headers.append("set-cookie", str3, true);
+      const str4 = stringify3(cookie);
+      if (str4) {
+        headers.append("set-cookie", str4, true);
       }
     }
     webidl.converters.DeleteCookieAttributes = webidl.dictionaryConverter([
@@ -77094,8 +77094,8 @@ var require_util5 = __commonJS({
           return false;
         }
       }
-      const num = Number.parseInt(value, 10);
-      return num >= 8 && num <= 15;
+      const num2 = Number.parseInt(value, 10);
+      return num2 >= 8 && num2 <= 15;
     }
     function getURLRecord(url2, baseURL) {
       let urlRecord;
@@ -78478,9 +78478,9 @@ var require_websocketerror = __commonJS({
       }
       return new Proxy(DOMException, {
         construct(target, args, newTarget) {
-          const instance = Reflect.construct(target, args, target);
-          Object.setPrototypeOf(instance, newTarget.prototype);
-          return instance;
+          const instance2 = Reflect.construct(target, args, target);
+          Object.setPrototypeOf(instance2, newTarget.prototype);
+          return instance2;
         }
       });
     }
@@ -80221,14 +80221,14 @@ var require_media_typer2 = __commonJS({
       }
     }
     function qstring(val2) {
-      var str3 = String(val2);
-      if (tokenRegExp.test(str3)) {
-        return str3;
+      var str4 = String(val2);
+      if (tokenRegExp.test(str4)) {
+        return str4;
       }
-      if (str3.length > 0 && !textRegExp.test(str3)) {
+      if (str4.length > 0 && !textRegExp.test(str4)) {
         throw new TypeError("invalid parameter value");
       }
-      return '"' + str3.replace(quoteRegExp, "\\$1") + '"';
+      return '"' + str4.replace(quoteRegExp, "\\$1") + '"';
     }
     function splitType(string4) {
       var match = typeRegExp.exec(string4.toLowerCase());
@@ -88815,11 +88815,11 @@ var require_mime_types2 = __commonJS({
       }
       return false;
     }
-    function contentType(str3) {
-      if (!str3 || typeof str3 !== "string") {
+    function contentType(str4) {
+      if (!str4 || typeof str4 !== "string") {
         return false;
       }
-      var mime = str3.indexOf("/") === -1 ? exports.lookup(str3) : str3;
+      var mime = str4.indexOf("/") === -1 ? exports.lookup(str4) : str4;
       if (!mime) {
         return false;
       }
@@ -88984,85 +88984,85 @@ var require_type_is2 = __commonJS({
 var require_utils7 = __commonJS({
   "../../node_modules/.pnpm/busboy@1.6.0/node_modules/busboy/lib/utils.js"(exports, module) {
     "use strict";
-    function parseContentType(str3) {
-      if (str3.length === 0)
+    function parseContentType(str4) {
+      if (str4.length === 0)
         return;
       const params = /* @__PURE__ */ Object.create(null);
       let i = 0;
-      for (; i < str3.length; ++i) {
-        const code = str3.charCodeAt(i);
+      for (; i < str4.length; ++i) {
+        const code = str4.charCodeAt(i);
         if (TOKEN[code] !== 1) {
           if (code !== 47 || i === 0)
             return;
           break;
         }
       }
-      if (i === str3.length)
+      if (i === str4.length)
         return;
-      const type = str3.slice(0, i).toLowerCase();
+      const type = str4.slice(0, i).toLowerCase();
       const subtypeStart = ++i;
-      for (; i < str3.length; ++i) {
-        const code = str3.charCodeAt(i);
+      for (; i < str4.length; ++i) {
+        const code = str4.charCodeAt(i);
         if (TOKEN[code] !== 1) {
           if (i === subtypeStart)
             return;
-          if (parseContentTypeParams(str3, i, params) === void 0)
+          if (parseContentTypeParams(str4, i, params) === void 0)
             return;
           break;
         }
       }
       if (i === subtypeStart)
         return;
-      const subtype = str3.slice(subtypeStart, i).toLowerCase();
+      const subtype = str4.slice(subtypeStart, i).toLowerCase();
       return { type, subtype, params };
     }
-    function parseContentTypeParams(str3, i, params) {
-      while (i < str3.length) {
-        for (; i < str3.length; ++i) {
-          const code = str3.charCodeAt(i);
+    function parseContentTypeParams(str4, i, params) {
+      while (i < str4.length) {
+        for (; i < str4.length; ++i) {
+          const code = str4.charCodeAt(i);
           if (code !== 32 && code !== 9)
             break;
         }
-        if (i === str3.length)
+        if (i === str4.length)
           break;
-        if (str3.charCodeAt(i++) !== 59)
+        if (str4.charCodeAt(i++) !== 59)
           return;
-        for (; i < str3.length; ++i) {
-          const code = str3.charCodeAt(i);
+        for (; i < str4.length; ++i) {
+          const code = str4.charCodeAt(i);
           if (code !== 32 && code !== 9)
             break;
         }
-        if (i === str3.length)
+        if (i === str4.length)
           return;
         let name;
         const nameStart = i;
-        for (; i < str3.length; ++i) {
-          const code = str3.charCodeAt(i);
+        for (; i < str4.length; ++i) {
+          const code = str4.charCodeAt(i);
           if (TOKEN[code] !== 1) {
             if (code !== 61)
               return;
             break;
           }
         }
-        if (i === str3.length)
+        if (i === str4.length)
           return;
-        name = str3.slice(nameStart, i);
+        name = str4.slice(nameStart, i);
         ++i;
-        if (i === str3.length)
+        if (i === str4.length)
           return;
         let value = "";
         let valueStart;
-        if (str3.charCodeAt(i) === 34) {
+        if (str4.charCodeAt(i) === 34) {
           valueStart = ++i;
           let escaping = false;
-          for (; i < str3.length; ++i) {
-            const code = str3.charCodeAt(i);
+          for (; i < str4.length; ++i) {
+            const code = str4.charCodeAt(i);
             if (code === 92) {
               if (escaping) {
                 valueStart = i;
                 escaping = false;
               } else {
-                value += str3.slice(valueStart, i);
+                value += str4.slice(valueStart, i);
                 escaping = true;
               }
               continue;
@@ -89073,7 +89073,7 @@ var require_utils7 = __commonJS({
                 escaping = false;
                 continue;
               }
-              value += str3.slice(valueStart, i);
+              value += str4.slice(valueStart, i);
               break;
             }
             if (escaping) {
@@ -89083,20 +89083,20 @@ var require_utils7 = __commonJS({
             if (QDTEXT[code] !== 1)
               return;
           }
-          if (i === str3.length)
+          if (i === str4.length)
             return;
           ++i;
         } else {
           valueStart = i;
-          for (; i < str3.length; ++i) {
-            const code = str3.charCodeAt(i);
+          for (; i < str4.length; ++i) {
+            const code = str4.charCodeAt(i);
             if (TOKEN[code] !== 1) {
               if (i === valueStart)
                 return;
               break;
             }
           }
-          value = str3.slice(valueStart, i);
+          value = str4.slice(valueStart, i);
         }
         name = name.toLowerCase();
         if (params[name] === void 0)
@@ -89104,91 +89104,91 @@ var require_utils7 = __commonJS({
       }
       return params;
     }
-    function parseDisposition(str3, defDecoder) {
-      if (str3.length === 0)
+    function parseDisposition(str4, defDecoder) {
+      if (str4.length === 0)
         return;
       const params = /* @__PURE__ */ Object.create(null);
       let i = 0;
-      for (; i < str3.length; ++i) {
-        const code = str3.charCodeAt(i);
+      for (; i < str4.length; ++i) {
+        const code = str4.charCodeAt(i);
         if (TOKEN[code] !== 1) {
-          if (parseDispositionParams(str3, i, params, defDecoder) === void 0)
+          if (parseDispositionParams(str4, i, params, defDecoder) === void 0)
             return;
           break;
         }
       }
-      const type = str3.slice(0, i).toLowerCase();
+      const type = str4.slice(0, i).toLowerCase();
       return { type, params };
     }
-    function parseDispositionParams(str3, i, params, defDecoder) {
-      while (i < str3.length) {
-        for (; i < str3.length; ++i) {
-          const code = str3.charCodeAt(i);
+    function parseDispositionParams(str4, i, params, defDecoder) {
+      while (i < str4.length) {
+        for (; i < str4.length; ++i) {
+          const code = str4.charCodeAt(i);
           if (code !== 32 && code !== 9)
             break;
         }
-        if (i === str3.length)
+        if (i === str4.length)
           break;
-        if (str3.charCodeAt(i++) !== 59)
+        if (str4.charCodeAt(i++) !== 59)
           return;
-        for (; i < str3.length; ++i) {
-          const code = str3.charCodeAt(i);
+        for (; i < str4.length; ++i) {
+          const code = str4.charCodeAt(i);
           if (code !== 32 && code !== 9)
             break;
         }
-        if (i === str3.length)
+        if (i === str4.length)
           return;
         let name;
         const nameStart = i;
-        for (; i < str3.length; ++i) {
-          const code = str3.charCodeAt(i);
+        for (; i < str4.length; ++i) {
+          const code = str4.charCodeAt(i);
           if (TOKEN[code] !== 1) {
             if (code === 61)
               break;
             return;
           }
         }
-        if (i === str3.length)
+        if (i === str4.length)
           return;
         let value = "";
         let valueStart;
         let charset;
-        name = str3.slice(nameStart, i);
+        name = str4.slice(nameStart, i);
         if (name.charCodeAt(name.length - 1) === 42) {
           const charsetStart = ++i;
-          for (; i < str3.length; ++i) {
-            const code = str3.charCodeAt(i);
+          for (; i < str4.length; ++i) {
+            const code = str4.charCodeAt(i);
             if (CHARSET[code] !== 1) {
               if (code !== 39)
                 return;
               break;
             }
           }
-          if (i === str3.length)
+          if (i === str4.length)
             return;
-          charset = str3.slice(charsetStart, i);
+          charset = str4.slice(charsetStart, i);
           ++i;
-          for (; i < str3.length; ++i) {
-            const code = str3.charCodeAt(i);
+          for (; i < str4.length; ++i) {
+            const code = str4.charCodeAt(i);
             if (code === 39)
               break;
           }
-          if (i === str3.length)
+          if (i === str4.length)
             return;
           ++i;
-          if (i === str3.length)
+          if (i === str4.length)
             return;
           valueStart = i;
           let encode5 = 0;
-          for (; i < str3.length; ++i) {
-            const code = str3.charCodeAt(i);
+          for (; i < str4.length; ++i) {
+            const code = str4.charCodeAt(i);
             if (EXTENDED_VALUE[code] !== 1) {
               if (code === 37) {
                 let hexUpper;
                 let hexLower;
-                if (i + 2 < str3.length && (hexUpper = HEX_VALUES[str3.charCodeAt(i + 1)]) !== -1 && (hexLower = HEX_VALUES[str3.charCodeAt(i + 2)]) !== -1) {
+                if (i + 2 < str4.length && (hexUpper = HEX_VALUES[str4.charCodeAt(i + 1)]) !== -1 && (hexLower = HEX_VALUES[str4.charCodeAt(i + 2)]) !== -1) {
                   const byteVal = (hexUpper << 4) + hexLower;
-                  value += str3.slice(valueStart, i);
+                  value += str4.slice(valueStart, i);
                   value += String.fromCharCode(byteVal);
                   i += 2;
                   valueStart = i + 1;
@@ -89203,25 +89203,25 @@ var require_utils7 = __commonJS({
               break;
             }
           }
-          value += str3.slice(valueStart, i);
+          value += str4.slice(valueStart, i);
           value = convertToUTF8(value, charset, encode5);
           if (value === void 0)
             return;
         } else {
           ++i;
-          if (i === str3.length)
+          if (i === str4.length)
             return;
-          if (str3.charCodeAt(i) === 34) {
+          if (str4.charCodeAt(i) === 34) {
             valueStart = ++i;
             let escaping = false;
-            for (; i < str3.length; ++i) {
-              const code = str3.charCodeAt(i);
+            for (; i < str4.length; ++i) {
+              const code = str4.charCodeAt(i);
               if (code === 92) {
                 if (escaping) {
                   valueStart = i;
                   escaping = false;
                 } else {
-                  value += str3.slice(valueStart, i);
+                  value += str4.slice(valueStart, i);
                   escaping = true;
                 }
                 continue;
@@ -89232,7 +89232,7 @@ var require_utils7 = __commonJS({
                   escaping = false;
                   continue;
                 }
-                value += str3.slice(valueStart, i);
+                value += str4.slice(valueStart, i);
                 break;
               }
               if (escaping) {
@@ -89242,20 +89242,20 @@ var require_utils7 = __commonJS({
               if (QDTEXT[code] !== 1)
                 return;
             }
-            if (i === str3.length)
+            if (i === str4.length)
               return;
             ++i;
           } else {
             valueStart = i;
-            for (; i < str3.length; ++i) {
-              const code = str3.charCodeAt(i);
+            for (; i < str4.length; ++i) {
+              const code = str4.charCodeAt(i);
               if (TOKEN[code] !== 1) {
                 if (i === valueStart)
                   return;
                 break;
               }
             }
-            value = str3.slice(valueStart, i);
+            value = str4.slice(valueStart, i);
           }
           value = defDecoder(value, 2);
           if (value === void 0)
@@ -90671,8 +90671,8 @@ var require_utils7 = __commonJS({
 var require_sbmh = __commonJS({
   "../../node_modules/.pnpm/streamsearch@1.1.0/node_modules/streamsearch/lib/sbmh.js"(exports, module) {
     "use strict";
-    function memcmp(buf1, pos1, buf2, pos2, num) {
-      for (let i = 0; i < num; ++i) {
+    function memcmp(buf1, pos1, buf2, pos2, num2) {
+      for (let i = 0; i < num2; ++i) {
         if (buf1[pos1 + i] !== buf2[pos2 + i])
           return false;
       }
@@ -93506,8 +93506,8 @@ var require_util7 = __commonJS({
 var require_BufferList = __commonJS({
   "../../node_modules/.pnpm/readable-stream@2.3.8/node_modules/readable-stream/lib/internal/streams/BufferList.js"(exports, module) {
     "use strict";
-    function _classCallCheck(instance, Constructor) {
-      if (!(instance instanceof Constructor)) {
+    function _classCallCheck(instance2, Constructor) {
+      if (!(instance2 instanceof Constructor)) {
         throw new TypeError("Cannot call a class as a function");
       }
     }
@@ -94795,7 +94795,7 @@ var require_stream_readable = __commonJS({
         increasedAwaitDrain = false;
         var ret = dest.write(chunk);
         if (false === ret && !increasedAwaitDrain) {
-          if ((state.pipesCount === 1 && state.pipes === dest || state.pipesCount > 1 && indexOf(state.pipes, dest) !== -1) && !cleanedUp) {
+          if ((state.pipesCount === 1 && state.pipes === dest || state.pipesCount > 1 && indexOf2(state.pipes, dest) !== -1) && !cleanedUp) {
             debug2("false write response, pause", state.awaitDrain);
             state.awaitDrain++;
             increasedAwaitDrain = true;
@@ -94867,7 +94867,7 @@ var require_stream_readable = __commonJS({
         }
         return this;
       }
-      var index2 = indexOf(state.pipes, dest);
+      var index2 = indexOf2(state.pipes, dest);
       if (index2 === -1) return this;
       state.pipes.splice(index2, 1);
       state.pipesCount -= 1;
@@ -95025,19 +95025,19 @@ var require_stream_readable = __commonJS({
       var ret = p.data;
       n2 -= ret.length;
       while (p = p.next) {
-        var str3 = p.data;
-        var nb = n2 > str3.length ? str3.length : n2;
-        if (nb === str3.length) ret += str3;
-        else ret += str3.slice(0, n2);
+        var str4 = p.data;
+        var nb = n2 > str4.length ? str4.length : n2;
+        if (nb === str4.length) ret += str4;
+        else ret += str4.slice(0, n2);
         n2 -= nb;
         if (n2 === 0) {
-          if (nb === str3.length) {
+          if (nb === str4.length) {
             ++c;
             if (p.next) list.head = p.next;
             else list.head = list.tail = null;
           } else {
             list.head = p;
-            p.data = str3.slice(nb);
+            p.data = str4.slice(nb);
           }
           break;
         }
@@ -95088,7 +95088,7 @@ var require_stream_readable = __commonJS({
         stream.emit("end");
       }
     }
-    function indexOf(xs, x) {
+    function indexOf2(xs, x) {
       for (var i = 0, l = xs.length; i < l; i++) {
         if (xs[i] === x) return i;
       }
@@ -95445,7 +95445,7 @@ var require_typedarray = __commonJS({
       return as_unsigned(bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3], 32);
     }
     function packIEEE754(v, ebits, fbits) {
-      var bias = (1 << ebits - 1) - 1, s, e, f, ln, i, bits, str3, bytes;
+      var bias = (1 << ebits - 1) - 1, s, e, f, ln, i, bits, str4, bytes;
       function roundToEven(n2) {
         var w = floor(n2), f2 = n2 - w;
         if (f2 < 0.5)
@@ -95499,16 +95499,16 @@ var require_typedarray = __commonJS({
       }
       bits.push(s ? 1 : 0);
       bits.reverse();
-      str3 = bits.join("");
+      str4 = bits.join("");
       bytes = [];
-      while (str3.length) {
-        bytes.push(parseInt(str3.substring(0, 8), 2));
-        str3 = str3.substring(8);
+      while (str4.length) {
+        bytes.push(parseInt(str4.substring(0, 8), 2));
+        str4 = str4.substring(8);
       }
       return bytes;
     }
     function unpackIEEE754(bytes, ebits, fbits) {
-      var bits = [], i, j, b, str3, bias, s, e, f;
+      var bits = [], i, j, b, str4, bias, s, e, f;
       for (i = bytes.length; i; i -= 1) {
         b = bytes[i - 1];
         for (j = 8; j; j -= 1) {
@@ -95517,11 +95517,11 @@ var require_typedarray = __commonJS({
         }
       }
       bits.reverse();
-      str3 = bits.join("");
+      str4 = bits.join("");
       bias = (1 << ebits - 1) - 1;
-      s = parseInt(str3.substring(0, 1), 2) ? -1 : 1;
-      e = parseInt(str3.substring(1, 1 + ebits), 2);
-      f = parseInt(str3.substring(1 + ebits), 2);
+      s = parseInt(str4.substring(0, 1), 2) ? -1 : 1;
+      e = parseInt(str4.substring(1, 1 + ebits), 2);
+      f = parseInt(str4.substring(1 + ebits), 2);
       if (e === (1 << ebits) - 1) {
         return f !== 0 ? NaN : s * Infinity;
       } else if (e > 0) {
@@ -96094,7 +96094,7 @@ try {
 }
 
 // src/app.ts
-var import_express10 = __toESM(require_express2(), 1);
+var import_express11 = __toESM(require_express2(), 1);
 
 // ../../node_modules/.pnpm/@sentry+core@10.70.0/node_modules/@sentry/core/build/esm/debug-build.js
 var DEBUG_BUILD = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG__;
@@ -96275,11 +96275,11 @@ function safeDateNow() {
 }
 
 // ../../node_modules/.pnpm/@sentry+core@10.70.0/node_modules/@sentry/core/build/esm/utils/string.js
-function truncate(str3, max = 0) {
-  if (typeof str3 !== "string" || max === 0) {
-    return str3;
+function truncate(str4, max = 0) {
+  if (typeof str4 !== "string" || max === 0) {
+    return str4;
   }
-  return str3.length <= max ? str3 : `${str3.slice(0, max)}...`;
+  return str4.length <= max ? str4 : `${str4.slice(0, max)}...`;
 }
 function isMatchingPattern(value, pattern, requireExactStringMatch = false) {
   if (!isString(value)) {
@@ -99028,9 +99028,9 @@ function patchExpressModule(optionsOrExports, maybeGetOptions) {
       "use",
       function appUseTrace(...args) {
         const route = originalApplicationUse.apply(this, args);
-        const router8 = isExpressWithRouterPrototype(express2) ? this.router : this._router;
-        if (router8) {
-          const layer = router8.stack[router8.stack.length - 1];
+        const router9 = isExpressWithRouterPrototype(express2) ? this.router : this._router;
+        if (router9) {
+          const layer = router9.stack[router9.stack.length - 1];
           if (layer) {
             patchLayer(getOptions, layer, getLayerPath(args));
           }
@@ -99222,7 +99222,7 @@ var expressIntegration = defineIntegration(_expressIntegration);
 var import_cors = __toESM(require_lib3(), 1);
 
 // ../../node_modules/.pnpm/helmet@8.3.0/node_modules/helmet/index.mjs
-var dashify = (str3) => str3.replace(/[A-Z]/g, (capitalLetter) => "-" + capitalLetter.toLowerCase());
+var dashify = (str4) => str4.replace(/[A-Z]/g, (capitalLetter) => "-" + capitalLetter.toLowerCase());
 var errify = (err) => err instanceof Error ? err : new Error(String(err));
 var isString2 = (value) => typeof value === "string";
 var throwErrorIfExists = (err) => {
@@ -99425,12 +99425,12 @@ function originAgentCluster() {
 }
 var ALLOWED_TOKENS = /* @__PURE__ */ new Set(["no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url", ""]);
 function getHeaderValueFromOptions$3({ policy = ["no-referrer"] }) {
-  const tokens = typeof policy === "string" ? [policy] : policy;
-  if (tokens.length === 0) {
+  const tokens2 = typeof policy === "string" ? [policy] : policy;
+  if (tokens2.length === 0) {
     throw new Error("Referrer-Policy received no policy tokens");
   }
   const tokensSeen = /* @__PURE__ */ new Set();
-  tokens.forEach((token) => {
+  tokens2.forEach((token) => {
     if (!ALLOWED_TOKENS.has(token)) {
       throw new Error(`Referrer-Policy received an unexpected policy token ${JSON.stringify(token)}`);
     } else if (tokensSeen.has(token)) {
@@ -99438,7 +99438,7 @@ function getHeaderValueFromOptions$3({ policy = ["no-referrer"] }) {
     }
     tokensSeen.add(token);
   });
-  return tokens.join(",");
+  return tokens2.join(",");
 }
 function referrerPolicy(options = {}) {
   const headerValue = getHeaderValueFromOptions$3(options);
@@ -99858,9 +99858,9 @@ var MemoryStore = class {
    */
   async increment(key) {
     const client = this.getClient(key);
-    const now = Date.now();
-    if (client.resetTime.getTime() <= now) {
-      this.resetClient(client, now);
+    const now2 = Date.now();
+    if (client.resetTime.getTime() <= now2) {
+      this.resetClient(client, now2);
     }
     client.totalHits++;
     return client;
@@ -99918,9 +99918,9 @@ var MemoryStore = class {
    *
    * @return {Client} - The modified client that was passed in, to allow for chaining.
    */
-  resetClient(client, now = Date.now()) {
+  resetClient(client, now2 = Date.now()) {
     client.totalHits = 0;
-    client.resetTime = new Date(now + this.windowMs);
+    client.resetTime = new Date(now2 + this.windowMs);
     return client;
   }
   /**
@@ -100858,10 +100858,10 @@ function sqlBackend(kind, call) {
     }
   };
 }
-function memoryBackend(now = Date.now) {
+function memoryBackend(now2 = Date.now) {
   const counters = /* @__PURE__ */ new Map();
   const inflight = /* @__PURE__ */ new Map();
-  const winStart = (w) => Math.floor(now() / 1e3 / w) * w * 1e3;
+  const winStart = (w) => Math.floor(now2() / 1e3 / w) * w * 1e3;
   return {
     kind: "memoria",
     reset() {
@@ -100879,10 +100879,10 @@ function memoryBackend(now = Date.now) {
       return counters.get(`${key}|${winStart(w)}`)?.count ?? 0;
     },
     async acquire(key, max, ttl, id) {
-      for (const [i, v] of inflight) if (v.key === key && v.exp < now()) inflight.delete(i);
+      for (const [i, v] of inflight) if (v.key === key && v.exp < now2()) inflight.delete(i);
       const n2 = [...inflight.values()].filter((v) => v.key === key).length;
       if (n2 >= max) return false;
-      inflight.set(id, { key, exp: now() + ttl * 1e3 });
+      inflight.set(id, { key, exp: now2() + ttl * 1e3 });
       return true;
     },
     async release(id) {
@@ -100924,10 +100924,10 @@ function identityOf(req) {
   return { key: `ip:${hashId(ipKeyGenerator(req.ip ?? ""))}`, logged: false };
 }
 var TOKENS_KEY = "ai:tokens:global:day";
-async function recordAiTokens(tokens) {
-  if (!tokens || tokens <= 0) return;
+async function recordAiTokens(tokens2) {
+  if (!tokens2 || tokens2 <= 0) return;
   try {
-    await backend().hit(TOKENS_KEY, 86400, Number.MAX_SAFE_INTEGER, Math.round(tokens));
+    await backend().hit(TOKENS_KEY, 86400, Number.MAX_SAFE_INTEGER, Math.round(tokens2));
   } catch {
   }
 }
@@ -109314,9 +109314,9 @@ var getLength = (buf, index2) => {
     }
     return getLength(buf.subarray(2 + len), index2 - 1);
   }
-  const num = len & 127;
+  const num2 = len & 127;
   len = 0;
-  for (let i = 0; i < num; i++) {
+  for (let i = 0; i < num2; i++) {
     len <<= 8;
     const j = buf.readUInt8(2 + i);
     len |= j;
@@ -109331,8 +109331,8 @@ var getLengthOfSeqIndex = (sequence, index2) => {
   if ((len & 128) === 0) {
     return getLength(sequence.subarray(2), index2);
   }
-  const num = len & 127;
-  return getLength(sequence.subarray(2 + num), index2);
+  const num2 = len & 127;
+  return getLength(sequence.subarray(2 + num2), index2);
 };
 var getModulusLength = (key) => {
   var _a9, _b;
@@ -109445,7 +109445,7 @@ var DumbAsn1Encoder = class {
 };
 
 // ../../node_modules/.pnpm/jose@4.15.9/node_modules/jose/dist/node/esm/runtime/flags.js
-var [major2, minor] = process.versions.node.split(".").map((str3) => parseInt(str3, 10));
+var [major2, minor] = process.versions.node.split(".").map((str4) => parseInt(str4, 10));
 var oneShotCallback = major2 >= 16 || major2 === 15 && minor >= 13;
 var rsaPssParams = !("electron" in process.versions) && (major2 >= 17 || major2 === 16 && minor >= 9);
 var jwkExport = major2 >= 16 || major2 === 15 && minor >= 9;
@@ -109984,8 +109984,8 @@ var day = hour * 24;
 var week = day * 7;
 var year = day * 365.25;
 var REGEX = /^(\d+|\d+\.\d+) ?(seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)$/i;
-var secs_default = (str3) => {
-  const matched = REGEX.exec(str3);
+var secs_default = (str4) => {
+  const matched = REGEX.exec(str4);
   if (!matched) {
     throw new TypeError("Invalid time period format");
   }
@@ -110085,7 +110085,7 @@ var jwt_claims_set_default = (protectedHeader, encodedPayload, options = {}) => 
       throw new TypeError("Invalid clockTolerance option type");
   }
   const { currentDate } = options;
-  const now = epoch_default(currentDate || /* @__PURE__ */ new Date());
+  const now2 = epoch_default(currentDate || /* @__PURE__ */ new Date());
   if ((payload.iat !== void 0 || maxTokenAge) && typeof payload.iat !== "number") {
     throw new JWTClaimValidationFailed('"iat" claim must be a number', "iat", "invalid");
   }
@@ -110093,7 +110093,7 @@ var jwt_claims_set_default = (protectedHeader, encodedPayload, options = {}) => 
     if (typeof payload.nbf !== "number") {
       throw new JWTClaimValidationFailed('"nbf" claim must be a number', "nbf", "invalid");
     }
-    if (payload.nbf > now + tolerance) {
+    if (payload.nbf > now2 + tolerance) {
       throw new JWTClaimValidationFailed('"nbf" claim timestamp check failed', "nbf", "check_failed");
     }
   }
@@ -110101,12 +110101,12 @@ var jwt_claims_set_default = (protectedHeader, encodedPayload, options = {}) => 
     if (typeof payload.exp !== "number") {
       throw new JWTClaimValidationFailed('"exp" claim must be a number', "exp", "invalid");
     }
-    if (payload.exp <= now - tolerance) {
+    if (payload.exp <= now2 - tolerance) {
       throw new JWTExpired('"exp" claim timestamp check failed', "exp", "check_failed");
     }
   }
   if (maxTokenAge) {
-    const age = now - payload.iat;
+    const age = now2 - payload.iat;
     const max = typeof maxTokenAge === "number" ? maxTokenAge : secs_default(maxTokenAge);
     if (age - tolerance > max) {
       throw new JWTExpired('"iat" claim timestamp check failed (too far in the past)', "iat", "check_failed");
@@ -110402,10 +110402,10 @@ async function verifySupabaseJwt(token) {
 var AUTH_CACHE_MS = 6e4;
 var AUTH_CACHE_MAX = 500;
 var authCache = /* @__PURE__ */ new Map();
-async function verifyViaSupabaseAuth(token, getUser = (t) => getSupabaseAdmin().auth.getUser(t), now = Date.now()) {
+async function verifyViaSupabaseAuth(token, getUser = (t) => getSupabaseAdmin().auth.getUser(t), now2 = Date.now()) {
   const key = createHash3("sha256").update(token).digest("hex");
   const hit = authCache.get(key);
-  if (hit && now - hit.at < AUTH_CACHE_MS) return hit.payload;
+  if (hit && now2 - hit.at < AUTH_CACHE_MS) return hit.payload;
   let payload = null;
   try {
     const { data: data2, error: error63 } = await getUser(token);
@@ -110424,7 +110424,7 @@ async function verifyViaSupabaseAuth(token, getUser = (t) => getSupabaseAdmin().
     return null;
   }
   if (authCache.size >= AUTH_CACHE_MAX) authCache.delete(authCache.keys().next().value);
-  authCache.set(key, { at: now, payload });
+  authCache.set(key, { at: now2, payload });
   return payload;
 }
 function supabaseAuthMiddleware() {
@@ -110473,7 +110473,7 @@ var supabase_default = getSupabaseAdmin;
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express9 = __toESM(require_express2(), 1);
+var import_express10 = __toESM(require_express2(), 1);
 
 // src/lib/aiKeyCheck.ts
 var PROVIDERS = [
@@ -110482,8 +110482,8 @@ var PROVIDERS = [
 ];
 var CACHE_MS = 5 * 60 * 1e3;
 var cached = null;
-async function checkAiKey(fetchImpl = fetch, now = Date.now()) {
-  if (cached && now - cached.at < CACHE_MS) return cached.value;
+async function checkAiKey(fetchImpl = fetch, now2 = Date.now()) {
+  if (cached && now2 - cached.at < CACHE_MS) return cached.value;
   const p = PROVIDERS.find((x) => (process.env[x.env] ?? "").trim().length > 10);
   let value;
   if (!p) {
@@ -110502,7 +110502,7 @@ async function checkAiKey(fetchImpl = fetch, now = Date.now()) {
       value = { ok: false, provider: p.provider, detail: "N\xE3o foi poss\xEDvel contatar o provedor de IA." };
     }
   }
-  cached = { at: now, value };
+  cached = { at: now2, value };
   return value;
 }
 
@@ -110540,9 +110540,9 @@ function isCompleteResult(value) {
   return true;
 }
 function evictExpired() {
-  const now = Date.now();
+  const now2 = Date.now();
   for (const [key, entry] of cache) {
-    if (now > entry.expiresAt) {
+    if (now2 > entry.expiresAt) {
       cache.delete(key);
     }
   }
@@ -110680,106 +110680,8 @@ router.get("/readyz/deep", async (req, res) => {
 });
 var health_default = router;
 
-// src/lib/documentBase.ts
-import { createHash as createHash6 } from "node:crypto";
-
-// src/lib/lupa/deadlines.ts
-var MONTHS = {
-  janeiro: 1,
-  fevereiro: 2,
-  marco: 3,
-  abril: 4,
-  maio: 5,
-  junho: 6,
-  julho: 7,
-  agosto: 8,
-  setembro: 9,
-  outubro: 10,
-  novembro: 11,
-  dezembro: 12
-};
-var norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-function isLeapYear(y) {
-  return y % 4 === 0 && y % 100 !== 0 || y % 400 === 0;
-}
-function validDate(y, m, d) {
-  if (!Number.isInteger(y) || y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1) return false;
-  const days = [31, isLeapYear(y) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1];
-  return d <= days;
-}
-var iso = (y, m, d) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-function classifyChunk(chunk) {
-  const c = norm(chunk);
-  const prorrogacao = /prorrog/.test(c);
-  if (/recurso/.test(c)) return { kind: "recurso", rotulo: "recurso", prorrogacao };
-  if (/resultado (preliminar|provisorio)/.test(c)) return { kind: "resultado", rotulo: "resultado preliminar", prorrogacao };
-  if (/resultado|homologa|divulgacao (final|dos aprovados)/.test(c)) return { kind: "resultado", rotulo: "resultado", prorrogacao };
-  if (/^abertura|abertura das inscric|inicio das inscric|a partir de/.test(c)) return { kind: "inicio", rotulo: "abertura das inscri\xE7\xF5es", prorrogacao };
-  if (/inscric|submiss|envio (das |de )?propost|recebimento (das |de )?propost|propostas (serao recebidas|poderao ser enviadas)|encerramento das inscric/.test(c))
-    return { kind: "inscricao", rotulo: prorrogacao ? "inscri\xE7\xF5es (prorroga\xE7\xE3o)" : "inscri\xE7\xF5es", prorrogacao };
-  if (/publicac|lancamento/.test(c)) return { kind: "publicacao", rotulo: "publica\xE7\xE3o", prorrogacao };
-  if (/inicio (das atividades|da execucao|do projeto)|vigencia|execucao/.test(c)) return { kind: "execucao", rotulo: "execu\xE7\xE3o", prorrogacao };
-  if (/inicio/.test(c)) return { kind: "inicio", rotulo: "in\xEDcio", prorrogacao };
-  return { kind: "etapa", rotulo: "data", prorrogacao };
-}
-var DATE_RE = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b|\b(\d{1,2})(?:º)?\s+de\s+([a-zçã]+)\s+de\s+(\d{4})\b/gi;
-var TIME_RE = /^\s*(?:,|\s)*(?:at[eé]\s+(?:[àa]s\s+)?|[àa]s\s+)?(\d{1,2})\s*(?:h|:)\s*(\d{2})?\s*(?:min)?/i;
-var TZ_RE = /^[^.;]{0,40}?\(?\s*(hor[aá]rio\s+(?:oficial\s+)?de\s+bras[ií]lia|hor[aá]rio\s+de\s+bras[ií]lia)\s*\)?/i;
-function parseDateMentions(text4) {
-  const out = [];
-  let lastEnd = 0;
-  let lastClass = classifyChunk(text4);
-  for (const m of text4.matchAll(DATE_RE)) {
-    const [day2, month, year2] = m[1] ? [Number(m[1]), Number(m[2]), Number(m[3])] : [Number(m[4]), MONTHS[norm(m[5])] ?? 0, Number(m[6])];
-    const before2 = text4.slice(lastEnd, m.index);
-    const cls = /[a-zà-ú]{4,}/i.test(before2) ? classifyChunk(before2) : lastClass;
-    const isRange = /^\s*(a|ate|até)\s*$/i.test(before2) && out.length > 0;
-    const effective = isRange ? lastClass : cls;
-    if (isRange) {
-      const prev2 = out[out.length - 1];
-      if (prev2.kind === effective.kind) out[out.length - 1] = { ...prev2, kind: "inicio", rotulo: `abertura (${prev2.rotulo})` };
-    }
-    lastEnd = (m.index ?? 0) + m[0].length;
-    lastClass = effective;
-    if (!validDate(year2, month, day2)) continue;
-    const after2 = text4.slice(lastEnd, lastEnd + 60);
-    const t = TIME_RE.exec(after2);
-    const hora = t && Number(t[1]) <= 23 && (!t[2] || Number(t[2]) <= 59) ? `${t[1].padStart(2, "0")}:${t[2] ?? "00"}` : null;
-    const tz = TZ_RE.exec(after2);
-    out.push({ iso: iso(year2, month, day2), hora, fuso: tz ? "hor\xE1rio de Bras\xEDlia" : null, ...effective });
-  }
-  return out;
-}
-function candidateKind(c) {
-  const byLabel = classifyChunk(c.rotulo);
-  if (byLabel.kind !== "etapa") return { kind: byLabel.kind, prorrogacao: byLabel.prorrogacao || /prorrog/.test(norm(c.evidencia ?? "")) };
-  const byEvidence = c.evidencia ? classifyChunk(c.evidencia) : byLabel;
-  return { kind: byEvidence.kind, prorrogacao: byEvidence.prorrogacao };
-}
-function officialSubmissionDeadline(items, today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
-  const official = items.filter((i) => i.origem !== "usuario" && i.data && /^\d{4}-\d{2}-\d{2}$/.test(i.data)).map((i) => ({ ...i, ...candidateKind(i) })).filter((i) => i.kind === "inscricao");
-  if (official.length === 0) return null;
-  const extended2 = official.filter((i) => i.prorrogacao);
-  const pool = (extended2.length ? extended2 : official).sort((a, b) => a.data.localeCompare(b.data));
-  const fases = [...new Set(official.map((i) => i.data))].sort();
-  const next2 = extended2.length ? pool.at(-1) : pool.find((i) => i.data >= today) ?? pool.at(-1);
-  return {
-    iso: next2.data,
-    hora: next2.hora ?? null,
-    fuso: next2.fuso ?? null,
-    evidencia: next2.evidencia,
-    prorrogado: extended2.length > 0,
-    fases,
-    situacao: next2.data >= today ? "aberta" : "encerrada"
-  };
-}
-function formatDeadline(d) {
-  const [y, m, day2] = d.iso.split("-");
-  return `${day2}/${m}/${y}${d.hora ? `, at\xE9 ${d.hora}` : ""}${d.fuso ? ` (${d.fuso})` : ""}`;
-}
-
-// src/lib/lupa/collector/parse.ts
-import { createHash as createHash5 } from "node:crypto";
+// src/routes/edital.ts
+var import_express4 = __toESM(require_express2(), 1);
 
 // ../../node_modules/.pnpm/cheerio@1.2.0/node_modules/cheerio/dist/esm/options.js
 var defaultOpts = {
@@ -111450,28 +111352,28 @@ var EntityDecoder = class {
    * @param offset The offset at which the entity begins. Should be 0 if this is not the first call.
    * @returns The number of characters that were consumed, or -1 if the entity is incomplete.
    */
-  write(str3, offset) {
+  write(str4, offset) {
     switch (this.state) {
       case EntityDecoderState.EntityStart: {
-        if (str3.charCodeAt(offset) === CharCodes.NUM) {
+        if (str4.charCodeAt(offset) === CharCodes.NUM) {
           this.state = EntityDecoderState.NumericStart;
           this.consumed += 1;
-          return this.stateNumericStart(str3, offset + 1);
+          return this.stateNumericStart(str4, offset + 1);
         }
         this.state = EntityDecoderState.NamedEntity;
-        return this.stateNamedEntity(str3, offset);
+        return this.stateNamedEntity(str4, offset);
       }
       case EntityDecoderState.NumericStart: {
-        return this.stateNumericStart(str3, offset);
+        return this.stateNumericStart(str4, offset);
       }
       case EntityDecoderState.NumericDecimal: {
-        return this.stateNumericDecimal(str3, offset);
+        return this.stateNumericDecimal(str4, offset);
       }
       case EntityDecoderState.NumericHex: {
-        return this.stateNumericHex(str3, offset);
+        return this.stateNumericHex(str4, offset);
       }
       case EntityDecoderState.NamedEntity: {
-        return this.stateNamedEntity(str3, offset);
+        return this.stateNamedEntity(str4, offset);
       }
     }
   }
@@ -111484,22 +111386,22 @@ var EntityDecoder = class {
    * @param offset The current offset.
    * @returns The number of characters that were consumed, or -1 if the entity is incomplete.
    */
-  stateNumericStart(str3, offset) {
-    if (offset >= str3.length) {
+  stateNumericStart(str4, offset) {
+    if (offset >= str4.length) {
       return -1;
     }
-    if ((str3.charCodeAt(offset) | TO_LOWER_BIT) === CharCodes.LOWER_X) {
+    if ((str4.charCodeAt(offset) | TO_LOWER_BIT) === CharCodes.LOWER_X) {
       this.state = EntityDecoderState.NumericHex;
       this.consumed += 1;
-      return this.stateNumericHex(str3, offset + 1);
+      return this.stateNumericHex(str4, offset + 1);
     }
     this.state = EntityDecoderState.NumericDecimal;
-    return this.stateNumericDecimal(str3, offset);
+    return this.stateNumericDecimal(str4, offset);
   }
-  addToNumericResult(str3, start, end2, base2) {
+  addToNumericResult(str4, start, end2, base2) {
     if (start !== end2) {
       const digitCount = end2 - start;
-      this.result = this.result * Math.pow(base2, digitCount) + parseInt(str3.substr(start, digitCount), base2);
+      this.result = this.result * Math.pow(base2, digitCount) + parseInt(str4.substr(start, digitCount), base2);
       this.consumed += digitCount;
     }
   }
@@ -111512,18 +111414,18 @@ var EntityDecoder = class {
    * @param offset The current offset.
    * @returns The number of characters that were consumed, or -1 if the entity is incomplete.
    */
-  stateNumericHex(str3, offset) {
+  stateNumericHex(str4, offset) {
     const startIdx = offset;
-    while (offset < str3.length) {
-      const char = str3.charCodeAt(offset);
+    while (offset < str4.length) {
+      const char = str4.charCodeAt(offset);
       if (isNumber(char) || isHexadecimalCharacter(char)) {
         offset += 1;
       } else {
-        this.addToNumericResult(str3, startIdx, offset, 16);
+        this.addToNumericResult(str4, startIdx, offset, 16);
         return this.emitNumericEntity(char, 3);
       }
     }
-    this.addToNumericResult(str3, startIdx, offset, 16);
+    this.addToNumericResult(str4, startIdx, offset, 16);
     return -1;
   }
   /**
@@ -111535,18 +111437,18 @@ var EntityDecoder = class {
    * @param offset The current offset.
    * @returns The number of characters that were consumed, or -1 if the entity is incomplete.
    */
-  stateNumericDecimal(str3, offset) {
+  stateNumericDecimal(str4, offset) {
     const startIdx = offset;
-    while (offset < str3.length) {
-      const char = str3.charCodeAt(offset);
+    while (offset < str4.length) {
+      const char = str4.charCodeAt(offset);
       if (isNumber(char)) {
         offset += 1;
       } else {
-        this.addToNumericResult(str3, startIdx, offset, 10);
+        this.addToNumericResult(str4, startIdx, offset, 10);
         return this.emitNumericEntity(char, 2);
       }
     }
-    this.addToNumericResult(str3, startIdx, offset, 10);
+    this.addToNumericResult(str4, startIdx, offset, 10);
     return -1;
   }
   /**
@@ -111591,12 +111493,12 @@ var EntityDecoder = class {
    * @param offset The current offset.
    * @returns The number of characters that were consumed, or -1 if the entity is incomplete.
    */
-  stateNamedEntity(str3, offset) {
+  stateNamedEntity(str4, offset) {
     const { decodeTree } = this;
     let current2 = decodeTree[this.treeIndex];
     let valueLength = (current2 & BinTrieFlags.VALUE_LENGTH) >> 14;
-    for (; offset < str3.length; offset++, this.excess++) {
-      const char = str3.charCodeAt(offset);
+    for (; offset < str4.length; offset++, this.excess++) {
+      const char = str4.charCodeAt(offset);
       this.treeIndex = determineBranch(decodeTree, current2, this.treeIndex + Math.max(1, valueLength), char);
       if (this.treeIndex < 0) {
         return this.result === 0 || // If we are parsing an attribute
@@ -111681,26 +111583,26 @@ var EntityDecoder = class {
 };
 function getDecoder(decodeTree) {
   let ret = "";
-  const decoder2 = new EntityDecoder(decodeTree, (str3) => ret += fromCodePoint(str3));
-  return function decodeWithTrie(str3, decodeMode) {
-    let lastIndex = 0;
+  const decoder2 = new EntityDecoder(decodeTree, (str4) => ret += fromCodePoint(str4));
+  return function decodeWithTrie(str4, decodeMode) {
+    let lastIndex2 = 0;
     let offset = 0;
-    while ((offset = str3.indexOf("&", offset)) >= 0) {
-      ret += str3.slice(lastIndex, offset);
+    while ((offset = str4.indexOf("&", offset)) >= 0) {
+      ret += str4.slice(lastIndex2, offset);
       decoder2.startEntity(decodeMode);
       const len = decoder2.write(
-        str3,
+        str4,
         // Skip the "&"
         offset + 1
       );
       if (len < 0) {
-        lastIndex = offset + decoder2.end();
+        lastIndex2 = offset + decoder2.end();
         break;
       }
-      lastIndex = offset + len;
-      offset = len === 0 ? lastIndex + 1 : lastIndex;
+      lastIndex2 = offset + len;
+      offset = len === 0 ? lastIndex2 + 1 : lastIndex2;
     }
-    const result = ret + str3.slice(lastIndex);
+    const result = ret + str4.slice(lastIndex2);
     ret = "";
     return result;
   };
@@ -111753,28 +111655,28 @@ var xmlCodeMap = /* @__PURE__ */ new Map([
 ]);
 var getCodePoint = (
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  String.prototype.codePointAt != null ? (str3, index2) => str3.codePointAt(index2) : (
+  String.prototype.codePointAt != null ? (str4, index2) => str4.codePointAt(index2) : (
     // http://mathiasbynens.be/notes/javascript-encoding#surrogate-formulae
     (c, index2) => (c.charCodeAt(index2) & 64512) === 55296 ? (c.charCodeAt(index2) - 55296) * 1024 + c.charCodeAt(index2 + 1) - 56320 + 65536 : c.charCodeAt(index2)
   )
 );
-function encodeXML(str3) {
+function encodeXML(str4) {
   let ret = "";
   let lastIdx = 0;
   let match;
-  while ((match = xmlReplacer.exec(str3)) !== null) {
+  while ((match = xmlReplacer.exec(str4)) !== null) {
     const i = match.index;
-    const char = str3.charCodeAt(i);
+    const char = str4.charCodeAt(i);
     const next2 = xmlCodeMap.get(char);
     if (next2 !== void 0) {
-      ret += str3.substring(lastIdx, i) + next2;
+      ret += str4.substring(lastIdx, i) + next2;
       lastIdx = i + 1;
     } else {
-      ret += `${str3.substring(lastIdx, i)}&#x${getCodePoint(str3, i).toString(16)};`;
+      ret += `${str4.substring(lastIdx, i)}&#x${getCodePoint(str4, i).toString(16)};`;
       lastIdx = xmlReplacer.lastIndex += Number((char & 64512) === 55296);
     }
   }
-  return ret + str3.substr(lastIdx);
+  return ret + str4.substr(lastIdx);
 }
 function getEscaper(regex, map3) {
   return function escape3(data2) {
@@ -112688,11 +112590,11 @@ __export(attributes_exports, {
 function isCheerio(maybeCheerio) {
   return maybeCheerio.cheerio != null;
 }
-function camelCase(str3) {
-  return str3.replace(/[._-](\w|$)/g, (_, x) => x.toUpperCase());
+function camelCase(str4) {
+  return str4.replace(/[._-](\w|$)/g, (_, x) => x.toUpperCase());
 }
-function cssCase(str3) {
-  return str3.replace(/[A-Z]/g, "-$&").toLowerCase();
+function cssCase(str4) {
+  return str4.replace(/[A-Z]/g, "-$&").toLowerCase();
 }
 function domEach(array2, fn) {
   const len = array2.length;
@@ -112708,15 +112610,15 @@ var CharacterCode;
   CharacterCode2[CharacterCode2["UpperZ"] = 90] = "UpperZ";
   CharacterCode2[CharacterCode2["Exclamation"] = 33] = "Exclamation";
 })(CharacterCode || (CharacterCode = {}));
-function isHtml(str3) {
-  if (typeof str3 !== "string") {
+function isHtml(str4) {
+  if (typeof str4 !== "string") {
     return false;
   }
-  const tagStart = str3.indexOf("<");
-  if (tagStart === -1 || tagStart > str3.length - 3)
+  const tagStart = str4.indexOf("<");
+  if (tagStart === -1 || tagStart > str4.length - 3)
     return false;
-  const tagChar = str3.charCodeAt(tagStart + 1);
-  return (tagChar >= CharacterCode.LowerA && tagChar <= CharacterCode.LowerZ || tagChar >= CharacterCode.UpperA && tagChar <= CharacterCode.UpperZ || tagChar === CharacterCode.Exclamation) && str3.includes(">", tagStart + 2);
+  const tagChar = str4.charCodeAt(tagStart + 1);
+  return (tagChar >= CharacterCode.LowerA && tagChar <= CharacterCode.LowerZ || tagChar >= CharacterCode.UpperA && tagChar <= CharacterCode.UpperZ || tagChar === CharacterCode.Exclamation) && str4.includes(">", tagStart + 2);
 }
 
 // ../../node_modules/.pnpm/entities@7.0.1/node_modules/entities/dist/esm/decode-codepoint.js
@@ -114538,9 +114440,9 @@ function parseDataValue(value) {
     return true;
   if (value === "false")
     return false;
-  const num = Number(value);
-  if (value === String(num))
-    return num;
+  const num2 = Number(value);
+  if (value === String(num2))
+    return num2;
   if (rbrace.test(value)) {
     try {
       return JSON.parse(value);
@@ -115732,17 +115634,17 @@ function isFilter(s) {
   return false;
 }
 function getLimit(filter4, data2, partLimit) {
-  const num = data2 != null ? parseInt(data2, 10) : NaN;
+  const num2 = data2 != null ? parseInt(data2, 10) : NaN;
   switch (filter4) {
     case "first":
       return 1;
     case "nth":
     case "eq":
-      return isFinite(num) ? num >= 0 ? num + 1 : Infinity : 0;
+      return isFinite(num2) ? num2 >= 0 ? num2 + 1 : Infinity : 0;
     case "lt":
-      return isFinite(num) ? num >= 0 ? Math.min(num, partLimit) : Infinity : 0;
+      return isFinite(num2) ? num2 >= 0 ? Math.min(num2, partLimit) : Infinity : 0;
     case "gt":
-      return isFinite(num) ? Infinity : 0;
+      return isFinite(num2) ? Infinity : 0;
     case "odd":
       return 2 * partLimit;
     case "even":
@@ -115792,7 +115694,7 @@ function some(elements, selector, options = {}) {
   return plain.length > 0 && elements.some(_compileToken(plain, options)) || filtered.some((sel) => filterBySelector(sel, elements, options).length > 0);
 }
 function filterByPosition(filter4, elems, data2, options) {
-  const num = typeof data2 === "string" ? parseInt(data2, 10) : NaN;
+  const num2 = typeof data2 === "string" ? parseInt(data2, 10) : NaN;
   switch (filter4) {
     case "first":
     case "lt":
@@ -115801,9 +115703,9 @@ function filterByPosition(filter4, elems, data2, options) {
       return elems.length > 0 ? [elems[elems.length - 1]] : elems;
     case "nth":
     case "eq":
-      return isFinite(num) && Math.abs(num) < elems.length ? [num < 0 ? elems[elems.length + num] : elems[num]] : [];
+      return isFinite(num2) && Math.abs(num2) < elems.length ? [num2 < 0 ? elems[elems.length + num2] : elems[num2]] : [];
     case "gt":
-      return isFinite(num) ? elems.slice(num + 1) : [];
+      return isFinite(num2) ? elems.slice(num2 + 1) : [];
     case "even":
       return elems.filter((_, i) => i % 2 === 0);
     case "odd":
@@ -116555,8 +116457,8 @@ function empty() {
     el.children.length = 0;
   });
 }
-function html2(str3) {
-  if (str3 === void 0) {
+function html2(str4) {
+  if (str4 === void 0) {
     const el = this[0];
     if (!el || !hasChildren(el))
       return null;
@@ -116568,19 +116470,19 @@ function html2(str3) {
     for (const child of el.children) {
       child.next = child.prev = child.parent = null;
     }
-    const content = isCheerio(str3) ? str3.toArray() : this._parse(`${str3}`, this.options, false, el).children;
+    const content = isCheerio(str4) ? str4.toArray() : this._parse(`${str4}`, this.options, false, el).children;
     update(content, el);
   });
 }
 function toString() {
   return this._render(this);
 }
-function text2(str3) {
-  if (str3 === void 0) {
+function text2(str4) {
+  if (str4 === void 0) {
     return text(this);
   }
-  if (typeof str3 === "function") {
-    return domEach(this, (el, i) => this._make(el).text(str3.call(el, i, text([el]))));
+  if (typeof str4 === "function") {
+    return domEach(this, (el, i) => this._make(el).text(str4.call(el, i, text([el]))));
   }
   return domEach(this, (el) => {
     if (!hasChildren(el))
@@ -116588,7 +116490,7 @@ function text2(str3) {
     for (const child of el.children) {
       child.next = child.prev = child.parent = null;
     }
-    const textNode = new Text2(`${str3}`);
+    const textNode = new Text2(`${str4}`);
     update(textNode, el);
   });
 }
@@ -116657,7 +116559,7 @@ function getCss(el, prop2) {
   return styles;
 }
 function stringify(obj) {
-  return Object.keys(obj).reduce((str3, prop2) => `${str3}${str3 ? " " : ""}${prop2}: ${obj[prop2]};`, "");
+  return Object.keys(obj).reduce((str4, prop2) => `${str4}${str4 ? " " : ""}${prop2}: ${obj[prop2]};`, "");
 }
 function parse6(styles) {
   styles = (styles || "").trim();
@@ -116665,16 +116567,16 @@ function parse6(styles) {
     return {};
   const obj = {};
   let key;
-  for (const str3 of styles.split(";")) {
-    const n2 = str3.indexOf(":");
-    if (n2 < 1 || n2 === str3.length - 1) {
-      const trimmed = str3.trimEnd();
+  for (const str4 of styles.split(";")) {
+    const n2 = str4.indexOf(":");
+    if (n2 < 1 || n2 === str4.length - 1) {
+      const trimmed = str4.trimEnd();
       if (trimmed.length > 0 && key !== void 0) {
         obj[key] += `;${trimmed}`;
       }
     } else {
-      key = str3.slice(0, n2).trim();
-      obj[key] = str3.slice(n2 + 1).trim();
+      key = str4.slice(0, n2).trim();
+      obj[key] = str4.slice(n2 + 1).trim();
     }
   }
   return obj;
@@ -116823,9 +116725,9 @@ function getLoad(parse11, render4) {
         // $([dom])
         selector
       ) : void 0;
-      const instance = new LoadedCheerio(elements, rootInstance, options2);
+      const instance2 = new LoadedCheerio(elements, rootInstance, options2);
       if (elements) {
-        return instance;
+        return instance2;
       }
       if (typeof selector !== "string") {
         throw new TypeError("Unexpected type of selector");
@@ -116848,7 +116750,7 @@ function getLoad(parse11, render4) {
         )
       ) : rootInstance;
       if (!searchContext)
-        return instance;
+        return instance2;
       return searchContext.find(search);
     }
     Object.assign(initialize, static_exports, {
@@ -124718,16 +124620,16 @@ var getCodePoint2 = (
 function getEscaper2(regex, map3) {
   return function escape3(data2) {
     let match;
-    let lastIndex = 0;
+    let lastIndex2 = 0;
     let result = "";
     while (match = regex.exec(data2)) {
-      if (lastIndex !== match.index) {
-        result += data2.substring(lastIndex, match.index);
+      if (lastIndex2 !== match.index) {
+        result += data2.substring(lastIndex2, match.index);
       }
       result += map3.get(match[0].charCodeAt(0));
-      lastIndex = match.index + 1;
+      lastIndex2 = match.index + 1;
     }
-    return result + data2.substring(lastIndex);
+    return result + data2.substring(lastIndex2);
   };
 }
 var escapeAttribute2 = /* @__PURE__ */ getEscaper2(/["&\u00A0]/g, /* @__PURE__ */ new Map([
@@ -124868,19 +124770,19 @@ function enquoteDoctypeId(id) {
   return quote + id + quote;
 }
 function serializeDoctypeContent(name, publicId, systemId) {
-  let str3 = "!DOCTYPE ";
+  let str4 = "!DOCTYPE ";
   if (name) {
-    str3 += name;
+    str4 += name;
   }
   if (publicId) {
-    str3 += ` PUBLIC ${enquoteDoctypeId(publicId)}`;
+    str4 += ` PUBLIC ${enquoteDoctypeId(publicId)}`;
   } else if (systemId) {
-    str3 += " SYSTEM";
+    str4 += " SYSTEM";
   }
   if (systemId) {
-    str3 += ` ${enquoteDoctypeId(systemId)}`;
+    str4 += ` ${enquoteDoctypeId(systemId)}`;
   }
-  return str3;
+  return str4;
 }
 var adapter = {
   // Re-exports from domhandler
@@ -125195,10 +125097,10 @@ var END_OF_UNQUOTED_ATTRIBUTE_VALUE = /* @__PURE__ */ new Set([
   Chars.TAB,
   Chars.GT
 ]);
-function toUint8Array(str3) {
-  const arr = new Uint8Array(str3.length);
-  for (let i = 0; i < str3.length; i++) {
-    arr[i] = str3.charCodeAt(i);
+function toUint8Array(str4) {
+  const arr = new Uint8Array(str4.length);
+  for (let i = 0; i < str4.length; i++) {
+    arr[i] = str4.charCodeAt(i);
   }
   return arr;
 }
@@ -126058,14 +125960,14 @@ function promiseAllObject(promisesObj) {
 }
 function randomString(length = 10) {
   const chars = "abcdefghijklmnopqrstuvwxyz";
-  let str3 = "";
+  let str4 = "";
   for (let i = 0; i < length; i++) {
-    str3 += chars[Math.floor(Math.random() * chars.length)];
+    str4 += chars[Math.floor(Math.random() * chars.length)];
   }
-  return str3;
+  return str4;
 }
-function esc(str3) {
-  return JSON.stringify(str3);
+function esc(str4) {
+  return JSON.stringify(str4);
 }
 function slugify(input2) {
   return input2.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -126179,8 +126081,8 @@ var primitiveTypes = /* @__PURE__ */ new Set([
   "symbol",
   "undefined"
 ]);
-function escapeRegex2(str3) {
-  return str3.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escapeRegex2(str4) {
+  return str4.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function clone3(inst, def, params) {
   const cl = new inst._zod.constr(def ?? inst._zod.def);
@@ -126446,13 +126348,13 @@ function getSizableOrigin(input2) {
   return "unknown";
 }
 var highSurrogate = /[\uD800-\uDBFF]/;
-function codePointLength(str3) {
-  const units = str3.length;
-  if (!highSurrogate.test(str3))
+function codePointLength(str4) {
+  const units = str4.length;
+  if (!highSurrogate.test(str4))
     return units;
   let count = units;
   for (let i = 0; i < units - 1; i++) {
-    if ((str3.charCodeAt(i) & 64512) === 55296 && (str3.charCodeAt(i + 1) & 64512) === 56320) {
+    if ((str4.charCodeAt(i) & 64512) === 55296 && (str4.charCodeAt(i + 1) & 64512) === 56320) {
       count--;
       i++;
     }
@@ -130298,7 +130200,7 @@ function isRecursive(inst, stack, resolve) {
     return PROVEN;
   stack.add(inst);
   let result = NONE;
-  const check3 = (child) => {
+  const check4 = (child) => {
     if (result !== PROVEN && child?._zod) {
       const answer = isRecursive(child, stack, resolve);
       if (answer > result)
@@ -130327,32 +130229,32 @@ function isRecursive(inst, stack, resolve) {
     case "object": {
       const raw = rawShape(def);
       merge4(raw ? shape(raw, true) : ASSUMED);
-      check3(def.catchall);
+      check4(def.catchall);
       break;
     }
     case "array":
-      check3(def.element);
+      check4(def.element);
       break;
     case "tuple":
       for (const el of def.items)
-        check3(el);
-      check3(def.rest);
+        check4(el);
+      check4(def.rest);
       break;
     case "record":
     case "map":
-      check3(def.keyType);
-      check3(def.valueType);
+      check4(def.keyType);
+      check4(def.valueType);
       break;
     case "set":
-      check3(def.valueType);
+      check4(def.valueType);
       break;
     case "union":
       for (const el of def.options)
-        check3(el);
+        check4(el);
       break;
     case "intersection":
-      check3(def.left);
-      check3(def.right);
+      check4(def.left);
+      check4(def.right);
       break;
     case "optional":
     case "nullable":
@@ -130363,15 +130265,15 @@ function isRecursive(inst, stack, resolve) {
     case "nonoptional":
     case "promise":
     case "success":
-      check3(def.innerType);
+      check4(def.innerType);
       break;
     case "pipe":
-      check3(def.in);
-      check3(def.out);
+      check4(def.in);
+      check4(def.out);
       break;
     case "function":
-      check3(def.input);
-      check3(def.output);
+      check4(def.input);
+      check4(def.output);
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
@@ -130412,10 +130314,10 @@ function isRecursive(inst, stack, resolve) {
         if (!value || typeof value !== "object")
           continue;
         if (value._zod)
-          check3(value);
+          check4(value);
         else if (Array.isArray(value))
           for (const el of value)
-            check3(el);
+            check4(el);
       }
     }
   }
@@ -138361,8 +138263,8 @@ function generateChecks(doc, ctx, schema, accessor) {
   if (!schemaChecks || schemaChecks.length === 0)
     return accessor;
   let currentAccessor = accessor;
-  for (const check3 of schemaChecks) {
-    const def = check3._zod.def;
+  for (const check4 of schemaChecks) {
+    const def = check4._zod.def;
     if (def.when && !WHEN_DEFAULTED_CHECKS.has(def.check)) {
       throw new ZodCompileUnsupportedError(`check with a custom "when" condition`);
     }
@@ -138410,7 +138312,7 @@ function generateChecks(doc, ctx, schema, accessor) {
         currentAccessor = generateStringFormatCheck(doc, ctx, def, currentAccessor);
         break;
       case "custom":
-        currentAccessor = generateCustomRefineCheck(doc, ctx, check3, currentAccessor);
+        currentAccessor = generateCustomRefineCheck(doc, ctx, check4, currentAccessor);
         break;
       case "bigint_format":
         generateBigIntFormatCheck(doc, def, currentAccessor);
@@ -138426,7 +138328,7 @@ function generateChecks(doc, ctx, schema, accessor) {
         break;
       case "overwrite": {
         const newAccessor = newVar(ctx);
-        generateOverwriteCheck(doc, ctx, check3, currentAccessor, newAccessor);
+        generateOverwriteCheck(doc, ctx, check4, currentAccessor, newAccessor);
         currentAccessor = newAccessor;
         break;
       }
@@ -138549,8 +138451,8 @@ function generatePropertyCheck(doc, ctx, def, accessor) {
   const propAccessor = `${accessor}[${JSON.stringify(def.property)}]`;
   generateCheck(doc, ctx, def.schema, propAccessor);
 }
-function generateOverwriteCheck(doc, ctx, check3, currentAccessor, newAccessor) {
-  const tx = check3._zod.def.tx;
+function generateOverwriteCheck(doc, ctx, check4, currentAccessor, newAccessor) {
+  const tx = check4._zod.def.tx;
   if (!tx) {
     throw new ZodCompileUnsupportedError("overwrite check without a transform function");
   }
@@ -138566,8 +138468,8 @@ function throwAsync() {
 function pushIssue(issue2) {
   this.issues.push(issue2);
 }
-function generateCustomRefineCheck(doc, ctx, check3, accessor) {
-  const def = check3._zod.def;
+function generateCustomRefineCheck(doc, ctx, check4, accessor) {
+  const def = check4._zod.def;
   if (def.fn) {
     if (isAsyncFunction(def.fn)) {
       throw new ZodCompileAsyncError("z.compile: async .refine() predicates are not supported");
@@ -138580,11 +138482,11 @@ function generateCustomRefineCheck(doc, ctx, check3, accessor) {
     doc.write(`if (!${resVar}) return INVALID;`);
     return accessor;
   }
-  if (check3._zod.check) {
-    if (isAsyncFunction(check3._zod.check)) {
+  if (check4._zod.check) {
+    if (isAsyncFunction(check4._zod.check)) {
       throw new ZodCompileAsyncError("z.compile: async .superRefine() / check functions are not supported");
     }
-    const checkFn = check3._zod.check;
+    const checkFn = check4._zod.check;
     const helperFn = (value) => {
       const fakePayload = { value, issues: [], addIssue: pushIssue };
       const result = checkFn(fakePayload);
@@ -139206,8 +139108,8 @@ function generateNullableCheck(doc, ctx, schema, accessor, buildsValue = true) {
   return outputVar;
 }
 function generateSizeGate(doc, schema, size) {
-  for (const [max, check3] of sizeCaps(schema._zod.def.checks)) {
-    doc.write(`if (${size} > ${numericOperand(max, check3._zod.def.check)}) return INVALID;`);
+  for (const [max, check4] of sizeCaps(schema._zod.def.checks)) {
+    doc.write(`if (${size} > ${numericOperand(max, check4._zod.def.check)}) return INVALID;`);
   }
 }
 function generateArrayCheck(doc, ctx, schema, accessor, buildsValue = true) {
@@ -142507,8 +142409,8 @@ var ZodType = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
     reg.add(this, meta3);
     return this;
   },
-  refine(check3, params) {
-    return this.check(refine(check3, params));
+  refine(check4, params) {
+    return this.check(refine(check4, params));
   },
   superRefine(refinement, params) {
     return this.check(superRefine(refinement, params));
@@ -144940,837 +144842,9 @@ function date4(params) {
   return _coercedDate(ZodDate, params);
 }
 
-// src/lib/lupa/types.ts
-var OPPORTUNITY_TYPES = [
-  "auxilio_pesquisa",
-  "bolsa",
-  "evento",
-  "inovacao",
-  "publicacao",
-  "infraestrutura",
-  "formacao",
-  // Públicos além do docente (perfil progressivo): só interesse, nunca requisito
-  "extensao",
-  "hackathon",
-  "concurso"
-];
-var termList = external_exports.array(external_exports.string().trim().min(1).max(120)).max(40).transform((items) => Array.from(new Set(items.map((s) => s.trim()))));
-var VINCULOS = ["estudante", "docente", "pesquisador", "servidor", "profissional", "outro"];
-var OBJETIVOS = ["bolsas", "pesquisa", "extensao", "inovacao", "hackathons", "concursos", "formacao", "eventos"];
-var OBJETIVO_ATUAL = ["encontrar", "entender", "elegibilidade", "documentos", "projeto", "lattes", "artigo", "aprender"];
-var ProfileInputSchema = external_exports.object({
-  display_name: external_exports.string().trim().max(160).nullable().optional(),
-  institution: external_exports.string().trim().max(200).nullable().optional(),
-  unit: external_exports.string().trim().max(200).nullable().optional(),
-  areas: termList.optional(),
-  competencies: termList.optional(),
-  research_topics: termList.optional(),
-  keywords: termList.optional(),
-  current_projects: external_exports.string().trim().max(4e3).nullable().optional(),
-  opportunity_types: external_exports.array(external_exports.enum(OPPORTUNITY_TYPES)).max(OPPORTUNITY_TYPES.length).optional(),
-  lattes_id: external_exports.string().trim().regex(/^\d{16}$/, "O identificador Lattes tem 16 d\xEDgitos.").nullable().optional(),
-  lattes_url: external_exports.string().trim().url().refine((u) => /^https?:\/\/(lattes\.cnpq\.br|buscatextual\.cnpq\.br)\//.test(u), "Use um endere\xE7o do Lattes (lattes.cnpq.br).").nullable().optional(),
-  declared_degree: external_exports.enum(["graduacao", "especializacao", "mestrado", "doutorado"]).nullable().optional(),
-  declared_bond: external_exports.enum(["efetivo", "temporario", "visitante", "aposentado", "sem_vinculo"]).nullable().optional(),
-  orcid: external_exports.string().trim().regex(/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/, "O ORCID tem o formato 0000-0000-0000-0000.").nullable().optional(),
-  /** Interesses do momento (ex.: "chamada para eventos em 2027"); pesam menos que áreas. */
-  temporary_interests: termList.optional(),
-  collaboration_role: external_exports.enum(["coordenar", "colaborar", "ambos"]).nullable().optional(),
-  // ── Perfil essencial (progressivo; tudo opcional, pode responder depois) ──
-  /** Vínculos: várias ao mesmo tempo (ex.: docente E pesquisador). Não dão permissão nenhuma. */
-  vinculos: external_exports.array(external_exports.enum(VINCULOS)).max(VINCULOS.length).optional(),
-  formacao_situacao: external_exports.enum(["em_curso", "concluida"]).nullable().optional(),
-  formacao_curso: external_exports.string().trim().max(200).nullable().optional(),
-  /** Objetivos de médio prazo (o que você busca). */
-  objetivos: external_exports.array(external_exports.enum(OBJETIVOS)).max(OBJETIVOS.length).optional(),
-  /** "O que você quer fazer agora?" — muda as sugestões da página inicial. */
-  objetivo_atual: external_exports.enum(OBJETIVO_ATUAL).nullable().optional(),
-  localizacao: external_exports.string().trim().max(120).nullable().optional(),
-  modalidade: external_exports.enum(["presencial", "remoto", "hibrido", "qualquer"]).nullable().optional(),
-  notification_prefs: external_exports.object({
-    email: external_exports.boolean(),
-    frequency: external_exports.enum(["diaria", "semanal", "nunca"])
-  }).optional()
-}).strict();
-function emptyProfile(userId, now = (/* @__PURE__ */ new Date()).toISOString()) {
-  return {
-    user_id: userId,
-    display_name: null,
-    institution: null,
-    unit: null,
-    areas: [],
-    competencies: [],
-    research_topics: [],
-    keywords: [],
-    current_projects: null,
-    opportunity_types: [],
-    lattes_id: null,
-    lattes_url: null,
-    declared_degree: null,
-    declared_bond: null,
-    orcid: null,
-    temporary_interests: [],
-    collaboration_role: null,
-    vinculos: [],
-    formacao_situacao: null,
-    formacao_curso: null,
-    objetivos: [],
-    objetivo_atual: null,
-    localizacao: null,
-    modalidade: null,
-    notification_prefs: { email: false, frequency: "semanal" },
-    field_sources: {},
-    version: 0,
-    created_at: now,
-    updated_at: now
-  };
-}
-var EXTRACTED_FIELD_KEYS = [
-  "objeto",
-  "areas",
-  "elegibilidade",
-  "requisitos",
-  "valores",
-  "documentos",
-  "datas",
-  "restricoes",
-  "contrapartidas",
-  "parcerias",
-  "criterios_avaliacao",
-  "canal_inscricao"
-];
-var OPTIONAL_FIELD_KEYS = /* @__PURE__ */ new Set(["contrapartidas", "parcerias", "restricoes"]);
-var SourceUpdateSchema = external_exports.object({
-  start_urls: external_exports.array(external_exports.string().url()).min(1).max(10).optional(),
-  max_depth: external_exports.number().int().min(0).max(4).optional(),
-  max_pages: external_exports.number().int().min(1).max(300).optional(),
-  time_budget_ms: external_exports.number().int().min(5e3).max(6e5).optional(),
-  request_delay_ms: external_exports.number().int().min(500).max(3e4).optional(),
-  frequency_minutes: external_exports.number().int().min(60).max(60 * 24 * 30).optional(),
-  enabled: external_exports.boolean().optional()
-}).strict();
-
-// src/lib/lupa/collector/urls.ts
-var TRACKING_PARAMS = /^(utm_|fbclid$|gclid$|mc_|_ga$|ref$|share$|replytocom$|amp$)/i;
-function normalizeUrl(raw, base2) {
-  let url2;
-  try {
-    url2 = new URL(raw.trim(), base2);
-  } catch {
-    return null;
-  }
-  if (url2.protocol !== "http:" && url2.protocol !== "https:") return null;
-  url2.hash = "";
-  url2.hostname = url2.hostname.toLowerCase();
-  if (url2.protocol === "https:" && url2.port === "443" || url2.protocol === "http:" && url2.port === "80") url2.port = "";
-  for (const key of [...url2.searchParams.keys()]) {
-    if (TRACKING_PARAMS.test(key)) url2.searchParams.delete(key);
-  }
-  url2.searchParams.sort();
-  if (url2.pathname.length > 1 && url2.pathname.endsWith("/")) url2.pathname = url2.pathname.replace(/\/+$/, "");
-  return url2.toString();
-}
-function isAllowedHost(url2, allowedHosts) {
-  try {
-    const host = new URL(url2).hostname.toLowerCase();
-    return allowedHosts.map((h) => h.toLowerCase()).includes(host);
-  } catch {
-    return false;
-  }
-}
-var DOCUMENT_EXT = /\.(pdf|docx?|odt|xlsx?|ods|zip|rar)$/i;
-function isDocumentUrl(url2) {
-  try {
-    return DOCUMENT_EXT.test(new URL(url2).pathname);
-  } catch {
-    return false;
-  }
-}
-
-// src/lib/lupa/collector/parse.ts
-var EDITAL_NUMBER = /\b(?:edital|chamada(?:\s+p[úu]blica)?)\s*(?:n[º°o.]*\s*)?(\d{1,3})\s*[/-]\s*(\d{4})\b/gi;
-function normalizeEditalNumber(n2, year2) {
-  return `${n2.padStart(2, "0")}/${year2}`;
-}
-function findEditalNumbers(text4) {
-  const found = /* @__PURE__ */ new Set();
-  for (const m of text4.matchAll(EDITAL_NUMBER)) found.add(normalizeEditalNumber(m[1], m[2]));
-  return [...found];
-}
-function parseHtml(url2, html3) {
-  const $2 = load(html3);
-  $2("script, style, noscript, iframe, svg").remove();
-  const links = [];
-  $2("a[href]").each((_, el) => {
-    const href = $2(el).attr("href") ?? "";
-    const abs = normalizeUrl(href, url2);
-    if (!abs) return;
-    const text5 = $2(el).text().replace(/\s+/g, " ").trim() || ($2(el).attr("title") ?? "").trim();
-    links.push({ url: abs, text: text5 });
-  });
-  $2("nav, header, footer, aside, [role='navigation'], .menu, #menu, .breadcrumb, .sidebar").remove();
-  const main = $2("main, article, [role='main'], .entry-content, .content, #content").first();
-  const scope = main.length ? main : $2("body");
-  const title = ($2("h1").first().text() || $2("title").text() || "").replace(/\s+/g, " ").trim();
-  const text4 = scope.find("p, li, td, th, h1, h2, h3, h4, dd, dt, div").toArray().filter((el) => $2(el).children("p, li, div, table, ul, ol").length === 0).map((el) => $2(el).text().replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
-  return { url: url2, title, text: text4 || scope.text().replace(/\s+/g, " ").trim(), links };
-}
-function classifyPage(page) {
-  const titleNumbers = findEditalNumbers(page.title);
-  if (titleNumbers.length !== 1) return "categoria";
-  const bodyNumbers = findEditalNumbers(page.text).filter((n2) => n2 !== titleNumbers[0]);
-  const linkedOpportunityPages = page.links.filter(
-    (l) => !isDocumentUrl(l.url) && findEditalNumbers(l.text).some((n2) => n2 !== titleNumbers[0])
-  );
-  if (bodyNumbers.length >= 3 || linkedOpportunityPages.length >= 3) return "categoria";
-  return "oportunidade";
-}
-function classifyDocument(link) {
-  const s = `${link.text} ${decodeURIComponent(new URL(link.url).pathname)}`.toLowerCase();
-  if (/retifica|errata/.test(s)) return "retificacao";
-  if (/resultado|homologa|classifica[cç][aã]o|aprovad/.test(s)) return "resultado";
-  if (/anexo|formul[aá]rio|modelo|declara[cç][aã]o|planilha/.test(s)) return "anexo";
-  if (/edital|chamada/.test(s)) return "edital";
-  return "outro";
-}
-function sentences(text4) {
-  return text4.split(/\n+/).flatMap((line) => line.split(/(?<=[.;:])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9])/)).map((s) => s.trim()).filter((s) => s.length >= 12 && s.length <= 600);
-}
-function grab(lines, re2, url2, limit2 = 6) {
-  const out = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const s of lines) {
-    if (!re2.test(s) || seen.has(s)) continue;
-    seen.add(s);
-    out.push({ value: s, evidence: s, source_url: url2 });
-    if (out.length >= limit2) break;
-  }
-  return out;
-}
-function extractDates(lines, url2) {
-  const out = [];
-  for (const s of lines) {
-    for (const d of parseDateMentions(s)) {
-      out.push({ label: d.rotulo, value: s, evidence: s, source_url: url2, iso: d.iso, ...d.hora ? { hora: d.hora } : {}, ...d.fuso ? { fuso: d.fuso } : {} });
-      if (out.length >= 16) return out;
-    }
-  }
-  return out;
-}
-function datesAsCandidates(fields) {
-  return (fields.datas ?? []).map((d) => ({ rotulo: d.label, data: d.iso, hora: d.hora ?? null, fuso: d.fuso ?? null, origem: "edital", evidencia: d.evidence }));
-}
-function inferStatus(fields, text4, now = /* @__PURE__ */ new Date()) {
-  if (/\b(edital|chamada|processo seletivo)\b[^.\n]{0,40}\b(cancelad[oa]|revogad[oa]|anulad[oa])\b|\b(cancelamento|revoga[cç][aã]o|anula[cç][aã]o)\s+d[oa]\s+(edital|chamada)\b/i.test(text4)) return "cancelada";
-  if (/\b(edital|chamada|processo seletivo)\b[^.\n]{0,40}\bsuspens[oa]\b|\bsuspens[aã]o\s+d[oa]\s+(edital|chamada)\b/i.test(text4)) return "suspensa";
-  if (/\b(edital|chamada)\s+(encerrad[oa]|finalizad[oa])\b|inscri[cç][õo]es\s+encerradas/i.test(text4)) return "encerrada";
-  const official = officialSubmissionDeadline(datesAsCandidates(fields), now.toISOString().slice(0, 10));
-  if (!official) return "desconhecida";
-  return official.situacao;
-}
-function isLinkOnlyLine(line, links) {
-  let rest = line;
-  for (const l of links) {
-    const t = l.text.replace(/\s+/g, " ").trim();
-    if (t.length >= 2) rest = rest.split(t).join(" ");
-  }
-  return rest.replace(/[^\p{L}\p{N}]+/gu, "").length < 6 && rest.length < line.length;
-}
-function extractFields(page) {
-  const lines = sentences(page.text).filter((s) => !isLinkOnlyLine(s, page.links ?? []));
-  const url2 = page.url;
-  const fields = {};
-  const objeto = lines.find((s) => /\bobjeto\b|tem por (objetivo|finalidade)|tem como objetivo/i.test(s));
-  if (objeto) fields.objeto = { value: objeto, evidence: objeto, source_url: url2 };
-  const areaLine = lines.find((s) => /[áa]reas?\s+(do conhecimento|tem[áa]ticas?|priorit[áa]rias?|de atua[cç][aã]o)|linhas? tem[áa]ticas?/i.test(s));
-  if (areaLine) {
-    const after2 = areaLine.split(/:\s*/).slice(1).join(": ") || areaLine;
-    const items = after2.split(/[;,]|\s+e\s+/).map((x) => x.replace(/[.]$/, "").trim()).filter((x) => x.length >= 3 && x.length <= 80);
-    if (items.length) fields.areas = { value: items, evidence: areaLine, source_url: url2 };
-  }
-  const eleg = grab(lines, /poder[aã]o\s+(participar|concorrer|submeter)|eleg[ií]ve|\bproponente\b.*\b(dever[áa]|deve)\b|t[ií]tulo de (doutor|mestre)|v[ií]nculo (empregat[ií]cio|funcional|institucional|efetivo)|sediad[ao]s?\s+no\s+(distrito federal|df)/i, url2);
-  if (eleg.length) fields.elegibilidade = eleg;
-  const req = grab(lines, /\brequisitos?\b|\bexig[eê]ncias?\b|\bdever[aá]\s+(apresentar|possuir|comprovar)/i, url2);
-  if (req.length) fields.requisitos = req;
-  const valores = grab(lines, /R\$\s?\d/i, url2);
-  if (valores.length) fields.valores = valores;
-  const docs = grab(lines, /documentos?\s+(necess[aá]rios|exigidos|obrigat[oó]rios)|dever[aá]\s+anexar|curr[ií]culo lattes|plano de trabalho/i, url2);
-  if (docs.length) fields.documentos = docs;
-  const datas = extractDates(lines, url2);
-  if (datas.length) fields.datas = datas;
-  const restr = grab(lines, /\bvedad[oa]s?\b|n[aã]o\s+poder[aã]o|[ée]\s+proibid|n[aã]o\s+ser[aã]o\s+aceit/i, url2);
-  if (restr.length) fields.restricoes = restr;
-  const contra = grab(lines, /\bcontrapartida/i, url2);
-  if (contra.length) fields.contrapartidas = contra;
-  const parc = grab(lines, /\bparceri|\bcoopera[cç][aã]o\s+(com|entre)|\bconsórcio|\binstitui[cç][aã]o\s+parceira|\bco-?executora/i, url2);
-  if (parc.length) fields.parcerias = parc;
-  const crit = grab(lines, /crit[eé]rios?\s+(de\s+)?(avalia[cç][aã]o|julgamento|sele[cç][aã]o|classifica[cç][aã]o)|\bpontua[cç][aã]o\b|\bnota\s+(m[ií]nima|final)/i, url2);
-  if (crit.length) fields.criterios_avaliacao = crit;
-  const canal = grab(lines, /(inscri[cç][õo]es|propostas|submiss[aã]o)\s+(ser[aã]o|dever[aã]o ser)\s+(realizad|feit|enviad|submetid)|\bsistema\s+[A-Z]|\bplataforma\b|\bformul[aá]rio\s+eletr[oô]nico|\bpor\s+meio\s+do\s+(site|sistema|endere[cç]o)/i, url2, 3);
-  if (canal.length) fields.canal_inscricao = canal;
-  const missing = EXTRACTED_FIELD_KEYS.filter((k) => fields[k] === void 0 && !OPTIONAL_FIELD_KEYS.has(k));
-  return { fields, missing };
-}
-function eventsFromDocuments(docs, text4, url2) {
-  const events = [];
-  for (const d of docs) {
-    if (d.kind === "retificacao") events.push({ kind: "retificacao", title: d.title, url: d.url, event_date: null, evidence: d.title });
-    if (d.kind === "resultado") events.push({ kind: "resultado", title: d.title, url: d.url, event_date: null, evidence: d.title });
-  }
-  for (const s of sentences(text4)) {
-    if (/prorroga/i.test(s)) {
-      events.push({ kind: "prorrogacao", title: s.slice(0, 160), url: url2, event_date: null, evidence: s });
-      break;
-    }
-  }
-  return events;
-}
-function contentHash(parts) {
-  return createHash5("sha256").update(JSON.stringify(parts)).digest("hex");
-}
-
-// src/lib/lupa/matching-text.ts
-function normalizeText(s) {
-  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-// src/lib/lupa/eligibility.ts
-var DEGREE_RANK = { graduacao: 1, especializacao: 2, mestrado: 3, doutorado: 4 };
-var DEGREE_LABEL = { graduacao: "gradua\xE7\xE3o", especializacao: "especializa\xE7\xE3o", mestrado: "mestrado", doutorado: "doutorado" };
-var SELF_DECLARED = "Dado autodeclarado no perfil \u2014 precisa ser comprovado na submiss\xE3o.";
-function splitSegments(text4) {
-  return text4.split(/(?<=[.;!?])\s+|;\s*/).map((s) => s.trim()).filter((s) => s.length > 3);
-}
-var DISPENSA = /\b(nao (e|sera|sao|serao) (necessari|exigid|obrigatori|requerid)|nao se exige|nao ha exigencia|dispensad|independe(nte)? d|sem necessidade d|nao precisa)/;
-var DESEJAVEL = /\b(preferencialmente|desejavel|desejaveis|de preferencia|sera (valorizad|considerad|pontuad)|serao (valorizad|considerad|pontuad)|diferencial|pontuacao adicional|bonificacao|recomendavel)/;
-var OBRIGATORIO_CUE = /\b(dever[aã]o?|deve|devem|obrigatori|exig|requisit|necessari|somente|apenas|exclusivamente|poder[aã]o? (participar|concorrer|submeter|se inscrever)|podem (participar|concorrer|submeter|se inscrever)|e vedad|nao poder|possuir|ter (o )?titulo|titulo de|titulacao|ser (mestres?|doutor(es)?|portador)|aceit|portador|conclui|minimo|pelo menos)/;
-var COORD = /\b(coordenador|coordenadora|coordenacao|proponente responsavel|pesquisador responsavel|responsavel pelo projeto)/;
-var EQUIPE = /\b(membros?|integrantes?|equipe|colaboradores?|bolsistas?|demais participantes)\b/;
-function nature(seg) {
-  if (DISPENSA.test(seg)) return "descritivo";
-  if (DESEJAVEL.test(seg)) return "desejavel";
-  if (OBRIGATORIO_CUE.test(seg)) return "obrigatorio";
-  return "descritivo";
-}
-function appliesTo(seg) {
-  if (COORD.test(seg)) return "coordenador";
-  if (EQUIPE.test(seg) && !/\b(candidat|proponente|pesquisador(a)?(es)? (que|com))/.test(seg)) return "equipe";
-  return "candidato";
-}
-function degreeRequirement(seg) {
-  const found = [];
-  if (/\b(graduad[oa]s?|diploma de graduacao|curso superior complet|nivel superior complet)/.test(seg)) found.push("graduacao");
-  if (/\b(especializacao|especialistas?)\b/.test(seg)) found.push("especializacao");
-  if (/\b(mestres?|mestras?|mestrados?)\b/.test(seg)) found.push("mestrado");
-  if (/\b(doutor|doutores|doutoras?|doutorados?)\b/.test(seg)) found.push("doutorado");
-  if (found.length === 0) return null;
-  const emCurso = /\b(cursando|matriculad|em curso|em andamento|regularmente inscrit)/.test(seg);
-  const alternativas = /\bou\b|\bno minimo\b|\bpelo menos\b|\bou superior\b|\bou equivalente\b|\bminima de\b/.test(seg);
-  const uniq = [...new Set(found)].sort((a, b) => DEGREE_RANK[a] - DEGREE_RANK[b]);
-  if (uniq.length > 1 && !alternativas) return { ambiguo: `menciona ${uniq.map((d) => DEGREE_LABEL[d]).join(" e ")} sem indicar se \xE9 alternativa` };
-  return { min: uniq[0], alternativas: uniq.length > 1 || alternativas, emCurso };
-}
-function evalDegree(seg, p) {
-  const d = degreeRequirement(seg);
-  if (!d) return null;
-  if ("ambiguo" in d) return { condicao: "titula\xE7\xE3o", state: "pendente_comprovacao", reason: `Titula\xE7\xE3o: o trecho ${d.ambiguo}. Confira no edital.`, profile_basis: null };
-  const label = d.alternativas && d.min !== "doutorado" ? `${DEGREE_LABEL[d.min]} (ou superior)` : DEGREE_LABEL[d.min];
-  if (d.emCurso) {
-    return { condicao: `titula\xE7\xE3o em curso (${DEGREE_LABEL[d.min]})`, state: "pendente_comprovacao", reason: `Pede ${DEGREE_LABEL[d.min]} em curso; confira a sua situa\xE7\xE3o de matr\xEDcula.`, profile_basis: null };
-  }
-  if (!p.declared_degree) return { condicao: `titula\xE7\xE3o m\xEDnima: ${label}`, state: "pendente_comprovacao", reason: `Pede ${label}; titula\xE7\xE3o n\xE3o informada no perfil.`, profile_basis: null };
-  const ok = DEGREE_RANK[p.declared_degree] >= DEGREE_RANK[d.min];
-  return {
-    condicao: `titula\xE7\xE3o m\xEDnima: ${label}`,
-    state: ok ? "atendida" : "nao_atendida",
-    reason: ok ? `Pede ${label}; o perfil informa ${DEGREE_LABEL[p.declared_degree]}. ${SELF_DECLARED}` : `Pede ${label}; o perfil informa ${DEGREE_LABEL[p.declared_degree]}.`,
-    profile_basis: `titula\xE7\xE3o: ${DEGREE_LABEL[p.declared_degree]} (autodeclarado)`
-  };
-}
-function evalBond(seg, p) {
-  if (!/vinculo (empregaticio|funcional|efetivo|institucional|permanente)|servidor (publico )?efetivo|quadro (permanente|efetivo)/.test(seg)) return null;
-  const bond = p.declared_bond;
-  if (!bond) return { condicao: "v\xEDnculo institucional", state: "pendente_comprovacao", reason: "Pede v\xEDnculo institucional; v\xEDnculo n\xE3o informado no perfil.", profile_basis: null };
-  if (bond === "efetivo") return { condicao: "v\xEDnculo institucional", state: "atendida", reason: `Pede v\xEDnculo; o perfil informa v\xEDnculo efetivo. ${SELF_DECLARED}`, profile_basis: "v\xEDnculo: efetivo (autodeclarado)" };
-  if (bond === "sem_vinculo") return { condicao: "v\xEDnculo institucional", state: "nao_atendida", reason: "Pede v\xEDnculo institucional; o perfil informa que n\xE3o h\xE1 v\xEDnculo.", profile_basis: "v\xEDnculo: sem v\xEDnculo (autodeclarado)" };
-  return { condicao: "v\xEDnculo institucional", state: "pendente_comprovacao", reason: `Pede v\xEDnculo; o perfil informa v\xEDnculo "${bond}". Confira no edital se esse tipo \xE9 aceito.`, profile_basis: `v\xEDnculo: ${bond} (autodeclarado)` };
-}
-function evalDf(seg, p) {
-  if (!/(sediad|localizad|situad)\w*\s+(no|na)\s+(distrito federal|df)\b|instituicao.*\bdf\b/.test(seg)) return null;
-  if (!p.institution) return { condicao: "institui\xE7\xE3o no DF", state: "pendente_comprovacao", reason: "Pede institui\xE7\xE3o no DF; institui\xE7\xE3o n\xE3o informada no perfil.", profile_basis: null };
-  const inDf = /\bundf\b|distrito federal|\bdf\b|brasilia|\bunb\b|\bifb\b/.test(normalizeText(p.institution));
-  return {
-    condicao: "institui\xE7\xE3o no DF",
-    state: inDf ? "atendida" : "pendente_comprovacao",
-    reason: inDf ? `Pede institui\xE7\xE3o no DF; o perfil informa ${p.institution}. ${SELF_DECLARED}` : `Pede institui\xE7\xE3o no DF; n\xE3o foi poss\xEDvel confirmar a localiza\xE7\xE3o de "${p.institution}".`,
-    profile_basis: `institui\xE7\xE3o: ${p.institution} (autodeclarado)`
-  };
-}
-function evalLattes(seg, p) {
-  if (!/\blattes\b/.test(seg)) return null;
-  const has3 = Boolean(p.lattes_id || p.lattes_url);
-  return {
-    condicao: "curr\xEDculo Lattes",
-    state: has3 ? "atendida" : "pendente_comprovacao",
-    reason: has3 ? "Pede curr\xEDculo Lattes; o perfil informa o Lattes. Confira se est\xE1 atualizado." : "Pede curr\xEDculo Lattes; informe o identificador ou endere\xE7o no perfil.",
-    profile_basis: has3 ? "Lattes informado no perfil" : null
-  };
-}
-var EVALUATORS = [evalDegree, evalBond, evalDf, evalLattes];
-function evaluateRequirementText(text4, sourceUrl, p) {
-  const segments = splitSegments(text4);
-  const parts = [];
-  for (const raw of segments.length ? segments : [text4]) {
-    const seg = normalizeText(raw);
-    const nat2 = nature(seg);
-    const who = appliesTo(seg);
-    const found = EVALUATORS.map((fn) => fn(seg, p)).filter((x) => x !== null);
-    if (found.length > 1 && /\bou\b/.test(seg) && !found.every((f) => f.condicao.startsWith("titula\xE7\xE3o"))) {
-      parts.push({ condicao: found.map((f) => f.condicao).join(" ou "), state: "pendente_comprovacao", reason: "O trecho combina condi\xE7\xF5es com \u201Cou\u201D; confira qual vale para voc\xEA.", profile_basis: null, nature: nat2, applies_to: who });
-      continue;
-    }
-    for (const f of found) parts.push({ ...f, nature: nat2, applies_to: who });
-  }
-  if (parts.length === 0) return null;
-  const role = p.collaboration_role;
-  const adjusted = parts.map((x) => {
-    if (x.nature === "descritivo") {
-      return { ...x, state: x.state === "nao_atendida" ? "atendida" : x.state, reason: `Informa\xE7\xE3o, n\xE3o exig\xEAncia: ${x.reason.replace(/^Pede/, "o texto menciona")} (o trecho dispensa ou s\xF3 descreve).` };
-    }
-    if (x.applies_to === "coordenador" && role !== "coordenar" && role !== "ambos") {
-      return { ...x, state: "pendente_comprovacao", reason: `Vale para quem coordena: ${x.reason}${role === "colaborar" ? " Voc\xEA indicou que quer colaborar; a equipe precisa de algu\xE9m que atenda." : " Confira o seu papel no projeto."}` };
-    }
-    if (x.applies_to === "equipe") {
-      return { ...x, state: x.state === "nao_atendida" ? "pendente_comprovacao" : x.state, reason: `Vale para a equipe: ${x.reason}` };
-    }
-    if (x.nature === "desejavel" && x.state === "nao_atendida") {
-      return { ...x, reason: `Desej\xE1vel, n\xE3o obrigat\xF3rio: ${x.reason} N\xE3o impede a participa\xE7\xE3o.` };
-    }
-    return x;
-  });
-  const eliminatory = adjusted.filter((x) => x.state === "nao_atendida" && x.nature === "obrigatorio");
-  const state = eliminatory.length ? "nao_atendida" : adjusted.every((x) => x.state === "atendida") ? "atendida" : adjusted.some((x) => x.state === "nao_atendida" || x.state === "pendente_comprovacao") ? "pendente_comprovacao" : "atendida";
-  const nat = adjusted.some((x) => x.nature === "obrigatorio") ? "obrigatorio" : adjusted.some((x) => x.nature === "desejavel") ? "desejavel" : "descritivo";
-  const ORDER = { nao_atendida: 0, pendente_comprovacao: 1, atendida: 2 };
-  const phrased = adjusted.map((x) => ({
-    ...x,
-    reason: x.state === "nao_atendida" && x.nature === "obrigatorio" ? x.reason.replace(/^Pede /, "Exige ") : x.reason
-  }));
-  const selfDeclared = phrased.some((x) => x.reason.includes(SELF_DECLARED));
-  const reason = phrased.length === 1 ? phrased[0].reason : [...phrased].sort((a, b) => (ORDER[a.state] ?? 3) - (ORDER[b.state] ?? 3)).map((x) => x.reason.replace(SELF_DECLARED, "").trim()).join(" ").concat(selfDeclared ? ` ${SELF_DECLARED}` : "");
-  const basis = adjusted.map((x) => x.profile_basis).filter(Boolean).join("; ") || null;
-  return {
-    requirement: text4,
-    evidence: text4,
-    source_url: sourceUrl,
-    state,
-    reason,
-    profile_basis: basis,
-    nature: nat,
-    eliminatory: eliminatory.length > 0,
-    parts: phrased.map(({ condicao, state: s, reason: r, nature: n2, applies_to }) => ({ condicao, state: s, reason: r, nature: n2, applies_to }))
-  };
-}
-
-// src/lib/lupa/matching.ts
-var STOPWORDS = new Set(
-  "a o as os de da do das dos e em no na nos nas para por com sem um uma uns umas ao aos \xE0 \xE0s que se ou sua seu suas seus como mais menos entre sobre sob at\xE9 ate the of and in on for to".split(" ")
-);
-function stem(token) {
-  if (token.length > 5 && token.endsWith("oes")) return token.slice(0, -3) + "ao";
-  if (token.length > 5 && token.endsWith("aes")) return token.slice(0, -3) + "ao";
-  if (token.length > 4 && token.endsWith("es") && /[rsz]es$/.test(token)) return token.slice(0, -2);
-  if (token.length > 3 && token.endsWith("s")) return token.slice(0, -1);
-  return token;
-}
-function significantTokens(s) {
-  return normalizeText(s).split(" ").filter((t) => t.length >= 3 && !STOPWORDS.has(t)).map(stem);
-}
-var FIELD_WEIGHTS = [
-  { key: "areas", label: "\xE1rea de atua\xE7\xE3o", weight: 3 },
-  { key: "research_topics", label: "tema de pesquisa", weight: 3 },
-  { key: "keywords", label: "palavra-chave", weight: 2 },
-  { key: "competencies", label: "compet\xEAncia", weight: 2 }
-];
-function opportunityPassages(o) {
-  const f = o.fields;
-  const out = [{ text: o.title }];
-  if (f.objeto) out.push({ text: f.objeto.evidence });
-  if (f.areas) out.push({ text: f.areas.evidence });
-  for (const e of [...f.elegibilidade ?? [], ...f.requisitos ?? []]) out.push({ text: e.evidence });
-  return out;
-}
-function thematic(profile, o) {
-  const passages = opportunityPassages(o).map((p) => ({ ...p, tokens: new Set(significantTokens(p.text)) }));
-  const allTokens = new Set(passages.flatMap((p) => [...p.tokens]));
-  const matches = [];
-  let points = 0;
-  let totalTerms = 0;
-  const seen = /* @__PURE__ */ new Set();
-  for (const { key, label, weight } of FIELD_WEIGHTS) {
-    for (const term of profile[key] ?? []) {
-      totalTerms++;
-      const tokens = significantTokens(term);
-      const norm2 = tokens.join(" ");
-      if (tokens.length === 0 || seen.has(norm2)) continue;
-      if (!tokens.every((t) => allTokens.has(t))) continue;
-      seen.add(norm2);
-      const passage = passages.find((p) => tokens.every((t) => p.tokens.has(t))) ?? passages.find((p) => p.tokens.has(tokens[0]));
-      matches.push({ term, profile_field: label, evidence: passage?.text ?? o.title });
-      points += weight;
-    }
-  }
-  const hasOpportunityText = Boolean(o.fields.objeto || o.fields.areas || o.fields.elegibilidade || o.fields.requisitos);
-  if (totalTerms === 0 || !hasOpportunityText && matches.length === 0) {
-    return { score: 0, level: "indeterminada", matches };
-  }
-  const possible = FIELD_WEIGHTS.reduce((acc, f) => acc + (profile[f.key] ?? []).length * f.weight, 0);
-  const reference = Math.min(15, Math.max(9, possible));
-  const score = Math.min(100, Math.round(points / reference * 100));
-  const level = score >= 60 ? "alta" : score >= 30 ? "media" : score > 0 ? "baixa" : "baixa";
-  return { score, level, matches };
-}
-function evaluateRequirement(text4, sourceUrl, p) {
-  return evaluateRequirementText(text4, sourceUrl, p);
-}
-var TYPE_PATTERNS = [
-  ["bolsa", /\bbolsas?\b/],
-  ["evento", /\beventos?\b|\bcongress|\bsimp[oó]sio|\bsemin[aá]rio|\bparticipa[cç][aã]o em eventos/],
-  ["publicacao", /\bpublica[cç][aã]o\b|\bpublica[cç][õo]es\b|\bperi[oó]dicos?\b|\blivros?\b/],
-  ["inovacao", /\binova[cç][aã]o\b|\bstartups?\b|\bempreendedor|\btecnol[oó]gic[oa] e inova/],
-  ["infraestrutura", /\binfraestrutura\b|\bequipamentos?\b|\blaborat[oó]rios?\b/],
-  ["formacao", /\bforma[cç][aã]o\b|\bcapacita[cç][aã]o\b|\bcursos?\b/],
-  ["extensao", /\bextens[aã]o\b|\bprojetos? de extens/],
-  ["hackathon", /\bhackathons?\b|\bmaratona de (programa[cç][aã]o|inova[cç][aã]o)|\bdesafio de inova/],
-  ["concurso", /\bconcurso p[uú]blico\b|\bprocesso seletivo\b|\bsele[cç][aã]o p[uú]blica\b|\bconcurso de (provas|t[ií]tulos)/],
-  ["auxilio_pesquisa", /\bpesquisa\b|\bprojetos? de pesquisa\b|\bpesquisador/]
-];
-function inferOpportunityTypes(o) {
-  const text4 = `${o.title} ${o.fields.objeto?.evidence ?? ""}`.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  const plain = `${o.title} ${o.fields.objeto?.evidence ?? ""}`.toLowerCase();
-  return TYPE_PATTERNS.filter(([, re2]) => re2.test(plain) || re2.test(text4)).map(([t]) => t);
-}
-var RECOMMENDATION_RULE_VERSION = 3;
-var OBJECTIVE_TYPES = {
-  bolsas: ["bolsa"],
-  pesquisa: ["auxilio_pesquisa"],
-  extensao: ["extensao"],
-  inovacao: ["inovacao"],
-  hackathons: ["hackathon"],
-  concursos: ["concurso"],
-  formacao: ["formacao"],
-  eventos: ["evento"]
-};
-function editalText(o) {
-  const f = o.fields;
-  return normalizeText([o.title, f.objeto?.evidence, f.areas?.evidence, ...(f.elegibilidade ?? []).map((e) => e.evidence), ...(f.requisitos ?? []).map((e) => e.evidence)].filter(Boolean).join(" "));
-}
-function preferences(profile, o) {
-  const t = editalText(o);
-  const out = [];
-  const modal = /\b(a distancia|remot[oa]|online|virtual)\b/.test(t) ? /\bpresencial\b/.test(t) ? "hibrido" : "remoto" : /\bpresencial\b/.test(t) ? "presencial" : /\bhibrid/.test(t) ? "hibrido" : null;
-  if (!profile.modalidade) out.push({ campo: "modalidade", situacao: "perfil_nao_informa", motivo: "Voc\xEA n\xE3o informou a modalidade preferida." });
-  else if (!modal) out.push({ campo: "modalidade", situacao: "edital_nao_informa", motivo: "O edital n\xE3o informa a modalidade." });
-  else
-    out.push({
-      campo: "modalidade",
-      situacao: profile.modalidade === "qualquer" || profile.modalidade === modal || modal === "hibrido" ? "corresponde" : "diverge",
-      motivo: `Edital: ${modal}; sua prefer\xEAncia: ${profile.modalidade}.`
-    });
-  const regionDf = /\b(distrito federal|brasilia)\b|\bdf\b/.test(t);
-  if (!profile.localizacao) out.push({ campo: "localizacao", situacao: "perfil_nao_informa", motivo: "Voc\xEA n\xE3o informou cidade/UF." });
-  else if (!regionDf) out.push({ campo: "localizacao", situacao: "edital_nao_informa", motivo: "O edital n\xE3o restringe regi\xE3o no texto extra\xEDdo." });
-  else {
-    const inDf = /\b(df|distrito federal|brasilia)\b/.test(normalizeText(profile.localizacao));
-    out.push({ campo: "localizacao", situacao: inDf ? "corresponde" : "diverge", motivo: inDf ? "O edital \xE9 voltado ao DF e voc\xEA informou estar no DF." : `O edital \xE9 voltado ao DF; voc\xEA informou ${profile.localizacao}.` });
-  }
-  const wantsEnrolled = /\b(matriculad|regularmente inscrit|cursando|estudantes? de (graduacao|mestrado|doutorado))/.test(t);
-  if (wantsEnrolled) {
-    if (!profile.formacao_situacao) out.push({ campo: "formacao", situacao: "perfil_nao_informa", motivo: "O edital \xE9 para quem est\xE1 cursando; voc\xEA n\xE3o informou a situa\xE7\xE3o da forma\xE7\xE3o." });
-    else out.push({ campo: "formacao", situacao: profile.formacao_situacao === "em_curso" ? "corresponde" : "diverge", motivo: profile.formacao_situacao === "em_curso" ? "O edital \xE9 para quem est\xE1 cursando, como voc\xEA informou." : "O edital \xE9 para quem est\xE1 cursando; voc\xEA informou forma\xE7\xE3o conclu\xEDda." });
-  }
-  return out;
-}
-function interest(profile, o) {
-  const types4 = inferOpportunityTypes(o);
-  const fromObjectives = (profile.objetivos ?? []).flatMap((x) => OBJECTIVE_TYPES[x] ?? []);
-  const wanted = [.../* @__PURE__ */ new Set([...profile.opportunity_types ?? [], ...fromObjectives])];
-  const opportunity_type = wanted.length === 0 || types4.length === 0 ? "nao_informado" : types4.some((t) => wanted.includes(t)) ? "corresponde" : "nao_corresponde";
-  const tokens = new Set(opportunityPassages(o).flatMap((p) => significantTokens(p.text)));
-  const temporary_matches = (profile.temporary_interests ?? []).filter((term) => {
-    const t = significantTokens(term);
-    return t.length > 0 && t.every((x) => tokens.has(x));
-  });
-  const prefs = preferences(profile, o);
-  if (fromObjectives.length) {
-    prefs.unshift({
-      campo: "objetivos",
-      situacao: types4.length === 0 ? "edital_nao_informa" : types4.some((t) => fromObjectives.includes(t)) ? "corresponde" : "diverge",
-      motivo: types4.length === 0 ? "N\xE3o foi poss\xEDvel identificar o tipo do edital." : `Tipo do edital: ${types4.join(", ")}; seus objetivos: ${(profile.objetivos ?? []).join(", ")}.`
-    });
-  }
-  return { opportunity_type, temporary_matches, preferences: prefs };
-}
-var STATUS_WARNING = {
-  encerrada: "Prazo de submiss\xE3o encerrado segundo a fonte.",
-  suspensa: "Edital suspenso segundo a fonte oficial.",
-  cancelada: "Edital cancelado segundo a fonte oficial.",
-  desconhecida: "Situa\xE7\xE3o do prazo n\xE3o confirmada na fonte."
-};
-function computeRecommendation(profile, o) {
-  const them = thematic(profile, o);
-  const inter = interest(profile, o);
-  const requirementTexts = [...o.fields.elegibilidade ?? [], ...o.fields.requisitos ?? []];
-  const checks = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const r of requirementTexts) {
-    if (seen.has(r.evidence)) continue;
-    seen.add(r.evidence);
-    const c = evaluateRequirement(r.evidence, r.source_url, profile);
-    if (c) checks.push(c);
-    else checks.push({
-      requirement: r.evidence,
-      evidence: r.evidence,
-      source_url: r.source_url,
-      state: "pendente_comprovacao",
-      reason: "Requisito n\xE3o avaliado automaticamente \u2014 confira no documento oficial.",
-      profile_basis: null
-    });
-  }
-  const missing = [];
-  for (const f of o.missing_fields) missing.push(`Edital: ${f.replace(/_/g, " ")} n\xE3o encontrado \u2014 pendente de verifica\xE7\xE3o.`);
-  if (!o.fields.elegibilidade && !o.fields.requisitos) missing.push("Edital: nenhum crit\xE9rio de elegibilidade identificado \u2014 confira o documento oficial.");
-  const termCount = profile.areas.length + profile.research_topics.length + profile.keywords.length + profile.competencies.length;
-  if (termCount === 0) missing.push("Perfil: informe \xE1reas, temas ou palavras-chave para calcular a ader\xEAncia tem\xE1tica.");
-  if (!profile.declared_degree) missing.push("Perfil: titula\xE7\xE3o n\xE3o informada.");
-  if (!profile.declared_bond) missing.push("Perfil: v\xEDnculo institucional n\xE3o informado.");
-  const overall = checks.some((c) => c.state === "nao_atendida" && c.eliminatory !== false) ? "impedimento" : checks.length === 0 || checks.some((c) => c.state === "pendente_comprovacao") ? "pendente" : "sem_impedimento_conhecido";
-  const warnings = [];
-  if (overall === "impedimento" && (them.level === "alta" || them.level === "media")) {
-    warnings.push("Ader\xEAncia tem\xE1tica " + them.level + ", mas h\xE1 requisito eliminat\xF3rio n\xE3o atendido. Confira antes de investir na proposta.");
-  }
-  if (STATUS_WARNING[o.status]) warnings.push(STATUS_WARNING[o.status]);
-  if ((profile.opportunity_types ?? []).length === 0) missing.push("Perfil: tipos de oportunidade desejados n\xE3o informados.");
-  const themText = them.level === "indeterminada" ? "Ader\xEAncia tem\xE1tica indeterminada." : `Ader\xEAncia tem\xE1tica ${them.level} (${them.score}/100) por ${them.matches.length} termo(s) do seu perfil.`;
-  const eligText = overall === "impedimento" ? "H\xE1 requisito eliminat\xF3rio n\xE3o atendido." : overall === "pendente" ? "Elegibilidade com pend\xEAncias de comprova\xE7\xE3o." : "Nenhum impedimento identificado nos requisitos extra\xEDdos.";
-  const divergent = (inter.preferences ?? []).filter((x) => x.situacao === "diverge");
-  return {
-    rule_version: RECOMMENDATION_RULE_VERSION,
-    thematic: them,
-    eligibility: { overall, checks },
-    interest: inter,
-    missing,
-    warnings,
-    summary: `${themText} ${eligText}${inter.opportunity_type === "corresponde" ? " Tipo de oportunidade entre os que voc\xEA procura." : ""}${inter.temporary_matches.length ? ` Relacionado ao seu interesse atual: ${inter.temporary_matches.join(", ")}.` : ""}${divergent.length ? ` Diferente das suas prefer\xEAncias (n\xE3o impede): ${divergent.map((d) => d.campo).join(", ")}.` : ""}`
-  };
-}
-
-// src/lib/documentBase.ts
-var DOCUMENT_BASE_VERSION = 1;
-function documentHash(text4) {
-  return createHash6("sha256").update(text4).digest("hex");
-}
-var FIELD_LABEL = {
-  objeto: "objeto",
-  areas: "\xE1reas",
-  elegibilidade: "p\xFAblico eleg\xEDvel",
-  requisitos: "requisitos",
-  valores: "valores",
-  documentos: "documentos exigidos",
-  datas: "datas e prazos",
-  criterios_avaliacao: "crit\xE9rios de avalia\xE7\xE3o",
-  canal_inscricao: "canal de inscri\xE7\xE3o"
-};
-var STATE_MAP = {
-  atendida: "atendido",
-  nao_atendida: "nao_atendido",
-  pendente_comprovacao: "pendente"
-};
-function buildDocumentBase(text4, teacher) {
-  const firstLine = text4.split(/\n/).map((l) => l.trim()).find(Boolean) ?? "";
-  const page = { url: "", title: firstLine.slice(0, 200), text: text4, links: [] };
-  const { fields, missing } = extractFields(page);
-  const items = (list) => (list ?? []).map((e) => ({ texto: e.value, evidencia: e.evidence }));
-  const requirementTexts = dedupe([...fields.elegibilidade ?? [], ...fields.requisitos ?? []]);
-  let elegibilidade_perfil = null;
-  if (teacher) {
-    elegibilidade_perfil = [];
-    for (const r of requirementTexts) {
-      let evaluated = 0;
-      const c = evaluateRequirement(r.evidence, "", teacher);
-      for (const part of c?.parts ?? []) {
-        evaluated++;
-        elegibilidade_perfil.push({ requisito: part.condicao, evidencia: r.evidence, estado: STATE_MAP[part.state], motivo: part.reason, base_perfil: c?.profile_basis ?? null });
-      }
-      if (evaluated === 0) {
-        elegibilidade_perfil.push({
-          requisito: r.evidence,
-          evidencia: r.evidence,
-          estado: "pendente",
-          motivo: "Requisito n\xE3o avaliado automaticamente \u2014 confira no documento.",
-          base_perfil: null
-        });
-      }
-    }
-    for (const v of fields.restricoes ?? []) {
-      elegibilidade_perfil.push({
-        requisito: v.evidence,
-        evidencia: v.evidence,
-        estado: "pendente",
-        motivo: "Veda\xE7\xE3o do edital: confirme que voc\xEA n\xE3o se enquadra nela.",
-        base_perfil: null
-      });
-    }
-  }
-  return {
-    versao: DOCUMENT_BASE_VERSION,
-    documento_hash: documentHash(text4),
-    caracteres: text4.length,
-    objeto: fields.objeto ? { texto: fields.objeto.value, evidencia: fields.objeto.evidence } : null,
-    datas: extractDates2(text4),
-    valores: items(fields.valores),
-    documentos: extractDocuments(text4, items(fields.documentos)),
-    requisitos: items(requirementTexts),
-    restricoes: items(fields.restricoes),
-    criterios: extractClauses(text4, /crit[ée]rios?\s+(de\s+)?(avalia|julgamento|sele|classifica)|crit[ée]rios?:|\bpeso\s+\d|\bpontua[çc][ãa]o\b|\bnota\s+m[íi]nima/i),
-    canal_inscricao: items(fields.canal_inscricao),
-    ausentes: missing.map((k) => FIELD_LABEL[k] ?? k),
-    elegibilidade_perfil
-  };
-}
-function dedupe(list) {
-  const seen = /* @__PURE__ */ new Set();
-  return list.filter((x) => seen.has(x.evidence) ? false : (seen.add(x.evidence), true));
-}
-var MONTHS2 = {
-  janeiro: "01",
-  fevereiro: "02",
-  marco: "03",
-  mar\u00E7o: "03",
-  abril: "04",
-  maio: "05",
-  junho: "06",
-  julho: "07",
-  agosto: "08",
-  setembro: "09",
-  outubro: "10",
-  novembro: "11",
-  dezembro: "12"
-};
-var DATE_LABELS = [
-  [/resultado\s+preliminar/i, "resultado preliminar"],
-  [/resultado\s+final|homologa/i, "resultado final"],
-  [/recurso/i, "recurso"],
-  [/inscri[çc][õo]es|submiss[ãa]o|envio\s+(das\s+)?propostas|propostas\s+(ser[ãa]o\s+)?recebidas/i, "inscri\xE7\xF5es"],
-  [/publica[çc][ãa]o|lan[çc]amento/i, "publica\xE7\xE3o"],
-  [/resultado/i, "resultado"],
-  [/contrata[çc][ãa]o|assinatura|termo\s+de\s+outorga/i, "contrata\xE7\xE3o"],
-  [/in[íi]cio\s+(das\s+)?atividades|execu[çc][ãa]o|vig[êe]ncia/i, "execu\xE7\xE3o"],
-  [/relat[óo]rio|presta[çc][ãa]o\s+de\s+contas/i, "presta\xE7\xE3o de contas"],
-  [/prazo|encerramento|at[ée]\s/i, "prazo"]
-];
-function toIso(d, m, y) {
-  const dd = Number(d), mm = Number(m);
-  if (!validDate(Number(y), mm, dd)) return null;
-  return `${y}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
-}
-function extractDates2(text4) {
-  const out = [];
-  const clauses = text4.split(/\n+/).flatMap((line) => line.split(/(?<=\.)\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9])/)).map((c) => c.trim()).filter((c) => c.length >= 8 && c.length <= 600);
-  for (const c of clauses) {
-    const numeric = [...c.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)].map((m) => toIso(m[1], m[2], m[3]));
-    const written = [...c.matchAll(/\b(\d{1,2})\s+de\s+([a-zç]+)\s+de\s+(\d{4})\b/gi)].map(
-      (m) => MONTHS2[m[2].toLowerCase()] ? toIso(m[1], MONTHS2[m[2].toLowerCase()], m[3]) : null
-    );
-    const isos = [...numeric, ...written].filter((x) => Boolean(x));
-    if (isos.length === 0) continue;
-    const before2 = c.slice(0, Math.max(c.search(/\d{1,2}(\/|\s+de\s+)/), 0)) || c;
-    const label = DATE_LABELS.find(([re2]) => re2.test(before2))?.[1] ?? DATE_LABELS.find(([re2]) => re2.test(c))?.[1] ?? "data";
-    out.push({ rotulo: label, iso: isos[isos.length - 1], texto: c, evidencia: c });
-    if (out.length >= 30) break;
-  }
-  return out.sort((a, b) => (a.iso ?? "").localeCompare(b.iso ?? ""));
-}
-var DOC_RE = /\b(formul[áa]rio|declara[çc][ãa]o|comprovante|certid[ãa]o|plano\s+de\s+trabalho|curr[íi]culo|anexo\s+[ivxl\d]+|termo\s+de\s+(anu[êe]ncia|compromisso|aceite)|c[óo]pia\s+d[eoa]|carta\s+de|projeto\s+de\s+pesquisa\s+\(|or[çc]amento)\b/i;
-function sentenceClauses(text4) {
-  return text4.split(/\n+/).flatMap((line) => line.split(/(?<=\.)\s+(?=(?:\d+(?:\.\d+)*\.?\s+)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/)).map((c) => c.trim()).filter((c) => c.length >= 8 && c.length <= 600);
-}
-function extractClauses(text4, re2, limit2 = 10) {
-  const seen = /* @__PURE__ */ new Set();
-  const out = [];
-  for (const c of sentenceClauses(text4)) {
-    if (!re2.test(c) || seen.has(c)) continue;
-    seen.add(c);
-    out.push({ texto: c.replace(/^\d+(\.\d+)*\.?\s*/, ""), evidencia: c });
-    if (out.length >= limit2) break;
-  }
-  return out;
-}
-function extractDocuments(text4, fromCollector = []) {
-  const out = [];
-  const seen = /* @__PURE__ */ new Set();
-  const clauses = text4.split(/\n+/).flatMap((line) => line.split(/(?<=\.)\s+(?=(?:\d+(?:\.\d+)*\s+)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/)).map((c) => c.trim()).filter((c) => c.length >= 8 && c.length <= 500);
-  for (const c of [...clauses, ...fromCollector.map((d) => d.evidencia)]) {
-    if (!DOC_RE.test(c) || seen.has(c)) continue;
-    if (/resultado|ser[áa]\s+publicad|divulgad/i.test(c) && !/deve|dever[áa]|exig|apresentar|anexar|enviar|entregar|^\d/i.test(c)) continue;
-    seen.add(c);
-    out.push({ texto: c.replace(/^\d+(\.\d+)*\s*/, ""), evidencia: c });
-    if (out.length >= 30) break;
-  }
-  return out;
-}
-var DATE_RE2 = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
-var MONEY_RE = /R\$\s?([\d.]+(?:,\d{2})?)/g;
-function normDate(d, m, y) {
-  return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
-}
-function normMoney(v) {
-  return v.replace(/\./g, "").replace(/,00$/, "");
-}
-function collectStrings(value, out = [], depth = 0) {
-  if (depth > 8) return out;
-  if (typeof value === "string") out.push(value);
-  else if (Array.isArray(value)) for (const v of value) collectStrings(v, out, depth + 1);
-  else if (value && typeof value === "object") {
-    for (const [k, v] of Object.entries(value)) {
-      if (k === "originalText" || k === "base" || k === "verificacao") continue;
-      collectStrings(v, out, depth + 1);
-    }
-  }
-  return out;
-}
-function verifyAgainstText(result, text4) {
-  const docDates = new Set([...text4.matchAll(DATE_RE2)].map((m) => normDate(m[1], m[2], m[3])));
-  const docMoney = new Set([...text4.matchAll(MONEY_RE)].map((m) => normMoney(m[1])));
-  const issues = /* @__PURE__ */ new Map();
-  for (const s of collectStrings(result)) {
-    for (const m of s.matchAll(DATE_RE2)) {
-      const d = normDate(m[1], m[2], m[3]);
-      if (!docDates.has(d) && !issues.has(`d${d}`))
-        issues.set(`d${d}`, { tipo: "data", valor: d, mensagem: `A data ${d} aparece na an\xE1lise, mas n\xE3o foi encontrada no documento. Confira antes de usar.` });
-    }
-    for (const m of s.matchAll(MONEY_RE)) {
-      const v = normMoney(m[1]);
-      if (v && !docMoney.has(v) && !issues.has(`v${v}`))
-        issues.set(`v${v}`, { tipo: "valor", valor: `R$ ${m[1]}`, mensagem: `O valor R$ ${m[1]} aparece na an\xE1lise, mas n\xE3o foi encontrado no documento. Confira antes de usar.` });
-    }
-  }
-  return [...issues.values()].slice(0, 20);
-}
-var MISSING_DATA = /(n[ãa]o (apresenta|informa|consta|h[áa] (informa|dado)|foi poss[íi]vel|est[áa] (claro|informad))|sem informa[çc][ãa]o|n[ãa]o informad|dado n[ãa]o|depende de|verificar|comprova)/i;
-function normalizeEligibilityCriteria(criterios) {
-  if (!Array.isArray(criterios)) return criterios;
-  return criterios.map((c) => {
-    if (!c || typeof c !== "object") return c;
-    const item = c;
-    const obs = typeof item.observacao === "string" ? item.observacao : "";
-    const estado = item.atende === true ? "atendido" : MISSING_DATA.test(obs) || item.atende == null ? "pendente" : "nao_atendido";
-    return { ...item, estado };
-  });
-}
-
-// src/lib/lupa/store.ts
-import { randomUUID as randomUUID2 } from "node:crypto";
+// src/routes/edital.ts
+var import_multer = __toESM(require_multer(), 1);
+import { randomUUID as randomUUID4 } from "crypto";
 
 // src/lib/db-http.ts
 var memoryTables = /* @__PURE__ */ new Map();
@@ -145968,514 +145042,6 @@ async function httpSelectAllPaged(table, filter4, opts = {}) {
 function memoryTableForTests(table) {
   return memoryMode() ? memTable(table) : null;
 }
-
-// src/lib/lupa/store.ts
-var ConcurrentRunError = class extends Error {
-  constructor(sourceId) {
-    super(`J\xE1 existe uma coleta em andamento para a fonte ${sourceId}.`);
-  }
-};
-var STORE_ORDER = {
-  participations: "id",
-  notifications: "id",
-  recommendation_feedback: "opportunity_id",
-  recommendations: "opportunity_id",
-  saved_opportunities: "opportunity_id",
-  teacher_profiles: "user_id"
-};
-var STORE_USER_TABLES = ["participations", "notifications", "recommendation_feedback", "recommendations", "saved_opportunities", "teacher_profiles"];
-function defaultSources(now = (/* @__PURE__ */ new Date()).toISOString()) {
-  return [
-    {
-      id: "fapdf",
-      name: "FAPDF \u2014 Funda\xE7\xE3o de Apoio \xE0 Pesquisa do Distrito Federal",
-      base_url: "https://www.fap.df.gov.br",
-      start_urls: ["https://www.fap.df.gov.br/editais/"],
-      allowed_hosts: ["www.fap.df.gov.br", "fap.df.gov.br"],
-      max_depth: 2,
-      max_pages: 60,
-      time_budget_ms: 12e4,
-      request_delay_ms: 1500,
-      frequency_minutes: 1440,
-      enabled: true,
-      institution: "Funda\xE7\xE3o de Apoio \xE0 Pesquisa do Distrito Federal",
-      source_type: "portal_editais",
-      updated_at: now
-    }
-  ];
-}
-var stableDocs = (docs) => JSON.stringify(docs.map(({ fetched_at: _f, reused: _r, ...d }) => d));
-function sameContent(a, b) {
-  return a.content_hash === b.content_hash && stableDocs(a.documents) === stableDocs(b.documents) && JSON.stringify(a.events) === JSON.stringify(b.events) && a.status === b.status;
-}
-var MemoryStore2 = class {
-  kind = "memory";
-  profiles = /* @__PURE__ */ new Map();
-  sources = new Map(defaultSources().map((s) => [s.id, s]));
-  opportunities = /* @__PURE__ */ new Map();
-  versions = [];
-  runs = [];
-  recs = /* @__PURE__ */ new Map();
-  feedback = /* @__PURE__ */ new Map();
-  saved = /* @__PURE__ */ new Map();
-  notifications = [];
-  participations = /* @__PURE__ */ new Map();
-  async listParticipations(userId) {
-    return [...this.participations.values()].filter((p) => p.user_id === userId).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).map((p) => structuredClone(p));
-  }
-  async getParticipation(userId, id) {
-    const p = this.participations.get(id);
-    return p && p.user_id === userId ? structuredClone(p) : null;
-  }
-  async createParticipation(p) {
-    this.participations.set(p.id, structuredClone(p));
-    return structuredClone(p);
-  }
-  async updateParticipation(userId, next2, expectedVersion) {
-    const cur = this.participations.get(next2.id);
-    if (!cur || cur.user_id !== userId || cur.version !== expectedVersion) return null;
-    const saved = { ...structuredClone(next2), id: cur.id, user_id: cur.user_id };
-    this.participations.set(cur.id, saved);
-    return structuredClone(saved);
-  }
-  async deleteParticipation(userId, id) {
-    const cur = this.participations.get(id);
-    if (!cur || cur.user_id !== userId) return false;
-    return this.participations.delete(id);
-  }
-  async exportUser(userId) {
-    const recs = [...this.recs.values()].filter((r) => r.user_id === userId);
-    const fb = [...this.feedback.entries()].filter(([k]) => k.startsWith(`${userId}:`)).map(([, v]) => ({ user_id: userId, ...v }));
-    const profile = this.profiles.get(userId);
-    const raw = {
-      participations: await this.listParticipations(userId),
-      notifications: this.notifications.filter((n2) => n2.user_id === userId).map((n2) => structuredClone(n2)),
-      recommendation_feedback: fb,
-      recommendations: recs.map((r) => structuredClone(r)),
-      saved_opportunities: [...this.saved.get(userId)?.values() ?? []].map((v) => ({ user_id: userId, ...structuredClone(v) })),
-      teacher_profiles: profile ? [structuredClone(profile)] : []
-    };
-    return Object.fromEntries(Object.entries(raw).map(([k, rows]) => [k, { rows, complete: true }]));
-  }
-  async deleteUser(userId) {
-    const out = {};
-    out.participations = [...this.participations.values()].filter((p) => p.user_id === userId).map((p) => this.participations.delete(p.id)).length;
-    const before2 = this.notifications.length;
-    this.notifications = this.notifications.filter((n2) => n2.user_id !== userId);
-    out.notifications = before2 - this.notifications.length;
-    out.recommendation_feedback = [...this.feedback.keys()].filter((k) => k.startsWith(`${userId}:`)).map((k) => this.feedback.delete(k)).length;
-    out.recommendations = [...this.recs.entries()].filter(([, r]) => r.user_id === userId).map(([k]) => this.recs.delete(k)).length;
-    out.saved_opportunities = this.saved.get(userId)?.size ?? 0;
-    this.saved.delete(userId);
-    out.teacher_profiles = this.profiles.delete(userId) ? 1 : 0;
-    return out;
-  }
-  async getProfile(userId) {
-    const p = this.profiles.get(userId);
-    return p ? structuredClone(p) : null;
-  }
-  async saveProfile(profile) {
-    this.profiles.set(profile.user_id, structuredClone(profile));
-    return structuredClone(profile);
-  }
-  async listProfiles() {
-    return [...this.profiles.values()].map((p) => structuredClone(p));
-  }
-  async listSources() {
-    return [...this.sources.values()].map((s) => structuredClone(s));
-  }
-  async getSource(id) {
-    const s = this.sources.get(id);
-    return s ? structuredClone(s) : null;
-  }
-  async updateSource(id, patch) {
-    const s = this.sources.get(id);
-    if (!s) return null;
-    const next2 = { ...s, ...patch, id: s.id, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
-    this.sources.set(id, next2);
-    return structuredClone(next2);
-  }
-  async listOpportunities(opts) {
-    return [...this.opportunities.values()].filter((o) => opts?.includeRejected || o.review_status !== "rejeitado").map((o) => structuredClone(o));
-  }
-  async getOpportunity(id) {
-    const o = this.opportunities.get(id);
-    return o ? structuredClone(o) : null;
-  }
-  async upsertOpportunity(data2) {
-    const now = (/* @__PURE__ */ new Date()).toISOString();
-    const existing = [...this.opportunities.values()].find((o) => o.canonical_url === data2.canonical_url);
-    if (!existing) {
-      const created = {
-        ...structuredClone(data2),
-        id: randomUUID2(),
-        version: 1,
-        review_status: "pendente",
-        reviewed_by: null,
-        reviewed_at: null,
-        first_seen_at: now,
-        last_seen_at: now,
-        captured_at: now
-      };
-      this.opportunities.set(created.id, created);
-      this.versions.push({ opportunity_id: created.id, version: 1, content_hash: created.content_hash });
-      return { opportunity: structuredClone(created), created: true, changed: true };
-    }
-    if (sameContent(data2, existing)) {
-      existing.last_seen_at = now;
-      return { opportunity: structuredClone(existing), created: false, changed: false };
-    }
-    const updated = {
-      ...existing,
-      ...structuredClone(data2),
-      id: existing.id,
-      version: existing.version + 1,
-      // Conteúdo mudou: volta para revisão
-      review_status: existing.review_status === "rejeitado" ? "rejeitado" : "pendente",
-      last_seen_at: now,
-      captured_at: now
-    };
-    this.opportunities.set(existing.id, updated);
-    this.versions.push({ opportunity_id: updated.id, version: updated.version, content_hash: updated.content_hash });
-    return { opportunity: structuredClone(updated), created: false, changed: true };
-  }
-  async reviewOpportunity(id, status, reviewer) {
-    const o = this.opportunities.get(id);
-    if (!o) return null;
-    o.review_status = status;
-    o.reviewed_by = reviewer;
-    o.reviewed_at = (/* @__PURE__ */ new Date()).toISOString();
-    return structuredClone(o);
-  }
-  async startRun(sourceId, trigger, triggeredBy) {
-    if (this.runs.some((r) => r.source_id === sourceId && r.status === "running")) {
-      throw new ConcurrentRunError(sourceId);
-    }
-    const run = {
-      id: randomUUID2(),
-      source_id: sourceId,
-      trigger,
-      triggered_by: triggeredBy,
-      status: "running",
-      started_at: (/* @__PURE__ */ new Date()).toISOString(),
-      finished_at: null,
-      stats: {},
-      errors: []
-    };
-    this.runs.unshift(run);
-    return structuredClone(run);
-  }
-  async finishRun(id, patch) {
-    const run = this.runs.find((r) => r.id === id);
-    if (!run) throw new Error("Execu\xE7\xE3o n\xE3o encontrada");
-    Object.assign(run, patch, { finished_at: (/* @__PURE__ */ new Date()).toISOString() });
-    return structuredClone(run);
-  }
-  async listRuns(limit2 = 20) {
-    return this.runs.slice(0, limit2).map((r) => structuredClone(r));
-  }
-  async getRecommendations(userId) {
-    return [...this.recs.values()].filter((r) => r.user_id === userId).map((r) => structuredClone(r));
-  }
-  async saveRecommendation(rec) {
-    this.recs.set(`${rec.user_id}:${rec.opportunity_id}`, structuredClone(rec));
-  }
-  async saveFeedback(userId, opportunityId, relevant, comment) {
-    this.feedback.set(`${userId}:${opportunityId}`, { opportunity_id: opportunityId, relevant, comment });
-  }
-  async getFeedback(userId) {
-    return [...this.feedback.entries()].filter(([k]) => k.startsWith(`${userId}:`)).map(([, v]) => ({ ...v }));
-  }
-  async listSaved(userId) {
-    return [...this.saved.get(userId)?.keys() ?? []];
-  }
-  async listSavedItems(userId) {
-    return [...this.saved.get(userId)?.values() ?? []].map((i) => ({ ...i }));
-  }
-  async setSaved(userId, opportunityId, saved) {
-    const map3 = this.saved.get(userId) ?? /* @__PURE__ */ new Map();
-    if (saved) {
-      if (!map3.has(opportunityId)) {
-        const o = this.opportunities.get(opportunityId);
-        map3.set(opportunityId, { opportunity_id: opportunityId, interested: false, seen_version: o?.version ?? null });
-      }
-    } else map3.delete(opportunityId);
-    this.saved.set(userId, map3);
-  }
-  async setInterest(userId, opportunityId, interested, version4) {
-    const map3 = this.saved.get(userId) ?? /* @__PURE__ */ new Map();
-    map3.set(opportunityId, { opportunity_id: opportunityId, interested, seen_version: version4 });
-    this.saved.set(userId, map3);
-  }
-  async markSavedSeen(userId, opportunityId, version4) {
-    const item = this.saved.get(userId)?.get(opportunityId);
-    if (item) item.seen_version = version4;
-  }
-  async addNotifications(items) {
-    let added = 0;
-    for (const n2 of items) {
-      const dup = this.notifications.some(
-        (x) => x.user_id === n2.user_id && x.kind === n2.kind && x.opportunity_id === n2.opportunity_id && x.opportunity_version === n2.opportunity_version
-      );
-      if (dup) continue;
-      this.notifications.unshift({ ...n2, id: randomUUID2(), read_at: null, created_at: (/* @__PURE__ */ new Date()).toISOString() });
-      added++;
-    }
-    return added;
-  }
-  async listNotifications(userId, limit2 = 50) {
-    return this.notifications.filter((n2) => n2.user_id === userId).slice(0, limit2).map((n2) => ({ ...n2 }));
-  }
-  async markNotificationsRead(userId, ids) {
-    const now = (/* @__PURE__ */ new Date()).toISOString();
-    let n2 = 0;
-    for (const x of this.notifications) {
-      if (x.user_id !== userId || x.read_at) continue;
-      if (ids !== "all" && !ids.includes(x.id)) continue;
-      x.read_at = now;
-      n2++;
-    }
-    return n2;
-  }
-};
-function check2(res) {
-  if (res.error) {
-    const err = new Error(res.error.message);
-    err.code = res.error.code;
-    throw err;
-  }
-  return res.data;
-}
-var SupabaseStore = class {
-  kind = "supabase";
-  get db() {
-    return supabase_default();
-  }
-  // service role contorna RLS: TODA consulta abaixo filtra por user_id explicitamente
-  async exportUser(userId) {
-    const out = {};
-    for (const t of STORE_USER_TABLES) {
-      const r = await httpSelectAllPaged(t, { user_id: userId }, { orderBy: STORE_ORDER[t] });
-      out[t] = { rows: r.rows, complete: r.complete, ...r.error ? { error: r.error } : {} };
-    }
-    return out;
-  }
-  async deleteUser(userId) {
-    const out = {};
-    for (const t of STORE_USER_TABLES) {
-      const data2 = check2(await this.db.from(t).delete().eq("user_id", userId).select("user_id"));
-      out[t] = Array.isArray(data2) ? data2.length : 0;
-    }
-    return out;
-  }
-  async listParticipations(userId) {
-    return check2(await this.db.from("participations").select("*").eq("user_id", userId).order("updated_at", { ascending: false }).limit(200)) ?? [];
-  }
-  async getParticipation(userId, id) {
-    const data2 = check2(await this.db.from("participations").select("*").eq("id", id).eq("user_id", userId).maybeSingle());
-    return data2 ?? null;
-  }
-  async createParticipation(p) {
-    return check2(await this.db.from("participations").insert(p).select().single());
-  }
-  async updateParticipation(userId, next2, expectedVersion) {
-    const { id: _id, user_id: _u, created_at: _c, ...patch } = next2;
-    const data2 = check2(
-      await this.db.from("participations").update(patch).eq("id", next2.id).eq("user_id", userId).eq("version", expectedVersion).select().maybeSingle()
-    );
-    return data2 ?? null;
-  }
-  async deleteParticipation(userId, id) {
-    const data2 = check2(await this.db.from("participations").delete().eq("id", id).eq("user_id", userId).select("id"));
-    return Array.isArray(data2) && data2.length > 0;
-  }
-  async getProfile(userId) {
-    const data2 = check2(await this.db.from("teacher_profiles").select("*").eq("user_id", userId).maybeSingle());
-    return data2 ?? null;
-  }
-  async saveProfile(profile) {
-    const data2 = check2(await this.db.from("teacher_profiles").upsert(profile, { onConflict: "user_id" }).select().single());
-    return data2;
-  }
-  async listProfiles() {
-    return check2(await this.db.from("teacher_profiles").select("*")) ?? [];
-  }
-  async listSources() {
-    return check2(await this.db.from("opportunity_sources").select("*").order("id")) ?? [];
-  }
-  async getSource(id) {
-    return check2(await this.db.from("opportunity_sources").select("*").eq("id", id).maybeSingle()) ?? null;
-  }
-  async updateSource(id, patch) {
-    const { id: _ignored, ...rest } = patch;
-    const data2 = check2(
-      await this.db.from("opportunity_sources").update({ ...rest, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).select().maybeSingle()
-    );
-    return data2 ?? null;
-  }
-  async hydrate(rows) {
-    if (rows.length === 0) return [];
-    const ids = rows.map((r) => r.id);
-    const docs = check2(await this.db.from("opportunity_documents").select("opportunity_id,url,kind,title,content_hash,size_bytes,page_count,text_status,error,fetched_at,pages").in("opportunity_id", ids)) ?? [];
-    const evs = check2(
-      await this.db.from("opportunity_events").select("opportunity_id,kind,title,url,event_date,evidence").in("opportunity_id", ids)
-    ) ?? [];
-    return rows.map((r) => ({
-      ...r,
-      documents: docs.filter((d) => d.opportunity_id === r.id).map(({ opportunity_id: _o, ...d }) => d),
-      events: evs.filter((e) => e.opportunity_id === r.id).map(({ opportunity_id: _o, ...e }) => e)
-    }));
-  }
-  async listOpportunities(opts) {
-    let q = this.db.from("opportunities").select("*").order("last_seen_at", { ascending: false });
-    if (!opts?.includeRejected) q = q.neq("review_status", "rejeitado");
-    return this.hydrate(check2(await q) ?? []);
-  }
-  async getOpportunity(id) {
-    const row = check2(await this.db.from("opportunities").select("*").eq("id", id).maybeSingle());
-    if (!row) return null;
-    const [o] = await this.hydrate([row]);
-    return o;
-  }
-  async upsertOpportunity(data2) {
-    const now = (/* @__PURE__ */ new Date()).toISOString();
-    const { documents, events, ...row } = data2;
-    const existing = check2(await this.db.from("opportunities").select("*").eq("canonical_url", data2.canonical_url).maybeSingle()) ?? null;
-    let saved;
-    let created = false;
-    let changed = true;
-    if (!existing) {
-      saved = check2(await this.db.from("opportunities").insert({ ...row, version: 1 }).select().single());
-      created = true;
-    } else {
-      const [current2] = await this.hydrate([existing]);
-      if (sameContent(data2, current2)) {
-        await this.db.from("opportunities").update({ last_seen_at: now }).eq("id", existing.id);
-        return { opportunity: { ...current2, last_seen_at: now }, created: false, changed: false };
-      }
-      saved = check2(
-        await this.db.from("opportunities").update({
-          ...row,
-          version: existing.version + 1,
-          review_status: existing.review_status === "rejeitado" ? "rejeitado" : "pendente",
-          last_seen_at: now,
-          captured_at: now
-        }).eq("id", existing.id).select().single()
-      );
-    }
-    check2(
-      await this.db.from("opportunity_versions").upsert({ opportunity_id: saved.id, version: saved.version, content_hash: saved.content_hash, snapshot: data2 }, { onConflict: "opportunity_id,version" })
-    );
-    if (documents.length) {
-      check2(
-        await this.db.from("opportunity_documents").upsert(documents.map(({ reused: _r, ...d }) => ({ ...d, opportunity_id: saved.id })), { onConflict: "opportunity_id,url" })
-      );
-    }
-    if (events.length) {
-      check2(
-        await this.db.from("opportunity_events").upsert(events.map((e) => ({ ...e, opportunity_id: saved.id })), { onConflict: "opportunity_id,kind,title" })
-      );
-    }
-    return { opportunity: { ...saved, documents, events }, created, changed };
-  }
-  async reviewOpportunity(id, status, reviewer) {
-    const row = check2(
-      await this.db.from("opportunities").update({ review_status: status, reviewed_by: reviewer, reviewed_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).select().maybeSingle()
-    );
-    if (!row) return null;
-    return this.getOpportunity(id);
-  }
-  async startRun(sourceId, trigger, triggeredBy) {
-    const res = await this.db.from("collection_runs").insert({ source_id: sourceId, trigger, triggered_by: triggeredBy, status: "running" }).select().single();
-    if (res.error?.code === "23505") throw new ConcurrentRunError(sourceId);
-    return check2(res);
-  }
-  async finishRun(id, patch) {
-    return check2(
-      await this.db.from("collection_runs").update({ ...patch, finished_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).select().single()
-    );
-  }
-  async listRuns(limit2 = 20) {
-    return check2(await this.db.from("collection_runs").select("*").order("started_at", { ascending: false }).limit(limit2)) ?? [];
-  }
-  async getRecommendations(userId) {
-    return check2(await this.db.from("recommendations").select("*").eq("user_id", userId)) ?? [];
-  }
-  async saveRecommendation(rec) {
-    check2(await this.db.from("recommendations").upsert(rec, { onConflict: "user_id,opportunity_id" }));
-  }
-  async saveFeedback(userId, opportunityId, relevant, comment) {
-    check2(
-      await this.db.from("recommendation_feedback").upsert({ user_id: userId, opportunity_id: opportunityId, relevant, comment }, { onConflict: "user_id,opportunity_id" })
-    );
-  }
-  async getFeedback(userId) {
-    return check2(await this.db.from("recommendation_feedback").select("opportunity_id,relevant,comment").eq("user_id", userId)) ?? [];
-  }
-  async listSaved(userId) {
-    const rows = check2(await this.db.from("saved_opportunities").select("opportunity_id").eq("user_id", userId)) ?? [];
-    return rows.map((r) => r.opportunity_id);
-  }
-  async listSavedItems(userId) {
-    return check2(
-      await this.db.from("saved_opportunities").select("opportunity_id,interested,seen_version").eq("user_id", userId)
-    ) ?? [];
-  }
-  async setInterest(userId, opportunityId, interested, version4) {
-    check2(
-      await this.db.from("saved_opportunities").upsert({ user_id: userId, opportunity_id: opportunityId, interested, seen_version: version4 }, { onConflict: "user_id,opportunity_id" })
-    );
-  }
-  async markSavedSeen(userId, opportunityId, version4) {
-    check2(await this.db.from("saved_opportunities").update({ seen_version: version4 }).eq("user_id", userId).eq("opportunity_id", opportunityId));
-  }
-  async addNotifications(items) {
-    if (items.length === 0) return 0;
-    const rows = check2(
-      await this.db.from("notifications").upsert(items, { onConflict: "user_id,kind,opportunity_id,opportunity_version", ignoreDuplicates: true }).select("id")
-    ) ?? [];
-    return rows.length;
-  }
-  async listNotifications(userId, limit2 = 50) {
-    return check2(
-      await this.db.from("notifications").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(limit2)
-    ) ?? [];
-  }
-  async markNotificationsRead(userId, ids) {
-    let q = this.db.from("notifications").update({ read_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("user_id", userId).is("read_at", null);
-    if (ids !== "all") q = q.in("id", ids);
-    const rows = check2(await q.select("id")) ?? [];
-    return rows.length;
-  }
-  async setSaved(userId, opportunityId, saved) {
-    if (saved) {
-      const o = await this.getOpportunity(opportunityId);
-      check2(
-        await this.db.from("saved_opportunities").upsert({ user_id: userId, opportunity_id: opportunityId, seen_version: o?.version ?? null }, { onConflict: "user_id,opportunity_id", ignoreDuplicates: true })
-      );
-    } else {
-      check2(await this.db.from("saved_opportunities").delete().eq("user_id", userId).eq("opportunity_id", opportunityId));
-    }
-  }
-};
-var current = null;
-function getStore() {
-  if (current) return current;
-  if (process.env.LUPA_STORE === "memory") {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("LUPA_STORE=memory n\xE3o \xE9 permitido em produ\xE7\xE3o.");
-    }
-    current = new MemoryStore2();
-    return current;
-  }
-  current = new SupabaseStore();
-  return current;
-}
-
-// src/routes/edital.ts
-var import_express4 = __toESM(require_express2(), 1);
-var import_multer = __toESM(require_multer(), 1);
-import { randomUUID as randomUUID4 } from "crypto";
 
 // ../../lib/api-zod/src/generated/api.ts
 var HealthCheckResponse = object({
@@ -147102,15 +145668,15 @@ var hex_table = /* @__PURE__ */ (() => {
   return array2;
 })();
 var limit = 1024;
-var encode4 = (str3, _defaultEncoder, charset, _kind, format) => {
-  if (str3.length === 0) {
-    return str3;
+var encode4 = (str4, _defaultEncoder, charset, _kind, format) => {
+  if (str4.length === 0) {
+    return str4;
   }
-  let string4 = str3;
-  if (typeof str3 === "symbol") {
-    string4 = Symbol.prototype.toString.call(str3);
-  } else if (typeof str3 !== "string") {
-    string4 = String(str3);
+  let string4 = str4;
+  if (typeof str4 === "symbol") {
+    string4 = Symbol.prototype.toString.call(str4);
+  } else if (typeof str4 !== "string") {
+    string4 = String(str4);
   }
   if (charset === "iso-8859-1") {
     return escape(string4).replace(/%u[0-9a-f]{4}/gi, function($0) {
@@ -147469,9 +146035,9 @@ function concatBytes(buffers) {
   return output2;
 }
 var encodeUTF8_;
-function encodeUTF8(str3) {
+function encodeUTF8(str4) {
   let encoder2;
-  return (encodeUTF8_ ?? (encoder2 = new globalThis.TextEncoder(), encodeUTF8_ = encoder2.encode.bind(encoder2)))(str3);
+  return (encodeUTF8_ ?? (encoder2 = new globalThis.TextEncoder(), encodeUTF8_ = encoder2.encode.bind(encoder2)))(str4);
 }
 var decodeUTF8_;
 function decodeUTF8(bytes) {
@@ -147911,12 +146477,12 @@ var SSEDecoder = class {
     return null;
   }
 };
-function partition(str3, delimiter) {
-  const index2 = str3.indexOf(delimiter);
+function partition(str4, delimiter) {
+  const index2 = str4.indexOf(delimiter);
   if (index2 !== -1) {
-    return [str3.substring(0, index2), delimiter, str3.substring(index2 + delimiter.length)];
+    return [str4.substring(0, index2), delimiter, str4.substring(index2 + delimiter.length)];
   }
-  return [str3, "", ""];
+  return [str4, "", ""];
 }
 
 // ../../node_modules/.pnpm/openai@6.48.0_zod@4.6.7/node_modules/openai/internal/parse.mjs
@@ -148645,8 +147211,8 @@ var APIResource = class {
 };
 
 // ../../node_modules/.pnpm/openai@6.48.0_zod@4.6.7/node_modules/openai/internal/utils/path.mjs
-function encodeURIPath(str3) {
-  return str3.replace(/[^A-Za-z0-9\-._~!$&'()*+,;=:@]+/g, encodeURIComponent);
+function encodeURIPath(str4) {
+  return str4.replace(/[^A-Za-z0-9\-._~!$&'()*+,;=:@]+/g, encodeURIComponent);
 }
 var EMPTY = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.create(null));
 var createPathTagFunction = (pathEncoder = encodeURIPath) => function path3(statics, ...params) {
@@ -157841,7 +156407,7 @@ function catalogForPrompt() {
 }
 
 // src/lib/aiService.ts
-import { randomUUID as randomUUID3, createHash as createHash7 } from "crypto";
+import { randomUUID as randomUUID2, createHash as createHash5 } from "crypto";
 
 // src/lib/timeBudget.ts
 var GLOBAL_BUDGET_MS = 24e4;
@@ -158124,33 +156690,33 @@ function calcRequestMaxTokens(estimatedPromptTokens, model) {
   return Math.max(512, Math.min(modelMax, availableForOutput));
 }
 var tpmWindow = [];
-function pruneTpmWindow(now) {
-  while (tpmWindow.length && now - tpmWindow[0].at > TPM_WINDOW_MS) tpmWindow.shift();
+function pruneTpmWindow(now2) {
+  while (tpmWindow.length && now2 - tpmWindow[0].at > TPM_WINDOW_MS) tpmWindow.shift();
 }
-function tpmUsedInWindow(now) {
-  pruneTpmWindow(now);
+function tpmUsedInWindow(now2) {
+  pruneTpmWindow(now2);
   return tpmWindow.reduce((sum, entry) => sum + entry.tokens, 0);
 }
-function recordTpmUsage(tokens) {
-  if (tokens <= 0) return;
+function recordTpmUsage(tokens2) {
+  if (tokens2 <= 0) return;
   pruneTpmWindow(Date.now());
-  tpmWindow.push({ at: Date.now(), tokens });
+  tpmWindow.push({ at: Date.now(), tokens: tokens2 });
 }
 function isMockAiEnvironment() {
   const key = process.env.GROQ_API_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
   return !key || /^test[-_]/i.test(key) || key.length < 10;
 }
-function estimateTpmWaitMs(reservationTokens, now = Date.now()) {
+function estimateTpmWaitMs(reservationTokens, now2 = Date.now()) {
   if (isMockAiEnvironment()) return 0;
   const tpm = getTpmLimit();
   if (tpm <= 0) return 0;
-  const used = tpmUsedInWindow(now);
+  const used = tpmUsedInWindow(now2);
   const overflow = used + reservationTokens - tpm;
   if (overflow <= 0) return 0;
   let accrued = 0;
   for (const entry of tpmWindow) {
     accrued += entry.tokens;
-    if (accrued >= overflow) return Math.max(0, entry.at + TPM_WINDOW_MS - now);
+    if (accrued >= overflow) return Math.max(0, entry.at + TPM_WINDOW_MS - now2);
   }
   return Math.ceil(overflow / tpm * TPM_WINDOW_MS);
 }
@@ -158158,8 +156724,8 @@ async function waitForTpmBudget(reservationTokens) {
   if (isMockAiEnvironment()) return;
   const tpm = getTpmLimit();
   if (tpm <= 0) return;
-  const now = Date.now();
-  const used = tpmUsedInWindow(now);
+  const now2 = Date.now();
+  const used = tpmUsedInWindow(now2);
   const projected = used + reservationTokens;
   if (projected <= tpm) return;
   const overflow = projected - tpm;
@@ -158168,7 +156734,7 @@ async function waitForTpmBudget(reservationTokens) {
   for (const entry of tpmWindow) {
     accrued += entry.tokens;
     if (accrued >= overflow) {
-      waitMs = Math.max(0, entry.at + TPM_WINDOW_MS - now);
+      waitMs = Math.max(0, entry.at + TPM_WINDOW_MS - now2);
       break;
     }
   }
@@ -158657,6 +157223,7 @@ async function analyzeChunkFacts(agentId, chunkText, profile, opts) {
     }, "AIService.analyzeChunkFacts", 2, { signal: AbortSignal.timeout(timeoutMs) });
     const usageTokens = completionResult.usage ? (completionResult.usage.prompt_tokens ?? 0) + (completionResult.usage.completion_tokens ?? 0) : 0;
     recordTpmUsage(usageTokens || estimatedPromptTokens + requestedMaxOutputTokens);
+    if (opts?.usage) opts.usage.tokens = usageTokens || estimatedPromptTokens + requestedMaxOutputTokens;
   } catch (error63) {
     const errMessage2 = error63 instanceof Error ? error63.message : String(error63);
     const httpMatch = errMessage2.match(/status[_\s]*(\d{3})/i) ?? errMessage2.match(/\b(4\d{2}|5\d{2})\b/);
@@ -159316,7 +157883,7 @@ function validateDocumentAnalysis(canonicalAnalysis, originalText) {
 function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
   const result = agentResult;
   const editalYear = typeof result.anoPublicacao === "number" ? result.anoPublicacao : void 0;
-  const documentHash3 = originalText && originalText.trim().length > 0 ? createHash7("sha256").update(originalText.trim()).digest("hex") : void 0;
+  const documentHash3 = originalText && originalText.trim().length > 0 ? createHash5("sha256").update(originalText.trim()).digest("hex") : void 0;
   const normalizeAlerts = () => {
     const rawAlerts = Array.isArray(result.alertas) ? result.alertas : [];
     return rawAlerts.reduce((acc, alert) => {
@@ -159516,7 +158083,7 @@ function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
     });
   }
   return {
-    analysisId: `analysis-${randomUUID3()}`,
+    analysisId: `analysis-${randomUUID2()}`,
     schemaVersion: "1.0.1",
     processing,
     source: {
@@ -159734,9 +158301,9 @@ var SCHEMA_EXAMPLES = {
   "ondeInscrever": "Como e onde se inscrever exatamente como consta",
   "observacao": "Dica pr\xE1tica para o candidato \u2014 sem criar expectativas n\xE3o previstas",
   "numero": "N\xFAmero/identificador do edital se dispon\xEDvel",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, institui\xE7\xE3o respons\xE1vel)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["\u26A0 [ambiguidade] exemplo \u2014 apenas se houver problemas reais"]
 }`,
   analista: `{
@@ -159749,9 +158316,9 @@ var SCHEMA_EXAMPLES = {
   "documentos": ["Documento 1", "Documento 2"],
   "valor": "Valor EXATAMENTE como consta (ou 'N\xE3o especificado')",
   "numero": "N\xFAmero/identificador do edital se dispon\xEDvel",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, institui\xE7\xE3o respons\xE1vel)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["\u26A0 [infer\xEAncia] exemplo \u2014 apenas se houver problemas reais"]
 }`,
   estrategica: `{
@@ -159763,9 +158330,9 @@ var SCHEMA_EXAMPLES = {
   "riscos": ["Risco 1 \u2014 fundamentado no texto", "Risco 2"],
   "recomendacao": "Recomenda\xE7\xE3o estrat\xE9gica baseada exclusivamente nas condi\xE7\xF5es reais",
   "numero": "N\xFAmero/identificador do edital se dispon\xEDvel",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, institui\xE7\xE3o respons\xE1vel)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["\u26A0 [ambiguidade] exemplo \u2014 apenas se houver problemas reais"]
 }`,
   acompanhamento: `{
@@ -159780,21 +158347,21 @@ var SCHEMA_EXAMPLES = {
   ],
   "observacao": "Observa\xE7\xE3o sobre os prazos \u2014 se n\xE3o constar no edital, indicar 'Verificar no edital'",
   "numero": "N\xFAmero/identificador do edital se dispon\xEDvel",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, institui\xE7\xE3o respons\xE1vel)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["\u26A0 [aus\xEAncia] exemplo \u2014 apenas se houver datas n\xE3o informadas ou amb\xEDguas"]
 }`,
   documentacao: `{
   "type": "documentacao",
   "checklist": [
-    {"doc": "Nome exato do documento conforme o edital", "obrigatorio": true, "observacao": "Como obter ou preparar \u2014 sem adicionar exig\xEAncias ausentes no edital", "checked": false}
+    {"doc": "Nome exato do documento conforme o edital", "obrigatorio": true, "observacao": "", "checked": false}
   ],
   "dica": "Dica pr\xE1tica baseada no que o edital efetivamente exige",
   "numero": "N\xFAmero/identificador do edital se dispon\xEDvel",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, institui\xE7\xE3o respons\xE1vel)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["\u26A0 [infer\xEAncia] exemplo \u2014 apenas para documentos inferidos, n\xE3o declarados"]
 }`,
   elegibilidade: `{
@@ -159810,9 +158377,9 @@ var SCHEMA_EXAMPLES = {
   "recomendacao": "Recomenda\xE7\xE3o baseada nos crit\xE9rios reais \u2014 sem suavizar exig\xEAncias n\xE3o atendidas",
   "proximosPassos": ["Passo 1 \u2014 a\xE7\xE3o concreta baseada no edital", "Passo 2"],
   "numero": "N\xFAmero/identificador do edital se dispon\xEDvel",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, institui\xE7\xE3o respons\xE1vel)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["\u26A0 [ambiguidade] exemplo \u2014 apenas se crit\xE9rios forem amb\xEDguos ou imprecisos"]
 }`
 };
@@ -159821,7 +158388,7 @@ var INSTRUCTIONS = {
   analista: "Voc\xEA \xE9 o agente Lupa Analista, uma mediadora lingu\xEDstica especializada em extra\xE7\xE3o precisa de indicadores-chave de editais p\xFAblicos. Extraia e organize: tipo, institui\xE7\xE3o, prazos, p\xFAblico-alvo, requisitos, documentos e valor do benef\xEDcio. Transcreva datas e valores exatamente como constam. Se uma informa\xE7\xE3o n\xE3o estiver expl\xEDcita, use 'N\xE3o informado' \u2014 nunca infira nem invente.",
   estrategica: "Voc\xEA \xE9 o agente Lupa Estrat\xE9gica, uma consultora especializada em an\xE1lise de oportunidades em editais p\xFAblicos. Avalie a oportunidade (score 0\u2013100), identifique vantagens, pontos de aten\xE7\xE3o e riscos. Toda avalia\xE7\xE3o deve ser fundamentada exclusivamente em informa\xE7\xF5es presentes no edital \u2014 n\xE3o crie vantagens ou riscos sem base textual.",
   acompanhamento: "Voc\xEA \xE9 o agente Lupa Acompanhamento, uma mediadora especializada em construir linhas do tempo de editais p\xFAblicos. Use SOMENTE datas e per\xEDodos que constem explicitamente no documento. Para fases sem data informada, use 'Verificar no edital' \u2014 jamais invente ou estime datas. Classifique cada fase como 'passado', 'ativo' ou 'futuro' com base nas datas reais.",
-  documentacao: "Voc\xEA \xE9 o agente Lupa Documenta\xE7\xE3o, uma mediadora especializada em criar checklists de documenta\xE7\xE3o para editais p\xFAblicos. Liste todos os documentos explicitamente mencionados. Documentos inferidos do tipo de edital devem ser sinalizados com '(inferido)' na observa\xE7\xE3o e registrados em alertas. Para cada item, informe se \xE9 obrigat\xF3rio conforme o edital.",
+  documentacao: "Voc\xEA \xE9 o agente Lupa Documenta\xE7\xE3o, uma mediadora especializada em criar checklists de documenta\xE7\xE3o para editais p\xFAblicos. Liste todos os documentos explicitamente mencionados. Documentos inferidos do tipo de edital devem ser sinalizados com '(inferido)' na observa\xE7\xE3o e registrados em alertas. Para cada item, informe se \xE9 obrigat\xF3rio conforme o edital. Em 'doc' use o nome exato do documento como est\xE1 no edital, sem acrescentar formato, foto, assinatura, autentica\xE7\xE3o, c\xF3pia ou via original se o edital n\xE3o pedir. Em 'observacao', escreva apenas o que o edital diz sobre o documento; se n\xE3o disser nada, deixe vazio. Em 'anoPublicacao' e 'totalPaginas' use null quando o texto n\xE3o informar.",
   elegibilidade: "Voc\xEA \xE9 o agente Lupa Elegibilidade, uma mediadora especializada em an\xE1lise de ader\xEAncia de perfis a editais p\xFAblicos. Compare cada requisito do edital com o perfil informado: true (atende), false (n\xE3o atende) ou 'parcial' (atende parcialmente). Nas observa\xE7\xF5es, use linguagem direta e objetiva. Quando a informa\xE7\xE3o n\xE3o estiver no perfil, escreva exatamente: 'O documento enviado n\xE3o apresenta esse dado.' \u2014 nunca use 'considera-se que...', 'presume-se...' ou '\xE9 poss\xEDvel inferir...'. N\xE3o suavize crit\xE9rios n\xE3o atendidos. Calcule o score proporcional aos crit\xE9rios efetivamente atendidos."
 };
 function buildAgentPrompt(agentId, text4, profile) {
@@ -160098,7 +158665,7 @@ async function analyzeAgent(agentId, text4, profile, opts) {
   const { text: normalizedText } = normalizeDocumentText(text4);
   const model = getOpenAIModel();
   const start = Date.now();
-  const requestId = randomUUID3();
+  const requestId = randomUUID2();
   const cacheKey = {
     scope: `analyze:${agentId}`,
     model,
@@ -160722,6 +159289,49 @@ ${context2.slice(0, 8e3)}` : "",
     return fallbackReply;
   }
 }
+async function analyzeLongDocChunk(agentId, promptText, profile, opts) {
+  const parsedProfile = AgentUserProfileSchema.safeParse(profile ?? void 0);
+  const usage = { tokens: 0 };
+  const facts = await analyzeChunkFacts(agentId, promptText, parsedProfile.success ? parsedProfile.data : void 0, {
+    userId: opts.userId,
+    chunkId: opts.chunkId,
+    chunkTimeoutMs: opts.timeoutMs,
+    usage
+  });
+  return { facts, tokens: usage.tokens };
+}
+function longDocChunkReservation(promptText) {
+  return Math.ceil(estimateTokens(promptText) * PROMPT_BUDGET_SAFETY) + CHUNK_FACT_MAX_OUTPUT + 400;
+}
+function longDocTpmWaitMs(promptText) {
+  return estimateTpmWaitMs(longDocChunkReservation(promptText));
+}
+function finalizeLongDocAnalysis(agentId, chunkResults, text4, profile, processing) {
+  const parsedProfile = AgentUserProfileSchema.safeParse(profile ?? void 0);
+  const prof = parsedProfile.success ? parsedProfile.data : void 0;
+  const consolidated = buildConsolidatedAgentResult(agentId, chunkResults, text4, prof);
+  delete consolidated.originalText;
+  consolidated.processing = processing;
+  const canonical = buildCanonicalAnalysis(agentId, consolidated, text4, prof);
+  const out = {
+    ...canonical,
+    ...consolidated,
+    type: agentId,
+    agentResult: consolidated,
+    analysisId: canonical.analysisId,
+    schemaVersion: canonical.schemaVersion,
+    interpretation: canonical.interpretation,
+    cronograma: canonical.cronograma,
+    checklist: canonical.checklist,
+    elegibilidade: canonical.elegibilidade,
+    valores: canonical.valores,
+    documentosExigidos: canonical.documentosExigidos,
+    alertas: canonical.alertas,
+    processing
+  };
+  delete out.originalText;
+  return out;
+}
 
 // src/lib/safeFetch.ts
 import dns from "node:dns/promises";
@@ -160973,20 +159583,1843 @@ async function safeFetch(rawUrl, opts = {}) {
   }
 }
 
-// src/routes/edital.ts
-var upload = (0, import_multer.default)({
-  storage: import_multer.default.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 },
-  fileFilter: (_req, file2, cb) => {
-    if (file2.mimetype === "application/pdf") cb(null, true);
-    else cb(new Error("Apenas arquivos PDF s\xE3o aceitos"));
-  }
-});
-var router2 = (0, import_express4.Router)();
-function cleanEditalText(raw) {
-  return raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").split("\n").filter((l) => l.trim().length > 2 || l.trim() === "").join("\n").trim();
+// src/lib/documentBase.ts
+import { createHash as createHash7 } from "node:crypto";
+
+// src/lib/lupa/deadlines.ts
+var MONTHS = {
+  janeiro: 1,
+  fevereiro: 2,
+  marco: 3,
+  abril: 4,
+  maio: 5,
+  junho: 6,
+  julho: 7,
+  agosto: 8,
+  setembro: 9,
+  outubro: 10,
+  novembro: 11,
+  dezembro: 12
+};
+var norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+function isLeapYear(y) {
+  return y % 4 === 0 && y % 100 !== 0 || y % 400 === 0;
 }
-var MAX_ANALYZE_CHARS = 45e4;
+function validDate(y, m, d) {
+  if (!Number.isInteger(y) || y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1) return false;
+  const days = [31, isLeapYear(y) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1];
+  return d <= days;
+}
+var iso = (y, m, d) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+function classifyChunk(chunk) {
+  const c = norm(chunk);
+  const prorrogacao = /prorrog/.test(c);
+  if (/recurso/.test(c)) return { kind: "recurso", rotulo: "recurso", prorrogacao };
+  if (/resultado (preliminar|provisorio)/.test(c)) return { kind: "resultado", rotulo: "resultado preliminar", prorrogacao };
+  if (/resultado|homologa|divulgacao (final|dos aprovados)/.test(c)) return { kind: "resultado", rotulo: "resultado", prorrogacao };
+  if (/^abertura|abertura das inscric|inicio das inscric|a partir de/.test(c)) return { kind: "inicio", rotulo: "abertura das inscri\xE7\xF5es", prorrogacao };
+  if (/inscric|submiss|envio (das |de )?propost|recebimento (das |de )?propost|propostas (serao recebidas|poderao ser enviadas)|encerramento das inscric/.test(c))
+    return { kind: "inscricao", rotulo: prorrogacao ? "inscri\xE7\xF5es (prorroga\xE7\xE3o)" : "inscri\xE7\xF5es", prorrogacao };
+  if (/publicac|lancamento/.test(c)) return { kind: "publicacao", rotulo: "publica\xE7\xE3o", prorrogacao };
+  if (/inicio (das atividades|da execucao|do projeto)|vigencia|execucao/.test(c)) return { kind: "execucao", rotulo: "execu\xE7\xE3o", prorrogacao };
+  if (/inicio/.test(c)) return { kind: "inicio", rotulo: "in\xEDcio", prorrogacao };
+  return { kind: "etapa", rotulo: "data", prorrogacao };
+}
+var DATE_RE = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b|\b(\d{1,2})(?:º)?\s+de\s+([a-zçã]+)\s+de\s+(\d{4})\b/gi;
+var TIME_RE = /^\s*(?:,|\s)*(?:at[eé]\s+(?:[àa]s\s+)?|[àa]s\s+)?(\d{1,2})\s*(?:h|:)\s*(\d{2})?\s*(?:min)?/i;
+var TZ_RE = /^[^.;]{0,40}?\(?\s*(hor[aá]rio\s+(?:oficial\s+)?de\s+bras[ií]lia|hor[aá]rio\s+de\s+bras[ií]lia)\s*\)?/i;
+function parseDateMentions(text4) {
+  const out = [];
+  let lastEnd = 0;
+  let lastClass = classifyChunk(text4);
+  for (const m of text4.matchAll(DATE_RE)) {
+    const [day2, month, year2] = m[1] ? [Number(m[1]), Number(m[2]), Number(m[3])] : [Number(m[4]), MONTHS[norm(m[5])] ?? 0, Number(m[6])];
+    const before2 = text4.slice(lastEnd, m.index);
+    const cls = /[a-zà-ú]{4,}/i.test(before2) ? classifyChunk(before2) : lastClass;
+    const isRange = /^\s*(a|ate|até)\s*$/i.test(before2) && out.length > 0;
+    const effective = isRange ? lastClass : cls;
+    if (isRange) {
+      const prev2 = out[out.length - 1];
+      if (prev2.kind === effective.kind) out[out.length - 1] = { ...prev2, kind: "inicio", rotulo: `abertura (${prev2.rotulo})` };
+    }
+    lastEnd = (m.index ?? 0) + m[0].length;
+    lastClass = effective;
+    if (!validDate(year2, month, day2)) continue;
+    const after2 = text4.slice(lastEnd, lastEnd + 60);
+    const t = TIME_RE.exec(after2);
+    const hora = t && Number(t[1]) <= 23 && (!t[2] || Number(t[2]) <= 59) ? `${t[1].padStart(2, "0")}:${t[2] ?? "00"}` : null;
+    const tz = TZ_RE.exec(after2);
+    out.push({ iso: iso(year2, month, day2), hora, fuso: tz ? "hor\xE1rio de Bras\xEDlia" : null, ...effective });
+  }
+  return out;
+}
+function candidateKind(c) {
+  const byLabel = classifyChunk(c.rotulo);
+  if (byLabel.kind !== "etapa") return { kind: byLabel.kind, prorrogacao: byLabel.prorrogacao || /prorrog/.test(norm(c.evidencia ?? "")) };
+  const byEvidence = c.evidencia ? classifyChunk(c.evidencia) : byLabel;
+  return { kind: byEvidence.kind, prorrogacao: byEvidence.prorrogacao };
+}
+function officialSubmissionDeadline(items, today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
+  const official = items.filter((i) => i.origem !== "usuario" && i.data && /^\d{4}-\d{2}-\d{2}$/.test(i.data)).map((i) => ({ ...i, ...candidateKind(i) })).filter((i) => i.kind === "inscricao");
+  if (official.length === 0) return null;
+  const extended2 = official.filter((i) => i.prorrogacao);
+  const pool = (extended2.length ? extended2 : official).sort((a, b) => a.data.localeCompare(b.data));
+  const fases = [...new Set(official.map((i) => i.data))].sort();
+  const next2 = extended2.length ? pool.at(-1) : pool.find((i) => i.data >= today) ?? pool.at(-1);
+  return {
+    iso: next2.data,
+    hora: next2.hora ?? null,
+    fuso: next2.fuso ?? null,
+    evidencia: next2.evidencia,
+    prorrogado: extended2.length > 0,
+    fases,
+    situacao: next2.data >= today ? "aberta" : "encerrada"
+  };
+}
+function formatDeadline(d) {
+  const [y, m, day2] = d.iso.split("-");
+  return `${day2}/${m}/${y}${d.hora ? `, at\xE9 ${d.hora}` : ""}${d.fuso ? ` (${d.fuso})` : ""}`;
+}
+
+// src/lib/lupa/collector/parse.ts
+import { createHash as createHash6 } from "node:crypto";
+
+// src/lib/lupa/types.ts
+var OPPORTUNITY_TYPES = [
+  "auxilio_pesquisa",
+  "bolsa",
+  "evento",
+  "inovacao",
+  "publicacao",
+  "infraestrutura",
+  "formacao",
+  // Públicos além do docente (perfil progressivo): só interesse, nunca requisito
+  "extensao",
+  "hackathon",
+  "concurso"
+];
+var termList = external_exports.array(external_exports.string().trim().min(1).max(120)).max(40).transform((items) => Array.from(new Set(items.map((s) => s.trim()))));
+var VINCULOS = ["estudante", "docente", "pesquisador", "servidor", "profissional", "outro"];
+var OBJETIVOS = ["bolsas", "pesquisa", "extensao", "inovacao", "hackathons", "concursos", "formacao", "eventos"];
+var OBJETIVO_ATUAL = ["encontrar", "entender", "elegibilidade", "documentos", "projeto", "lattes", "artigo", "aprender"];
+var ProfileInputSchema = external_exports.object({
+  display_name: external_exports.string().trim().max(160).nullable().optional(),
+  institution: external_exports.string().trim().max(200).nullable().optional(),
+  unit: external_exports.string().trim().max(200).nullable().optional(),
+  areas: termList.optional(),
+  competencies: termList.optional(),
+  research_topics: termList.optional(),
+  keywords: termList.optional(),
+  current_projects: external_exports.string().trim().max(4e3).nullable().optional(),
+  opportunity_types: external_exports.array(external_exports.enum(OPPORTUNITY_TYPES)).max(OPPORTUNITY_TYPES.length).optional(),
+  lattes_id: external_exports.string().trim().regex(/^\d{16}$/, "O identificador Lattes tem 16 d\xEDgitos.").nullable().optional(),
+  lattes_url: external_exports.string().trim().url().refine((u) => /^https?:\/\/(lattes\.cnpq\.br|buscatextual\.cnpq\.br)\//.test(u), "Use um endere\xE7o do Lattes (lattes.cnpq.br).").nullable().optional(),
+  declared_degree: external_exports.enum(["graduacao", "especializacao", "mestrado", "doutorado"]).nullable().optional(),
+  declared_bond: external_exports.enum(["efetivo", "temporario", "visitante", "aposentado", "sem_vinculo"]).nullable().optional(),
+  orcid: external_exports.string().trim().regex(/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/, "O ORCID tem o formato 0000-0000-0000-0000.").nullable().optional(),
+  /** Interesses do momento (ex.: "chamada para eventos em 2027"); pesam menos que áreas. */
+  temporary_interests: termList.optional(),
+  collaboration_role: external_exports.enum(["coordenar", "colaborar", "ambos"]).nullable().optional(),
+  // ── Perfil essencial (progressivo; tudo opcional, pode responder depois) ──
+  /** Vínculos: várias ao mesmo tempo (ex.: docente E pesquisador). Não dão permissão nenhuma. */
+  vinculos: external_exports.array(external_exports.enum(VINCULOS)).max(VINCULOS.length).optional(),
+  formacao_situacao: external_exports.enum(["em_curso", "concluida"]).nullable().optional(),
+  formacao_curso: external_exports.string().trim().max(200).nullable().optional(),
+  /** Objetivos de médio prazo (o que você busca). */
+  objetivos: external_exports.array(external_exports.enum(OBJETIVOS)).max(OBJETIVOS.length).optional(),
+  /** "O que você quer fazer agora?" — muda as sugestões da página inicial. */
+  objetivo_atual: external_exports.enum(OBJETIVO_ATUAL).nullable().optional(),
+  localizacao: external_exports.string().trim().max(120).nullable().optional(),
+  modalidade: external_exports.enum(["presencial", "remoto", "hibrido", "qualquer"]).nullable().optional(),
+  notification_prefs: external_exports.object({
+    email: external_exports.boolean(),
+    frequency: external_exports.enum(["diaria", "semanal", "nunca"])
+  }).optional()
+}).strict();
+function emptyProfile(userId, now2 = (/* @__PURE__ */ new Date()).toISOString()) {
+  return {
+    user_id: userId,
+    display_name: null,
+    institution: null,
+    unit: null,
+    areas: [],
+    competencies: [],
+    research_topics: [],
+    keywords: [],
+    current_projects: null,
+    opportunity_types: [],
+    lattes_id: null,
+    lattes_url: null,
+    declared_degree: null,
+    declared_bond: null,
+    orcid: null,
+    temporary_interests: [],
+    collaboration_role: null,
+    vinculos: [],
+    formacao_situacao: null,
+    formacao_curso: null,
+    objetivos: [],
+    objetivo_atual: null,
+    localizacao: null,
+    modalidade: null,
+    notification_prefs: { email: false, frequency: "semanal" },
+    field_sources: {},
+    version: 0,
+    created_at: now2,
+    updated_at: now2
+  };
+}
+var EXTRACTED_FIELD_KEYS = [
+  "objeto",
+  "areas",
+  "elegibilidade",
+  "requisitos",
+  "valores",
+  "documentos",
+  "datas",
+  "restricoes",
+  "contrapartidas",
+  "parcerias",
+  "criterios_avaliacao",
+  "canal_inscricao"
+];
+var OPTIONAL_FIELD_KEYS = /* @__PURE__ */ new Set(["contrapartidas", "parcerias", "restricoes"]);
+var SourceUpdateSchema = external_exports.object({
+  start_urls: external_exports.array(external_exports.string().url()).min(1).max(10).optional(),
+  max_depth: external_exports.number().int().min(0).max(4).optional(),
+  max_pages: external_exports.number().int().min(1).max(300).optional(),
+  time_budget_ms: external_exports.number().int().min(5e3).max(6e5).optional(),
+  request_delay_ms: external_exports.number().int().min(500).max(3e4).optional(),
+  frequency_minutes: external_exports.number().int().min(60).max(60 * 24 * 30).optional(),
+  enabled: external_exports.boolean().optional()
+}).strict();
+
+// src/lib/lupa/collector/urls.ts
+var TRACKING_PARAMS = /^(utm_|fbclid$|gclid$|mc_|_ga$|ref$|share$|replytocom$|amp$)/i;
+function normalizeUrl(raw, base2) {
+  let url2;
+  try {
+    url2 = new URL(raw.trim(), base2);
+  } catch {
+    return null;
+  }
+  if (url2.protocol !== "http:" && url2.protocol !== "https:") return null;
+  url2.hash = "";
+  url2.hostname = url2.hostname.toLowerCase();
+  if (url2.protocol === "https:" && url2.port === "443" || url2.protocol === "http:" && url2.port === "80") url2.port = "";
+  for (const key of [...url2.searchParams.keys()]) {
+    if (TRACKING_PARAMS.test(key)) url2.searchParams.delete(key);
+  }
+  url2.searchParams.sort();
+  if (url2.pathname.length > 1 && url2.pathname.endsWith("/")) url2.pathname = url2.pathname.replace(/\/+$/, "");
+  return url2.toString();
+}
+function isAllowedHost(url2, allowedHosts) {
+  try {
+    const host = new URL(url2).hostname.toLowerCase();
+    return allowedHosts.map((h) => h.toLowerCase()).includes(host);
+  } catch {
+    return false;
+  }
+}
+var DOCUMENT_EXT = /\.(pdf|docx?|odt|xlsx?|ods|zip|rar)$/i;
+function isDocumentUrl(url2) {
+  try {
+    return DOCUMENT_EXT.test(new URL(url2).pathname);
+  } catch {
+    return false;
+  }
+}
+
+// src/lib/lupa/collector/parse.ts
+var EDITAL_NUMBER = /\b(?:edital|chamada(?:\s+p[úu]blica)?)\s*(?:n[º°o.]*\s*)?(\d{1,3})\s*[/-]\s*(\d{4})\b/gi;
+function normalizeEditalNumber(n2, year2) {
+  return `${n2.padStart(2, "0")}/${year2}`;
+}
+function findEditalNumbers(text4) {
+  const found = /* @__PURE__ */ new Set();
+  for (const m of text4.matchAll(EDITAL_NUMBER)) found.add(normalizeEditalNumber(m[1], m[2]));
+  return [...found];
+}
+function parseHtml(url2, html3) {
+  const $2 = load(html3);
+  $2("script, style, noscript, iframe, svg").remove();
+  const links = [];
+  $2("a[href]").each((_, el) => {
+    const href = $2(el).attr("href") ?? "";
+    const abs = normalizeUrl(href, url2);
+    if (!abs) return;
+    const text5 = $2(el).text().replace(/\s+/g, " ").trim() || ($2(el).attr("title") ?? "").trim();
+    links.push({ url: abs, text: text5 });
+  });
+  $2("nav, header, footer, aside, [role='navigation'], .menu, #menu, .breadcrumb, .sidebar").remove();
+  const main = $2("main, article, [role='main'], .entry-content, .content, #content").first();
+  const scope = main.length ? main : $2("body");
+  const title = ($2("h1").first().text() || $2("title").text() || "").replace(/\s+/g, " ").trim();
+  const text4 = scope.find("p, li, td, th, h1, h2, h3, h4, dd, dt, div").toArray().filter((el) => $2(el).children("p, li, div, table, ul, ol").length === 0).map((el) => $2(el).text().replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
+  return { url: url2, title, text: text4 || scope.text().replace(/\s+/g, " ").trim(), links };
+}
+function classifyPage(page) {
+  const titleNumbers = findEditalNumbers(page.title);
+  if (titleNumbers.length !== 1) return "categoria";
+  const bodyNumbers = findEditalNumbers(page.text).filter((n2) => n2 !== titleNumbers[0]);
+  const linkedOpportunityPages = page.links.filter(
+    (l) => !isDocumentUrl(l.url) && findEditalNumbers(l.text).some((n2) => n2 !== titleNumbers[0])
+  );
+  if (bodyNumbers.length >= 3 || linkedOpportunityPages.length >= 3) return "categoria";
+  return "oportunidade";
+}
+function classifyDocument(link) {
+  const s = `${link.text} ${decodeURIComponent(new URL(link.url).pathname)}`.toLowerCase();
+  if (/retifica|errata/.test(s)) return "retificacao";
+  if (/resultado|homologa|classifica[cç][aã]o|aprovad/.test(s)) return "resultado";
+  if (/anexo|formul[aá]rio|modelo|declara[cç][aã]o|planilha/.test(s)) return "anexo";
+  if (/edital|chamada/.test(s)) return "edital";
+  return "outro";
+}
+function sentences(text4) {
+  return text4.split(/\n+/).flatMap((line) => line.split(/(?<=[.;:])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9])/)).map((s) => s.trim()).filter((s) => s.length >= 12 && s.length <= 600);
+}
+function grab(lines, re2, url2, limit2 = 6) {
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const s of lines) {
+    if (!re2.test(s) || seen.has(s)) continue;
+    seen.add(s);
+    out.push({ value: s, evidence: s, source_url: url2 });
+    if (out.length >= limit2) break;
+  }
+  return out;
+}
+function extractDates(lines, url2, max = 16) {
+  const out = [];
+  for (const s of lines) {
+    for (const d of parseDateMentions(s)) {
+      out.push({ label: d.rotulo, value: s, evidence: s, source_url: url2, iso: d.iso, ...d.hora ? { hora: d.hora } : {}, ...d.fuso ? { fuso: d.fuso } : {} });
+      if (out.length >= max) return out;
+    }
+  }
+  return out;
+}
+function datesAsCandidates(fields) {
+  return (fields.datas ?? []).map((d) => ({ rotulo: d.label, data: d.iso, hora: d.hora ?? null, fuso: d.fuso ?? null, origem: "edital", evidencia: d.evidence }));
+}
+function inferStatus(fields, text4, now2 = /* @__PURE__ */ new Date()) {
+  if (/\b(edital|chamada|processo seletivo)\b[^.\n]{0,40}\b(cancelad[oa]|revogad[oa]|anulad[oa])\b|\b(cancelamento|revoga[cç][aã]o|anula[cç][aã]o)\s+d[oa]\s+(edital|chamada)\b/i.test(text4)) return "cancelada";
+  if (/\b(edital|chamada|processo seletivo)\b[^.\n]{0,40}\bsuspens[oa]\b|\bsuspens[aã]o\s+d[oa]\s+(edital|chamada)\b/i.test(text4)) return "suspensa";
+  if (/\b(edital|chamada)\s+(encerrad[oa]|finalizad[oa])\b|inscri[cç][õo]es\s+encerradas/i.test(text4)) return "encerrada";
+  const official = officialSubmissionDeadline(datesAsCandidates(fields), now2.toISOString().slice(0, 10));
+  if (!official) return "desconhecida";
+  return official.situacao;
+}
+function isLinkOnlyLine(line, links) {
+  let rest = line;
+  for (const l of links) {
+    const t = l.text.replace(/\s+/g, " ").trim();
+    if (t.length >= 2) rest = rest.split(t).join(" ");
+  }
+  return rest.replace(/[^\p{L}\p{N}]+/gu, "").length < 6 && rest.length < line.length;
+}
+function extractFields(page, limits = {}) {
+  const perField = limits.perField ?? 6;
+  const lines = sentences(page.text).filter((s) => !isLinkOnlyLine(s, page.links ?? []));
+  const url2 = page.url;
+  const fields = {};
+  const objeto = lines.find((s) => /\bobjeto\b|tem por (objetivo|finalidade)|tem como objetivo/i.test(s));
+  if (objeto) fields.objeto = { value: objeto, evidence: objeto, source_url: url2 };
+  const areaLine = lines.find((s) => /[áa]reas?\s+(do conhecimento|tem[áa]ticas?|priorit[áa]rias?|de atua[cç][aã]o)|linhas? tem[áa]ticas?/i.test(s));
+  if (areaLine) {
+    const after2 = areaLine.split(/:\s*/).slice(1).join(": ") || areaLine;
+    const items = after2.split(/[;,]|\s+e\s+/).map((x) => x.replace(/[.]$/, "").trim()).filter((x) => x.length >= 3 && x.length <= 80);
+    if (items.length) fields.areas = { value: items, evidence: areaLine, source_url: url2 };
+  }
+  const eleg = grab(lines, /poder[aã]o\s+(participar|concorrer|submeter)|eleg[ií]ve|\bproponente\b.*\b(dever[áa]|deve)\b|t[ií]tulo de (doutor|mestre)|v[ií]nculo (empregat[ií]cio|funcional|institucional|efetivo)|sediad[ao]s?\s+no\s+(distrito federal|df)/i, url2, perField);
+  if (eleg.length) fields.elegibilidade = eleg;
+  const req = grab(lines, /\brequisitos?\b|\bexig[eê]ncias?\b|\bdever[aá]\s+(apresentar|possuir|comprovar)/i, url2, perField);
+  if (req.length) fields.requisitos = req;
+  const valores = grab(lines, /R\$\s?\d/i, url2, perField);
+  if (valores.length) fields.valores = valores;
+  const docs = grab(lines, /documentos?\s+(necess[aá]rios|exigidos|obrigat[oó]rios)|dever[aá]\s+anexar|curr[ií]culo lattes|plano de trabalho/i, url2, perField);
+  if (docs.length) fields.documentos = docs;
+  const datas = extractDates(lines, url2, limits.dates ?? 16);
+  if (datas.length) fields.datas = datas;
+  const restr = grab(lines, /\bvedad[oa]s?\b|n[aã]o\s+poder[aã]o|[ée]\s+proibid|n[aã]o\s+ser[aã]o\s+aceit/i, url2, perField);
+  if (restr.length) fields.restricoes = restr;
+  const contra = grab(lines, /\bcontrapartida/i, url2, perField);
+  if (contra.length) fields.contrapartidas = contra;
+  const parc = grab(lines, /\bparceri|\bcoopera[cç][aã]o\s+(com|entre)|\bconsórcio|\binstitui[cç][aã]o\s+parceira|\bco-?executora/i, url2, perField);
+  if (parc.length) fields.parcerias = parc;
+  const crit = grab(lines, /crit[eé]rios?\s+(de\s+)?(avalia[cç][aã]o|julgamento|sele[cç][aã]o|classifica[cç][aã]o)|\bpontua[cç][aã]o\b|\bnota\s+(m[ií]nima|final)/i, url2, perField);
+  if (crit.length) fields.criterios_avaliacao = crit;
+  const canal = grab(lines, /(inscri[cç][õo]es|propostas|submiss[aã]o)\s+(ser[aã]o|dever[aã]o ser)\s+(realizad|feit|enviad|submetid)|\bsistema\s+[A-Z]|\bplataforma\b|\bformul[aá]rio\s+eletr[oô]nico|\bpor\s+meio\s+do\s+(site|sistema|endere[cç]o)/i, url2, 3);
+  if (canal.length) fields.canal_inscricao = canal;
+  const missing = EXTRACTED_FIELD_KEYS.filter((k) => fields[k] === void 0 && !OPTIONAL_FIELD_KEYS.has(k));
+  return { fields, missing };
+}
+function eventsFromDocuments(docs, text4, url2) {
+  const events = [];
+  for (const d of docs) {
+    if (d.kind === "retificacao") events.push({ kind: "retificacao", title: d.title, url: d.url, event_date: null, evidence: d.title });
+    if (d.kind === "resultado") events.push({ kind: "resultado", title: d.title, url: d.url, event_date: null, evidence: d.title });
+  }
+  for (const s of sentences(text4)) {
+    if (/prorroga/i.test(s)) {
+      events.push({ kind: "prorrogacao", title: s.slice(0, 160), url: url2, event_date: null, evidence: s });
+      break;
+    }
+  }
+  return events;
+}
+function contentHash(parts) {
+  return createHash6("sha256").update(JSON.stringify(parts)).digest("hex");
+}
+
+// src/lib/lupa/matching-text.ts
+function normalizeText(s) {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+// src/lib/lupa/eligibility.ts
+var DEGREE_RANK = { graduacao: 1, especializacao: 2, mestrado: 3, doutorado: 4 };
+var DEGREE_LABEL = { graduacao: "gradua\xE7\xE3o", especializacao: "especializa\xE7\xE3o", mestrado: "mestrado", doutorado: "doutorado" };
+var SELF_DECLARED = "Dado autodeclarado no perfil \u2014 precisa ser comprovado na submiss\xE3o.";
+function splitSegments(text4) {
+  return text4.split(/(?<=[.;!?])\s+|;\s*/).map((s) => s.trim()).filter((s) => s.length > 3);
+}
+var DISPENSA = /\b(nao (e|sera|sao|serao) (necessari|exigid|obrigatori|requerid)|nao se exige|nao ha exigencia|dispensad|independe(nte)? d|sem necessidade d|nao precisa)/;
+var DESEJAVEL = /\b(preferencialmente|desejavel|desejaveis|de preferencia|sera (valorizad|considerad|pontuad)|serao (valorizad|considerad|pontuad)|diferencial|pontuacao adicional|bonificacao|recomendavel)/;
+var OBRIGATORIO_CUE = /\b(dever[aã]o?|deve|devem|obrigatori|exig|requisit|necessari|somente|apenas|exclusivamente|poder[aã]o? (participar|concorrer|submeter|se inscrever)|podem (participar|concorrer|submeter|se inscrever)|e vedad|nao poder|possuir|ter (o )?titulo|titulo de|titulacao|ser (mestres?|doutor(es)?|portador)|aceit|portador|conclui|minimo|pelo menos)/;
+var COORD = /\b(coordenador|coordenadora|coordenacao|proponente responsavel|pesquisador responsavel|responsavel pelo projeto)/;
+var EQUIPE = /\b(membros?|integrantes?|equipe|colaboradores?|bolsistas?|demais participantes)\b/;
+function nature(seg) {
+  if (DISPENSA.test(seg)) return "descritivo";
+  if (DESEJAVEL.test(seg)) return "desejavel";
+  if (OBRIGATORIO_CUE.test(seg)) return "obrigatorio";
+  return "descritivo";
+}
+function appliesTo(seg) {
+  if (COORD.test(seg)) return "coordenador";
+  if (EQUIPE.test(seg) && !/\b(candidat|proponente|pesquisador(a)?(es)? (que|com))/.test(seg)) return "equipe";
+  return "candidato";
+}
+function degreeRequirement(seg) {
+  const found = [];
+  if (/\b(graduad[oa]s?|diploma de graduacao|curso superior complet|nivel superior complet)/.test(seg)) found.push("graduacao");
+  if (/\b(especializacao|especialistas?)\b/.test(seg)) found.push("especializacao");
+  if (/\b(mestres?|mestras?|mestrados?)\b/.test(seg)) found.push("mestrado");
+  if (/\b(doutor|doutores|doutoras?|doutorados?)\b/.test(seg)) found.push("doutorado");
+  if (found.length === 0) return null;
+  const emCurso = /\b(cursando|matriculad|em curso|em andamento|regularmente inscrit)/.test(seg);
+  const alternativas = /\bou\b|\bno minimo\b|\bpelo menos\b|\bou superior\b|\bou equivalente\b|\bminima de\b/.test(seg);
+  const uniq = [...new Set(found)].sort((a, b) => DEGREE_RANK[a] - DEGREE_RANK[b]);
+  if (uniq.length > 1 && !alternativas) return { ambiguo: `menciona ${uniq.map((d) => DEGREE_LABEL[d]).join(" e ")} sem indicar se \xE9 alternativa` };
+  return { min: uniq[0], alternativas: uniq.length > 1 || alternativas, emCurso };
+}
+function evalDegree(seg, p) {
+  const d = degreeRequirement(seg);
+  if (!d) return null;
+  if ("ambiguo" in d) return { condicao: "titula\xE7\xE3o", state: "pendente_comprovacao", reason: `Titula\xE7\xE3o: o trecho ${d.ambiguo}. Confira no edital.`, profile_basis: null };
+  const label = d.alternativas && d.min !== "doutorado" ? `${DEGREE_LABEL[d.min]} (ou superior)` : DEGREE_LABEL[d.min];
+  if (d.emCurso) {
+    return { condicao: `titula\xE7\xE3o em curso (${DEGREE_LABEL[d.min]})`, state: "pendente_comprovacao", reason: `Pede ${DEGREE_LABEL[d.min]} em curso; confira a sua situa\xE7\xE3o de matr\xEDcula.`, profile_basis: null };
+  }
+  if (!p.declared_degree) return { condicao: `titula\xE7\xE3o m\xEDnima: ${label}`, state: "pendente_comprovacao", reason: `Pede ${label}; titula\xE7\xE3o n\xE3o informada no perfil.`, profile_basis: null };
+  const ok = DEGREE_RANK[p.declared_degree] >= DEGREE_RANK[d.min];
+  return {
+    condicao: `titula\xE7\xE3o m\xEDnima: ${label}`,
+    state: ok ? "atendida" : "nao_atendida",
+    reason: ok ? `Pede ${label}; o perfil informa ${DEGREE_LABEL[p.declared_degree]}. ${SELF_DECLARED}` : `Pede ${label}; o perfil informa ${DEGREE_LABEL[p.declared_degree]}.`,
+    profile_basis: `titula\xE7\xE3o: ${DEGREE_LABEL[p.declared_degree]} (autodeclarado)`
+  };
+}
+function evalBond(seg, p) {
+  if (!/vinculo (empregaticio|funcional|efetivo|institucional|permanente)|servidor (publico )?efetivo|quadro (permanente|efetivo)/.test(seg)) return null;
+  const bond = p.declared_bond;
+  if (!bond) return { condicao: "v\xEDnculo institucional", state: "pendente_comprovacao", reason: "Pede v\xEDnculo institucional; v\xEDnculo n\xE3o informado no perfil.", profile_basis: null };
+  if (bond === "efetivo") return { condicao: "v\xEDnculo institucional", state: "atendida", reason: `Pede v\xEDnculo; o perfil informa v\xEDnculo efetivo. ${SELF_DECLARED}`, profile_basis: "v\xEDnculo: efetivo (autodeclarado)" };
+  if (bond === "sem_vinculo") return { condicao: "v\xEDnculo institucional", state: "nao_atendida", reason: "Pede v\xEDnculo institucional; o perfil informa que n\xE3o h\xE1 v\xEDnculo.", profile_basis: "v\xEDnculo: sem v\xEDnculo (autodeclarado)" };
+  return { condicao: "v\xEDnculo institucional", state: "pendente_comprovacao", reason: `Pede v\xEDnculo; o perfil informa v\xEDnculo "${bond}". Confira no edital se esse tipo \xE9 aceito.`, profile_basis: `v\xEDnculo: ${bond} (autodeclarado)` };
+}
+function evalDf(seg, p) {
+  if (!/(sediad|localizad|situad)\w*\s+(no|na)\s+(distrito federal|df)\b|instituicao.*\bdf\b/.test(seg)) return null;
+  if (!p.institution) return { condicao: "institui\xE7\xE3o no DF", state: "pendente_comprovacao", reason: "Pede institui\xE7\xE3o no DF; institui\xE7\xE3o n\xE3o informada no perfil.", profile_basis: null };
+  const inDf = /\bundf\b|distrito federal|\bdf\b|brasilia|\bunb\b|\bifb\b/.test(normalizeText(p.institution));
+  return {
+    condicao: "institui\xE7\xE3o no DF",
+    state: inDf ? "atendida" : "pendente_comprovacao",
+    reason: inDf ? `Pede institui\xE7\xE3o no DF; o perfil informa ${p.institution}. ${SELF_DECLARED}` : `Pede institui\xE7\xE3o no DF; n\xE3o foi poss\xEDvel confirmar a localiza\xE7\xE3o de "${p.institution}".`,
+    profile_basis: `institui\xE7\xE3o: ${p.institution} (autodeclarado)`
+  };
+}
+function evalLattes(seg, p) {
+  if (!/\blattes\b/.test(seg)) return null;
+  const has3 = Boolean(p.lattes_id || p.lattes_url);
+  return {
+    condicao: "curr\xEDculo Lattes",
+    state: has3 ? "atendida" : "pendente_comprovacao",
+    reason: has3 ? "Pede curr\xEDculo Lattes; o perfil informa o Lattes. Confira se est\xE1 atualizado." : "Pede curr\xEDculo Lattes; informe o identificador ou endere\xE7o no perfil.",
+    profile_basis: has3 ? "Lattes informado no perfil" : null
+  };
+}
+var EVALUATORS = [evalDegree, evalBond, evalDf, evalLattes];
+function evaluateRequirementText(text4, sourceUrl, p) {
+  const segments = splitSegments(text4);
+  const parts = [];
+  for (const raw of segments.length ? segments : [text4]) {
+    const seg = normalizeText(raw);
+    const nat2 = nature(seg);
+    const who = appliesTo(seg);
+    const found = EVALUATORS.map((fn) => fn(seg, p)).filter((x) => x !== null);
+    if (found.length > 1 && /\bou\b/.test(seg) && !found.every((f) => f.condicao.startsWith("titula\xE7\xE3o"))) {
+      parts.push({ condicao: found.map((f) => f.condicao).join(" ou "), state: "pendente_comprovacao", reason: "O trecho combina condi\xE7\xF5es com \u201Cou\u201D; confira qual vale para voc\xEA.", profile_basis: null, nature: nat2, applies_to: who });
+      continue;
+    }
+    for (const f of found) parts.push({ ...f, nature: nat2, applies_to: who });
+  }
+  if (parts.length === 0) return null;
+  const role = p.collaboration_role;
+  const adjusted = parts.map((x) => {
+    if (x.nature === "descritivo") {
+      return { ...x, state: x.state === "nao_atendida" ? "atendida" : x.state, reason: `Informa\xE7\xE3o, n\xE3o exig\xEAncia: ${x.reason.replace(/^Pede/, "o texto menciona")} (o trecho dispensa ou s\xF3 descreve).` };
+    }
+    if (x.applies_to === "coordenador" && role !== "coordenar" && role !== "ambos") {
+      return { ...x, state: "pendente_comprovacao", reason: `Vale para quem coordena: ${x.reason}${role === "colaborar" ? " Voc\xEA indicou que quer colaborar; a equipe precisa de algu\xE9m que atenda." : " Confira o seu papel no projeto."}` };
+    }
+    if (x.applies_to === "equipe") {
+      return { ...x, state: x.state === "nao_atendida" ? "pendente_comprovacao" : x.state, reason: `Vale para a equipe: ${x.reason}` };
+    }
+    if (x.nature === "desejavel" && x.state === "nao_atendida") {
+      return { ...x, reason: `Desej\xE1vel, n\xE3o obrigat\xF3rio: ${x.reason} N\xE3o impede a participa\xE7\xE3o.` };
+    }
+    return x;
+  });
+  const eliminatory = adjusted.filter((x) => x.state === "nao_atendida" && x.nature === "obrigatorio");
+  const state = eliminatory.length ? "nao_atendida" : adjusted.every((x) => x.state === "atendida") ? "atendida" : adjusted.some((x) => x.state === "nao_atendida" || x.state === "pendente_comprovacao") ? "pendente_comprovacao" : "atendida";
+  const nat = adjusted.some((x) => x.nature === "obrigatorio") ? "obrigatorio" : adjusted.some((x) => x.nature === "desejavel") ? "desejavel" : "descritivo";
+  const ORDER = { nao_atendida: 0, pendente_comprovacao: 1, atendida: 2 };
+  const phrased = adjusted.map((x) => ({
+    ...x,
+    reason: x.state === "nao_atendida" && x.nature === "obrigatorio" ? x.reason.replace(/^Pede /, "Exige ") : x.reason
+  }));
+  const selfDeclared = phrased.some((x) => x.reason.includes(SELF_DECLARED));
+  const reason = phrased.length === 1 ? phrased[0].reason : [...phrased].sort((a, b) => (ORDER[a.state] ?? 3) - (ORDER[b.state] ?? 3)).map((x) => x.reason.replace(SELF_DECLARED, "").trim()).join(" ").concat(selfDeclared ? ` ${SELF_DECLARED}` : "");
+  const basis = adjusted.map((x) => x.profile_basis).filter(Boolean).join("; ") || null;
+  return {
+    requirement: text4,
+    evidence: text4,
+    source_url: sourceUrl,
+    state,
+    reason,
+    profile_basis: basis,
+    nature: nat,
+    eliminatory: eliminatory.length > 0,
+    parts: phrased.map(({ condicao, state: s, reason: r, nature: n2, applies_to }) => ({ condicao, state: s, reason: r, nature: n2, applies_to }))
+  };
+}
+
+// src/lib/lupa/matching.ts
+var STOPWORDS = new Set(
+  "a o as os de da do das dos e em no na nos nas para por com sem um uma uns umas ao aos \xE0 \xE0s que se ou sua seu suas seus como mais menos entre sobre sob at\xE9 ate the of and in on for to".split(" ")
+);
+function stem(token) {
+  if (token.length > 5 && token.endsWith("oes")) return token.slice(0, -3) + "ao";
+  if (token.length > 5 && token.endsWith("aes")) return token.slice(0, -3) + "ao";
+  if (token.length > 4 && token.endsWith("es") && /[rsz]es$/.test(token)) return token.slice(0, -2);
+  if (token.length > 3 && token.endsWith("s")) return token.slice(0, -1);
+  return token;
+}
+function significantTokens(s) {
+  return normalizeText(s).split(" ").filter((t) => t.length >= 3 && !STOPWORDS.has(t)).map(stem);
+}
+var FIELD_WEIGHTS = [
+  { key: "areas", label: "\xE1rea de atua\xE7\xE3o", weight: 3 },
+  { key: "research_topics", label: "tema de pesquisa", weight: 3 },
+  { key: "keywords", label: "palavra-chave", weight: 2 },
+  { key: "competencies", label: "compet\xEAncia", weight: 2 }
+];
+function opportunityPassages(o) {
+  const f = o.fields;
+  const out = [{ text: o.title }];
+  if (f.objeto) out.push({ text: f.objeto.evidence });
+  if (f.areas) out.push({ text: f.areas.evidence });
+  for (const e of [...f.elegibilidade ?? [], ...f.requisitos ?? []]) out.push({ text: e.evidence });
+  return out;
+}
+function thematic(profile, o) {
+  const passages = opportunityPassages(o).map((p) => ({ ...p, tokens: new Set(significantTokens(p.text)) }));
+  const allTokens = new Set(passages.flatMap((p) => [...p.tokens]));
+  const matches = [];
+  let points = 0;
+  let totalTerms = 0;
+  const seen = /* @__PURE__ */ new Set();
+  for (const { key, label, weight } of FIELD_WEIGHTS) {
+    for (const term of profile[key] ?? []) {
+      totalTerms++;
+      const tokens2 = significantTokens(term);
+      const norm2 = tokens2.join(" ");
+      if (tokens2.length === 0 || seen.has(norm2)) continue;
+      if (!tokens2.every((t) => allTokens.has(t))) continue;
+      seen.add(norm2);
+      const passage = passages.find((p) => tokens2.every((t) => p.tokens.has(t))) ?? passages.find((p) => p.tokens.has(tokens2[0]));
+      matches.push({ term, profile_field: label, evidence: passage?.text ?? o.title });
+      points += weight;
+    }
+  }
+  const hasOpportunityText = Boolean(o.fields.objeto || o.fields.areas || o.fields.elegibilidade || o.fields.requisitos);
+  if (totalTerms === 0 || !hasOpportunityText && matches.length === 0) {
+    return { score: 0, level: "indeterminada", matches };
+  }
+  const possible = FIELD_WEIGHTS.reduce((acc, f) => acc + (profile[f.key] ?? []).length * f.weight, 0);
+  const reference = Math.min(15, Math.max(9, possible));
+  const score = Math.min(100, Math.round(points / reference * 100));
+  const level = score >= 60 ? "alta" : score >= 30 ? "media" : score > 0 ? "baixa" : "baixa";
+  return { score, level, matches };
+}
+function evaluateRequirement(text4, sourceUrl, p) {
+  return evaluateRequirementText(text4, sourceUrl, p);
+}
+var TYPE_PATTERNS = [
+  ["bolsa", /\bbolsas?\b/],
+  ["evento", /\beventos?\b|\bcongress|\bsimp[oó]sio|\bsemin[aá]rio|\bparticipa[cç][aã]o em eventos/],
+  ["publicacao", /\bpublica[cç][aã]o\b|\bpublica[cç][õo]es\b|\bperi[oó]dicos?\b|\blivros?\b/],
+  ["inovacao", /\binova[cç][aã]o\b|\bstartups?\b|\bempreendedor|\btecnol[oó]gic[oa] e inova/],
+  ["infraestrutura", /\binfraestrutura\b|\bequipamentos?\b|\blaborat[oó]rios?\b/],
+  ["formacao", /\bforma[cç][aã]o\b|\bcapacita[cç][aã]o\b|\bcursos?\b/],
+  ["extensao", /\bextens[aã]o\b|\bprojetos? de extens/],
+  ["hackathon", /\bhackathons?\b|\bmaratona de (programa[cç][aã]o|inova[cç][aã]o)|\bdesafio de inova/],
+  ["concurso", /\bconcurso p[uú]blico\b|\bprocesso seletivo\b|\bsele[cç][aã]o p[uú]blica\b|\bconcurso de (provas|t[ií]tulos)/],
+  ["auxilio_pesquisa", /\bpesquisa\b|\bprojetos? de pesquisa\b|\bpesquisador/]
+];
+function inferOpportunityTypes(o) {
+  const text4 = `${o.title} ${o.fields.objeto?.evidence ?? ""}`.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const plain = `${o.title} ${o.fields.objeto?.evidence ?? ""}`.toLowerCase();
+  return TYPE_PATTERNS.filter(([, re2]) => re2.test(plain) || re2.test(text4)).map(([t]) => t);
+}
+var RECOMMENDATION_RULE_VERSION = 3;
+var OBJECTIVE_TYPES = {
+  bolsas: ["bolsa"],
+  pesquisa: ["auxilio_pesquisa"],
+  extensao: ["extensao"],
+  inovacao: ["inovacao"],
+  hackathons: ["hackathon"],
+  concursos: ["concurso"],
+  formacao: ["formacao"],
+  eventos: ["evento"]
+};
+function editalText(o) {
+  const f = o.fields;
+  return normalizeText([o.title, f.objeto?.evidence, f.areas?.evidence, ...(f.elegibilidade ?? []).map((e) => e.evidence), ...(f.requisitos ?? []).map((e) => e.evidence)].filter(Boolean).join(" "));
+}
+function preferences(profile, o) {
+  const t = editalText(o);
+  const out = [];
+  const modal = /\b(a distancia|remot[oa]|online|virtual)\b/.test(t) ? /\bpresencial\b/.test(t) ? "hibrido" : "remoto" : /\bpresencial\b/.test(t) ? "presencial" : /\bhibrid/.test(t) ? "hibrido" : null;
+  if (!profile.modalidade) out.push({ campo: "modalidade", situacao: "perfil_nao_informa", motivo: "Voc\xEA n\xE3o informou a modalidade preferida." });
+  else if (!modal) out.push({ campo: "modalidade", situacao: "edital_nao_informa", motivo: "O edital n\xE3o informa a modalidade." });
+  else
+    out.push({
+      campo: "modalidade",
+      situacao: profile.modalidade === "qualquer" || profile.modalidade === modal || modal === "hibrido" ? "corresponde" : "diverge",
+      motivo: `Edital: ${modal}; sua prefer\xEAncia: ${profile.modalidade}.`
+    });
+  const regionDf = /\b(distrito federal|brasilia)\b|\bdf\b/.test(t);
+  if (!profile.localizacao) out.push({ campo: "localizacao", situacao: "perfil_nao_informa", motivo: "Voc\xEA n\xE3o informou cidade/UF." });
+  else if (!regionDf) out.push({ campo: "localizacao", situacao: "edital_nao_informa", motivo: "O edital n\xE3o restringe regi\xE3o no texto extra\xEDdo." });
+  else {
+    const inDf = /\b(df|distrito federal|brasilia)\b/.test(normalizeText(profile.localizacao));
+    out.push({ campo: "localizacao", situacao: inDf ? "corresponde" : "diverge", motivo: inDf ? "O edital \xE9 voltado ao DF e voc\xEA informou estar no DF." : `O edital \xE9 voltado ao DF; voc\xEA informou ${profile.localizacao}.` });
+  }
+  const wantsEnrolled = /\b(matriculad|regularmente inscrit|cursando|estudantes? de (graduacao|mestrado|doutorado))/.test(t);
+  if (wantsEnrolled) {
+    if (!profile.formacao_situacao) out.push({ campo: "formacao", situacao: "perfil_nao_informa", motivo: "O edital \xE9 para quem est\xE1 cursando; voc\xEA n\xE3o informou a situa\xE7\xE3o da forma\xE7\xE3o." });
+    else out.push({ campo: "formacao", situacao: profile.formacao_situacao === "em_curso" ? "corresponde" : "diverge", motivo: profile.formacao_situacao === "em_curso" ? "O edital \xE9 para quem est\xE1 cursando, como voc\xEA informou." : "O edital \xE9 para quem est\xE1 cursando; voc\xEA informou forma\xE7\xE3o conclu\xEDda." });
+  }
+  return out;
+}
+function interest(profile, o) {
+  const types4 = inferOpportunityTypes(o);
+  const fromObjectives = (profile.objetivos ?? []).flatMap((x) => OBJECTIVE_TYPES[x] ?? []);
+  const wanted = [.../* @__PURE__ */ new Set([...profile.opportunity_types ?? [], ...fromObjectives])];
+  const opportunity_type = wanted.length === 0 || types4.length === 0 ? "nao_informado" : types4.some((t) => wanted.includes(t)) ? "corresponde" : "nao_corresponde";
+  const tokens2 = new Set(opportunityPassages(o).flatMap((p) => significantTokens(p.text)));
+  const temporary_matches = (profile.temporary_interests ?? []).filter((term) => {
+    const t = significantTokens(term);
+    return t.length > 0 && t.every((x) => tokens2.has(x));
+  });
+  const prefs = preferences(profile, o);
+  if (fromObjectives.length) {
+    prefs.unshift({
+      campo: "objetivos",
+      situacao: types4.length === 0 ? "edital_nao_informa" : types4.some((t) => fromObjectives.includes(t)) ? "corresponde" : "diverge",
+      motivo: types4.length === 0 ? "N\xE3o foi poss\xEDvel identificar o tipo do edital." : `Tipo do edital: ${types4.join(", ")}; seus objetivos: ${(profile.objetivos ?? []).join(", ")}.`
+    });
+  }
+  return { opportunity_type, temporary_matches, preferences: prefs };
+}
+var STATUS_WARNING = {
+  encerrada: "Prazo de submiss\xE3o encerrado segundo a fonte.",
+  suspensa: "Edital suspenso segundo a fonte oficial.",
+  cancelada: "Edital cancelado segundo a fonte oficial.",
+  desconhecida: "Situa\xE7\xE3o do prazo n\xE3o confirmada na fonte."
+};
+function computeRecommendation(profile, o) {
+  const them = thematic(profile, o);
+  const inter = interest(profile, o);
+  const requirementTexts = [...o.fields.elegibilidade ?? [], ...o.fields.requisitos ?? []];
+  const checks = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const r of requirementTexts) {
+    if (seen.has(r.evidence)) continue;
+    seen.add(r.evidence);
+    const c = evaluateRequirement(r.evidence, r.source_url, profile);
+    if (c) checks.push(c);
+    else checks.push({
+      requirement: r.evidence,
+      evidence: r.evidence,
+      source_url: r.source_url,
+      state: "pendente_comprovacao",
+      reason: "Requisito n\xE3o avaliado automaticamente \u2014 confira no documento oficial.",
+      profile_basis: null
+    });
+  }
+  const missing = [];
+  for (const f of o.missing_fields) missing.push(`Edital: ${f.replace(/_/g, " ")} n\xE3o encontrado \u2014 pendente de verifica\xE7\xE3o.`);
+  if (!o.fields.elegibilidade && !o.fields.requisitos) missing.push("Edital: nenhum crit\xE9rio de elegibilidade identificado \u2014 confira o documento oficial.");
+  const termCount = profile.areas.length + profile.research_topics.length + profile.keywords.length + profile.competencies.length;
+  if (termCount === 0) missing.push("Perfil: informe \xE1reas, temas ou palavras-chave para calcular a ader\xEAncia tem\xE1tica.");
+  if (!profile.declared_degree) missing.push("Perfil: titula\xE7\xE3o n\xE3o informada.");
+  if (!profile.declared_bond) missing.push("Perfil: v\xEDnculo institucional n\xE3o informado.");
+  const overall = checks.some((c) => c.state === "nao_atendida" && c.eliminatory !== false) ? "impedimento" : checks.length === 0 || checks.some((c) => c.state === "pendente_comprovacao") ? "pendente" : "sem_impedimento_conhecido";
+  const warnings = [];
+  if (overall === "impedimento" && (them.level === "alta" || them.level === "media")) {
+    warnings.push("Ader\xEAncia tem\xE1tica " + them.level + ", mas h\xE1 requisito eliminat\xF3rio n\xE3o atendido. Confira antes de investir na proposta.");
+  }
+  if (STATUS_WARNING[o.status]) warnings.push(STATUS_WARNING[o.status]);
+  if ((profile.opportunity_types ?? []).length === 0) missing.push("Perfil: tipos de oportunidade desejados n\xE3o informados.");
+  const themText = them.level === "indeterminada" ? "Ader\xEAncia tem\xE1tica indeterminada." : `Ader\xEAncia tem\xE1tica ${them.level} (${them.score}/100) por ${them.matches.length} termo(s) do seu perfil.`;
+  const eligText = overall === "impedimento" ? "H\xE1 requisito eliminat\xF3rio n\xE3o atendido." : overall === "pendente" ? "Elegibilidade com pend\xEAncias de comprova\xE7\xE3o." : "Nenhum impedimento identificado nos requisitos extra\xEDdos.";
+  const divergent = (inter.preferences ?? []).filter((x) => x.situacao === "diverge");
+  return {
+    rule_version: RECOMMENDATION_RULE_VERSION,
+    thematic: them,
+    eligibility: { overall, checks },
+    interest: inter,
+    missing,
+    warnings,
+    summary: `${themText} ${eligText}${inter.opportunity_type === "corresponde" ? " Tipo de oportunidade entre os que voc\xEA procura." : ""}${inter.temporary_matches.length ? ` Relacionado ao seu interesse atual: ${inter.temporary_matches.join(", ")}.` : ""}${divergent.length ? ` Diferente das suas prefer\xEAncias (n\xE3o impede): ${divergent.map((d) => d.campo).join(", ")}.` : ""}`
+  };
+}
+
+// src/lib/documentBase.ts
+var DOCUMENT_BASE_VERSION = 1;
+function documentHash(text4) {
+  return createHash7("sha256").update(text4).digest("hex");
+}
+var FIELD_LABEL = {
+  objeto: "objeto",
+  areas: "\xE1reas",
+  elegibilidade: "p\xFAblico eleg\xEDvel",
+  requisitos: "requisitos",
+  valores: "valores",
+  documentos: "documentos exigidos",
+  datas: "datas e prazos",
+  criterios_avaliacao: "crit\xE9rios de avalia\xE7\xE3o",
+  canal_inscricao: "canal de inscri\xE7\xE3o"
+};
+var STATE_MAP = {
+  atendida: "atendido",
+  nao_atendida: "nao_atendido",
+  pendente_comprovacao: "pendente"
+};
+function fieldLimitsFor(text4) {
+  const scale = Math.ceil(text4.length / 2e4);
+  return { perField: Math.min(60, Math.max(6, scale)), dates: 2e3, baseDates: Math.min(400, Math.max(30, scale * 4)), docs: Math.min(200, Math.max(30, scale * 2)), clauses: Math.min(60, Math.max(10, scale)) };
+}
+function buildDocumentBase(text4, teacher) {
+  const firstLine = text4.split(/\n/).map((l) => l.trim()).find(Boolean) ?? "";
+  const page = { url: "", title: firstLine.slice(0, 200), text: text4, links: [] };
+  const lim = fieldLimitsFor(text4);
+  const { fields, missing } = extractFields(page, { perField: lim.perField, dates: lim.dates });
+  const items = (list) => (list ?? []).map((e) => ({ texto: e.value, evidencia: e.evidence }));
+  const requirementTexts = dedupe([...fields.elegibilidade ?? [], ...fields.requisitos ?? []]);
+  let elegibilidade_perfil = null;
+  if (teacher) {
+    elegibilidade_perfil = [];
+    for (const r of requirementTexts) {
+      let evaluated = 0;
+      const c = evaluateRequirement(r.evidence, "", teacher);
+      for (const part of c?.parts ?? []) {
+        evaluated++;
+        elegibilidade_perfil.push({ requisito: part.condicao, evidencia: r.evidence, estado: STATE_MAP[part.state], motivo: part.reason, base_perfil: c?.profile_basis ?? null });
+      }
+      if (evaluated === 0) {
+        elegibilidade_perfil.push({
+          requisito: r.evidence,
+          evidencia: r.evidence,
+          estado: "pendente",
+          motivo: "Requisito n\xE3o avaliado automaticamente \u2014 confira no documento.",
+          base_perfil: null
+        });
+      }
+    }
+    for (const v of fields.restricoes ?? []) {
+      elegibilidade_perfil.push({
+        requisito: v.evidence,
+        evidencia: v.evidence,
+        estado: "pendente",
+        motivo: "Veda\xE7\xE3o do edital: confirme que voc\xEA n\xE3o se enquadra nela.",
+        base_perfil: null
+      });
+    }
+  }
+  return {
+    versao: DOCUMENT_BASE_VERSION,
+    documento_hash: documentHash(text4),
+    caracteres: text4.length,
+    objeto: fields.objeto ? { texto: fields.objeto.value, evidencia: fields.objeto.evidence } : null,
+    datas: extractDates2(text4, lim.baseDates),
+    valores: items(fields.valores),
+    documentos: extractDocuments(text4, items(fields.documentos), lim.docs),
+    requisitos: items(requirementTexts),
+    restricoes: items(fields.restricoes),
+    criterios: extractClauses(text4, /crit[ée]rios?\s+(de\s+)?(avalia|julgamento|sele|classifica)|crit[ée]rios?:|\bpeso\s+\d|\bpontua[çc][ãa]o\b|\bnota\s+m[íi]nima/i, lim.clauses),
+    canal_inscricao: items(fields.canal_inscricao),
+    ausentes: missing.map((k) => FIELD_LABEL[k] ?? k),
+    elegibilidade_perfil
+  };
+}
+function dedupe(list) {
+  const seen = /* @__PURE__ */ new Set();
+  return list.filter((x) => seen.has(x.evidence) ? false : (seen.add(x.evidence), true));
+}
+var MONTHS2 = {
+  janeiro: "01",
+  fevereiro: "02",
+  marco: "03",
+  mar\u00E7o: "03",
+  abril: "04",
+  maio: "05",
+  junho: "06",
+  julho: "07",
+  agosto: "08",
+  setembro: "09",
+  outubro: "10",
+  novembro: "11",
+  dezembro: "12"
+};
+var DATE_LABELS = [
+  [/resultado\s+preliminar/i, "resultado preliminar"],
+  [/resultado\s+final|homologa/i, "resultado final"],
+  [/recurso/i, "recurso"],
+  [/inscri[çc][õo]es|submiss[ãa]o|envio\s+(das\s+)?propostas|propostas\s+(ser[ãa]o\s+)?recebidas/i, "inscri\xE7\xF5es"],
+  [/publica[çc][ãa]o|lan[çc]amento/i, "publica\xE7\xE3o"],
+  [/resultado/i, "resultado"],
+  [/contrata[çc][ãa]o|assinatura|termo\s+de\s+outorga/i, "contrata\xE7\xE3o"],
+  [/in[íi]cio\s+(das\s+)?atividades|execu[çc][ãa]o|vig[êe]ncia/i, "execu\xE7\xE3o"],
+  [/relat[óo]rio|presta[çc][ãa]o\s+de\s+contas/i, "presta\xE7\xE3o de contas"],
+  [/prazo|encerramento|at[ée]\s/i, "prazo"]
+];
+function toIso(d, m, y) {
+  const dd = Number(d), mm = Number(m);
+  if (!validDate(Number(y), mm, dd)) return null;
+  return `${y}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+}
+function extractDates2(text4, max = 30) {
+  const out = [];
+  const clauses2 = text4.split(/\n+/).flatMap((line) => line.split(/(?<=\.)\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9])/)).map((c) => c.trim()).filter((c) => c.length >= 8 && c.length <= 600);
+  for (const c of clauses2) {
+    const numeric = [...c.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)].map((m) => toIso(m[1], m[2], m[3]));
+    const written = [...c.matchAll(/\b(\d{1,2})\s+de\s+([a-zç]+)\s+de\s+(\d{4})\b/gi)].map(
+      (m) => MONTHS2[m[2].toLowerCase()] ? toIso(m[1], MONTHS2[m[2].toLowerCase()], m[3]) : null
+    );
+    const isos = [...numeric, ...written].filter((x) => Boolean(x));
+    if (isos.length === 0) continue;
+    const before2 = c.slice(0, Math.max(c.search(/\d{1,2}(\/|\s+de\s+)/), 0)) || c;
+    const label = DATE_LABELS.find(([re2]) => re2.test(before2))?.[1] ?? DATE_LABELS.find(([re2]) => re2.test(c))?.[1] ?? "data";
+    out.push({ rotulo: label, iso: isos[isos.length - 1], texto: c, evidencia: c });
+    if (out.length >= max) break;
+  }
+  return out.sort((a, b) => (a.iso ?? "").localeCompare(b.iso ?? ""));
+}
+var DOC_RE = /\b(formul[áa]rio|declara[çc][ãa]o|comprovante|certid[ãa]o|plano\s+de\s+trabalho|curr[íi]culo|anexo\s+[ivxl\d]+|termo\s+de\s+(anu[êe]ncia|compromisso|aceite)|c[óo]pia\s+d[eoa]|carta\s+de|projeto\s+de\s+pesquisa\s+\(|or[çc]amento)\b/i;
+function sentenceClauses(text4) {
+  return text4.split(/\n+/).flatMap((line) => line.split(/(?<=\.)\s+(?=(?:\d+(?:\.\d+)*\.?\s+)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/)).map((c) => c.trim()).filter((c) => c.length >= 8 && c.length <= 600);
+}
+function extractClauses(text4, re2, limit2 = 10) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const c of sentenceClauses(text4)) {
+    if (!re2.test(c) || seen.has(c)) continue;
+    seen.add(c);
+    out.push({ texto: c.replace(/^\d+(\.\d+)*\.?\s*/, ""), evidencia: c });
+    if (out.length >= limit2) break;
+  }
+  return out;
+}
+function extractDocuments(text4, fromCollector = [], max = 30) {
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  const clauses2 = text4.split(/\n+/).flatMap((line) => line.split(/(?<=\.)\s+(?=(?:\d+(?:\.\d+)*\s+)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/)).map((c) => c.trim()).filter((c) => c.length >= 8 && c.length <= 500);
+  for (const c of [...clauses2, ...fromCollector.map((d) => d.evidencia)]) {
+    if (!DOC_RE.test(c) || seen.has(c)) continue;
+    if (/resultado|ser[áa]\s+publicad|divulgad/i.test(c) && !/deve|dever[áa]|exig|apresentar|anexar|enviar|entregar|^\d/i.test(c)) continue;
+    seen.add(c);
+    out.push({ texto: c.replace(/^\d+(\.\d+)*\s*/, ""), evidencia: c });
+    if (out.length >= max) break;
+  }
+  return out;
+}
+var DATE_RE2 = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
+var MONEY_RE = /R\$\s?([\d.]+(?:,\d{2})?)/g;
+function normDate(d, m, y) {
+  return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+}
+function normMoney(v) {
+  return v.replace(/\./g, "").replace(/,00$/, "");
+}
+function collectStrings(value, out = [], depth = 0) {
+  if (depth > 8) return out;
+  if (typeof value === "string") out.push(value);
+  else if (Array.isArray(value)) for (const v of value) collectStrings(v, out, depth + 1);
+  else if (value && typeof value === "object") {
+    for (const [k, v] of Object.entries(value)) {
+      if (k === "originalText" || k === "base" || k === "verificacao") continue;
+      collectStrings(v, out, depth + 1);
+    }
+  }
+  return out;
+}
+function verifyAgainstText(result, text4) {
+  const docDates = new Set([...text4.matchAll(DATE_RE2)].map((m) => normDate(m[1], m[2], m[3])));
+  const docMoney = new Set([...text4.matchAll(MONEY_RE)].map((m) => normMoney(m[1])));
+  const issues = /* @__PURE__ */ new Map();
+  for (const s of collectStrings(result)) {
+    for (const m of s.matchAll(DATE_RE2)) {
+      const d = normDate(m[1], m[2], m[3]);
+      if (!docDates.has(d) && !issues.has(`d${d}`))
+        issues.set(`d${d}`, { tipo: "data", valor: d, mensagem: `A data ${d} aparece na an\xE1lise, mas n\xE3o foi encontrada no documento. Confira antes de usar.` });
+    }
+    for (const m of s.matchAll(MONEY_RE)) {
+      const v = normMoney(m[1]);
+      if (v && !docMoney.has(v) && !issues.has(`v${v}`))
+        issues.set(`v${v}`, { tipo: "valor", valor: `R$ ${m[1]}`, mensagem: `O valor R$ ${m[1]} aparece na an\xE1lise, mas n\xE3o foi encontrado no documento. Confira antes de usar.` });
+    }
+  }
+  return [...issues.values()].slice(0, 20);
+}
+var MISSING_DATA = /(n[ãa]o (apresenta|informa|consta|h[áa] (informa|dado)|foi poss[íi]vel|est[áa] (claro|informad))|sem informa[çc][ãa]o|n[ãa]o informad|dado n[ãa]o|depende de|verificar|comprova)/i;
+function normalizeEligibilityCriteria(criterios) {
+  if (!Array.isArray(criterios)) return criterios;
+  return criterios.map((c) => {
+    if (!c || typeof c !== "object") return c;
+    const item = c;
+    const obs = typeof item.observacao === "string" ? item.observacao : "";
+    const estado = item.atende === true ? "atendido" : MISSING_DATA.test(obs) || item.atende == null ? "pendente" : "nao_atendido";
+    return { ...item, estado };
+  });
+}
+
+// src/lib/analysisFacts.ts
+var ANALYSIS_FACTS_VERSION = 1;
+function fold(s) {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+var STOP = /* @__PURE__ */ new Set([
+  "para",
+  "pela",
+  "pelo",
+  "pelos",
+  "pelas",
+  "como",
+  "com",
+  "uma",
+  "umas",
+  "uns",
+  "das",
+  "dos",
+  "nas",
+  "nos",
+  "que",
+  "por",
+  "sobre",
+  "entre",
+  "quando",
+  "deve",
+  "devera",
+  "deverao",
+  "ser",
+  "sera",
+  "seja",
+  "este",
+  "esta",
+  "esse",
+  "essa",
+  "edital",
+  "documento",
+  "documentos",
+  "exigido",
+  "exigidos",
+  "exigida",
+  "exigidas",
+  "obrigatorio",
+  "obrigatoria",
+  "necessario",
+  "necessaria",
+  "apresentar",
+  "enviar",
+  "anexar",
+  "inscricao",
+  "candidato",
+  "candidata",
+  "proponente",
+  "caso",
+  "ate",
+  "mais",
+  "menos",
+  "cada"
+]);
+var SHORT_STOP = /* @__PURE__ */ new Set(["de", "do", "da", "em", "no", "na", "ou", "os", "as", "ao", "um", "se", "por", "com", "dos", "das", "nas", "nos", "sem", "via"]);
+function stem2(w) {
+  return w.length > 6 ? w.slice(0, 6) : w.replace(/(es|s)$/, "");
+}
+function tokens(s) {
+  return [...new Set(fold(s).split(/[^a-z0-9]+/).filter((w) => (w.length >= 2 || /^\d+$/.test(w)) && !STOP.has(w) && !SHORT_STOP.has(w)).map(stem2))];
+}
+function clauses(text4) {
+  return text4.split(/\n+/).flatMap((line) => line.split(/(?<=[^\d\s][.;])\s+(?=(?:\d+(?:\.\d+)*\.?\s+)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/)).map((c) => c.trim()).filter((c) => c.length >= 4 && c.length <= 800);
+}
+var QUALIFIERS = [
+  ["foto", /\bfoto(grafia)?s?\b|\b3\s?x\s?4\b/],
+  ["assinatura", /\bassinad[oa]s?\b|\bassinatura/],
+  ["autentica\xE7\xE3o", /\bautentica(d[oa]s?|cao|coes)\b/],
+  ["firma reconhecida", /\bfirma\s+reconhecida|\breconhecimento\s+de\s+firma/],
+  ["cart\xF3rio", /\bcartorio/],
+  ["via original", /\b(via\s+)?origina(l|is)\b/],
+  ["c\xF3pia", /\bcopias?\b|\bxerox/],
+  ["impresso", /\bimpress[oa]s?\b/],
+  ["colorido", /\bcolorid[oa]s?\b/],
+  ["frente e verso", /\bfrente\s+e\s+verso/],
+  ["emiss\xE3o recente", /\brecente|\bemitid[oa]s?\s+h[a]\s+(no\s+maximo\s+)?\d+|\bvalidade\s+de\s+\d+\s+dias|\bultimos\s+\d+\s+(dias|meses)/],
+  ["papel timbrado", /\btimbrad[oa]/],
+  ["envio pelos Correios", /\bcorreios\b|\bsedex\b/]
+];
+function qualifiersIn(s) {
+  const f = fold(s);
+  return QUALIFIERS.filter(([, re2]) => re2.test(f)).map(([label]) => label);
+}
+var OPTIONAL_RE = /\b(opcion(al|ais)|facultativ[oa]s?|se\s+houver|quando\s+houver|caso\s+possua|desejavel|nao\s+obrigatori[oa])\b/;
+var DISPENSE_RE = /\b(dispensad[oa]s?|dispensa|isent[oa]s?|isencao|exceto|salvo|nao\s+se\s+aplica)\b/;
+var MANDATORY_RE = /\b(obrigatori[oa]s?|devera|deverao|deve|exigid[oa]s?|indispensave(l|is)|imprescindive(l|is))\b/;
+function conditionOf(evidence, segment) {
+  const e = fold(evidence);
+  const s = fold(segment);
+  if (OPTIONAL_RE.test(s)) return "opcional";
+  if (/\bou\b/.test(s)) return "alternativa";
+  if (OPTIONAL_RE.test(e) && !MANDATORY_RE.test(e)) return "opcional";
+  if (DISPENSE_RE.test(e)) return "com_dispensa";
+  if (MANDATORY_RE.test(e)) return "obrigatorio";
+  if (/^\s*(\d+(\.\d+)*\.?\s*)?documentos?\b[^:]{0,40}:/.test(e)) return "listado";
+  return "nao_informado";
+}
+function scoreAgainst(itemTokens, foldedClause) {
+  if (itemTokens.length === 0) return 0;
+  const clauseTokens = typeof foldedClause === "string" ? new Set(tokens(foldedClause)) : foldedClause;
+  return itemTokens.filter((t) => clauseTokens.has(t)).length / itemTokens.length;
+}
+var lastIndex = null;
+function indexOf(text4) {
+  if (lastIndex?.text === text4) return lastIndex.index;
+  const cl = clauses(text4);
+  const clauseTokens = cl.map((c) => new Set(tokens(c)));
+  const postings = /* @__PURE__ */ new Map();
+  clauseTokens.forEach((set2, i) => {
+    for (const t of set2) {
+      const list = postings.get(t);
+      if (list) list.push(i);
+      else postings.set(t, [i]);
+    }
+  });
+  const index2 = { clauses: cl, clauseTokens, postings, qualifiers: qualifiersIn(text4) };
+  lastIndex = { text: text4, index: index2 };
+  return index2;
+}
+function segmentsOf(clause) {
+  const body = clause.includes(":") ? clause.slice(clause.indexOf(":") + 1) : clause;
+  return body.split(/\s*(?:;|,|\s+e\s+(?!verso\b))\s*/i).map((s) => s.replace(/^[\s\-–•(]+|[\s.)]+$/g, "").trim()).filter((s) => s.length >= 3);
+}
+function stripUnsupported(item, unsupported) {
+  const words = item.split(/\s+/);
+  const res = QUALIFIERS.filter(([l]) => unsupported.includes(l)).map(([, re2]) => re2);
+  const first2 = words.findIndex((_, i) => res.some((re2) => re2.test(fold(words.slice(i, i + 3).join(" "))) && re2.test(fold(words[i]))));
+  if (first2 <= 0) return item;
+  let cut = first2;
+  while (cut > 1 && !/^(com|em|na|no|nas|nos|e|sem)$/i.test(words[cut - 1]) && !/[,(]$/.test(words[cut - 1])) cut--;
+  if (/^(com|em|na|no|nas|nos|e|sem)$/i.test(words[cut - 1] ?? "")) cut--;
+  const out = words.slice(0, Math.max(cut, 1)).join(" ").replace(/[,(\s]+$/, "");
+  return out || item;
+}
+function coreTokens(item) {
+  const kept = item.split(/\s+/).filter((w) => !QUALIFIERS.some(([, re2]) => re2.test(fold(w))));
+  return tokens(kept.join(" "));
+}
+function groundItem(item, text4, observacao = "") {
+  const itemTokens = coreTokens(item);
+  const { clauses: all, clauseTokens, postings, qualifiers: docQualifiers } = indexOf(text4);
+  const candidates = /* @__PURE__ */ new Set();
+  for (const t of itemTokens) for (const i of postings.get(t) ?? []) candidates.add(i);
+  let best = null;
+  for (const idx of [...candidates].sort((a, b) => a - b)) {
+    const score = scoreAgainst(itemTokens, clauseTokens[idx]);
+    if (score > (best?.score ?? 0)) best = { clause: all[idx], score, idx };
+  }
+  const found = best;
+  const matched = found ? Math.round(found.score * itemTokens.length) : 0;
+  const supported = Boolean(found) && found.score >= 0.6 && (itemTokens.length < 3 || matched >= 2);
+  const claimed = [.../* @__PURE__ */ new Set([...qualifiersIn(item), ...qualifiersIn(observacao)])];
+  if (!supported || !found) {
+    return {
+      texto: item,
+      texto_ia: item,
+      origem: "desconhecido",
+      evidencia: null,
+      nao_confirmado: claimed.filter((q) => !docQualifiers.includes(q)),
+      condicao: "nao_informado",
+      conferir: true,
+      motivo: "N\xE3o localizamos este item no texto do edital. Pode ser uma sugest\xE3o da IA: confira no documento oficial antes de providenciar."
+    };
+  }
+  const window2 = [found.clause, all[found.idx + 1] ?? ""].join(" ");
+  const supportedQualifiers = qualifiersIn(window2);
+  const unsupported = claimed.filter((q) => !supportedQualifiers.includes(q));
+  const segments = segmentsOf(found.clause);
+  let label = item;
+  let bestSeg = 0;
+  for (const seg of segments) {
+    const s = scoreAgainst(itemTokens, seg);
+    if (s > bestSeg) {
+      bestSeg = s;
+      label = seg;
+    }
+  }
+  if (bestSeg < 0.5) label = unsupported.length ? stripUnsupported(item, unsupported) : item;
+  label = label.charAt(0).toUpperCase() + label.slice(1);
+  return {
+    texto: label,
+    texto_ia: item,
+    origem: "edital",
+    evidencia: found.clause,
+    nao_confirmado: unsupported,
+    condicao: conditionOf(found.clause, label),
+    conferir: unsupported.length > 0,
+    motivo: unsupported.length ? `O edital n\xE3o menciona: ${unsupported.join(", ")}. Isso n\xE3o \xE9 exig\xEAncia confirmada; confira no documento oficial.` : null
+  };
+}
+var PLACEHOLDER_RE = /n[ãa]o\s+(foi\s+)?(informad|encontrad|identificad|localizad|especificad|mencionad|explicitad|definid|indicad|declarad|consta|h[áa]\s+(prazo|data))|sem\s+(prazo|data|informa)|a\s+confirmar|indefinid|desconhecid|^\s*[-–—]?\s*$|^\s*([\wÀ-ú-]+\s+){0,3}(conforme|segundo)\s+(o\s+)?edital\.?\s*$/i;
+function isPlaceholder(s) {
+  return typeof s !== "string" || PLACEHOLDER_RE.test(s.trim());
+}
+function datesIn(s) {
+  return [...s.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)].map((m) => `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`);
+}
+var lastFields = null;
+function fieldsOf(text4) {
+  if (lastFields?.text !== text4) lastFields = { text: text4, fields: extractFields({ url: "", title: "", text: text4, links: [] }, fieldLimitsFor(text4)).fields };
+  return lastFields.fields;
+}
+function resolveDeadline(text4, today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
+  const fields = fieldsOf(text4);
+  const d = officialSubmissionDeadline(datesAsCandidates(fields), today);
+  if (!d) return null;
+  return { iso: d.iso, hora: d.hora, fuso: d.fuso, texto: formatDeadline(d), evidencia: d.evidencia ?? "", prorrogado: d.prorrogado, fases: d.fases, situacao: d.situacao, origem: "edital" };
+}
+function str2(v) {
+  return typeof v === "string" ? v.trim() : "";
+}
+function strList(v) {
+  return Array.isArray(v) ? v.map((x) => typeof x === "string" ? x.trim() : str2(x?.doc)).filter(Boolean) : [];
+}
+function reconcileFields(base2, text4, ai, grounded) {
+  const fields = fieldsOf(text4);
+  const interp = ai.interpretation ?? {};
+  const fromDoc = (campo, rotulo, evidencia, observacao = "Localizado no texto do documento.") => ({
+    campo,
+    rotulo,
+    estado: "encontrado",
+    fonte: "documento",
+    evidencia: evidencia ?? null,
+    observacao
+  });
+  const notFound = (campo, rotulo, aiValue) => aiValue && !isPlaceholder(aiValue) ? { campo, rotulo, estado: "incerto", fonte: "ia", evidencia: null, observacao: "A IA indicou um conte\xFAdo, mas n\xE3o localizamos o trecho correspondente no texto. Confira no documento." } : { campo, rotulo, estado: "nao_localizado", fonte: "nenhuma", evidencia: null, observacao: "N\xE3o localizado automaticamente no texto. Isso n\xE3o significa que o edital n\xE3o trate do assunto: confira o documento completo." };
+  const out = [];
+  out.push(base2.objeto ? fromDoc("objeto", "objeto", base2.objeto.evidencia) : notFound("objeto", "objeto", str2(interp.objective)));
+  out.push(fields.areas ? fromDoc("areas", "\xE1reas", fields.areas.evidence) : notFound("areas", "\xE1reas", ""));
+  if (fields.elegibilidade?.length) out.push(fromDoc("elegibilidade", "p\xFAblico eleg\xEDvel", fields.elegibilidade[0].evidence));
+  else if (base2.requisitos.length)
+    out.push({ campo: "elegibilidade", rotulo: "p\xFAblico eleg\xEDvel", estado: "parcial", fonte: "documento", evidencia: base2.requisitos[0].evidencia, observacao: "O texto traz requisitos de participa\xE7\xE3o, mas n\xE3o uma descri\xE7\xE3o separada de quem pode participar." });
+  else out.push(notFound("elegibilidade", "p\xFAblico eleg\xEDvel", str2(interp.targetAudience)));
+  out.push(base2.requisitos.length ? fromDoc("requisitos", "requisitos", base2.requisitos[0].evidencia) : notFound("requisitos", "requisitos", strList(interp.requirements).join("; ")));
+  out.push(base2.valores.length ? fromDoc("valores", "valores", base2.valores[0].evidencia) : notFound("valores", "valores", str2(ai.valores?.valor)));
+  const groundedDocs = grounded.filter((g) => g.origem === "edital");
+  if (base2.documentos.length || groundedDocs.length) {
+    const partial2 = grounded.some((g) => g.origem !== "edital" || g.nao_confirmado.length > 0);
+    out.push({
+      campo: "documentos",
+      rotulo: "documentos exigidos",
+      estado: partial2 ? "parcial" : "encontrado",
+      fonte: "documento",
+      evidencia: base2.documentos[0]?.evidencia ?? groundedDocs[0]?.evidencia ?? null,
+      observacao: partial2 ? "H\xE1 documentos no texto, mas parte da lista da IA n\xE3o tem trecho correspondente ou traz detalhes que o edital n\xE3o menciona." : "Localizado no texto do documento."
+    });
+  } else out.push(notFound("documentos", "documentos exigidos", grounded.map((g) => g.texto_ia).join("; ")));
+  if (base2.datas.length) {
+    const hasDeadline = Boolean(resolveDeadline(text4));
+    out.push(hasDeadline ? fromDoc("datas", "datas e prazos", base2.datas[0].evidencia) : { campo: "datas", rotulo: "datas e prazos", estado: "parcial", fonte: "documento", evidencia: base2.datas[0].evidencia, observacao: "H\xE1 datas no texto, mas nenhuma identificada como prazo de inscri\xE7\xE3o." });
+  } else out.push(notFound("datas", "datas e prazos", str2(interp.deadlines)));
+  const crit = fields.criterios_avaliacao?.[0]?.evidence ?? base2.criterios[0]?.evidencia;
+  out.push(crit ? fromDoc("criterios_avaliacao", "crit\xE9rios de avalia\xE7\xE3o", crit) : notFound("criterios_avaliacao", "crit\xE9rios de avalia\xE7\xE3o", ""));
+  out.push(base2.canal_inscricao.length ? fromDoc("canal_inscricao", "canal de inscri\xE7\xE3o", base2.canal_inscricao[0].evidencia) : notFound("canal_inscricao", "canal de inscri\xE7\xE3o", str2(interp.registrationLocation)));
+  return out;
+}
+var TEMPLATE_OBSERVATION = /como obter ou preparar\s*[—-]\s*sem adicionar exig/i;
+function collectStrings2(value, out = [], depth = 0) {
+  if (depth > 8) return out;
+  if (typeof value === "string") out.push(value);
+  else if (Array.isArray(value)) for (const v of value) collectStrings2(v, out, depth + 1);
+  else if (value && typeof value === "object")
+    for (const [k, v] of Object.entries(value)) {
+      if (k === "originalText" || k === "base" || k === "verificacao" || k === "fatos") continue;
+      collectStrings2(v, out, depth + 1);
+    }
+  return out;
+}
+function groundChecklist(list, text4, cache2) {
+  if (!Array.isArray(list)) return list;
+  return list.map((raw) => {
+    if (!raw || typeof raw !== "object") return raw;
+    const item = raw;
+    const doc = str2(item.doc_ia) || str2(item.doc);
+    if (!doc) return item;
+    const obs = TEMPLATE_OBSERVATION.test(str2(item.observacao)) ? "" : str2(item.observacao);
+    const g = cache2.get(doc) ?? groundItem(doc, text4, obs);
+    cache2.set(doc, g);
+    return {
+      ...item,
+      doc: g.texto,
+      doc_ia: item.doc_ia ?? (g.texto_ia !== g.texto ? g.texto_ia : void 0),
+      // A observação é orientação prática, nunca exigência do edital
+      observacao: obs,
+      observacao_tipo: obs ? "orientacao" : void 0,
+      // Só o edital decide se é opcional: "obrigatório" da IA cai quando o trecho diz opcional
+      // e sem trecho no edital não há como afirmar obrigatoriedade
+      obrigatorio: g.condicao === "opcional" || g.origem !== "edital" ? false : item.obrigatorio,
+      origem: g.origem,
+      evidencia: g.evidencia,
+      condicao: g.condicao,
+      nao_confirmado: g.nao_confirmado,
+      conferir: g.conferir,
+      motivo: g.motivo
+    };
+  });
+}
+function groundStringList(list, text4, cache2) {
+  if (!Array.isArray(list)) return list;
+  return list.map((x) => {
+    if (typeof x !== "string" || !x.trim()) return x;
+    const g = cache2.get(x) ?? groundItem(x, text4);
+    cache2.set(x, g);
+    return g.origem === "edital" && g.nao_confirmado.length ? g.texto : x;
+  });
+}
+function applyAnalysisFacts(result, text4, base2, today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
+  const out = { ...result };
+  const cache2 = /* @__PURE__ */ new Map();
+  if (out.checklist && typeof out.checklist === "object") {
+    const c = out.checklist;
+    out.checklist = { ...c, items: groundChecklist(c.items, text4, cache2) };
+  }
+  const agent = out.agentResult && typeof out.agentResult === "object" ? { ...out.agentResult } : null;
+  if (agent) {
+    agent.checklist = groundChecklist(agent.checklist, text4, cache2);
+    if (Array.isArray(agent.documentos)) agent.documentos = groundStringList(agent.documentos, text4, cache2);
+    delete agent.totalPaginas;
+    if (typeof agent.anoPublicacao === "number" && !new RegExp(`\\b${agent.anoPublicacao}\\b`).test(text4)) delete agent.anoPublicacao;
+    out.agentResult = agent;
+  }
+  if (out.documentosExigidos && typeof out.documentosExigidos === "object") {
+    const d = out.documentosExigidos;
+    out.documentosExigidos = { ...d, items: groundStringList(d.items, text4, cache2) };
+  }
+  const interp = out.interpretation && typeof out.interpretation === "object" ? { ...out.interpretation } : null;
+  if (interp && Array.isArray(interp.requirements)) interp.requirements = groundStringList(interp.requirements, text4, cache2);
+  const prazo = resolveDeadline(text4, today);
+  const prazoIa = interp ? str2(interp.deadlines) || null : null;
+  const conflitos = [];
+  if (interp && prazo) {
+    if (isPlaceholder(interp.deadlines)) {
+      interp.deadlines_ia = interp.deadlines ?? null;
+      interp.deadlines = `Inscri\xE7\xF5es at\xE9 ${prazo.texto}`;
+      interp.deadlines_origem = "documento";
+    } else {
+      const aiDates = datesIn(str2(interp.deadlines));
+      if (aiDates.length && !aiDates.includes(prazo.iso)) {
+        conflitos.push({
+          campo: "prazo de inscri\xE7\xE3o",
+          documento: prazo.texto,
+          ia: str2(interp.deadlines),
+          evidencia: prazo.evidencia,
+          mensagem: `A an\xE1lise da IA indica "${str2(interp.deadlines)}", mas o trecho do edital indica inscri\xE7\xF5es at\xE9 ${prazo.texto}. Vale o documento oficial: confira o trecho.`
+        });
+      }
+    }
+  }
+  if (interp) {
+    const fill2 = (key, evidence, prefix = "") => {
+      if (!evidence || !isPlaceholder(interp[key])) return;
+      interp[`${key}_ia`] = interp[key] ?? null;
+      interp[key] = `${prefix}${evidence.replace(/^\s*\d+(\.\d+)*\.?\s*/, "")}`;
+      interp[`${key}_origem`] = "documento";
+    };
+    const fields = fieldsOf(text4);
+    fill2("objective", base2.objeto?.evidencia);
+    fill2("registrationLocation", base2.canal_inscricao[0]?.evidencia, "Conforme o edital: ");
+    fill2("targetAudience", fields.elegibilidade?.[0]?.evidence ?? base2.requisitos[0]?.evidencia, "Conforme o edital: ");
+  }
+  if (interp) out.interpretation = interp;
+  const exigencias = [...cache2.values()];
+  const docText = fold(text4);
+  const qualifiers = [...new Set(collectStrings2(result).flatMap(qualifiersIn))].filter((q) => {
+    const re2 = QUALIFIERS.find(([l]) => l === q)?.[1];
+    return re2 ? !re2.test(docText) : false;
+  });
+  const fatos = {
+    versao: ANALYSIS_FACTS_VERSION,
+    documento_hash: base2.documento_hash,
+    prazo_inscricao: prazo,
+    prazo_ia: prazoIa,
+    conflitos,
+    exigencias,
+    campos: reconcileFields(base2, text4, result, exigencias),
+    qualificadores_sem_respaldo: qualifiers
+  };
+  out.fatos = fatos;
+  out.base = { ...base2, ausentes: fatos.campos.filter((c) => c.estado === "nao_localizado" || c.estado === "incerto").map((c) => c.rotulo) };
+  return out;
+}
+function factIssues(f) {
+  const issues = [];
+  for (const q of f.qualificadores_sem_respaldo)
+    issues.push({ tipo: "exigencia", valor: q, mensagem: `A an\xE1lise menciona "${q}", mas o documento n\xE3o fala disso. N\xE3o \xE9 exig\xEAncia confirmada: confira no edital antes de providenciar.` });
+  for (const e of f.exigencias)
+    if (e.origem !== "edital") issues.push({ tipo: "exigencia", valor: e.texto_ia, mensagem: `"${e.texto_ia}" n\xE3o foi localizado no texto do edital. Pode ser sugest\xE3o da IA: confira no documento oficial.` });
+  for (const c of f.conflitos) issues.push({ tipo: "prazo", valor: c.documento, mensagem: c.mensagem });
+  return issues;
+}
+
+// src/lib/lupa/store.ts
+import { randomUUID as randomUUID3 } from "node:crypto";
+var ConcurrentRunError = class extends Error {
+  constructor(sourceId) {
+    super(`J\xE1 existe uma coleta em andamento para a fonte ${sourceId}.`);
+  }
+};
+var STORE_ORDER = {
+  participations: "id",
+  notifications: "id",
+  recommendation_feedback: "opportunity_id",
+  recommendations: "opportunity_id",
+  saved_opportunities: "opportunity_id",
+  teacher_profiles: "user_id"
+};
+var STORE_USER_TABLES = ["participations", "notifications", "recommendation_feedback", "recommendations", "saved_opportunities", "teacher_profiles"];
+function defaultSources(now2 = (/* @__PURE__ */ new Date()).toISOString()) {
+  return [
+    {
+      id: "fapdf",
+      name: "FAPDF \u2014 Funda\xE7\xE3o de Apoio \xE0 Pesquisa do Distrito Federal",
+      base_url: "https://www.fap.df.gov.br",
+      start_urls: ["https://www.fap.df.gov.br/editais/"],
+      allowed_hosts: ["www.fap.df.gov.br", "fap.df.gov.br"],
+      max_depth: 2,
+      max_pages: 60,
+      time_budget_ms: 12e4,
+      request_delay_ms: 1500,
+      frequency_minutes: 1440,
+      enabled: true,
+      institution: "Funda\xE7\xE3o de Apoio \xE0 Pesquisa do Distrito Federal",
+      source_type: "portal_editais",
+      updated_at: now2
+    }
+  ];
+}
+var stableDocs = (docs) => JSON.stringify(docs.map(({ fetched_at: _f, reused: _r, ...d }) => d));
+function sameContent(a, b) {
+  return a.content_hash === b.content_hash && stableDocs(a.documents) === stableDocs(b.documents) && JSON.stringify(a.events) === JSON.stringify(b.events) && a.status === b.status;
+}
+var MemoryStore2 = class {
+  kind = "memory";
+  profiles = /* @__PURE__ */ new Map();
+  sources = new Map(defaultSources().map((s) => [s.id, s]));
+  opportunities = /* @__PURE__ */ new Map();
+  versions = [];
+  runs = [];
+  recs = /* @__PURE__ */ new Map();
+  feedback = /* @__PURE__ */ new Map();
+  saved = /* @__PURE__ */ new Map();
+  notifications = [];
+  participations = /* @__PURE__ */ new Map();
+  async listParticipations(userId) {
+    return [...this.participations.values()].filter((p) => p.user_id === userId).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).map((p) => structuredClone(p));
+  }
+  async getParticipation(userId, id) {
+    const p = this.participations.get(id);
+    return p && p.user_id === userId ? structuredClone(p) : null;
+  }
+  async createParticipation(p) {
+    this.participations.set(p.id, structuredClone(p));
+    return structuredClone(p);
+  }
+  async updateParticipation(userId, next2, expectedVersion) {
+    const cur = this.participations.get(next2.id);
+    if (!cur || cur.user_id !== userId || cur.version !== expectedVersion) return null;
+    const saved = { ...structuredClone(next2), id: cur.id, user_id: cur.user_id };
+    this.participations.set(cur.id, saved);
+    return structuredClone(saved);
+  }
+  async deleteParticipation(userId, id) {
+    const cur = this.participations.get(id);
+    if (!cur || cur.user_id !== userId) return false;
+    return this.participations.delete(id);
+  }
+  async exportUser(userId) {
+    const recs = [...this.recs.values()].filter((r) => r.user_id === userId);
+    const fb = [...this.feedback.entries()].filter(([k]) => k.startsWith(`${userId}:`)).map(([, v]) => ({ user_id: userId, ...v }));
+    const profile = this.profiles.get(userId);
+    const raw = {
+      participations: await this.listParticipations(userId),
+      notifications: this.notifications.filter((n2) => n2.user_id === userId).map((n2) => structuredClone(n2)),
+      recommendation_feedback: fb,
+      recommendations: recs.map((r) => structuredClone(r)),
+      saved_opportunities: [...this.saved.get(userId)?.values() ?? []].map((v) => ({ user_id: userId, ...structuredClone(v) })),
+      teacher_profiles: profile ? [structuredClone(profile)] : []
+    };
+    return Object.fromEntries(Object.entries(raw).map(([k, rows]) => [k, { rows, complete: true }]));
+  }
+  async deleteUser(userId) {
+    const out = {};
+    out.participations = [...this.participations.values()].filter((p) => p.user_id === userId).map((p) => this.participations.delete(p.id)).length;
+    const before2 = this.notifications.length;
+    this.notifications = this.notifications.filter((n2) => n2.user_id !== userId);
+    out.notifications = before2 - this.notifications.length;
+    out.recommendation_feedback = [...this.feedback.keys()].filter((k) => k.startsWith(`${userId}:`)).map((k) => this.feedback.delete(k)).length;
+    out.recommendations = [...this.recs.entries()].filter(([, r]) => r.user_id === userId).map(([k]) => this.recs.delete(k)).length;
+    out.saved_opportunities = this.saved.get(userId)?.size ?? 0;
+    this.saved.delete(userId);
+    out.teacher_profiles = this.profiles.delete(userId) ? 1 : 0;
+    return out;
+  }
+  async getProfile(userId) {
+    const p = this.profiles.get(userId);
+    return p ? structuredClone(p) : null;
+  }
+  async saveProfile(profile) {
+    this.profiles.set(profile.user_id, structuredClone(profile));
+    return structuredClone(profile);
+  }
+  async listProfiles() {
+    return [...this.profiles.values()].map((p) => structuredClone(p));
+  }
+  async listSources() {
+    return [...this.sources.values()].map((s) => structuredClone(s));
+  }
+  async getSource(id) {
+    const s = this.sources.get(id);
+    return s ? structuredClone(s) : null;
+  }
+  async updateSource(id, patch) {
+    const s = this.sources.get(id);
+    if (!s) return null;
+    const next2 = { ...s, ...patch, id: s.id, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+    this.sources.set(id, next2);
+    return structuredClone(next2);
+  }
+  async listOpportunities(opts) {
+    return [...this.opportunities.values()].filter((o) => opts?.includeRejected || o.review_status !== "rejeitado").map((o) => structuredClone(o));
+  }
+  async getOpportunity(id) {
+    const o = this.opportunities.get(id);
+    return o ? structuredClone(o) : null;
+  }
+  async upsertOpportunity(data2) {
+    const now2 = (/* @__PURE__ */ new Date()).toISOString();
+    const existing = [...this.opportunities.values()].find((o) => o.canonical_url === data2.canonical_url);
+    if (!existing) {
+      const created = {
+        ...structuredClone(data2),
+        id: randomUUID3(),
+        version: 1,
+        review_status: "pendente",
+        reviewed_by: null,
+        reviewed_at: null,
+        first_seen_at: now2,
+        last_seen_at: now2,
+        captured_at: now2
+      };
+      this.opportunities.set(created.id, created);
+      this.versions.push({ opportunity_id: created.id, version: 1, content_hash: created.content_hash });
+      return { opportunity: structuredClone(created), created: true, changed: true };
+    }
+    if (sameContent(data2, existing)) {
+      existing.last_seen_at = now2;
+      return { opportunity: structuredClone(existing), created: false, changed: false };
+    }
+    const updated = {
+      ...existing,
+      ...structuredClone(data2),
+      id: existing.id,
+      version: existing.version + 1,
+      // Conteúdo mudou: volta para revisão
+      review_status: existing.review_status === "rejeitado" ? "rejeitado" : "pendente",
+      last_seen_at: now2,
+      captured_at: now2
+    };
+    this.opportunities.set(existing.id, updated);
+    this.versions.push({ opportunity_id: updated.id, version: updated.version, content_hash: updated.content_hash });
+    return { opportunity: structuredClone(updated), created: false, changed: true };
+  }
+  async reviewOpportunity(id, status, reviewer) {
+    const o = this.opportunities.get(id);
+    if (!o) return null;
+    o.review_status = status;
+    o.reviewed_by = reviewer;
+    o.reviewed_at = (/* @__PURE__ */ new Date()).toISOString();
+    return structuredClone(o);
+  }
+  async startRun(sourceId, trigger, triggeredBy) {
+    if (this.runs.some((r) => r.source_id === sourceId && r.status === "running")) {
+      throw new ConcurrentRunError(sourceId);
+    }
+    const run = {
+      id: randomUUID3(),
+      source_id: sourceId,
+      trigger,
+      triggered_by: triggeredBy,
+      status: "running",
+      started_at: (/* @__PURE__ */ new Date()).toISOString(),
+      finished_at: null,
+      stats: {},
+      errors: []
+    };
+    this.runs.unshift(run);
+    return structuredClone(run);
+  }
+  async finishRun(id, patch) {
+    const run = this.runs.find((r) => r.id === id);
+    if (!run) throw new Error("Execu\xE7\xE3o n\xE3o encontrada");
+    Object.assign(run, patch, { finished_at: (/* @__PURE__ */ new Date()).toISOString() });
+    return structuredClone(run);
+  }
+  async listRuns(limit2 = 20) {
+    return this.runs.slice(0, limit2).map((r) => structuredClone(r));
+  }
+  async getRecommendations(userId) {
+    return [...this.recs.values()].filter((r) => r.user_id === userId).map((r) => structuredClone(r));
+  }
+  async saveRecommendation(rec) {
+    this.recs.set(`${rec.user_id}:${rec.opportunity_id}`, structuredClone(rec));
+  }
+  async saveFeedback(userId, opportunityId, relevant, comment) {
+    this.feedback.set(`${userId}:${opportunityId}`, { opportunity_id: opportunityId, relevant, comment });
+  }
+  async getFeedback(userId) {
+    return [...this.feedback.entries()].filter(([k]) => k.startsWith(`${userId}:`)).map(([, v]) => ({ ...v }));
+  }
+  async listSaved(userId) {
+    return [...this.saved.get(userId)?.keys() ?? []];
+  }
+  async listSavedItems(userId) {
+    return [...this.saved.get(userId)?.values() ?? []].map((i) => ({ ...i }));
+  }
+  async setSaved(userId, opportunityId, saved) {
+    const map3 = this.saved.get(userId) ?? /* @__PURE__ */ new Map();
+    if (saved) {
+      if (!map3.has(opportunityId)) {
+        const o = this.opportunities.get(opportunityId);
+        map3.set(opportunityId, { opportunity_id: opportunityId, interested: false, seen_version: o?.version ?? null });
+      }
+    } else map3.delete(opportunityId);
+    this.saved.set(userId, map3);
+  }
+  async setInterest(userId, opportunityId, interested, version4) {
+    const map3 = this.saved.get(userId) ?? /* @__PURE__ */ new Map();
+    map3.set(opportunityId, { opportunity_id: opportunityId, interested, seen_version: version4 });
+    this.saved.set(userId, map3);
+  }
+  async markSavedSeen(userId, opportunityId, version4) {
+    const item = this.saved.get(userId)?.get(opportunityId);
+    if (item) item.seen_version = version4;
+  }
+  async addNotifications(items) {
+    let added = 0;
+    for (const n2 of items) {
+      const dup = this.notifications.some(
+        (x) => x.user_id === n2.user_id && x.kind === n2.kind && x.opportunity_id === n2.opportunity_id && x.opportunity_version === n2.opportunity_version
+      );
+      if (dup) continue;
+      this.notifications.unshift({ ...n2, id: randomUUID3(), read_at: null, created_at: (/* @__PURE__ */ new Date()).toISOString() });
+      added++;
+    }
+    return added;
+  }
+  async listNotifications(userId, limit2 = 50) {
+    return this.notifications.filter((n2) => n2.user_id === userId).slice(0, limit2).map((n2) => ({ ...n2 }));
+  }
+  async markNotificationsRead(userId, ids) {
+    const now2 = (/* @__PURE__ */ new Date()).toISOString();
+    let n2 = 0;
+    for (const x of this.notifications) {
+      if (x.user_id !== userId || x.read_at) continue;
+      if (ids !== "all" && !ids.includes(x.id)) continue;
+      x.read_at = now2;
+      n2++;
+    }
+    return n2;
+  }
+};
+function check2(res) {
+  if (res.error) {
+    const err = new Error(res.error.message);
+    err.code = res.error.code;
+    throw err;
+  }
+  return res.data;
+}
+var SupabaseStore = class {
+  kind = "supabase";
+  get db() {
+    return supabase_default();
+  }
+  // service role contorna RLS: TODA consulta abaixo filtra por user_id explicitamente
+  async exportUser(userId) {
+    const out = {};
+    for (const t of STORE_USER_TABLES) {
+      const r = await httpSelectAllPaged(t, { user_id: userId }, { orderBy: STORE_ORDER[t] });
+      out[t] = { rows: r.rows, complete: r.complete, ...r.error ? { error: r.error } : {} };
+    }
+    return out;
+  }
+  async deleteUser(userId) {
+    const out = {};
+    for (const t of STORE_USER_TABLES) {
+      const data2 = check2(await this.db.from(t).delete().eq("user_id", userId).select("user_id"));
+      out[t] = Array.isArray(data2) ? data2.length : 0;
+    }
+    return out;
+  }
+  async listParticipations(userId) {
+    return check2(await this.db.from("participations").select("*").eq("user_id", userId).order("updated_at", { ascending: false }).limit(200)) ?? [];
+  }
+  async getParticipation(userId, id) {
+    const data2 = check2(await this.db.from("participations").select("*").eq("id", id).eq("user_id", userId).maybeSingle());
+    return data2 ?? null;
+  }
+  async createParticipation(p) {
+    return check2(await this.db.from("participations").insert(p).select().single());
+  }
+  async updateParticipation(userId, next2, expectedVersion) {
+    const { id: _id, user_id: _u, created_at: _c, ...patch } = next2;
+    const data2 = check2(
+      await this.db.from("participations").update(patch).eq("id", next2.id).eq("user_id", userId).eq("version", expectedVersion).select().maybeSingle()
+    );
+    return data2 ?? null;
+  }
+  async deleteParticipation(userId, id) {
+    const data2 = check2(await this.db.from("participations").delete().eq("id", id).eq("user_id", userId).select("id"));
+    return Array.isArray(data2) && data2.length > 0;
+  }
+  async getProfile(userId) {
+    const data2 = check2(await this.db.from("teacher_profiles").select("*").eq("user_id", userId).maybeSingle());
+    return data2 ?? null;
+  }
+  async saveProfile(profile) {
+    const data2 = check2(await this.db.from("teacher_profiles").upsert(profile, { onConflict: "user_id" }).select().single());
+    return data2;
+  }
+  async listProfiles() {
+    return check2(await this.db.from("teacher_profiles").select("*")) ?? [];
+  }
+  async listSources() {
+    return check2(await this.db.from("opportunity_sources").select("*").order("id")) ?? [];
+  }
+  async getSource(id) {
+    return check2(await this.db.from("opportunity_sources").select("*").eq("id", id).maybeSingle()) ?? null;
+  }
+  async updateSource(id, patch) {
+    const { id: _ignored, ...rest } = patch;
+    const data2 = check2(
+      await this.db.from("opportunity_sources").update({ ...rest, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).select().maybeSingle()
+    );
+    return data2 ?? null;
+  }
+  async hydrate(rows) {
+    if (rows.length === 0) return [];
+    const ids = rows.map((r) => r.id);
+    const docs = check2(await this.db.from("opportunity_documents").select("opportunity_id,url,kind,title,content_hash,size_bytes,page_count,text_status,error,fetched_at,pages").in("opportunity_id", ids)) ?? [];
+    const evs = check2(
+      await this.db.from("opportunity_events").select("opportunity_id,kind,title,url,event_date,evidence").in("opportunity_id", ids)
+    ) ?? [];
+    return rows.map((r) => ({
+      ...r,
+      documents: docs.filter((d) => d.opportunity_id === r.id).map(({ opportunity_id: _o, ...d }) => d),
+      events: evs.filter((e) => e.opportunity_id === r.id).map(({ opportunity_id: _o, ...e }) => e)
+    }));
+  }
+  async listOpportunities(opts) {
+    let q = this.db.from("opportunities").select("*").order("last_seen_at", { ascending: false });
+    if (!opts?.includeRejected) q = q.neq("review_status", "rejeitado");
+    return this.hydrate(check2(await q) ?? []);
+  }
+  async getOpportunity(id) {
+    const row = check2(await this.db.from("opportunities").select("*").eq("id", id).maybeSingle());
+    if (!row) return null;
+    const [o] = await this.hydrate([row]);
+    return o;
+  }
+  async upsertOpportunity(data2) {
+    const now2 = (/* @__PURE__ */ new Date()).toISOString();
+    const { documents, events, ...row } = data2;
+    const existing = check2(await this.db.from("opportunities").select("*").eq("canonical_url", data2.canonical_url).maybeSingle()) ?? null;
+    let saved;
+    let created = false;
+    let changed = true;
+    if (!existing) {
+      saved = check2(await this.db.from("opportunities").insert({ ...row, version: 1 }).select().single());
+      created = true;
+    } else {
+      const [current2] = await this.hydrate([existing]);
+      if (sameContent(data2, current2)) {
+        await this.db.from("opportunities").update({ last_seen_at: now2 }).eq("id", existing.id);
+        return { opportunity: { ...current2, last_seen_at: now2 }, created: false, changed: false };
+      }
+      saved = check2(
+        await this.db.from("opportunities").update({
+          ...row,
+          version: existing.version + 1,
+          review_status: existing.review_status === "rejeitado" ? "rejeitado" : "pendente",
+          last_seen_at: now2,
+          captured_at: now2
+        }).eq("id", existing.id).select().single()
+      );
+    }
+    check2(
+      await this.db.from("opportunity_versions").upsert({ opportunity_id: saved.id, version: saved.version, content_hash: saved.content_hash, snapshot: data2 }, { onConflict: "opportunity_id,version" })
+    );
+    if (documents.length) {
+      check2(
+        await this.db.from("opportunity_documents").upsert(documents.map(({ reused: _r, ...d }) => ({ ...d, opportunity_id: saved.id })), { onConflict: "opportunity_id,url" })
+      );
+    }
+    if (events.length) {
+      check2(
+        await this.db.from("opportunity_events").upsert(events.map((e) => ({ ...e, opportunity_id: saved.id })), { onConflict: "opportunity_id,kind,title" })
+      );
+    }
+    return { opportunity: { ...saved, documents, events }, created, changed };
+  }
+  async reviewOpportunity(id, status, reviewer) {
+    const row = check2(
+      await this.db.from("opportunities").update({ review_status: status, reviewed_by: reviewer, reviewed_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).select().maybeSingle()
+    );
+    if (!row) return null;
+    return this.getOpportunity(id);
+  }
+  async startRun(sourceId, trigger, triggeredBy) {
+    const res = await this.db.from("collection_runs").insert({ source_id: sourceId, trigger, triggered_by: triggeredBy, status: "running" }).select().single();
+    if (res.error?.code === "23505") throw new ConcurrentRunError(sourceId);
+    return check2(res);
+  }
+  async finishRun(id, patch) {
+    return check2(
+      await this.db.from("collection_runs").update({ ...patch, finished_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).select().single()
+    );
+  }
+  async listRuns(limit2 = 20) {
+    return check2(await this.db.from("collection_runs").select("*").order("started_at", { ascending: false }).limit(limit2)) ?? [];
+  }
+  async getRecommendations(userId) {
+    return check2(await this.db.from("recommendations").select("*").eq("user_id", userId)) ?? [];
+  }
+  async saveRecommendation(rec) {
+    check2(await this.db.from("recommendations").upsert(rec, { onConflict: "user_id,opportunity_id" }));
+  }
+  async saveFeedback(userId, opportunityId, relevant, comment) {
+    check2(
+      await this.db.from("recommendation_feedback").upsert({ user_id: userId, opportunity_id: opportunityId, relevant, comment }, { onConflict: "user_id,opportunity_id" })
+    );
+  }
+  async getFeedback(userId) {
+    return check2(await this.db.from("recommendation_feedback").select("opportunity_id,relevant,comment").eq("user_id", userId)) ?? [];
+  }
+  async listSaved(userId) {
+    const rows = check2(await this.db.from("saved_opportunities").select("opportunity_id").eq("user_id", userId)) ?? [];
+    return rows.map((r) => r.opportunity_id);
+  }
+  async listSavedItems(userId) {
+    return check2(
+      await this.db.from("saved_opportunities").select("opportunity_id,interested,seen_version").eq("user_id", userId)
+    ) ?? [];
+  }
+  async setInterest(userId, opportunityId, interested, version4) {
+    check2(
+      await this.db.from("saved_opportunities").upsert({ user_id: userId, opportunity_id: opportunityId, interested, seen_version: version4 }, { onConflict: "user_id,opportunity_id" })
+    );
+  }
+  async markSavedSeen(userId, opportunityId, version4) {
+    check2(await this.db.from("saved_opportunities").update({ seen_version: version4 }).eq("user_id", userId).eq("opportunity_id", opportunityId));
+  }
+  async addNotifications(items) {
+    if (items.length === 0) return 0;
+    const rows = check2(
+      await this.db.from("notifications").upsert(items, { onConflict: "user_id,kind,opportunity_id,opportunity_version", ignoreDuplicates: true }).select("id")
+    ) ?? [];
+    return rows.length;
+  }
+  async listNotifications(userId, limit2 = 50) {
+    return check2(
+      await this.db.from("notifications").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(limit2)
+    ) ?? [];
+  }
+  async markNotificationsRead(userId, ids) {
+    let q = this.db.from("notifications").update({ read_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("user_id", userId).is("read_at", null);
+    if (ids !== "all") q = q.in("id", ids);
+    const rows = check2(await q.select("id")) ?? [];
+    return rows.length;
+  }
+  async setSaved(userId, opportunityId, saved) {
+    if (saved) {
+      const o = await this.getOpportunity(opportunityId);
+      check2(
+        await this.db.from("saved_opportunities").upsert({ user_id: userId, opportunity_id: opportunityId, seen_version: o?.version ?? null }, { onConflict: "user_id,opportunity_id", ignoreDuplicates: true })
+      );
+    } else {
+      check2(await this.db.from("saved_opportunities").delete().eq("user_id", userId).eq("opportunity_id", opportunityId));
+    }
+  }
+};
+var current = null;
+function getStore() {
+  if (current) return current;
+  if (process.env.LUPA_STORE === "memory") {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("LUPA_STORE=memory n\xE3o \xE9 permitido em produ\xE7\xE3o.");
+    }
+    current = new MemoryStore2();
+    return current;
+  }
+  current = new SupabaseStore();
+  return current;
+}
+
+// src/lib/analysisEnrich.ts
 function groundDocumentMeta(out, text4) {
   const fix = (doc) => {
     if (!doc || typeof doc !== "object") return doc;
@@ -161013,13 +161446,30 @@ async function withDocumentBase(result, text4, userId) {
       teacher = null;
     }
   }
-  out.base = buildDocumentBase(text4, teacher);
-  out.verificacao = verifyAgainstText(result, text4);
+  const base2 = buildDocumentBase(text4, teacher);
+  const grounded = applyAnalysisFacts(out, text4, base2);
+  Object.assign(out, grounded);
+  out.verificacao = [...verifyAgainstText(result, text4), ...factIssues(grounded.fatos)];
   if (Array.isArray(out.criterios)) out.criterios = normalizeEligibilityCriteria(out.criterios);
   const agent = out.agentResult;
   if (agent && Array.isArray(agent.criterios)) out.agentResult = { ...agent, criterios: normalizeEligibilityCriteria(agent.criterios) };
   return out;
 }
+
+// src/routes/edital.ts
+var upload = (0, import_multer.default)({
+  storage: import_multer.default.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file2, cb) => {
+    if (file2.mimetype === "application/pdf") cb(null, true);
+    else cb(new Error("Apenas arquivos PDF s\xE3o aceitos"));
+  }
+});
+var router2 = (0, import_express4.Router)();
+function cleanEditalText(raw) {
+  return raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").split("\n").filter((l) => l.trim().length > 2 || l.trim() === "").join("\n").trim();
+}
+var MAX_ANALYZE_CHARS = 45e4;
 router2.post("/edital/analyze", async (req, res) => {
   const parsed = AgentAnalyzeBodySchema.safeParse(req.body);
   if (!parsed.success) {
@@ -161029,7 +161479,8 @@ router2.post("/edital/analyze", async (req, res) => {
   const { agentId, text: text4, profile } = parsed.data;
   if (text4.length > MAX_ANALYZE_CHARS) {
     res.status(413).json({
-      error: `O texto tem ${text4.length.toLocaleString("pt-BR")} caracteres; o limite \xE9 ${MAX_ANALYZE_CHARS.toLocaleString("pt-BR")} (cerca de 150 p\xE1ginas). Envie s\xF3 as partes do edital que interessam.`
+      error: `O texto tem ${text4.length.toLocaleString("pt-BR")} caracteres: acima do que cabe numa \xFAnica requisi\xE7\xE3o (${MAX_ANALYZE_CHARS.toLocaleString("pt-BR")}). Ele ser\xE1 lido por inteiro na an\xE1lise em segundo plano.`,
+      code: "USAR_ANALISE_LONGA"
     });
     return;
   }
@@ -161084,7 +161535,9 @@ router2.post("/edital/agent-history", async (req, res) => {
   }
   const payload = { ...parsed.data, userId };
   try {
-    if (payload.resultJson && typeof payload.resultJson === "object") {
+    const rj = payload.resultJson;
+    const alreadyCanonical = Boolean(rj && typeof rj === "object" && rj.schemaVersion && rj.interpretation && (rj.base || rj.fatos));
+    if (payload.resultJson && typeof payload.resultJson === "object" && !alreadyCanonical) {
       try {
         const originalAgentResult = payload.resultJson;
         const canonical = buildCanonicalAnalysis(payload.agentId, originalAgentResult, payload.originalText || "", void 0);
@@ -161102,7 +161555,7 @@ router2.post("/edital/agent-history", async (req, res) => {
           ];
         }
         const keep = {};
-        for (const k of ["base", "verificacao", "processing", "source", "analysisId", "schemaVersion"]) {
+        for (const k of ["base", "verificacao", "fatos", "documento_longo", "processing", "source", "analysisId", "schemaVersion"]) {
           if (originalAgentResult[k] !== void 0) keep[k] = originalAgentResult[k];
         }
         payload.resultJson = { ...canonical, ...keep, agentResult: originalAgentResult };
@@ -161359,11 +161812,11 @@ function sanitizeSharedResult(result) {
   delete clone4.user_id;
   return clone4;
 }
-function shareState(row, now = Date.now()) {
+function shareState(row, now2 = Date.now()) {
   if (row.revoked_at || row.revokedAt) return "revogado";
   const rawExp = row.expires_at ?? row.expiresAt;
   const exp = rawExp ? Date.parse(String(rawExp)) : NaN;
-  if (!Number.isNaN(exp) && exp <= now) return "expirado";
+  if (!Number.isNaN(exp) && exp <= now2) return "expirado";
   return "ativo";
 }
 router2.post("/edital/share", async (req, res) => {
@@ -161492,19 +161945,19 @@ var edital_default = router2;
 var import_express5 = __toESM(require_express2(), 1);
 
 // ../../lib/project-contract/src/index.ts
-var str2 = (max = 4e3) => external_exports.string().trim().max(max);
+var str3 = (max = 4e3) => external_exports.string().trim().max(max);
 var ProjectPlanSchema = external_exports.object({
-  titulo: str2(300).optional(),
-  resumo: str2(8e3).optional(),
-  objetivos: external_exports.array(str2(1e3)).max(50).optional(),
-  equipe: external_exports.array(external_exports.object({ papel: str2(200), responsabilidades: str2(2e3) })).max(50).optional(),
-  cronograma: external_exports.array(external_exports.object({ fase: str2(200), duracao: str2(100), descricao: str2(2e3) })).max(60).optional(),
-  etapas: external_exports.array(external_exports.object({ nome: str2(200), descricao: str2(2e3), entregavel: str2(1e3) })).max(60).optional(),
-  indicadores: external_exports.array(external_exports.object({ nome: str2(200), meta: str2(500), metodologia: str2(1e3) })).max(50).optional(),
-  riscos: external_exports.array(external_exports.object({ risco: str2(500), probabilidade: str2(50), mitigacao: str2(1e3) })).max(50).optional(),
-  pendencias: external_exports.array(str2(1e3)).max(50).optional(),
-  proximasAcoes: external_exports.array(str2(1e3)).max(50).optional(),
-  alertas: external_exports.array(str2(1e3)).max(50).optional()
+  titulo: str3(300).optional(),
+  resumo: str3(8e3).optional(),
+  objetivos: external_exports.array(str3(1e3)).max(50).optional(),
+  equipe: external_exports.array(external_exports.object({ papel: str3(200), responsabilidades: str3(2e3) })).max(50).optional(),
+  cronograma: external_exports.array(external_exports.object({ fase: str3(200), duracao: str3(100), descricao: str3(2e3) })).max(60).optional(),
+  etapas: external_exports.array(external_exports.object({ nome: str3(200), descricao: str3(2e3), entregavel: str3(1e3) })).max(60).optional(),
+  indicadores: external_exports.array(external_exports.object({ nome: str3(200), meta: str3(500), metodologia: str3(1e3) })).max(50).optional(),
+  riscos: external_exports.array(external_exports.object({ risco: str3(500), probabilidade: str3(50), mitigacao: str3(1e3) })).max(50).optional(),
+  pendencias: external_exports.array(str3(1e3)).max(50).optional(),
+  proximasAcoes: external_exports.array(str3(1e3)).max(50).optional(),
+  alertas: external_exports.array(str3(1e3)).max(50).optional()
 });
 var ProjectOriginSchema = external_exports.object({
   participation_id: external_exports.string().uuid().nullable().optional(),
@@ -161514,18 +161967,18 @@ var ProjectOriginSchema = external_exports.object({
 });
 var ManualProjectSchema = external_exports.object({
   id: external_exports.string().max(80).optional(),
-  title: str2(300),
-  objective: str2(4e3).default(""),
-  description: str2(8e3).default(""),
+  title: str3(300),
+  objective: str3(4e3).default(""),
+  description: str3(8e3).default(""),
   status: external_exports.enum(["planejamento", "em andamento", "conclu\xEDdo", "pausado"]),
-  startDate: str2(20).default(""),
-  endDate: str2(20).default(""),
-  stages: external_exports.array(external_exports.object({ id: str2(80), name: str2(300), description: str2(2e3).default(""), deadline: str2(20).default(""), status: external_exports.enum(["pendente", "em andamento", "conclu\xEDda"]) })).max(100).default([]),
-  createdAt: str2(40).optional()
+  startDate: str3(20).default(""),
+  endDate: str3(20).default(""),
+  stages: external_exports.array(external_exports.object({ id: str3(80), name: str3(300), description: str3(2e3).default(""), deadline: str3(20).default(""), status: external_exports.enum(["pendente", "em andamento", "conclu\xEDda"]) })).max(100).default([]),
+  createdAt: str3(40).optional()
 });
 var ResearchProjectWriteSchema = external_exports.object({
-  title: str2(300).optional(),
-  description: str2(8e3).nullable().optional(),
+  title: str3(300).optional(),
+  description: str3(8e3).nullable().optional(),
   // Registros antigos gravavam objetos; a tela atual manda listas. Os dois são aceitos.
   team: external_exports.union([external_exports.array(external_exports.unknown()), external_exports.record(external_exports.string(), external_exports.unknown())]).nullable().optional(),
   timeline: external_exports.union([external_exports.array(external_exports.unknown()), external_exports.record(external_exports.string(), external_exports.unknown())]).nullable().optional(),
@@ -161715,8 +162168,8 @@ router3.post("/resources/:table", async (req, res) => {
       return;
     }
     if (memoryMode2()) {
-      const now = (/* @__PURE__ */ new Date()).toISOString();
-      const row = { ...built.data, id: crypto5.randomUUID(), user_id: String(userId), created_at: now, updated_at: now };
+      const now2 = (/* @__PURE__ */ new Date()).toISOString();
+      const row = { ...built.data, id: crypto5.randomUUID(), user_id: String(userId), created_at: now2, updated_at: now2 };
       memTable2(String(table)).push(row);
       res.status(201).json(row);
       return;
@@ -161904,7 +162357,7 @@ function guessKind(o) {
 function kindRequiresProject(kind) {
   return kind === "edital_pesquisa" || kind === "hackathon";
 }
-function base(userId, now) {
+function base(userId, now2) {
   return {
     id: randomUUID5(),
     user_id: userId,
@@ -161920,14 +162373,14 @@ function base(userId, now) {
     versoes: [],
     notas: null,
     version: 1,
-    created_at: now,
-    updated_at: now
+    created_at: now2,
+    updated_at: now2
   };
 }
-function fromOpportunity(userId, o, now = (/* @__PURE__ */ new Date()).toISOString()) {
+function fromOpportunity(userId, o, now2 = (/* @__PURE__ */ new Date()).toISOString()) {
   const tipo = guessKind(o);
   return {
-    ...base(userId, now),
+    ...base(userId, now2),
     titulo: o.title,
     tipo,
     exige_projeto: kindRequiresProject(tipo),
@@ -161938,10 +162391,10 @@ function fromOpportunity(userId, o, now = (/* @__PURE__ */ new Date()).toISOStri
     prazos: (o.fields.datas ?? []).map((d) => ({ id: randomUUID5(), rotulo: d.label, data: d.iso, hora: d.hora ?? null, fuso: d.fuso ?? null, origem: "edital", evidencia: d.evidence }))
   };
 }
-function fromAnalysis(userId, analysisId, title, b, now = (/* @__PURE__ */ new Date()).toISOString()) {
+function fromAnalysis(userId, analysisId, title, b, now2 = (/* @__PURE__ */ new Date()).toISOString()) {
   const tipo = guessKind({ title, fields: b?.objeto?.texto ? { objeto: { value: b.objeto.texto, evidence: "", source_url: "" } } : void 0 });
   return {
-    ...base(userId, now),
+    ...base(userId, now2),
     titulo: title.slice(0, 300) || "Participa\xE7\xE3o",
     tipo,
     exige_projeto: kindRequiresProject(tipo),
@@ -161950,10 +162403,10 @@ function fromAnalysis(userId, analysisId, title, b, now = (/* @__PURE__ */ new D
     prazos: (b?.datas ?? []).filter((d) => d.rotulo).map((d) => ({ id: randomUUID5(), rotulo: String(d.rotulo), data: d.iso ?? null, origem: "analise", evidencia: d.trecho ?? null }))
   };
 }
-function blankParticipation(userId, titulo, tipo = "outro", now = (/* @__PURE__ */ new Date()).toISOString()) {
-  return { ...base(userId, now), titulo, tipo, exige_projeto: kindRequiresProject(tipo) };
+function blankParticipation(userId, titulo, tipo = "outro", now2 = (/* @__PURE__ */ new Date()).toISOString()) {
+  return { ...base(userId, now2), titulo, tipo, exige_projeto: kindRequiresProject(tipo) };
 }
-function applyUpdate(current2, input2, now = (/* @__PURE__ */ new Date()).toISOString()) {
+function applyUpdate(current2, input2, now2 = (/* @__PURE__ */ new Date()).toISOString()) {
   const next2 = structuredClone(current2);
   if (input2.titulo !== void 0) next2.titulo = input2.titulo;
   if (input2.tipo !== void 0) next2.tipo = input2.tipo;
@@ -161979,10 +162432,10 @@ function applyUpdate(current2, input2, now = (/* @__PURE__ */ new Date()).toISOS
   }
   if (input2.salvar_versao) {
     const n2 = (current2.versoes.at(-1)?.n ?? 0) + 1;
-    next2.versoes = [...current2.versoes, { n: n2, salvo_em: now, nota: input2.salvar_versao.nota ?? null, proposta: structuredClone(next2.proposta) }].slice(-MAX_PROPOSAL_VERSIONS);
+    next2.versoes = [...current2.versoes, { n: n2, salvo_em: now2, nota: input2.salvar_versao.nota ?? null, proposta: structuredClone(next2.proposta) }].slice(-MAX_PROPOSAL_VERSIONS);
   }
   next2.version = current2.version + 1;
-  next2.updated_at = now;
+  next2.updated_at = now2;
   return next2;
 }
 function deterministicCheck(p, currentOpportunityVersion, today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
@@ -162229,6 +162682,21 @@ var ChatSchema = external_exports.object({
 });
 function buildStructuredContext(resultJson) {
   const sections = [];
+  const fatos = resultJson.fatos;
+  if (fatos && typeof fatos === "object") {
+    const lines = [];
+    if (fatos.prazo_inscricao?.texto) lines.push(`Prazo de inscri\xE7\xE3o (do documento): ${fatos.prazo_inscricao.texto} \u2014 trecho: "${fatos.prazo_inscricao.evidencia ?? ""}"`);
+    else lines.push("Prazo de inscri\xE7\xE3o: n\xE3o localizado no texto do documento.");
+    for (const c of fatos.conflitos ?? []) if (c.mensagem) lines.push(`Diverg\xEAncia: ${c.mensagem}`);
+    for (const e of fatos.exigencias ?? []) {
+      if (e.origem === "edital") lines.push(`Exig\xEAncia do edital: ${e.texto} \u2014 trecho: "${e.evidencia}"${e.nao_confirmado?.length ? ` (N\xC3O confirmado no edital: ${e.nao_confirmado.join(", ")})` : ""}`);
+      else lines.push(`Sem trecho no edital (n\xE3o afirmar como exig\xEAncia): ${e.texto}`);
+    }
+    const missing = (fatos.campos ?? []).filter((c) => c.estado === "nao_localizado").map((c) => c.rotulo);
+    if (missing.length) lines.push(`N\xE3o localizado automaticamente no texto: ${missing.join(", ")}`);
+    sections.push(`## FATOS CONFERIDOS NO DOCUMENTO (prevalecem)
+${lines.join("\n")}`);
+  }
   const interp = resultJson.interpretation;
   if (interp) {
     const parts = [];
@@ -162621,8 +163089,8 @@ function documentHash2(bytes) {
 async function pdfPages(bytes) {
   return extractPdfText(bytes);
 }
-async function processDocument(doc, fetchDoc, previous, now = /* @__PURE__ */ new Date()) {
-  const base2 = { url: doc.url, kind: doc.kind, title: doc.title, fetched_at: now.toISOString() };
+async function processDocument(doc, fetchDoc, previous, now2 = /* @__PURE__ */ new Date()) {
+  const base2 = { url: doc.url, kind: doc.kind, title: doc.title, fetched_at: now2.toISOString() };
   let fetched;
   try {
     fetched = await fetchDoc(doc.url);
@@ -162683,9 +163151,9 @@ function createSafeDocumentFetcher(allowedHosts) {
   };
 }
 async function crawlSource(source, opts) {
-  const sleep3 = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
-  const now = opts.now ?? Date.now;
-  const started = now();
+  const sleep4 = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+  const now2 = opts.now ?? Date.now;
+  const started = now2();
   const visited = /* @__PURE__ */ new Set();
   const queue = [];
   for (const s of source.start_urls) {
@@ -162705,7 +163173,7 @@ async function crawlSource(source, opts) {
       result.stoppedBy = "limite_paginas";
       break;
     }
-    if (now() - started > source.time_budget_ms) {
+    if (now2() - started > source.time_budget_ms) {
       result.stoppedBy = "limite_tempo";
       break;
     }
@@ -162713,7 +163181,7 @@ async function crawlSource(source, opts) {
     if (visited.has(url2)) continue;
     visited.add(url2);
     if (!isAllowedHost(url2, source.allowed_hosts)) continue;
-    if (result.pagesFetched > 0) await sleep3(source.request_delay_ms);
+    if (result.pagesFetched > 0) await sleep4(source.request_delay_ms);
     let fetched;
     try {
       fetched = await opts.fetcher(url2);
@@ -162750,7 +163218,7 @@ async function crawlSource(source, opts) {
   }
   return result;
 }
-async function persistCrawl(store, source, crawl, now = /* @__PURE__ */ new Date(), documentFetcher) {
+async function persistCrawl(store, source, crawl, now2 = /* @__PURE__ */ new Date(), documentFetcher) {
   const stats = {
     paginas: crawl.pagesFetched,
     categorias: crawl.categoryPages.length,
@@ -162800,7 +163268,7 @@ async function persistCrawl(store, source, crawl, now = /* @__PURE__ */ new Date
           continue;
         }
         documentBudget--;
-        const r = await processDocument(d, documentFetcher, previousDocs.get(`${page.url}|${d.url}`) ?? null, now);
+        const r = await processDocument(d, documentFetcher, previousDocs.get(`${page.url}|${d.url}`) ?? null, now2);
         if (r.reused) stats.documentos_reaproveitados++;
         else if (r.text_status === "extraido" || r.text_status === "parcial") stats.documentos_lidos++;
         if (r.text_status !== "extraido") r.text_status === "parcial" ? stats.leituras_parciais++ : stats.documentos_com_falha++;
@@ -162817,7 +163285,7 @@ async function persistCrawl(store, source, crawl, now = /* @__PURE__ */ new Date
       if (main && main.text_status !== "extraido") missing.push(`documento_oficial: leitura ${main.text_status === "parcial" ? "parcial" : "n\xE3o conclu\xEDda"} (${main.error ?? main.text_status ?? "sem detalhe"})`);
     }
     const events = eventsFromDocuments(documents, page.text, page.url).sort((a, b) => `${a.kind}${a.title}`.localeCompare(`${b.kind}${b.title}`));
-    const status = inferStatus(fields, page.text, now);
+    const status = inferStatus(fields, page.text, now2);
     const hashInput = { title: page.title, text: page.text, extractor: EXTRACTOR_VERSION, docs: documents.map((d) => [d.url, d.content_hash ?? null]) };
     const outcome = await store.upsertOpportunity({
       source_id: source.id,
@@ -162963,12 +163431,12 @@ function verifyCronSecret(authorization) {
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual4(a, b);
 }
-function dueSources(sources, runs, now = /* @__PURE__ */ new Date()) {
+function dueSources(sources, runs, now2 = /* @__PURE__ */ new Date()) {
   return sources.map((s) => {
     if (!s.enabled) return { source_id: s.id, action: "pular", motivo: "fonte desativada" };
     const last2 = runs.filter((r) => r.source_id === s.id && r.status !== "failed").sort((a, b) => b.started_at.localeCompare(a.started_at))[0];
     if (!last2) return { source_id: s.id, action: "coletar", motivo: "nenhuma coleta anterior" };
-    const age = now.getTime() - new Date(last2.started_at).getTime();
+    const age = now2.getTime() - new Date(last2.started_at).getTime();
     if (last2.status === "running" && age < STALE_RUN_MS) return { source_id: s.id, action: "pular", motivo: "coleta em andamento" };
     const freq = (s.frequency_minutes ?? 1440) * 6e4;
     if (last2.status !== "running" && age < freq - SLACK_MS) return { source_id: s.id, action: "pular", motivo: `\xFAltima coleta h\xE1 ${Math.round(age / 6e4)} min` };
@@ -163101,19 +163569,19 @@ function fail(req, res, err, context2) {
 }
 var fetcherFactory = createSafeFetcher;
 var documentFetcherFactory = createSafeDocumentFetcher;
-function applyProfileInput(current2, input2, source, now = (/* @__PURE__ */ new Date()).toISOString()) {
+function applyProfileInput(current2, input2, source, now2 = (/* @__PURE__ */ new Date()).toISOString()) {
   const next2 = { ...current2, field_sources: { ...current2.field_sources } };
   let changed = false;
   for (const [key, value] of Object.entries(input2)) {
     if (value === void 0) continue;
     if (JSON.stringify(current2[key]) === JSON.stringify(value)) continue;
     next2[key] = value;
-    if (key !== "notification_prefs") next2.field_sources[key] = { source, updated_at: now };
+    if (key !== "notification_prefs") next2.field_sources[key] = { source, updated_at: now2 };
     changed = true;
   }
   if (!changed && current2.version > 0) return current2;
   next2.version = current2.version + 1;
-  next2.updated_at = now;
+  next2.updated_at = now2;
   return next2;
 }
 function summaryToInput(s) {
@@ -163254,6 +163722,23 @@ function filterCatalog(list, query, today = (/* @__PURE__ */ new Date()).toISOSt
   const start = (query.page - 1) * query.page_size;
   return { items: items.slice(start, start + query.page_size), total };
 }
+function catalogCollectionState(list, runs) {
+  const last2 = [...runs].sort((a, b) => b.started_at.localeCompare(a.started_at))[0] ?? null;
+  const ultima = last2 ? {
+    status: last2.status,
+    iniciada_em: last2.started_at,
+    concluida_em: last2.finished_at,
+    erros: last2.errors.length,
+    // Mensagem curta, sem URL (o detalhe fica na administração)
+    motivo: last2.errors[0]?.message ? last2.errors[0].message.replace(/https?:\/\/\S+/g, "[endere\xE7o]").slice(0, 160) : null
+  } : null;
+  const pendentes_revisao = list.filter((o) => o.review_status === "pendente").length;
+  if (list.length > 0) return { situacao: "com_itens", ultima, pendentes_revisao };
+  if (!last2) return { situacao: "nunca_coletado", ultima, pendentes_revisao };
+  if (last2.status === "running") return { situacao: "coletando", ultima, pendentes_revisao };
+  if (last2.status === "failed") return { situacao: "coleta_falhou", ultima, pendentes_revisao };
+  return { situacao: "coleta_sem_itens", ultima, pendentes_revisao };
+}
 router6.get("/opportunities", async (req, res) => {
   const parsed = CatalogQuerySchema.safeParse(req.query ?? {});
   if (!parsed.success) {
@@ -163265,7 +163750,14 @@ router6.get("/opportunities", async (req, res) => {
     const { items, total } = filterCatalog(list, parsed.data);
     const sources = [...new Set(list.map((o) => o.source_id))];
     const areas = [...new Set(list.flatMap((o) => o.fields.areas?.value ?? []))].sort((a, b) => a.localeCompare(b, "pt-BR")).slice(0, 80);
+    let coleta;
+    try {
+      coleta = catalogCollectionState(list, await getStore().listRuns(5));
+    } catch {
+      coleta = { situacao: "desconhecida", ultima: null, pendentes_revisao: list.filter((o) => o.review_status === "pendente").length };
+    }
     res.json({
+      coleta,
       opportunities: items.map(publicOpportunity),
       total,
       page: parsed.data.page,
@@ -163974,9 +164466,9 @@ router6.get("/cron/collect", async (req, res) => {
   }
   try {
     const store = getStore();
-    const now = /* @__PURE__ */ new Date();
+    const now2 = /* @__PURE__ */ new Date();
     const [sources, runs] = await Promise.all([store.listSources(), store.listRuns(100)]);
-    const decisions = dueSources(sources, runs, now);
+    const decisions = dueSources(sources, runs, now2);
     const results = [];
     for (const d of decisions) {
       if (d.action === "pular") {
@@ -163984,7 +164476,7 @@ router6.get("/cron/collect", async (req, res) => {
         continue;
       }
       const source = sources.find((s) => s.id === d.source_id);
-      for (const stuck of runs.filter((r) => r.source_id === source.id && r.status === "running" && now.getTime() - new Date(r.started_at).getTime() >= STALE_RUN_MS)) {
+      for (const stuck of runs.filter((r) => r.source_id === source.id && r.status === "running" && now2.getTime() - new Date(r.started_at).getTime() >= STALE_RUN_MS)) {
         await store.finishRun(stuck.id, { status: "failed", stats: {}, errors: [{ url: source.base_url, message: "Execu\xE7\xE3o interrompida (sem t\xE9rmino registrado); encerrada pela coleta agendada." }] });
       }
       try {
@@ -164001,22 +164493,885 @@ router6.get("/cron/collect", async (req, res) => {
       }
     }
     logger.info({ cron: results.map((r) => ({ source_id: r.source_id, action: r.action, status: r.status })) }, "coleta agendada");
-    res.json({ executado_em: now.toISOString(), resultados: results });
+    res.json({ executado_em: now2.toISOString(), resultados: results });
   } catch (err) {
     fail(req, res, err, "cron:collect");
   }
 });
 var lupa_default = router6;
 
-// src/routes/index.ts
+// src/routes/analysisJobs.ts
+var import_express9 = __toESM(require_express2(), 1);
+
+// src/lib/longdoc/jobs.ts
+import { createHash as createHash10, randomUUID as randomUUID7 } from "node:crypto";
+
+// src/lib/longdoc/plan.ts
+import { createHash as createHash9 } from "node:crypto";
+var DEFAULT_TARGET_CHARS = 14e3;
+var DEFAULT_OVERLAP_CHARS = 1200;
+function normalizeLongText(raw) {
+  return raw.replace(/\r\n?/g, "\n").replace(/\f/g, "\n[Quebra de p\xE1gina]\n").replace(/[\x00-\x08\x0B\x0E-\x1F\x7F-\x9F]/g, " ").replace(/[ \t ]{2,}/g, " ").replace(/\n{4,}/g, "\n\n\n").trim();
+}
+var PAGE_RE = /^\s*(?:\[\s*)?(?:p[áa]gina|p[áa]g\.|page)\s*[:#nº°-]?\s*(\d{1,5})(?:\s*(?:de|\/)\s*\d{1,5})?\s*\]?\s*$/i;
+var PAGE_BREAK_RE = /^\s*\[Quebra de página\]\s*$/;
+var HEADING_RE = /^\s*(?:(?:CAP[ÍI]TULO|T[ÍI]TULO|SE[ÇC][ÃA]O|ANEXO|AP[ÊE]NDICE|CL[ÁA]USULA|PARTE|RETIFICA[ÇC][ÃA]O|ERRATA)\b[^\n]{0,120}|(?:ART(?:IGO)?\.?\s*\d+)[^\n]{0,120}|\d{1,2}(?:\.\d{1,3}){0,3}\.?\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][^\n]{2,140})$/;
+function linesOf(text4) {
+  const out = [];
+  let pos = 0;
+  while (pos < text4.length) {
+    const nl = text4.indexOf("\n", pos);
+    const end2 = nl === -1 ? text4.length : nl + 1;
+    out.push({ start: pos, end: end2, text: text4.slice(pos, nl === -1 ? text4.length : nl) });
+    pos = end2;
+  }
+  return out;
+}
+function documentLandmarks(text4) {
+  const pages = [];
+  const headings = [];
+  let breaks = 0;
+  for (const l of linesOf(text4)) {
+    const m = l.text.match(PAGE_RE);
+    if (m) pages.push({ offset: l.start, page: Number(m[1]) });
+    else if (PAGE_BREAK_RE.test(l.text)) {
+      breaks += 1;
+      pages.push({ offset: l.end, page: breaks + 1 });
+    } else if (HEADING_RE.test(l.text) && l.text.trim().length <= 160) headings.push({ offset: l.start, title: l.text.trim() });
+  }
+  return { pages, headings };
+}
+function pageAt(pages, offset) {
+  let current2 = null;
+  for (const p of pages) {
+    if (p.offset > offset) break;
+    current2 = p.page;
+  }
+  return current2;
+}
+function boundaries(text4, landmarks) {
+  const strong = /* @__PURE__ */ new Set([...landmarks.pages.map((p) => p.offset), ...landmarks.headings.map((h) => h.offset)]);
+  const out = [];
+  for (const l of linesOf(text4)) {
+    if (l.start === 0) continue;
+    const blankBefore = l.start >= 2 && text4[l.start - 1] === "\n" && text4[l.start - 2] === "\n";
+    out.push({ offset: l.start, weight: strong.has(l.start) ? 3 : blankBefore ? 2 : 1 });
+  }
+  return out;
+}
+function planChunks(text4, opts = {}) {
+  const target = Math.max(2e3, opts.targetChars ?? DEFAULT_TARGET_CHARS);
+  const overlap = Math.max(0, Math.min(opts.overlapChars ?? DEFAULT_OVERLAP_CHARS, Math.floor(target / 3)));
+  if (!text4) return [];
+  const landmarks = documentLandmarks(text4);
+  const cuts = boundaries(text4, landmarks);
+  const chunks = [];
+  let start = 0;
+  let ci = 0;
+  while (start < text4.length) {
+    let end2;
+    if (text4.length - start <= target * 1.15) end2 = text4.length;
+    else {
+      const lo = start + Math.floor(target * 0.6);
+      const hi = start + target;
+      while (ci < cuts.length && cuts[ci].offset <= lo) ci += 1;
+      let best = null;
+      for (let j = ci; j < cuts.length && cuts[j].offset <= hi; j += 1) {
+        const c = cuts[j];
+        if (!best || c.weight > best.weight || c.weight === best.weight && c.offset > best.offset) best = c;
+      }
+      if (best) end2 = best.offset;
+      else {
+        const slice2 = text4.slice(lo, hi);
+        const sp = Math.max(slice2.lastIndexOf(". "), slice2.lastIndexOf("; "), slice2.lastIndexOf(" "));
+        end2 = sp > 0 ? lo + sp + 1 : hi;
+      }
+    }
+    let ctxStart = Math.max(0, start - overlap);
+    if (ctxStart > 0) {
+      const sp = text4.indexOf(" ", ctxStart);
+      if (sp !== -1 && sp < start) ctxStart = sp + 1;
+    }
+    const heading = [...landmarks.headings].reverse().find((h) => h.offset <= start) ?? null;
+    const core = text4.slice(start, end2);
+    chunks.push({
+      index: chunks.length,
+      start,
+      end: end2,
+      ctxStart,
+      pageStart: pageAt(landmarks.pages, start),
+      pageEnd: pageAt(landmarks.pages, Math.max(start, end2 - 1)),
+      section: heading?.title.slice(0, 160) ?? null,
+      hash: createHash9("sha256").update(core).digest("hex"),
+      chars: core.length
+    });
+    start = end2;
+  }
+  assertCoverage(text4, chunks);
+  return chunks;
+}
+function assertCoverage(text4, chunks) {
+  if (text4.length === 0) return;
+  if (!chunks.length || chunks[0].start !== 0) throw new Error("Cobertura: a primeira parte n\xE3o come\xE7a no in\xEDcio do documento.");
+  for (let i = 0; i < chunks.length; i += 1) {
+    if (chunks[i].end <= chunks[i].start) throw new Error(`Cobertura: parte ${i + 1} vazia.`);
+    if (i > 0 && chunks[i].start !== chunks[i - 1].end) throw new Error(`Cobertura: lacuna ou sobreposi\xE7\xE3o entre as partes ${i} e ${i + 1}.`);
+  }
+  if (chunks[chunks.length - 1].end !== text4.length) throw new Error("Cobertura: a \xFAltima parte n\xE3o termina no fim do documento.");
+}
+function chunkPromptText(text4, c, total) {
+  const ref = [
+    `PARTE ${c.index + 1} DE ${total}`,
+    c.pageStart != null ? c.pageEnd != null && c.pageEnd !== c.pageStart ? `p\xE1ginas ${c.pageStart}\u2013${c.pageEnd}` : `p\xE1gina ${c.pageStart}` : null,
+    c.section ? `se\xE7\xE3o: ${c.section}` : null,
+    `caracteres ${c.start}\u2013${c.end}`
+  ].filter(Boolean).join(" \xB7 ");
+  const ctx = c.ctxStart < c.start ? text4.slice(c.ctxStart, c.start) : "";
+  return [
+    ctx ? `[CONTEXTO \u2014 final da parte anterior, s\xF3 para entender a continua\xE7\xE3o; N\xC3O extraia fatos daqui]
+${ctx}
+[FIM DO CONTEXTO]
+` : "",
+    `[${ref}]`,
+    text4.slice(c.start, c.end)
+  ].filter(Boolean).join("\n");
+}
+
+// src/lib/longdoc/consolidate.ts
+var FACT_KEYS = [
+  ["documentInfo", "title"],
+  ["dates", "event"],
+  ["requirements", "requirement"],
+  ["eligibility", "criterion"],
+  ["documents", "document"],
+  ["values", "value"],
+  ["contacts", "contact"],
+  ["obligations", "obligation"],
+  ["restrictions", "restriction"],
+  ["alerts", "message"]
+];
+var fold2 = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").replace(/[.;:,]+$/g, "").trim();
+var pagesLabel = (c) => c.page_start == null ? null : c.page_end != null && c.page_end !== c.page_start ? `${c.page_start}\u2013${c.page_end}` : String(c.page_start);
+var MODIFIER_RE = [
+  ["prorrogacao", /\bprorrog/i],
+  ["retificacao", /\bretifica|\berrata\b|passa(m)?\s+a\s+vigorar|onde\s+se\s+l[êe]/i],
+  ["revogacao", /\brevogad|\bfica(m)?\s+sem\s+efeito|\bsuprimid/i],
+  ["dispensa", /\bdispensad|\bisent[oa]s?\b|\bisen[çc][ãa]o\b|n[ãa]o\s+se\s+aplica/i],
+  ["excecao", /\bexce[çc][ãa]o|\bexceto\b|\bsalvo\b|\bressalvad/i]
+];
+function consolidateJobChunks(chunks, textLength) {
+  const done = chunks.filter((c) => c.status === "concluida" && c.facts);
+  const chunkResults = done.map((c) => ({ chunkId: `parte-${c.idx + 1}`, facts: withOrigin(c) }));
+  const conflicts = [];
+  const byEvent = /* @__PURE__ */ new Map();
+  for (const c of done) {
+    const facts = c.facts;
+    for (const d of facts.dates ?? []) {
+      const k = fold2(d.event);
+      if (!k || !d.value) continue;
+      const list = byEvent.get(k) ?? [];
+      list.push({ valor: String(d.value), parte: c.idx + 1, paginas: d.page != null ? String(d.page) : pagesLabel(c), trecho: d.text ?? null });
+      byEvent.set(k, list);
+    }
+  }
+  for (const [k, versions] of byEvent) {
+    const distinct = /* @__PURE__ */ new Map();
+    for (const v of versions) if (!distinct.has(fold2(v.valor))) distinct.set(fold2(v.valor), v);
+    if (distinct.size > 1) {
+      const vs = [...distinct.values()];
+      conflicts.push({
+        tipo: "data",
+        chave: versions[0] ? k : k,
+        versoes: vs,
+        mensagem: `"${k}" aparece com datas diferentes: ${vs.map((v) => `${v.valor} (parte ${v.parte}${v.paginas ? `, p. ${v.paginas}` : ""})`).join(" e ")}. Confira qual est\xE1 em vigor (pode haver retifica\xE7\xE3o ou prorroga\xE7\xE3o).`
+      });
+    }
+  }
+  const modifiers = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const c of done) {
+    const facts = c.facts;
+    for (const [key] of FACT_KEYS) {
+      for (const f of facts[key] ?? []) {
+        const t = String(f.text ?? Object.values(f).find((v) => typeof v === "string") ?? "");
+        const hit = MODIFIER_RE.find(([, re2]) => re2.test(t));
+        if (!hit) continue;
+        const sig = `${hit[0]}|${fold2(t)}`;
+        if (seen.has(sig)) continue;
+        seen.add(sig);
+        modifiers.push({ tipo: hit[0], parte: c.idx + 1, paginas: typeof f.page === "number" ? String(f.page) : pagesLabel(c), trecho: t.slice(0, 400) });
+      }
+    }
+  }
+  const coverage = coverageOf(chunks, textLength);
+  return { chunkResults, conflicts, modifiers, coverage };
+}
+function withOrigin(c) {
+  const facts = c.facts;
+  const out = {};
+  for (const [key] of FACT_KEYS) {
+    out[key] = (facts[key] ?? []).map((f) => ({
+      ...f,
+      parte: c.idx + 1,
+      page: typeof f.page === "number" ? f.page : c.page_start ?? void 0,
+      section: f.section ?? c.section ?? void 0
+    }));
+  }
+  return out;
+}
+function coverageOf(chunks, textLength) {
+  const analisadas = chunks.filter((c) => c.status === "concluida");
+  const naoAnalisadas = chunks.filter((c) => c.status !== "concluida");
+  return {
+    total_partes: chunks.length,
+    partes_analisadas: analisadas.length,
+    partes_com_falha: chunks.filter((c) => c.status === "falhou").length,
+    partes_pendentes: chunks.filter((c) => c.status === "pendente" || c.status === "processando").length,
+    caracteres_totais: textLength,
+    caracteres_analisados: analisadas.reduce((n2, c) => n2 + (c.end_offset - c.start_offset), 0),
+    nao_analisados: naoAnalisadas.map((c) => ({
+      parte: c.idx + 1,
+      inicio: c.start_offset,
+      fim: c.end_offset,
+      paginas: pagesLabel(c),
+      motivo: c.status === "falhou" ? `falhou ap\xF3s ${c.attempts} tentativa(s)${c.error ? `: ${c.error}` : ""}` : "ainda n\xE3o processada"
+    })),
+    completa: naoAnalisadas.length === 0 && chunks.length > 0
+  };
+}
+function mergeWithSources(items, keyField) {
+  const map3 = /* @__PURE__ */ new Map();
+  for (const it of items) {
+    const k = fold2(it[keyField]);
+    if (!k) continue;
+    const src = { parte: Number(it.parte), ...typeof it.page === "number" ? { pagina: it.page } : {} };
+    const cur = map3.get(k);
+    if (cur) cur.fontes.push(src);
+    else map3.set(k, { ...it, fontes: [src] });
+  }
+  return [...map3.values()];
+}
+
+// src/lib/longdoc/store.ts
+var ACTIVE_STATUSES = ["pendente", "processando", "aguardando_cota"];
+var now = () => (/* @__PURE__ */ new Date()).toISOString();
+var MemoryJobStore = class {
+  kind = "memory";
+  jobs = /* @__PURE__ */ new Map();
+  chunks = /* @__PURE__ */ new Map();
+  async createJob(job, chunks) {
+    this.jobs.set(job.id, structuredClone(job));
+    this.chunks.set(job.id, structuredClone(chunks));
+  }
+  async getJob(id) {
+    const j = this.jobs.get(id);
+    return j ? structuredClone(j) : null;
+  }
+  async listJobs(userId, limit2 = 20) {
+    return [...this.jobs.values()].filter((j) => j.user_id === userId).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit2).map((j) => structuredClone(j));
+  }
+  async countJobsSince(userId, sinceIso) {
+    return [...this.jobs.values()].filter((j) => j.user_id === userId && j.created_at >= sinceIso).length;
+  }
+  async listRunnable(nowIso2, limit2) {
+    return [...this.jobs.values()].filter((j) => ACTIVE_STATUSES.includes(j.status) && (!j.next_attempt_at || j.next_attempt_at <= nowIso2) && (!j.lease_until || j.lease_until < nowIso2)).sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(0, limit2).map((j) => structuredClone(j));
+  }
+  async claim(id, owner, leaseSeconds) {
+    const j = this.jobs.get(id);
+    const t = now();
+    if (!j || !["pendente", "processando", "aguardando_cota", "parcial"].includes(j.status)) return null;
+    if (j.lease_until && j.lease_until >= t && j.lease_owner !== owner) return null;
+    j.lease_owner = owner;
+    j.lease_until = new Date(Date.now() + leaseSeconds * 1e3).toISOString();
+    if (j.status === "pendente") j.status = "processando";
+    j.updated_at = t;
+    return structuredClone(j);
+  }
+  async updateJob(id, patch) {
+    const j = this.jobs.get(id);
+    if (j) Object.assign(j, structuredClone(patch), { updated_at: now() });
+  }
+  async listChunks(jobId) {
+    return structuredClone(this.chunks.get(jobId) ?? []);
+  }
+  async updateChunk(jobId, idx, patch) {
+    const c = this.chunks.get(jobId)?.find((x) => x.idx === idx);
+    if (c) Object.assign(c, structuredClone(patch), { updated_at: now() });
+  }
+  async purgeExpired(nowIso2) {
+    let n2 = 0;
+    for (const j of this.jobs.values()) {
+      if (j.expires_at < nowIso2 && j.document_text !== null) {
+        j.document_text = null;
+        if (ACTIVE_STATUSES.includes(j.status)) j.status = "falhou";
+        j.error = j.error ?? "Prazo de reten\xE7\xE3o do documento vencido.";
+        n2 += 1;
+      }
+    }
+    return n2;
+  }
+};
+function check3(r) {
+  if (r.error) throw new Error(r.error.message);
+  return r.data;
+}
+var SupabaseJobStore = class {
+  kind = "supabase";
+  get db() {
+    return supabase_default();
+  }
+  async createJob(job, chunks) {
+    check3(await this.db.from("analysis_jobs").insert(job));
+    for (let i = 0; i < chunks.length; i += 200) check3(await this.db.from("analysis_job_chunks").insert(chunks.slice(i, i + 200)));
+  }
+  async getJob(id) {
+    return check3(await this.db.from("analysis_jobs").select("*").eq("id", id).maybeSingle()) ?? null;
+  }
+  async listJobs(userId, limit2 = 20) {
+    const cols = "id,user_id,agent_id,status,document_hash,chars,pages,total_chunks,done_chunks,failed_chunks,error,tokens_used,ai_calls,estimated_tokens,next_attempt_at,created_at,updated_at,finished_at,expires_at";
+    return check3(await this.db.from("analysis_jobs").select(cols).eq("user_id", userId).order("created_at", { ascending: false }).limit(limit2)) ?? [];
+  }
+  async countJobsSince(userId, sinceIso) {
+    const r = await this.db.from("analysis_jobs").select("id", { count: "exact", head: true }).eq("user_id", userId).gte("created_at", sinceIso);
+    if (r.error) throw new Error(r.error.message);
+    return r.count ?? 0;
+  }
+  async listRunnable(nowIso2, limit2) {
+    return check3(
+      await this.db.from("analysis_jobs").select("id,user_id,status,next_attempt_at,lease_until,created_at").in("status", ACTIVE_STATUSES).or(`next_attempt_at.is.null,next_attempt_at.lte.${nowIso2}`).or(`lease_until.is.null,lease_until.lt.${nowIso2}`).order("created_at", { ascending: true }).limit(limit2)
+    ) ?? [];
+  }
+  async claim(id, owner, leaseSeconds) {
+    const rows = check3(await this.db.rpc("analysis_job_claim", { p_id: id, p_owner: owner, p_lease_seconds: leaseSeconds }));
+    return rows?.[0] ?? null;
+  }
+  async updateJob(id, patch) {
+    check3(await this.db.from("analysis_jobs").update({ ...patch, updated_at: now() }).eq("id", id));
+  }
+  async listChunks(jobId) {
+    return check3(await this.db.from("analysis_job_chunks").select("*").eq("job_id", jobId).order("idx")) ?? [];
+  }
+  async updateChunk(jobId, idx, patch) {
+    check3(await this.db.from("analysis_job_chunks").update({ ...patch, updated_at: now() }).eq("job_id", jobId).eq("idx", idx));
+  }
+  async purgeExpired(nowIso2) {
+    const rows = check3(
+      await this.db.from("analysis_jobs").update({ document_text: null, updated_at: now() }).lt("expires_at", nowIso2).not("document_text", "is", null).select("id")
+    );
+    check3(await this.db.from("analysis_jobs").update({ status: "falhou", error: "Prazo de reten\xE7\xE3o do documento vencido." }).lt("expires_at", nowIso2).in("status", ACTIVE_STATUSES));
+    return rows?.length ?? 0;
+  }
+};
+var instance = null;
+function getJobStore() {
+  if (instance) return instance;
+  if (process.env.LUPA_STORE === "memory") {
+    if (process.env.NODE_ENV === "production") throw new Error("LUPA_STORE=memory n\xE3o \xE9 permitido em produ\xE7\xE3o.");
+    instance = new MemoryJobStore();
+  } else instance = new SupabaseJobStore();
+  return instance;
+}
+
+// src/lib/longdoc/jobs.ts
+var num = (name, def) => {
+  const v = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isFinite(v) && v > 0 ? v : def;
+};
+function longDocLimits() {
+  const platform = platformBudgetMs();
+  return {
+    /** Texto extraído aceito numa tarefa (limite de ENTRADA; nunca enviado de uma vez à IA) */
+    maxChars: num("LONGDOC_MAX_CHARS", 12e5),
+    /** Acima disto o navegador usa a tarefa em segundo plano em vez da análise numa requisição */
+    syncMaxChars: num("LONGDOC_SYNC_MAX_CHARS", 45e3),
+    /** Tokens estimados por tarefa (custo) */
+    maxJobTokens: num("LONGDOC_MAX_JOB_TOKENS", 7e5),
+    maxActivePerUser: num("LONGDOC_MAX_ACTIVE_PER_USER", 1),
+    maxJobsPerDay: num("LONGDOC_MAX_PER_DAY", 5),
+    attempts: num("LONGDOC_ATTEMPTS", 3),
+    concurrency: Math.min(4, num("LONGDOC_CONCURRENCY", 1)),
+    chunkChars: num("LONGDOC_CHUNK_CHARS", 14e3),
+    overlapChars: num("LONGDOC_OVERLAP_CHARS", 1200),
+    /** Tempo de UMA chamada de avanço (cabe no teto da função com folga para gravar) */
+    stepBudgetMs: Math.min(num("LONGDOC_STEP_BUDGET_MS", 2e5), Math.max(2e4, platform - 4e4)),
+    chunkTimeoutMs: num("LONGDOC_CHUNK_TIMEOUT_MS", 9e4),
+    leaseSeconds: num("LONGDOC_LEASE_SECONDS", 300),
+    retentionDays: num("LONGDOC_RETENTION_DAYS", 7)
+  };
+}
+var LongDocError = class extends Error {
+  constructor(status, code, message2) {
+    super(message2);
+    this.status = status;
+    this.code = code;
+  }
+  status;
+  code;
+};
+var AGENTS = ["simples", "analista", "estrategica", "acompanhamento", "documentacao", "elegibilidade"];
+var nowIso = () => (/* @__PURE__ */ new Date()).toISOString();
+async function createLongDocJob(input2) {
+  const lim = longDocLimits();
+  if (!AGENTS.includes(input2.agentId)) throw new LongDocError(400, "AGENTE_INVALIDO", "Agente desconhecido.");
+  const text4 = normalizeLongText(input2.text ?? "");
+  if (text4.length < 20) throw new LongDocError(422, "TEXTO_CURTO", "N\xE3o h\xE1 texto leg\xEDvel suficiente para analisar.");
+  if (text4.length > lim.maxChars) {
+    throw new LongDocError(
+      413,
+      "DOCUMENTO_ACIMA_DO_LIMITE",
+      `O documento tem ${text4.length.toLocaleString("pt-BR")} caracteres; o limite atual \xE9 ${lim.maxChars.toLocaleString("pt-BR")}.`
+    );
+  }
+  const estimated = estimateTokens(text4);
+  if (estimated > lim.maxJobTokens) {
+    throw new LongDocError(413, "ORCAMENTO_DA_TAREFA", `O documento exigiria cerca de ${estimated.toLocaleString("pt-BR")} tokens; o limite por an\xE1lise \xE9 ${lim.maxJobTokens.toLocaleString("pt-BR")}.`);
+  }
+  const store = getJobStore();
+  await store.purgeExpired(nowIso()).catch(() => 0);
+  const recent = await store.listJobs(input2.userId, 50);
+  if (recent.filter((j) => ACTIVE_STATUSES.includes(j.status)).length >= lim.maxActivePerUser) {
+    throw new LongDocError(409, "TAREFA_EM_ANDAMENTO", "Voc\xEA j\xE1 tem uma an\xE1lise longa em andamento. Aguarde terminar ou cancele-a.");
+  }
+  const since = new Date(Date.now() - 864e5).toISOString();
+  if (await store.countJobsSince(input2.userId, since) >= lim.maxJobsPerDay) {
+    throw new LongDocError(429, "LIMITE_DIARIO", `Limite de ${lim.maxJobsPerDay} an\xE1lises longas por dia atingido.`);
+  }
+  const plan = planChunks(text4, { targetChars: lim.chunkChars, overlapChars: lim.overlapChars });
+  const pages = new Set(documentLandmarks(text4).pages.map((p) => p.page)).size || null;
+  const id = randomUUID7();
+  const t = nowIso();
+  const job = {
+    id,
+    user_id: input2.userId,
+    agent_id: input2.agentId,
+    status: "pendente",
+    document_hash: createHash10("sha256").update(text4).digest("hex"),
+    document_text: text4,
+    chars: text4.length,
+    pages,
+    total_chunks: plan.length,
+    done_chunks: 0,
+    failed_chunks: 0,
+    profile: input2.profile ?? null,
+    result: null,
+    error: null,
+    tokens_used: 0,
+    ai_calls: 0,
+    estimated_tokens: estimated,
+    lease_owner: null,
+    lease_until: null,
+    next_attempt_at: null,
+    created_at: t,
+    updated_at: t,
+    finished_at: null,
+    expires_at: new Date(Date.now() + lim.retentionDays * 864e5).toISOString()
+  };
+  const chunks = plan.map((c) => ({
+    job_id: id,
+    idx: c.index,
+    start_offset: c.start,
+    end_offset: c.end,
+    ctx_start: c.ctxStart,
+    page_start: c.pageStart,
+    page_end: c.pageEnd,
+    section: c.section,
+    content_hash: c.hash,
+    status: "pendente",
+    attempts: 0,
+    facts: null,
+    error: null,
+    tokens: null,
+    next_attempt_at: null,
+    updated_at: t
+  }));
+  await store.createJob(job, chunks);
+  logger.info({ module: "longdoc", step: "job_created", jobId: id, chars: text4.length, chunks: plan.length, estimatedTokens: estimated }, "An\xE1lise longa criada");
+  return job;
+}
+function jobView(job, chunks, withResult = false) {
+  const coverage = coverageOf(chunks, job.chars);
+  return {
+    id: job.id,
+    agentId: job.agent_id,
+    status: job.status,
+    documento: { caracteres: job.chars, paginas: job.pages, hash: job.document_hash, texto_retido: job.document_text !== null },
+    partes: {
+      total: job.total_chunks,
+      concluidas: chunks.filter((c) => c.status === "concluida").length,
+      com_falha: chunks.filter((c) => c.status === "falhou").length,
+      pendentes: chunks.filter((c) => c.status === "pendente" || c.status === "processando").length,
+      lista: chunks.map((c) => ({
+        n: c.idx + 1,
+        situacao: c.status,
+        paginas: c.page_start == null ? null : c.page_end != null && c.page_end !== c.page_start ? `${c.page_start}\u2013${c.page_end}` : String(c.page_start),
+        secao: c.section,
+        inicio: c.start_offset,
+        fim: c.end_offset,
+        tentativas: c.attempts,
+        erro: c.error
+      }))
+    },
+    cobertura: coverage,
+    consumo: { tokens: job.tokens_used, chamadas_ia: job.ai_calls, tokens_estimados: job.estimated_tokens },
+    proxima_tentativa: job.next_attempt_at,
+    erro: job.error,
+    criada_em: job.created_at,
+    atualizada_em: job.updated_at,
+    concluida_em: job.finished_at,
+    expira_em: job.expires_at,
+    ...withResult && job.result ? { resultado: job.result } : {}
+  };
+}
+async function getJobForUser(id, userId) {
+  const store = getJobStore();
+  const job = await store.getJob(id);
+  if (!job || job.user_id !== userId) throw new LongDocError(404, "NAO_ENCONTRADA", "An\xE1lise n\xE3o encontrada.");
+  return { job, chunks: await store.listChunks(id) };
+}
+var analyzer = analyzeLongDocChunk;
+var sleep3 = (ms) => new Promise((r) => setTimeout(r, ms));
+function retryAfterMsFrom(message2) {
+  const m = message2.match(/try again in\s+(?:(\d+)h)?\s*(?:(\d+)m(?!s))?\s*(?:([\d.]+)s)?\s*(?:([\d.]+)ms)?/i);
+  if (m && (m[1] || m[2] || m[3] || m[4])) return Math.ceil((Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0)) * 1e3 + Number(m[4] ?? 0));
+  const ra = message2.match(/retry[- ]after[:= ]+(\d+)/i);
+  return ra ? Number(ra[1]) * 1e3 : null;
+}
+function classifyChunkError(err) {
+  const message2 = err instanceof Error ? err.message : String(err);
+  const c = classifyAiError(message2);
+  const status = err?.status ?? c.status;
+  const quota = status === 429 || c.reason === "rate_limit" || /rate limit|quota|tokens per (minute|day)|\bTPM\b|\bTPD\b|\bRPD\b/i.test(message2);
+  const daily = /per day|\bTPD\b|\bRPD\b|daily/i.test(message2);
+  const fatal = status === 401 || status === 403 || c.reason === "ai_not_configured";
+  return {
+    quota,
+    daily,
+    fatal,
+    retryAfterMs: retryAfterMsFrom(message2) ?? (quota ? daily ? 36e5 : 6e4 : null),
+    // Mensagem curta e sem detalhes técnicos do provedor
+    userMessage: quota ? daily ? "Cota di\xE1ria do provedor de IA esgotada" : "Limite por minuto do provedor de IA" : fatal ? "Provedor de IA recusou a credencial" : c.userMessage?.slice(0, 160) || "Falha ao ler esta parte"
+  };
+}
+async function advanceLongDocJob(id, actor, opts = {}) {
+  const lim = longDocLimits();
+  const store = getJobStore();
+  const started = Date.now();
+  const deadline = started + (opts.budgetMs ?? lim.stepBudgetMs);
+  let job = await store.getJob(id);
+  if (!job || !actor.system && job.user_id !== actor.userId) throw new LongDocError(404, "NAO_ENCONTRADA", "An\xE1lise n\xE3o encontrada.");
+  if (!ACTIVE_STATUSES.includes(job.status)) return jobView(job, await store.listChunks(id), true);
+  if (job.next_attempt_at && job.next_attempt_at > nowIso()) return jobView(job, await store.listChunks(id));
+  const owner = randomUUID7();
+  const claimed = await store.claim(id, owner, lim.leaseSeconds);
+  if (!claimed) return jobView(job, await store.listChunks(id));
+  job = claimed;
+  const text4 = job.document_text;
+  if (text4 === null) {
+    await store.updateJob(id, { status: "falhou", error: "O texto do documento n\xE3o est\xE1 mais dispon\xEDvel (prazo de reten\xE7\xE3o).", lease_owner: null, lease_until: null });
+    return jobView(await store.getJob(id), await store.listChunks(id));
+  }
+  let chunks = await store.listChunks(id);
+  const plan = chunks.map((c) => ({
+    index: c.idx,
+    start: c.start_offset,
+    end: c.end_offset,
+    ctxStart: c.ctx_start,
+    pageStart: c.page_start,
+    pageEnd: c.page_end,
+    section: c.section,
+    hash: c.content_hash,
+    chars: c.end_offset - c.start_offset
+  }));
+  let waitingQuota = null;
+  let quotaUntil = null;
+  let fatalError = null;
+  let tokens2 = 0;
+  let calls = 0;
+  for (; ; ) {
+    const fresh = await store.getJob(id);
+    if (!fresh || fresh.status === "cancelada") return jobView(fresh ?? job, await store.listChunks(id));
+    const t = nowIso();
+    const ready = chunks.filter((c) => (c.status === "pendente" || c.status === "processando") && (!c.next_attempt_at || c.next_attempt_at <= t)).slice(0, lim.concurrency);
+    if (!ready.length) break;
+    const prompts = ready.map((c) => chunkPromptText(text4, plan[c.idx], plan.length));
+    const tpmWait = Math.max(...prompts.map(longDocTpmWaitMs));
+    const remaining = deadline - Date.now();
+    if (tpmWait + 2e4 > remaining) {
+      if (tpmWait > 0) await store.updateJob(id, { next_attempt_at: new Date(Date.now() + Math.min(tpmWait, remaining)).toISOString() });
+      break;
+    }
+    if (tpmWait > 0) await sleep3(tpmWait);
+    await Promise.all(
+      ready.map(async (c, i) => {
+        await store.updateChunk(id, c.idx, { status: "processando", attempts: c.attempts + 1 });
+        try {
+          const timeoutMs = Math.max(1e4, Math.min(lim.chunkTimeoutMs, deadline - Date.now() - 5e3));
+          const r = await analyzer(job.agent_id, prompts[i], job.profile, { userId: job.user_id, chunkId: `parte-${c.idx + 1}`, timeoutMs });
+          tokens2 += r.tokens;
+          calls += 1;
+          await recordAiTokens(r.tokens);
+          await store.updateChunk(id, c.idx, { status: "concluida", facts: r.facts, tokens: r.tokens, error: null, next_attempt_at: null });
+        } catch (err) {
+          calls += 1;
+          const e = classifyChunkError(err);
+          logger.warn({ module: "longdoc", step: "chunk_failed", jobId: id, chunk: c.idx + 1, quota: e.quota, fatal: e.fatal }, "Parte n\xE3o lida");
+          if (e.quota) {
+            const next2 = new Date(Date.now() + (e.retryAfterMs ?? 6e4)).toISOString();
+            waitingQuota = e.userMessage;
+            if (!quotaUntil || next2 > quotaUntil) quotaUntil = next2;
+            await store.updateChunk(id, c.idx, { status: "pendente", attempts: c.attempts, error: e.userMessage, next_attempt_at: next2 });
+          } else if (e.fatal) {
+            fatalError = e.userMessage;
+            await store.updateChunk(id, c.idx, { status: "pendente", attempts: c.attempts, error: e.userMessage });
+          } else if (c.attempts + 1 >= lim.attempts) {
+            await store.updateChunk(id, c.idx, { status: "falhou", error: e.userMessage, next_attempt_at: null });
+          } else {
+            const backoff = 5e3 * 2 ** c.attempts;
+            await store.updateChunk(id, c.idx, { status: "pendente", error: e.userMessage, next_attempt_at: new Date(Date.now() + backoff).toISOString() });
+          }
+        }
+      })
+    );
+    chunks = await store.listChunks(id);
+    await store.updateJob(id, {
+      done_chunks: chunks.filter((x) => x.status === "concluida").length,
+      failed_chunks: chunks.filter((x) => x.status === "falhou").length,
+      tokens_used: (job.tokens_used ?? 0) + tokens2,
+      ai_calls: (job.ai_calls ?? 0) + calls
+    });
+    if (waitingQuota || fatalError) break;
+  }
+  chunks = await store.listChunks(id);
+  const remainingChunks = chunks.filter((c) => c.status === "pendente" || c.status === "processando");
+  const counters = {
+    done_chunks: chunks.filter((x) => x.status === "concluida").length,
+    failed_chunks: chunks.filter((x) => x.status === "falhou").length,
+    tokens_used: (job.tokens_used ?? 0) + tokens2,
+    ai_calls: (job.ai_calls ?? 0) + calls
+  };
+  if (fatalError) {
+    await store.updateJob(id, { ...counters, status: "falhou", error: fatalError, lease_owner: null, lease_until: null });
+  } else if (remainingChunks.length === 0) {
+    const result = await consolidateJob({ ...job, ...counters }, chunks, text4);
+    const complete = counters.failed_chunks === 0;
+    await store.updateJob(id, {
+      ...counters,
+      status: complete ? "concluida" : "parcial",
+      result,
+      error: complete ? null : `${counters.failed_chunks} de ${chunks.length} partes n\xE3o foram analisadas.`,
+      finished_at: nowIso(),
+      next_attempt_at: null,
+      lease_owner: null,
+      lease_until: null,
+      // Retenção: completa → o texto é apagado na hora; parcial → fica até expirar, para reprocessar
+      ...complete ? { document_text: null } : {}
+    });
+  } else {
+    const nextAt = remainingChunks.map((c) => c.next_attempt_at).filter((x) => Boolean(x)).sort()[0] ?? null;
+    const readyNow = remainingChunks.some((c) => !c.next_attempt_at || c.next_attempt_at <= nowIso());
+    const current2 = (await store.getJob(id))?.next_attempt_at ?? null;
+    await store.updateJob(id, {
+      ...counters,
+      status: waitingQuota ? "aguardando_cota" : "processando",
+      error: waitingQuota ? `${waitingQuota}. A an\xE1lise continua sozinha quando a cota liberar; nada do que j\xE1 foi lido se perde.` : null,
+      next_attempt_at: waitingQuota ? quotaUntil : readyNow ? current2 && current2 > nowIso() ? current2 : null : nextAt,
+      lease_owner: null,
+      lease_until: null
+    });
+  }
+  const final = await store.getJob(id);
+  logger.info({ module: "longdoc", step: "job_advanced", jobId: id, status: final.status, done: final.done_chunks, total: final.total_chunks, ms: Date.now() - started }, "An\xE1lise longa avan\xE7ou");
+  return jobView(final, await store.listChunks(id), true);
+}
+async function consolidateJob(job, chunks, text4) {
+  const { chunkResults, conflicts, modifiers, coverage } = consolidateJobChunks(chunks, text4.length);
+  const failed = coverage.nao_analisados;
+  const processing = {
+    mode: "durable",
+    totalChunks: chunks.length,
+    processedChunks: coverage.partes_analisadas,
+    failedChunks: coverage.partes_com_falha,
+    complete: coverage.completa,
+    jobId: job.id,
+    cobertura: coverage,
+    ...coverage.completa ? {} : {
+      reason: "partes_com_falha",
+      retryable: true,
+      userMessage: `${failed.length} de ${chunks.length} partes n\xE3o foram analisadas pela IA (${failed.slice(0, 6).map((f) => f.paginas ? `p. ${f.paginas}` : `parte ${f.parte}`).join(", ")}${failed.length > 6 ? "\u2026" : ""}). Use "Reprocessar partes com falha".`
+    }
+  };
+  const analysis = finalizeLongDocAnalysis(job.agent_id, chunkResults, text4, job.profile, processing);
+  const enriched = await withDocumentBase(analysis, text4, job.user_id);
+  const allFacts = chunkResults.map((r) => r.facts);
+  enriched.documento_longo = {
+    versao: 1,
+    jobId: job.id,
+    documento_hash: job.document_hash,
+    cobertura: coverage,
+    conflitos: conflicts,
+    alteracoes: modifiers,
+    // Cada exigência/documento com TODAS as partes e páginas em que aparece
+    requisitos: mergeWithSources(allFacts.flatMap((f) => f.requirements), "requirement"),
+    documentos: mergeWithSources(allFacts.flatMap((f) => f.documents), "document"),
+    partes: chunks.map((c) => ({ n: c.idx + 1, inicio: c.start_offset, fim: c.end_offset, paginas: c.page_start, secao: c.section, hash: c.content_hash, situacao: c.status }))
+  };
+  if (!coverage.completa) {
+    const fatos = enriched.fatos;
+    for (const c of fatos?.campos ?? []) {
+      if (c.estado === "nao_localizado" || c.estado === "incerto") c.observacao += ` Aten\xE7\xE3o: ${failed.length} parte(s) do documento n\xE3o foram lidas pela IA; o item pode estar nelas.`;
+    }
+  }
+  return enriched;
+}
+async function cancelLongDocJob(id, userId) {
+  const { job } = await getJobForUser(id, userId);
+  if (!ACTIVE_STATUSES.includes(job.status) && job.status !== "parcial") throw new LongDocError(409, "NAO_CANCELAVEL", "Esta an\xE1lise j\xE1 terminou.");
+  const store = getJobStore();
+  await store.updateJob(id, { status: "cancelada", document_text: null, finished_at: nowIso(), lease_owner: null, lease_until: null, error: "Cancelada pela pessoa." });
+  return jobView(await store.getJob(id), await store.listChunks(id));
+}
+async function retryFailedChunks(id, userId) {
+  const { job, chunks } = await getJobForUser(id, userId);
+  if (job.document_text === null) throw new LongDocError(410, "TEXTO_REMOVIDO", "O documento j\xE1 foi apagado (prazo de reten\xE7\xE3o). Envie de novo.");
+  const failed = chunks.filter((c) => c.status === "falhou");
+  if (!failed.length) throw new LongDocError(409, "SEM_FALHAS", "N\xE3o h\xE1 partes com falha para reprocessar.");
+  const store = getJobStore();
+  for (const c of failed) await store.updateChunk(id, c.idx, { status: "pendente", attempts: 0, error: null, next_attempt_at: null });
+  await store.updateJob(id, { status: "processando", failed_chunks: 0, result: null, finished_at: null, error: null, next_attempt_at: null });
+  return jobView(await store.getJob(id), await store.listChunks(id));
+}
+async function tickLongDocJobs(budgetMs) {
+  const store = getJobStore();
+  const started = Date.now();
+  await store.purgeExpired(nowIso()).catch(() => 0);
+  const out = [];
+  for (const j of await store.listRunnable(nowIso(), 5)) {
+    const left = budgetMs - (Date.now() - started);
+    if (left < 3e4) break;
+    try {
+      const v = await advanceLongDocJob(j.id, { userId: null, system: true }, { budgetMs: left - 1e4 });
+      out.push({ id: v.id, status: v.status });
+    } catch (err) {
+      logger.warn({ module: "longdoc", jobId: j.id, error: err instanceof Error ? err.message : String(err) }, "tick: falha ao avan\xE7ar");
+    }
+  }
+  return out;
+}
+
+// src/routes/analysisJobs.ts
 var router7 = (0, import_express9.Router)();
-router7.use(health_default);
-router7.use(diag_default);
-router7.use(edital_default);
-router7.use(niasci_default);
-router7.use(lupa_default);
-router7.use(resources_default);
-var routes_default = router7;
+var CreateSchema = external_exports.object({
+  agentId: external_exports.string().min(1).max(40),
+  text: external_exports.string().min(1),
+  profile: external_exports.unknown().optional()
+});
+function fail2(req, res, err) {
+  if (err instanceof LongDocError) {
+    res.status(err.status).json({ error: err.message, code: err.code });
+    return;
+  }
+  req.log?.error({ module: "longdoc", error: err instanceof Error ? err.message : String(err) }, "longdoc:error");
+  res.status(503).json({ error: "N\xE3o foi poss\xEDvel acessar a an\xE1lise agora. O andamento salvo n\xE3o se perde; tente de novo.", code: "INDISPONIVEL" });
+}
+router7.get("/edital/limits", (_req, res) => {
+  const l = longDocLimits();
+  res.json({
+    analise_direta_max_caracteres: l.syncMaxChars,
+    analise_direta_limite_rigido: MAX_ANALYZE_CHARS,
+    documento_max_caracteres: l.maxChars,
+    tarefa_max_tokens: l.maxJobTokens,
+    parte_caracteres: l.chunkChars,
+    sobreposicao_caracteres: l.overlapChars,
+    tarefas_simultaneas_por_pessoa: l.maxActivePerUser,
+    tarefas_por_dia: l.maxJobsPerDay,
+    tempo_por_etapa_ms: l.stepBudgetMs,
+    teto_da_funcao_ms: platformBudgetMs(),
+    retencao_dias: l.retentionDays,
+    requer_login: true,
+    // Avança com a página fechada só se houver agendador externo ou servidor próprio com laço ligado
+    processa_sem_pagina_aberta: process.env.LONGDOC_WORKER === "1" || process.env.LONGDOC_SCHEDULER === "1"
+  });
+});
+router7.post("/edital/jobs", requireAuth(), async (req, res) => {
+  const parsed = CreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Dados inv\xE1lidos.", code: "DADOS_INVALIDOS" });
+    return;
+  }
+  try {
+    const job = await createLongDocJob({ userId: getReqUserId(req), ...parsed.data });
+    const { chunks } = await getJobForUser(job.id, job.user_id);
+    res.status(201).json(jobView(job, chunks));
+  } catch (err) {
+    fail2(req, res, err);
+  }
+});
+router7.get("/edital/jobs", requireAuth(), async (req, res) => {
+  try {
+    const jobs = await getJobStore().listJobs(getReqUserId(req), 10);
+    res.json({
+      jobs: jobs.map((j) => ({ id: j.id, agentId: j.agent_id, status: j.status, caracteres: j.chars, partes: j.total_chunks, concluidas: j.done_chunks, com_falha: j.failed_chunks, criada_em: j.created_at, atualizada_em: j.updated_at }))
+    });
+  } catch (err) {
+    fail2(req, res, err);
+  }
+});
+router7.get("/edital/jobs/:id", requireAuth(), async (req, res) => {
+  try {
+    const { job, chunks } = await getJobForUser(String(req.params.id), getReqUserId(req));
+    res.json(jobView(job, chunks, true));
+  } catch (err) {
+    fail2(req, res, err);
+  }
+});
+router7.post("/edital/jobs/:id/advance", requireAuth(), async (req, res) => {
+  try {
+    res.json(await advanceLongDocJob(String(req.params.id), { userId: getReqUserId(req) }));
+  } catch (err) {
+    fail2(req, res, err);
+  }
+});
+router7.post("/edital/jobs/:id/cancel", requireAuth(), async (req, res) => {
+  try {
+    res.json(await cancelLongDocJob(String(req.params.id), getReqUserId(req)));
+  } catch (err) {
+    fail2(req, res, err);
+  }
+});
+router7.post("/edital/jobs/:id/retry-failed", requireAuth(), async (req, res) => {
+  try {
+    res.json(await retryFailedChunks(String(req.params.id), getReqUserId(req)));
+  } catch (err) {
+    fail2(req, res, err);
+  }
+});
+router7.post("/cron/analysis-jobs", async (req, res) => {
+  if (!cronConfigured()) {
+    res.status(503).json({ error: "Agendador n\xE3o configurado (CRON_SECRET ausente)." });
+    return;
+  }
+  if (!verifyCronSecret(req.headers.authorization)) {
+    res.status(401).json({ error: "Credencial do agendador inv\xE1lida." });
+    return;
+  }
+  try {
+    res.json({ avancadas: await tickLongDocJobs(Math.max(3e4, platformBudgetMs() - 3e4)) });
+  } catch (err) {
+    fail2(req, res, err);
+  }
+});
+var analysisJobs_default = router7;
+
+// src/routes/index.ts
+var router8 = (0, import_express10.Router)();
+router8.use(health_default);
+router8.use(diag_default);
+router8.use(analysisJobs_default);
+router8.use(edital_default);
+router8.use(niasci_default);
+router8.use(lupa_default);
+router8.use(resources_default);
+var routes_default = router8;
 
 // src/lib/runtimeConfig.ts
 function getRateLimitConfig() {
@@ -164078,7 +165433,7 @@ function createAnonHourlyLimiter(max, message2) {
 }
 
 // src/app.ts
-var app = (0, import_express10.default)();
+var app = (0, import_express11.default)();
 app.set("trust proxy", Math.max(0, Math.min(5, Number(process.env.LUPA_TRUST_PROXY_HOPS ?? 1) || 0)));
 var ALLOWED_ORIGINS = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
 var corsDelegate = (req, callback) => {
@@ -164182,14 +165537,16 @@ if (process.env.LUPA_STORE !== "memory" && process.env.SUPABASE_URL && (process.
 }
 app.use((0, import_cors.default)(corsDelegate));
 app.use(defaultLimiter);
-app.use(import_express10.default.json({ limit: "10mb" }));
-app.use(import_express10.default.urlencoded({ extended: true, limit: "10mb" }));
+app.use(import_express11.default.json({ limit: "10mb" }));
+app.use(import_express11.default.urlencoded({ extended: true, limit: "10mb" }));
 app.use(supabaseAuthMiddleware());
 var aiCost = costGuard("ai");
 var ocrCost = costGuard("ocr");
 var onlyPost = (h) => (req, res, next2) => req.method === "POST" ? h(req, res, next2) : next2();
 app.use("/api/edital/ocr-pdf", anonOcrLimiter, ocrLimiter, onlyPost(ocrCost));
 app.use("/api/edital/analyze", anonAiLimiter, aiLimiter, onlyPost(aiCost));
+app.use(/^\/api\/edital\/jobs\/[^/]+\/advance$/, aiLimiter, onlyPost(aiCost));
+app.use("/api/cron/analysis-jobs", diagLimiter);
 app.use("/api/edital/simplify", anonAiLimiter, aiLimiter, onlyPost(aiCost));
 app.use("/api/edital/extract-url", anonOcrLimiter, aiLimiter, onlyPost(ocrCost));
 app.use("/api/niasci", anonAiLimiter, aiLimiter, onlyPost(aiCost));

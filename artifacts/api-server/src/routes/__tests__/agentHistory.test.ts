@@ -81,6 +81,23 @@ describe("histórico de análises", () => {
     expect(row.resultJson.processing).toEqual({ mode: "single", complete: true });
   });
 
+  it("análise pronta do servidor (com fatos e documento longo) é salva e reaberta SEM reconstrução", async () => {
+    const a = await tok("user-canon");
+    const resultJson = {
+      schemaVersion: "1.0.1",
+      analysisId: "analysis-x",
+      type: "documentacao",
+      interpretation: { deadlines: "Inscrições até 30/04/2027" },
+      base: { versao: 1, documento_hash: "h", datas: [] },
+      fatos: { versao: 1, prazo_inscricao: { iso: "2027-04-30", texto: "30/04/2027" }, conflitos: [], exigencias: [], campos: [], qualificadores_sem_respaldo: [] },
+      documento_longo: { versao: 1, cobertura: { total_partes: 90, partes_analisadas: 90, completa: true } },
+      processing: { mode: "durable", complete: true, totalChunks: 90 },
+    };
+    await call("POST", "/edital/agent-history", a, { agentId: "documentacao", title: "Longo", originalText: "EDITAL longo fictício. Inscrições até 30/04/2027.", resultJson });
+    const [row] = (await call("GET", "/edital/agent-history", a)).body;
+    expect(row.resultJson).toEqual(resultJson);
+  });
+
   it("favorito e exclusão só no próprio registro", async () => {
     const a = await tok("user-a");
     const b = await tok("user-b");

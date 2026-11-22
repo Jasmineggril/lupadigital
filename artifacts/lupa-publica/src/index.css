@@ -475,6 +475,39 @@
     transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out, opacity 150ms ease-out;
   }
 
+  /* Telas grandes (monitores amplos e TVs): tudo cresce na mesma proporção (o layout usa rem),
+     para o conteúdo não virar uma coluna pequena no meio da tela. */
+  @media (min-width: 1800px) { html { font-size: 112.5%; } }
+  @media (min-width: 2400px) { html { font-size: 125%; } }
+  @media (min-width: 3000px) { html { font-size: 150%; } }
+  @media (min-width: 3600px) { html { font-size: 175%; } }
+
+  /* Modo TV / videogame (lib/tv.ts): foco grande e sempre visível, margem contra o corte das
+     bordas da TV (overscan) e alvos maiores para o controle remoto. */
+  html.modo-tv :where(a, button, input, select, textarea, summary, [tabindex]):focus,
+  html.modo-tv :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    /* !important de propósito: no modo TV o foco precisa vencer estilos próprios de cada componente */
+    outline: 4px solid #0B6E78 !important;
+    outline-offset: 4px !important;
+    box-shadow: 0 0 0 8px rgba(255, 229, 138, 0.9) !important;
+    border-radius: 6px;
+  }
+  html.modo-tv body { padding: 2.5vh 2.5vw; }
+  html.modo-tv { scroll-padding-block: 20vh; }
+  html.modo-tv :where(button, a.inline-flex, [role="tab"], select, input:not([type="checkbox"]):not([type="radio"])) { min-height: 2.75rem; }
+  html.modo-tv :where(input[type="checkbox"], input[type="radio"]) { width: 1.4rem; height: 1.4rem; }
+
+  .tv-aviso {
+    position: fixed; left: 50%; bottom: 4vh; transform: translateX(-50%);
+    z-index: 100; max-width: min(90vw, 48rem);
+    padding: 0.875rem 1.25rem; border-radius: 0.75rem;
+    background: #10263D; color: #fff; font-size: 1.125rem; text-align: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    transition: opacity 300ms ease-out;
+  }
+  .tv-aviso[data-visivel="0"] { opacity: 0; pointer-events: none; }
+  .tv-aviso:empty { display: none; }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;

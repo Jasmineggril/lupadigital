@@ -46,6 +46,21 @@ Correções: `index.css` (remove a opacidade; o token `muted` volta a 5,5:1, com
 
 E2E anteriores: `/testar` a 390 px e fluxo docente a 390 px (menu acessível).
 
+## TV e videogame (22/11/2026)
+
+- **Telas grandes**: a partir de 1800 px de largura o site cresce na mesma proporção (fonte base 18 px; 20 px a partir de 2400; 24 px a partir de 3000; 28 px a partir de 3600), pois o layout usa `rem`. Na TV 4K o conteúdo ocupa mais da metade da largura, em vez de uma coluna pequena no meio.
+- **Modo TV** (`lib/tv.ts`): liga sozinho em navegadores de TV e console (Tizen, webOS, Android TV, Fire TV, Xbox, PlayStation, Nintendo…), ao conectar um controle de jogo, ou com `?modo=tv` (`?modo=padrao` desliga). Fora desses casos nada muda, e as setas continuam rolando a página no computador.
+  - **Setas / direcional**: movem o foco para o item mais próximo naquela direção. ←/→ ficam na mesma faixa. Sem item na direção, ↑/↓ rolam a página para ler o texto.
+  - **Escolher e voltar**: OK/Enter ou o botão **A** escolhe. **Voltar** do controle remoto (webOS 461, Tizen 10009) ou o botão **B** fecha o que estiver aberto ou volta à página anterior.
+  - **Rolagem**: o analógico direito rola a página. Segurar o direcional repete o movimento.
+  - **Campos de texto**: ←/→ movem o cursor e ↑/↓ saem do campo. Abas, menus e listas mantêm as próprias setas.
+  - **Foco**: grande (contorno de 4 px e halo amarelo), sempre centralizado na tela. Há margem contra o corte das bordas da TV (overscan) e alvos maiores.
+  - **Ajuda**: ao conectar o controle aparece "use o direcional para navegar, A para escolher e B para voltar" (também anunciado a leitores de tela).
+- **Testes** (emulação no Chromium):
+  - `e2e-tv.mjs` simula uma TV Samsung (Tizen) em Full HD e 4K e um Xbox em 720p com controle de jogo simulado: 7/7 jornadas e axe sem violações.
+  - `e2e-responsivo.mjs` passou a cobrir 18 tamanhos de tela, incluindo tablets de 820×1180 e 1280×800, console de 1280×720 e TVs de 1920×1080, 2560×1440 e 3840×2160.
+- **Não verificado**: TVs, Xbox, PlayStation e Switch reais. Os controles remotos variam por fabricante.
+
 ## Pendências (não verificadas)
 
 - Leitor de tela real (NVDA no Windows; TalkBack em Android físico).

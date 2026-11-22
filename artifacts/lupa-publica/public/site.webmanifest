@@ -1,0 +1,14 @@
+{
+  "name": "LUPA Digital",
+  "short_name": "LUPA",
+  "description": "Editais de pesquisa lidos com lupa — criado por Jasmine De Sá Araujo.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0B6E78",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/apple-touch-icon.png", "type": "image/png", "sizes": "180x180" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" }
+  ]
+}

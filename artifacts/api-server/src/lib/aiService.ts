@@ -2247,6 +2247,18 @@ export function buildCanonicalAnalysis(
  * Preprocessa valores de campos numéricos opcionais que a IA pode preencher
  * com strings como "Não informado" quando o dado não está disponível.
  */
+/** Texto opcional: a IA às vezes devolve null (ou número) quando o edital não informa — aceita e normaliza. */
+function optionalText(v: unknown) {
+  if (v === null || v === undefined) return undefined;
+  if (typeof v === "number") return String(v);
+  if (typeof v === "string" && v.trim() === "") return undefined;
+  return v;
+}
+/** Texto obrigatório que a IA pode devolver vazio (null): vira "" em vez de derrubar a análise inteira. */
+function textOrEmpty(v: unknown) {
+  return v === null || v === undefined ? "" : v;
+}
+
 function optionalInt(v: unknown) {
   if (v === "Não informado" || v === "Não especificado" || v === null || v === undefined) return undefined;
   const n = Number(v);
@@ -2263,10 +2275,10 @@ export const SimplesResponseSchema = z.object({
   prazo: z.string(),
   requisitos: z.array(z.string()),
   ondeInscrever: z.string(),
-  observacao: z.string(),
-  numero: z.string().optional(),
+  observacao: z.preprocess(textOrEmpty, z.string()),
+  numero: z.preprocess(optionalText, z.string().optional()),
   anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
-  fonte: z.string().optional(),
+  fonte: z.preprocess(optionalText, z.string().optional()),
   totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -2280,9 +2292,9 @@ export const AnalistaResponseSchema = z.object({
   requisitos: z.array(z.string()),
   documentos: z.array(z.string()),
   valor: z.string(),
-  numero: z.string().optional(),
+  numero: z.preprocess(optionalText, z.string().optional()),
   anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
-  fonte: z.string().optional(),
+  fonte: z.preprocess(optionalText, z.string().optional()),
   totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -2295,9 +2307,9 @@ export const EstrategicaResponseSchema = z.object({
   pontosAtencao: z.array(z.string()),
   riscos: z.array(z.string()),
   recomendacao: z.string(),
-  numero: z.string().optional(),
+  numero: z.preprocess(optionalText, z.string().optional()),
   anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
-  fonte: z.string().optional(),
+  fonte: z.preprocess(optionalText, z.string().optional()),
   totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -2312,10 +2324,10 @@ const TimelineItemSchema = z.object({
 export const AcompanhamentoResponseSchema = z.object({
   type: z.literal("acompanhamento"),
   timeline: z.array(TimelineItemSchema),
-  observacao: z.string(),
-  numero: z.string().optional(),
+  observacao: z.preprocess(textOrEmpty, z.string()),
+  numero: z.preprocess(optionalText, z.string().optional()),
   anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
-  fonte: z.string().optional(),
+  fonte: z.preprocess(optionalText, z.string().optional()),
   totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -2323,17 +2335,17 @@ export const AcompanhamentoResponseSchema = z.object({
 const ChecklistItemSchema = z.object({
   doc: z.string(),
   obrigatorio: z.boolean(),
-  observacao: z.string(),
+  observacao: z.preprocess(textOrEmpty, z.string()),
   checked: z.boolean().default(false),
 });
 
 export const DocumentacaoResponseSchema = z.object({
   type: z.literal("documentacao"),
   checklist: z.array(ChecklistItemSchema),
-  dica: z.string(),
-  numero: z.string().optional(),
+  dica: z.preprocess(textOrEmpty, z.string()),
+  numero: z.preprocess(optionalText, z.string().optional()),
   anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
-  fonte: z.string().optional(),
+  fonte: z.preprocess(optionalText, z.string().optional()),
   totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -2341,7 +2353,7 @@ export const DocumentacaoResponseSchema = z.object({
 const ElegibilidadeCriterioSchema = z.object({
   criterio: z.string(),
   atende: z.union([z.boolean(), z.literal("parcial"), z.null()]),
-  observacao: z.string(),
+  observacao: z.preprocess(textOrEmpty, z.string()),
 });
 
 export const ElegibilidadeResponseSchema = z.object({
@@ -2350,9 +2362,9 @@ export const ElegibilidadeResponseSchema = z.object({
   criterios: z.array(ElegibilidadeCriterioSchema),
   recomendacao: z.string(),
   proximosPassos: z.array(z.string()),
-  numero: z.string().optional(),
+  numero: z.preprocess(optionalText, z.string().optional()),
   anoPublicacao: z.preprocess(optionalInt, z.number().int().optional()),
-  fonte: z.string().optional(),
+  fonte: z.preprocess(optionalText, z.string().optional()),
   totalPaginas: z.preprocess(optionalInt, z.number().int().optional()),
   alertas: z.array(z.string()).optional().default([]),
 });
@@ -3089,9 +3101,9 @@ export async function analyzeAgent(
           step: "single_pass_validation_failed",
           agentId,
           schemaPreview,
-          rawPreview: raw.slice(0, 200),
+          rawLength: raw.length, // o texto da resposta NÃO vai para o log (pode citar o documento)
         }, "AI response validation failed");
-        const e = new Error(`AI response did not match expected schema: ${schemaPreview} | raw: ${raw.slice(0, 200)}`);
+        const e = new Error(`AI response did not match expected schema: ${schemaPreview}`);
         (e as any).requestId = requestId;
         (e as any).validation = validated.error.format();
         (e as any).raw = raw;

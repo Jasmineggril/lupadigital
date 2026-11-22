@@ -158130,6 +158130,15 @@ function buildCanonicalAnalysis(agentId, agentResult, originalText, profile) {
     agentResult
   };
 }
+function optionalText(v) {
+  if (v === null || v === void 0) return void 0;
+  if (typeof v === "number") return String(v);
+  if (typeof v === "string" && v.trim() === "") return void 0;
+  return v;
+}
+function textOrEmpty(v) {
+  return v === null || v === void 0 ? "" : v;
+}
 function optionalInt(v) {
   if (v === "N\xE3o informado" || v === "N\xE3o especificado" || v === null || v === void 0) return void 0;
   const n2 = Number(v);
@@ -158145,10 +158154,10 @@ var SimplesResponseSchema = external_exports.object({
   prazo: external_exports.string(),
   requisitos: external_exports.array(external_exports.string()),
   ondeInscrever: external_exports.string(),
-  observacao: external_exports.string(),
-  numero: external_exports.string().optional(),
+  observacao: external_exports.preprocess(textOrEmpty, external_exports.string()),
+  numero: external_exports.preprocess(optionalText, external_exports.string().optional()),
   anoPublicacao: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
-  fonte: external_exports.string().optional(),
+  fonte: external_exports.preprocess(optionalText, external_exports.string().optional()),
   totalPaginas: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
   alertas: external_exports.array(external_exports.string()).optional().default([])
 });
@@ -158161,9 +158170,9 @@ var AnalistaResponseSchema = external_exports.object({
   requisitos: external_exports.array(external_exports.string()),
   documentos: external_exports.array(external_exports.string()),
   valor: external_exports.string(),
-  numero: external_exports.string().optional(),
+  numero: external_exports.preprocess(optionalText, external_exports.string().optional()),
   anoPublicacao: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
-  fonte: external_exports.string().optional(),
+  fonte: external_exports.preprocess(optionalText, external_exports.string().optional()),
   totalPaginas: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
   alertas: external_exports.array(external_exports.string()).optional().default([])
 });
@@ -158175,9 +158184,9 @@ var EstrategicaResponseSchema = external_exports.object({
   pontosAtencao: external_exports.array(external_exports.string()),
   riscos: external_exports.array(external_exports.string()),
   recomendacao: external_exports.string(),
-  numero: external_exports.string().optional(),
+  numero: external_exports.preprocess(optionalText, external_exports.string().optional()),
   anoPublicacao: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
-  fonte: external_exports.string().optional(),
+  fonte: external_exports.preprocess(optionalText, external_exports.string().optional()),
   totalPaginas: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
   alertas: external_exports.array(external_exports.string()).optional().default([])
 });
@@ -158190,33 +158199,33 @@ var TimelineItemSchema = external_exports.object({
 var AcompanhamentoResponseSchema = external_exports.object({
   type: external_exports.literal("acompanhamento"),
   timeline: external_exports.array(TimelineItemSchema),
-  observacao: external_exports.string(),
-  numero: external_exports.string().optional(),
+  observacao: external_exports.preprocess(textOrEmpty, external_exports.string()),
+  numero: external_exports.preprocess(optionalText, external_exports.string().optional()),
   anoPublicacao: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
-  fonte: external_exports.string().optional(),
+  fonte: external_exports.preprocess(optionalText, external_exports.string().optional()),
   totalPaginas: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
   alertas: external_exports.array(external_exports.string()).optional().default([])
 });
 var ChecklistItemSchema = external_exports.object({
   doc: external_exports.string(),
   obrigatorio: external_exports.boolean(),
-  observacao: external_exports.string(),
+  observacao: external_exports.preprocess(textOrEmpty, external_exports.string()),
   checked: external_exports.boolean().default(false)
 });
 var DocumentacaoResponseSchema = external_exports.object({
   type: external_exports.literal("documentacao"),
   checklist: external_exports.array(ChecklistItemSchema),
-  dica: external_exports.string(),
-  numero: external_exports.string().optional(),
+  dica: external_exports.preprocess(textOrEmpty, external_exports.string()),
+  numero: external_exports.preprocess(optionalText, external_exports.string().optional()),
   anoPublicacao: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
-  fonte: external_exports.string().optional(),
+  fonte: external_exports.preprocess(optionalText, external_exports.string().optional()),
   totalPaginas: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
   alertas: external_exports.array(external_exports.string()).optional().default([])
 });
 var ElegibilidadeCriterioSchema = external_exports.object({
   criterio: external_exports.string(),
   atende: external_exports.union([external_exports.boolean(), external_exports.literal("parcial"), external_exports.null()]),
-  observacao: external_exports.string()
+  observacao: external_exports.preprocess(textOrEmpty, external_exports.string())
 });
 var ElegibilidadeResponseSchema = external_exports.object({
   type: external_exports.literal("elegibilidade"),
@@ -158224,9 +158233,9 @@ var ElegibilidadeResponseSchema = external_exports.object({
   criterios: external_exports.array(ElegibilidadeCriterioSchema),
   recomendacao: external_exports.string(),
   proximosPassos: external_exports.array(external_exports.string()),
-  numero: external_exports.string().optional(),
+  numero: external_exports.preprocess(optionalText, external_exports.string().optional()),
   anoPublicacao: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
-  fonte: external_exports.string().optional(),
+  fonte: external_exports.preprocess(optionalText, external_exports.string().optional()),
   totalPaginas: external_exports.preprocess(optionalInt, external_exports.number().int().optional()),
   alertas: external_exports.array(external_exports.string()).optional().default([])
 });
@@ -158771,9 +158780,10 @@ async function analyzeAgent(agentId, text4, profile, opts) {
           step: "single_pass_validation_failed",
           agentId,
           schemaPreview,
-          rawPreview: raw.slice(0, 200)
+          rawLength: raw.length
+          // o texto da resposta NÃO vai para o log (pode citar o documento)
         }, "AI response validation failed");
-        const e = new Error(`AI response did not match expected schema: ${schemaPreview} | raw: ${raw.slice(0, 200)}`);
+        const e = new Error(`AI response did not match expected schema: ${schemaPreview}`);
         e.requestId = requestId;
         e.validation = validated.error.format();
         e.raw = raw;

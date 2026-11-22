@@ -172,7 +172,7 @@ Outros resultados:
 
 | Item | Evidência verificada | Situação |
 |---|---|---|
-| Correções anteriores (SSRF com DNS rebinding, PDF isolado, limites compartilhados, telemetria, RLS) | 536 testes da API passando, inclusive SSRF com resolução controlada e servidor local | ✅ preservadas |
+| Correções anteriores (SSRF com DNS rebinding, PDF isolado, limites compartilhados, telemetria, RLS) | 538 testes da API passando, inclusive SSRF com resolução controlada e servidor local | ✅ preservadas |
 | Dependências | `pnpm audit --prod`: 0. Ferramentas de desenvolvimento: 2 moderadas, com exceção justificada | ✅ |
 | RLS | 0 tabelas públicas sem RLS (produção, leitura) | ✅ |
 | Migrações | 15 no repositório = 15 aplicadas (mesmas versões) | ✅ |
@@ -190,7 +190,7 @@ Isto **não** declara conformidade integral com a LGPD nem segurança absoluta.
 |---|---|
 | `pnpm install --frozen-lockfile` | ok, lockfile atualizado só com vitest no frontend |
 | `pnpm -r typecheck` | ok |
-| API (vitest) | 41 arquivos, 536 testes passando, 5 ignorados (dependem de Postgres externo) |
+| API (vitest) | 41 arquivos, 538 testes passando, 5 ignorados (dependem de Postgres externo) |
 | Frontend (vitest; antes não rodava em lugar nenhum, agora roda no CI) | 11 testes passando |
 | Build de produção | ok |
 | E2E `e2e-testar` | 17/17 |

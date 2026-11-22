@@ -25,6 +25,7 @@
  */
 
 import { buildDocumentBase, normalizeEligibilityCriteria, verifyAgainstText } from "../lib/documentBase";
+import { applyAnalysisFacts, factIssues } from "../lib/analysisFacts";
 import { getStore } from "../lib/lupa/store";
 import { Router, type IRouter } from "express";
 import * as cheerio from "cheerio";
@@ -80,51 +81,8 @@ function cleanEditalText(raw: string): string {
 /** Limite de texto por análise (≈ 150 páginas de edital). */
 export const MAX_ANALYZE_CHARS = 450_000;
 
-/**
- * Acrescenta à resposta da IA a base documental comum (igual para todos os agentes),
- * a verificação de datas/valores contra o texto e a elegibilidade em 3 estados.
- * Nunca altera o objeto em cache (trabalha numa cópia).
- */
-/**
- * Metadados do documento só com o que o TEXTO sustenta (achado em produção, 21/11/2026: a IA
- * devolveu "anoPublicacao: 2024" e "totalPaginas: 45" para um texto colado de 3 linhas, sem ano
- * de publicação nem paginação). Ano só fica se aparecer no texto; número de páginas nunca vem da
- * IA (com texto colado ela não tem como saber).
- */
-export function groundDocumentMeta<T extends Record<string, unknown>>(out: T, text: string): T {
-  const fix = (doc: unknown) => {
-    if (!doc || typeof doc !== "object") return doc;
-    const d = { ...(doc as Record<string, unknown>) };
-    if (typeof d.anoPublicacao === "number" && !new RegExp(`\\b${d.anoPublicacao}\\b`).test(text)) delete d.anoPublicacao;
-    delete d.totalPaginas;
-    return d;
-  };
-  const o = out as Record<string, unknown>;
-  if (o.documento) o.documento = fix(o.documento);
-  const agent = o.agentResult as Record<string, unknown> | undefined;
-  if (agent?.documento) o.agentResult = { ...agent, documento: fix(agent.documento) };
-  if (typeof o.anoPublicacao === "number" && !new RegExp(`\\b${o.anoPublicacao}\\b`).test(text)) delete o.anoPublicacao;
-  delete o.totalPaginas;
-  return out;
-}
-
-async function withDocumentBase(result: unknown, text: string, userId: string | null) {
-  const out = groundDocumentMeta({ ...(result as Record<string, unknown>) }, text);
-  let teacher = null;
-  if (userId) {
-    try {
-      teacher = await getStore().getProfile(userId);
-    } catch {
-      teacher = null; // sem perfil docente (ou banco indisponível): elegibilidade fica sem comparação
-    }
-  }
-  out.base = buildDocumentBase(text, teacher);
-  out.verificacao = verifyAgainstText(result, text);
-  if (Array.isArray(out.criterios)) out.criterios = normalizeEligibilityCriteria(out.criterios);
-  const agent = out.agentResult as Record<string, unknown> | undefined;
-  if (agent && Array.isArray(agent.criterios)) out.agentResult = { ...agent, criterios: normalizeEligibilityCriteria(agent.criterios) };
-  return out;
-}
+export { groundDocumentMeta, withDocumentBase } from "../lib/analysisEnrich";
+import { withDocumentBase } from "../lib/analysisEnrich";
 
 router.post("/edital/analyze", async (req, res): Promise<void> => {
   const parsed = AgentAnalyzeBodySchema.safeParse(req.body);
@@ -135,8 +93,10 @@ router.post("/edital/analyze", async (req, res): Promise<void> => {
 
   const { agentId, text, profile } = parsed.data;
   if (text.length > MAX_ANALYZE_CHARS) {
+    // Documento longo: não pede para escolher trechos — indica a análise completa em segundo plano
     res.status(413).json({
-      error: `O texto tem ${text.length.toLocaleString("pt-BR")} caracteres; o limite é ${MAX_ANALYZE_CHARS.toLocaleString("pt-BR")} (cerca de 150 páginas). Envie só as partes do edital que interessam.`,
+      error: `O texto tem ${text.length.toLocaleString("pt-BR")} caracteres: acima do que cabe numa única requisição (${MAX_ANALYZE_CHARS.toLocaleString("pt-BR")}). Ele será lido por inteiro na análise em segundo plano.`,
+      code: "USAR_ANALISE_LONGA",
     });
     return;
   }
@@ -211,7 +171,12 @@ router.post("/edital/agent-history", async (req, res): Promise<void> => {
     // canônica e a incorporamos ao JSON salvo. Isso garante que todas as
     // áreas da interface possam consumir a mesma fonte de verdade sem mudar
     // o schema do banco (usar `result_json` existente).
-    if (payload.resultJson && typeof payload.resultJson === "object") {
+    const rj = payload.resultJson as Record<string, unknown> | undefined;
+    // Análise que JÁ veio pronta do servidor (canônica, com base documental e fatos conferidos):
+    // é salva como está. Reconstruí-la aqui descartava `fatos` e `documento_longo`, e a análise
+    // reaberta da conta deixava de mostrar o mesmo prazo e as mesmas exigências conferidas.
+    const alreadyCanonical = Boolean(rj && typeof rj === "object" && rj.schemaVersion && rj.interpretation && (rj.base || rj.fatos));
+    if (payload.resultJson && typeof payload.resultJson === "object" && !alreadyCanonical) {
       try {
         const originalAgentResult = payload.resultJson as Record<string, unknown>;
         const canonical = buildCanonicalAnalysis(payload.agentId, originalAgentResult, payload.originalText || "", undefined as any);
@@ -237,7 +202,7 @@ router.post("/edital/agent-history", async (req, res): Promise<void> => {
         // Campos do servidor exibidos na tela (base documental, verificação, estado do
         // processamento) são preservados como estavam: reabrir mostra o mesmo resultado.
         const keep: Record<string, unknown> = {};
-        for (const k of ["base", "verificacao", "processing", "source", "analysisId", "schemaVersion"]) {
+        for (const k of ["base", "verificacao", "fatos", "documento_longo", "processing", "source", "analysisId", "schemaVersion"]) {
           if (originalAgentResult[k] !== undefined) keep[k] = originalAgentResult[k];
         }
         payload.resultJson = { ...canonical, ...keep, agentResult: originalAgentResult } as any;

@@ -210,6 +210,9 @@ const ocrCost = costGuard("ocr");
 const onlyPost = (h: express.RequestHandler): express.RequestHandler => (req, res, next) => (req.method === "POST" ? h(req, res, next) : next());
 app.use("/api/edital/ocr-pdf", anonOcrLimiter, ocrLimiter, onlyPost(ocrCost));
 app.use("/api/edital/analyze", anonAiLimiter, aiLimiter, onlyPost(aiCost));
+// Documentos longos: cada "avançar" lê várias partes com IA → mesma cota compartilhada de IA
+app.use(/^\/api\/edital\/jobs\/[^/]+\/advance$/, aiLimiter, onlyPost(aiCost));
+app.use("/api/cron/analysis-jobs", diagLimiter);
 app.use("/api/edital/simplify", anonAiLimiter, aiLimiter, onlyPost(aiCost));
 app.use("/api/edital/extract-url", anonOcrLimiter, aiLimiter, onlyPost(ocrCost));
 app.use("/api/niasci", anonAiLimiter, aiLimiter, onlyPost(aiCost)); // todas as sub-rotas do NIASci usam IA

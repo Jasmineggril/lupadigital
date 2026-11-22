@@ -88,10 +88,21 @@ const STATE_MAP: Record<EligibilityState, BaseEligibilityItem["estado"]> = {
   pendente_comprovacao: "pendente",
 };
 
+/**
+ * Quantos trechos guardar por campo, conforme o tamanho do documento. Editais curtos mantêm as
+ * listas de antes; num documento de 1 milhão de caracteres, os trechos do fim também entram
+ * (antes, as listas paravam nos primeiros 6 itens e nas primeiras 16/30 datas).
+ */
+export function fieldLimitsFor(text: string) {
+  const scale = Math.ceil(text.length / 20_000);
+  return { perField: Math.min(60, Math.max(6, scale)), dates: 2_000, baseDates: Math.min(400, Math.max(30, scale * 4)), docs: Math.min(200, Math.max(30, scale * 2)), clauses: Math.min(60, Math.max(10, scale)) };
+}
+
 export function buildDocumentBase(text: string, teacher?: TeacherProfile | null): DocumentBase {
   const firstLine = text.split(/\n/).map((l) => l.trim()).find(Boolean) ?? "";
   const page: ParsedPage = { url: "", title: firstLine.slice(0, 200), text, links: [] };
-  const { fields, missing } = extractFields(page);
+  const lim = fieldLimitsFor(text);
+  const { fields, missing } = extractFields(page, { perField: lim.perField, dates: lim.dates });
   const items = (list?: Array<{ value: string; evidence: string }>) => (list ?? []).map((e) => ({ texto: e.value, evidencia: e.evidence }));
 
   const requirementTexts = dedupe([...(fields.elegibilidade ?? []), ...(fields.requisitos ?? [])]);
@@ -134,12 +145,12 @@ export function buildDocumentBase(text: string, teacher?: TeacherProfile | null)
     documento_hash: documentHash(text),
     caracteres: text.length,
     objeto: fields.objeto ? { texto: fields.objeto.value, evidencia: fields.objeto.evidence } : null,
-    datas: extractDates(text),
+    datas: extractDates(text, lim.baseDates),
     valores: items(fields.valores),
-    documentos: extractDocuments(text, items(fields.documentos)),
+    documentos: extractDocuments(text, items(fields.documentos), lim.docs),
     requisitos: items(requirementTexts),
     restricoes: items(fields.restricoes),
-    criterios: extractClauses(text, /crit[ée]rios?\s+(de\s+)?(avalia|julgamento|sele|classifica)|crit[ée]rios?:|\bpeso\s+\d|\bpontua[çc][ãa]o\b|\bnota\s+m[íi]nima/i),
+    criterios: extractClauses(text, /crit[ée]rios?\s+(de\s+)?(avalia|julgamento|sele|classifica)|crit[ée]rios?:|\bpeso\s+\d|\bpontua[çc][ãa]o\b|\bnota\s+m[íi]nima/i, lim.clauses),
     canal_inscricao: items(fields.canal_inscricao),
     ausentes: missing.map((k) => FIELD_LABEL[k] ?? k),
     elegibilidade_perfil,
@@ -188,7 +199,7 @@ function toIso(d: string, m: string, y: string): string | null {
  * (não em ":"), para que "Publicação do edital: 05/01/2027" mantenha o rótulo.
  * Intervalos ("de 10/01 a 28/02/2027") usam a última data como limite.
  */
-export function extractDates(text: string): BaseDate[] {
+export function extractDates(text: string, max = 30): BaseDate[] {
   const out: BaseDate[] = [];
   const clauses = text
     .split(/\n+/)
@@ -205,7 +216,7 @@ export function extractDates(text: string): BaseDate[] {
     const before = c.slice(0, Math.max(c.search(/\d{1,2}(\/|\s+de\s+)/), 0)) || c;
     const label = DATE_LABELS.find(([re]) => re.test(before))?.[1] ?? DATE_LABELS.find(([re]) => re.test(c))?.[1] ?? "data";
     out.push({ rotulo: label, iso: isos[isos.length - 1], texto: c, evidencia: c });
-    if (out.length >= 30) break;
+    if (out.length >= max) break;
   }
   return out.sort((a, b) => (a.iso ?? "").localeCompare(b.iso ?? ""));
 }
@@ -237,7 +248,7 @@ export function extractClauses(text: string, re: RegExp, limit = 10): BaseItem[]
  * Documentos exigidos: itens que nomeiam um tipo de documento. Cada oração vira um
  * item, com o trecho como evidência. Une com o que o extrator do coletor achou.
  */
-export function extractDocuments(text: string, fromCollector: BaseItem[] = []): BaseItem[] {
+export function extractDocuments(text: string, fromCollector: BaseItem[] = [], max = 30): BaseItem[] {
   const out: BaseItem[] = [];
   const seen = new Set<string>();
   const clauses = text
@@ -251,7 +262,7 @@ export function extractDocuments(text: string, fromCollector: BaseItem[] = []): 
     if (/resultado|ser[áa]\s+publicad|divulgad/i.test(c) && !/deve|dever[áa]|exig|apresentar|anexar|enviar|entregar|^\d/i.test(c)) continue;
     seen.add(c);
     out.push({ texto: c.replace(/^\d+(\.\d+)*\s*/, ""), evidencia: c });
-    if (out.length >= 30) break;
+    if (out.length >= max) break;
   }
   return out;
 }

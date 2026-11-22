@@ -12,7 +12,7 @@
 
 import { AlertTriangle, CheckCircle2, CircleHelp, Loader2, XCircle } from "lucide-react";
 import type { DocumentBase, TimelineStep } from "@/lib/analysisViewModel";
-import { formatIsoDate } from "@/lib/analysisViewModel";
+import { resolveAnalysisFacts } from "@/lib/analysisViewModel";
 
 export type RealStage = "aguardando" | "extraindo" | "analisando" | "concluido" | "parcial" | "falha";
 
@@ -20,6 +20,7 @@ export interface AnalysisLike {
   processing?: { mode?: string; complete?: boolean; failedChunks?: number; totalChunks?: number; reason?: string; userMessage?: string; retryable?: boolean };
   base?: DocumentBase;
   verificacao?: Array<{ tipo: string; valor: string; mensagem: string }>;
+  fatos?: unknown;
   interpretation?: { summary?: string; objective?: string; deadlines?: string };
   criterios?: Array<{ criterio?: string; estado?: string; atende?: boolean | null }>;
   alertas?: Array<string | { descricao?: string }>;
@@ -106,7 +107,7 @@ export function ResultValidity({ analysis }: { analysis: AnalysisLike | null }) 
           <p className="font-semibold text-amber-900">Conferir no documento ({issues.length})</p>
           <ul className="mt-1 list-disc space-y-0.5 pl-5">
             {issues.map((i) => (
-              <li key={i.valor}>{i.mensagem}</li>
+              <li key={`${i.tipo}:${i.valor}`}>{i.mensagem}</li>
             ))}
           </ul>
         </div>
@@ -132,7 +133,9 @@ export function QuickViewContent({ analysis, agentName, timeline, checklistCount
     return <p className="text-sm text-slate-600">Ainda não há análise. Envie um documento e clique em Analisar documento.</p>;
   }
   const b = analysis.base;
-  const deadline = [...(b?.datas ?? [])].filter((d) => d.rotulo === "inscrições" && d.iso).pop() ?? null;
+  // Mesmo resolvedor do chat, do FAQ, do cronograma e da exportação
+  const facts = resolveAnalysisFacts(analysis as never);
+  const deadline = facts.deadline;
   const criteria = analysis.criterios ?? [];
   const elig = b?.elegibilidade_perfil;
   const count = (list: Array<{ estado?: string }>, e: string) => list.filter((x) => x.estado === e).length;
@@ -143,19 +146,35 @@ export function QuickViewContent({ analysis, agentName, timeline, checklistCount
         <Row label="Agente">{agentName}</Row>
         <Row label="Objeto">{b?.objeto?.texto ?? analysis.interpretation?.objective ?? <Missing />}</Row>
         <Row label="Inscrições até">
-          {deadline ? (
-            <span className="font-mono tabular">{formatIsoDate(deadline.iso)}</span>
-          ) : analysis.interpretation?.deadlines ? (
+          {deadline?.source === "documento" ? (
+            <span className="font-mono tabular" data-testid="visao-prazo">{deadline.text}</span>
+          ) : deadline ? (
             <>
-              {analysis.interpretation.deadlines} <span className="text-xs text-slate-600">(segundo a IA; data não localizada no texto)</span>
+              <span data-testid="visao-prazo">{deadline.text}</span> <span className="text-xs text-slate-600">(segundo a IA; data não localizada no texto)</span>
             </>
           ) : (
             <Missing />
           )}
+          {facts.conflicts.map((c) => (
+            <p key={c} role="note" className="mt-1 text-xs text-amber-900" data-testid="visao-conflito">{c}</p>
+          ))}
         </Row>
         <Row label="Valores">{b?.valores?.length ? b.valores[0].texto : <Missing />}</Row>
         <Row label="Datas">{timeline.length ? `${timeline.length} etapa(s) com data` : <Missing />}</Row>
-        <Row label="Documentos">{checklistCount ? `${checklistCount} documento(s) exigido(s)` : <Missing />}</Row>
+        <Row label="Documentos">
+          {checklistCount ? `${checklistCount} documento(s) listado(s)` : <Missing />}
+          {(() => {
+            const unknown = facts.documents.filter((d) => d.origin === "desconhecido").length;
+            const unconfirmed = facts.documents.filter((d) => d.unconfirmed?.length).length;
+            return unknown || unconfirmed ? (
+              <span className="block text-xs text-amber-900">
+                {unknown ? `${unknown} sem trecho no edital` : ""}
+                {unknown && unconfirmed ? "; " : ""}
+                {unconfirmed ? `${unconfirmed} com detalhes que o edital não menciona` : ""} — confira na aba Checklist.
+              </span>
+            ) : null;
+          })()}
+        </Row>
         <Row label="Elegibilidade">
           {elig && elig.length ? (
             `Com o seu perfil docente: ${count(elig, "atendido")} atendido(s), ${count(elig, "nao_atendido")} não atendido(s), ${count(elig, "pendente")} pendente(s)`
@@ -165,7 +184,31 @@ export function QuickViewContent({ analysis, agentName, timeline, checklistCount
             <span className="text-slate-600">use o agente Lupa Elegibilidade ou entre com seu perfil docente</span>
           )}
         </Row>
-        {b?.ausentes?.length ? <Row label="Não encontrado">{b.ausentes.join(", ")}</Row> : null}
+        {facts.missing.some((m) => m.state === "parcial") ? (
+          <Row label="Parcial">
+            <ul className="space-y-0.5" data-testid="visao-parciais">
+              {facts.missing.filter((m) => m.state === "parcial").map((m) => (
+                <li key={m.label}>
+                  {m.label}
+                  <span className="block text-xs text-slate-600">{m.note}</span>
+                </li>
+              ))}
+            </ul>
+          </Row>
+        ) : null}
+        {facts.missing.some((m) => m.state !== "parcial") ? (
+          <Row label="Não localizado">
+            <ul className="space-y-0.5" data-testid="visao-ausentes">
+              {facts.missing.filter((m) => m.state !== "parcial").map((m) => (
+                <li key={m.label}>
+                  {m.label}
+                  <span className="text-xs text-slate-600"> — {m.state === "incerto" ? "só a IA indicou, sem trecho no texto" : "não localizado automaticamente"}</span>
+                </li>
+              ))}
+            </ul>
+            <span className="mt-1 block text-xs text-slate-600">Não localizar não significa que o edital não trate do assunto: confira o documento completo.</span>
+          </Row>
+        ) : null}
       </dl>
     </div>
   );

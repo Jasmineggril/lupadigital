@@ -32,7 +32,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { extractTextFromPdf } from "@/lib/pdf";
+// Leitor de PDF carregado só quando um arquivo é enviado
+const extractTextFromPdf = async (...args: Parameters<(typeof import("@/lib/pdf"))["extractTextFromPdf"]>) => (await import("@/lib/pdf")).extractTextFromPdf(...args);
 import {
   saveArticleAnalysis,
   listArticleAnalyses,

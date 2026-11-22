@@ -1,0 +1,314 @@
+{
+  "text": "EDITAL Nº 07/2026 — PROGRAMA DE BOLSAS DE INICIAÇÃO CIENTÍFICA (TEXTO FICTÍCIO DE TESTE)\n1. Objeto: seleção de estudantes de graduação para bolsas de iniciação científica.\n2. Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição.\n3. Requisitos: estar regularmente matriculado em curso de graduação.\n4. Documentos: comprovante de matrícula e proposta de até 3 páginas.\n5. Valor da bolsa: R$ 700,00 mensais.\n6. Resultado: divulgado em 15/01/2027.",
+  "response": {
+    "analysisId": "analysis-a40e46a6-9d00-4dcf-b4c1-ad44d04370fb",
+    "schemaVersion": "1.0.1",
+    "processing": {
+      "mode": "single",
+      "totalChunks": 1,
+      "processedChunks": 1,
+      "failedChunks": 0,
+      "complete": true
+    },
+    "source": {
+      "agentId": "documentacao",
+      "generatedAt": "2026-11-22T02:26:35.089Z",
+      "textLength": 471,
+      "documentHash": "41ad9fb283205f17bc08a1de0ca21f1f0ce7ff6b5fe750d3457e8fecdeb08da1"
+    },
+    "documento": {},
+    "interpretation": {
+      "summary": "Interpretação consolidada do edital.",
+      "objective": "Objeto: seleção de estudantes de graduação para bolsas de iniciação científica.",
+      "targetAudience": "Conforme o edital: Requisitos: estar regularmente matriculado em curso de graduação.",
+      "deadlines": "Inscrições até 20/12/2026",
+      "registrationLocation": "Conforme o edital: Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição.",
+      "requirements": [],
+      "simpleLanguage": "Separe os documentos com antecedência.",
+      "deadlines_ia": "Prazo não informado.",
+      "deadlines_origem": "documento",
+      "objective_ia": "Objetivo não explicitado no documento.",
+      "objective_origem": "documento",
+      "registrationLocation_ia": "Local de inscrição não informado.",
+      "registrationLocation_origem": "documento",
+      "targetAudience_ia": "Público-alvo conforme o edital.",
+      "targetAudience_origem": "documento"
+    },
+    "cronograma": {
+      "items": []
+    },
+    "checklist": {
+      "items": [
+        {
+          "doc": "Comprovante de matrícula",
+          "obrigatorio": true,
+          "observacao": "",
+          "checked": false,
+          "doc_ia": "Comprovante de matrícula com foto e assinatura",
+          "origem": "edital",
+          "evidencia": "4. Documentos: comprovante de matrícula e proposta de até 3 páginas.",
+          "condicao": "listado",
+          "nao_confirmado": [
+            "foto",
+            "assinatura"
+          ],
+          "conferir": true,
+          "motivo": "O edital não menciona: foto, assinatura. Isso não é exigência confirmada; confira no documento oficial."
+        },
+        {
+          "doc": "Proposta de até 3 páginas",
+          "obrigatorio": true,
+          "observacao": "",
+          "checked": false,
+          "doc_ia": "Proposta (até 3 páginas)",
+          "origem": "edital",
+          "evidencia": "4. Documentos: comprovante de matrícula e proposta de até 3 páginas.",
+          "condicao": "listado",
+          "nao_confirmado": [],
+          "conferir": false,
+          "motivo": null
+        }
+      ],
+      "summary": "Separe os documentos com antecedência."
+    },
+    "elegibilidade": {
+      "criteria": []
+    },
+    "valores": {},
+    "documentosExigidos": {
+      "items": [
+        "Comprovante de matrícula",
+        "Proposta (até 3 páginas)"
+      ],
+      "summary": "Checklist de documentos listado na interpretação."
+    },
+    "evidencias": [],
+    "alertas": [],
+    "agentResult": {
+      "type": "documentacao",
+      "checklist": [
+        {
+          "doc": "Comprovante de matrícula",
+          "obrigatorio": true,
+          "observacao": "",
+          "checked": false,
+          "doc_ia": "Comprovante de matrícula com foto e assinatura",
+          "origem": "edital",
+          "evidencia": "4. Documentos: comprovante de matrícula e proposta de até 3 páginas.",
+          "condicao": "listado",
+          "nao_confirmado": [
+            "foto",
+            "assinatura"
+          ],
+          "conferir": true,
+          "motivo": "O edital não menciona: foto, assinatura. Isso não é exigência confirmada; confira no documento oficial."
+        },
+        {
+          "doc": "Proposta de até 3 páginas",
+          "obrigatorio": true,
+          "observacao": "",
+          "checked": false,
+          "doc_ia": "Proposta (até 3 páginas)",
+          "origem": "edital",
+          "evidencia": "4. Documentos: comprovante de matrícula e proposta de até 3 páginas.",
+          "condicao": "listado",
+          "nao_confirmado": [],
+          "conferir": false,
+          "motivo": null
+        }
+      ],
+      "dica": "Separe os documentos com antecedência.",
+      "alertas": []
+    },
+    "type": "documentacao",
+    "dica": "Separe os documentos com antecedência.",
+    "fatos": {
+      "versao": 1,
+      "documento_hash": "41ad9fb283205f17bc08a1de0ca21f1f0ce7ff6b5fe750d3457e8fecdeb08da1",
+      "prazo_inscricao": {
+        "iso": "2026-12-20",
+        "hora": null,
+        "fuso": null,
+        "texto": "20/12/2026",
+        "evidencia": "Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição.",
+        "prorrogado": false,
+        "fases": [
+          "2026-12-20"
+        ],
+        "situacao": "aberta",
+        "origem": "edital"
+      },
+      "prazo_ia": "Prazo não informado.",
+      "conflitos": [],
+      "exigencias": [
+        {
+          "texto": "Comprovante de matrícula",
+          "texto_ia": "Comprovante de matrícula com foto e assinatura",
+          "origem": "edital",
+          "evidencia": "4. Documentos: comprovante de matrícula e proposta de até 3 páginas.",
+          "nao_confirmado": [
+            "foto",
+            "assinatura"
+          ],
+          "condicao": "listado",
+          "conferir": true,
+          "motivo": "O edital não menciona: foto, assinatura. Isso não é exigência confirmada; confira no documento oficial."
+        },
+        {
+          "texto": "Proposta de até 3 páginas",
+          "texto_ia": "Proposta (até 3 páginas)",
+          "origem": "edital",
+          "evidencia": "4. Documentos: comprovante de matrícula e proposta de até 3 páginas.",
+          "nao_confirmado": [],
+          "condicao": "listado",
+          "conferir": false,
+          "motivo": null
+        }
+      ],
+      "campos": [
+        {
+          "campo": "objeto",
+          "rotulo": "objeto",
+          "estado": "encontrado",
+          "fonte": "documento",
+          "evidencia": "Objeto: seleção de estudantes de graduação para bolsas de iniciação científica.",
+          "observacao": "Localizado no texto do documento."
+        },
+        {
+          "campo": "areas",
+          "rotulo": "áreas",
+          "estado": "nao_localizado",
+          "fonte": "nenhuma",
+          "evidencia": null,
+          "observacao": "Não localizado automaticamente no texto. Isso não significa que o edital não trate do assunto: confira o documento completo."
+        },
+        {
+          "campo": "elegibilidade",
+          "rotulo": "público elegível",
+          "estado": "parcial",
+          "fonte": "documento",
+          "evidencia": "Requisitos: estar regularmente matriculado em curso de graduação.",
+          "observacao": "O texto traz requisitos de participação, mas não uma descrição separada de quem pode participar."
+        },
+        {
+          "campo": "requisitos",
+          "rotulo": "requisitos",
+          "estado": "encontrado",
+          "fonte": "documento",
+          "evidencia": "Requisitos: estar regularmente matriculado em curso de graduação.",
+          "observacao": "Localizado no texto do documento."
+        },
+        {
+          "campo": "valores",
+          "rotulo": "valores",
+          "estado": "encontrado",
+          "fonte": "documento",
+          "evidencia": "R$ 700,00 mensais.",
+          "observacao": "Localizado no texto do documento."
+        },
+        {
+          "campo": "documentos",
+          "rotulo": "documentos exigidos",
+          "estado": "parcial",
+          "fonte": "documento",
+          "evidencia": "Documentos: comprovante de matrícula e proposta de até 3 páginas.",
+          "observacao": "Há documentos no texto, mas parte da lista da IA não tem trecho correspondente ou traz detalhes que o edital não menciona."
+        },
+        {
+          "campo": "datas",
+          "rotulo": "datas e prazos",
+          "estado": "encontrado",
+          "fonte": "documento",
+          "evidencia": "Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição.",
+          "observacao": "Localizado no texto do documento."
+        },
+        {
+          "campo": "criterios_avaliacao",
+          "rotulo": "critérios de avaliação",
+          "estado": "nao_localizado",
+          "fonte": "nenhuma",
+          "evidencia": null,
+          "observacao": "Não localizado automaticamente no texto. Isso não significa que o edital não trate do assunto: confira o documento completo."
+        },
+        {
+          "campo": "canal_inscricao",
+          "rotulo": "canal de inscrição",
+          "estado": "encontrado",
+          "fonte": "documento",
+          "evidencia": "Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição.",
+          "observacao": "Localizado no texto do documento."
+        }
+      ],
+      "qualificadores_sem_respaldo": [
+        "foto",
+        "assinatura"
+      ]
+    },
+    "base": {
+      "versao": 1,
+      "documento_hash": "41ad9fb283205f17bc08a1de0ca21f1f0ce7ff6b5fe750d3457e8fecdeb08da1",
+      "caracteres": 471,
+      "objeto": {
+        "texto": "Objeto: seleção de estudantes de graduação para bolsas de iniciação científica.",
+        "evidencia": "Objeto: seleção de estudantes de graduação para bolsas de iniciação científica."
+      },
+      "datas": [
+        {
+          "rotulo": "inscrições",
+          "iso": "2026-12-20",
+          "texto": "Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição.",
+          "evidencia": "Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição."
+        },
+        {
+          "rotulo": "resultado",
+          "iso": "2027-01-15",
+          "texto": "Resultado: divulgado em 15/01/2027.",
+          "evidencia": "Resultado: divulgado em 15/01/2027."
+        }
+      ],
+      "valores": [
+        {
+          "texto": "R$ 700,00 mensais.",
+          "evidencia": "R$ 700,00 mensais."
+        }
+      ],
+      "documentos": [
+        {
+          "texto": "Documentos: comprovante de matrícula e proposta de até 3 páginas.",
+          "evidencia": "Documentos: comprovante de matrícula e proposta de até 3 páginas."
+        }
+      ],
+      "requisitos": [
+        {
+          "texto": "Requisitos: estar regularmente matriculado em curso de graduação.",
+          "evidencia": "Requisitos: estar regularmente matriculado em curso de graduação."
+        }
+      ],
+      "restricoes": [],
+      "criterios": [],
+      "canal_inscricao": [
+        {
+          "texto": "Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição.",
+          "evidencia": "Inscrições: de 01/12/2026 até 20/12/2026, pelo sistema eletrônico da instituição."
+        }
+      ],
+      "ausentes": [
+        "áreas",
+        "critérios de avaliação"
+      ],
+      "elegibilidade_perfil": null
+    },
+    "verificacao": [
+      {
+        "tipo": "exigencia",
+        "valor": "foto",
+        "mensagem": "A análise menciona \"foto\", mas o documento não fala disso. Não é exigência confirmada: confira no edital antes de providenciar."
+      },
+      {
+        "tipo": "exigencia",
+        "valor": "assinatura",
+        "mensagem": "A análise menciona \"assinatura\", mas o documento não fala disso. Não é exigência confirmada: confira no edital antes de providenciar."
+      }
+    ]
+  }
+}

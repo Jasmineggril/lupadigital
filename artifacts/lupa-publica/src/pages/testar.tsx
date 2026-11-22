@@ -104,17 +104,22 @@ import {
   type UserProfile,
   type ChecklistItem,
 } from "@/lib/agents";
-import { extractTextFromPdf, PdfExtractError, type PdfStructuredData } from "@/lib/pdf";
+// Leitor de PDF (pdf.js + OCR) só é baixado quando a pessoa envia um PDF (~515 KB a menos no /testar)
+import type { PdfStructuredData } from "@/lib/pdf";
 import { apiFetch } from "@/lib/api";
 import { QueroParticipar } from "@/components/lupa/QueroParticipar";
 import { deleteLocalHistory, listLocalHistory, saveLocalHistory, setLocalFavorite, type LocalAgentRecord } from "@/lib/localHistory";
 import { DocumentTimeline, QuickViewContent, ResultValidity, StageBanner, isPartialResult, type RealStage } from "@/components/testar/AnalysisPanels";
+import { LongDocProgress, type LongJobView } from "@/components/testar/LongDocProgress";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
 import {
   buildChecklistItems,
   buildChatSuggestions,
   buildFaqItems,
   buildTimelineSteps,
+  describeDeadline,
+  documentLine,
+  resolveAnalysisFacts,
   type ChecklistItemSummary,
   type TimelineStep,
 } from "@/lib/analysisViewModel";
@@ -307,12 +312,14 @@ function getCanonicalAnswer(question: string, text: string, canonical: Canonical
   }
 
   const interpretation = canonical.interpretation ?? {};
-  const deadline = normalizeCanonicalText(interpretation.deadlines);
-  const docs = canonical.documentosExigidos?.items?.length
-    ? canonical.documentosExigidos.items.join("; ")
-    : normalizeCanonicalText(interpretation.requirements?.join("; "));
+  // Mesmo resolvedor do cronograma, da visão rápida, do FAQ e da exportação
+  const facts = resolveAnalysisFacts(canonical as never);
+  const docs = facts.documents.length
+    ? facts.documents.map(documentLine).join("; ")
+    : canonical.documentosExigidos?.items?.length
+      ? canonical.documentosExigidos.items.join("; ")
+      : normalizeCanonicalText(interpretation.requirements?.join("; "));
   const summary = normalizeCanonicalText(interpretation.summary);
-  const audience = normalizeCanonicalText(interpretation.targetAudience);
   const recommendation = canonical.elegibilidade?.recommendation
     ? normalizeCanonicalText(canonical.elegibilidade.recommendation)
     : missingInfoText;
@@ -321,16 +328,22 @@ function getCanonicalAnswer(question: string, text: string, canonical: Canonical
     return summary;
   }
 
+  if (/(como|onde)\b.{0,25}inscri|canal|plataforma|sistema de inscri/i.test(normalized)) {
+    return facts.registration || "O canal de inscrição não foi localizado automaticamente no texto. Confira no edital.";
+  }
+
+  if (/quem pode|p[úu]blico|pode participar/i.test(normalized)) {
+    return facts.audience ? `${facts.audience}` : "O público elegível não foi localizado automaticamente no texto. Confira no edital.";
+  }
+
   if (/prazo|data|inscri/i.test(normalized)) {
-    return deadline !== missingInfoText
-      ? `O prazo principal identificado é: ${deadline}.` 
-      : "Não foi possível localizar informações de prazo no documento.";
+    return describeDeadline(facts.deadline);
   }
 
   if (/document|anexo|arquivo|comprov/i.test(normalized)) {
-    return docs !== missingInfoText
-      ? `Documentos identificados: ${docs}`
-      : "Não foi possível localizar os documentos exigidos no documento.";
+    if (docs === missingInfoText) return "Os documentos exigidos não foram localizados automaticamente no texto. Confira o edital completo.";
+    const extra = facts.unsupportedQualifiers.length ? ` O edital não menciona: ${facts.unsupportedQualifiers.join(", ")} — não providencie isso sem conferir.` : "";
+    return `Documentos identificados: ${docs}.${extra}`;
   }
 
   if (/cronograma|timeline|fase|etapa/i.test(normalized)) {
@@ -915,6 +928,7 @@ async function exportToPDF(result: AgentResult, title: string, canonicalData?: C
   // Identificação do documento e estado da análise (mesma versão exibida na tela)
   const extra = (canonicalData ?? {}) as {
     base?: { caracteres?: number; documento_hash?: string; datas?: Array<{ rotulo: string; iso: string | null; evidencia: string }>; valores?: Array<{ texto: string }>; documentos?: Array<{ texto: string; evidencia: string }>; ausentes?: string[] };
+    fatos?: unknown;
     verificacao?: Array<{ mensagem: string }>;
     processing?: { mode?: string; complete?: boolean };
     analysisId?: string;
@@ -1041,6 +1055,19 @@ async function exportToPDF(result: AgentResult, title: string, canonicalData?: C
   }
 
   // Base documental comum: as mesmas datas, valores e documentos para qualquer agente
+  // Mesmo resolvedor da tela: prazo, documentos (com origem) e pendências conciliadas
+  const facts = resolveAnalysisFacts((canonicalData ?? null) as never);
+  writeSectionTitle("Prazo de inscrição", theme.accent);
+  writeText(describeDeadline(facts.deadline), 10.5);
+  if (facts.documents.some((d) => d.origin)) {
+    writeSectionTitle("Documentos (conferidos no texto do edital)", theme.accent);
+    writeBullets(facts.documents.map((d) => `${documentLine(d)}${d.evidence ? ` — "${d.evidence.slice(0, 160)}"` : ""}`), theme.accent);
+  }
+  if (facts.unsupportedQualifiers.length) {
+    writeSectionTitle("Não confirmado no edital", [180, 83, 9]);
+    writeText(`A análise mencionou ${facts.unsupportedQualifiers.join(", ")}, mas o documento não fala disso. Não trate como exigência sem conferir.`, 10.5);
+  }
+
   if (extra.base) {
     if (extra.base.datas?.length) {
       writeSectionTitle("Datas encontradas no documento", theme.accent);
@@ -1057,9 +1084,10 @@ async function exportToPDF(result: AgentResult, title: string, canonicalData?: C
       writeSectionTitle("Documentos exigidos (trechos do documento)", theme.accent);
       writeBullets(extra.base.documentos.map((d) => d.texto.slice(0, 220)), theme.accent);
     }
-    if (extra.base.ausentes?.length) {
-      writeSectionTitle("Não encontrado no documento", [180, 83, 9]);
-      writeText(extra.base.ausentes.join(", "), 10.5);
+    if (facts.missing.length) {
+      writeSectionTitle("Não localizado automaticamente no texto", [180, 83, 9]);
+      writeText("Isso não significa que o edital não trate do assunto: confira o documento completo.", 9.5, { color: [71, 85, 105] });
+      writeBullets(facts.missing.map((m) => `${m.label} — ${m.state === "parcial" ? "parcial" : m.state === "incerto" ? "só a IA indicou, sem trecho" : "não localizado"}`), [180, 83, 9]);
     }
   }
 
@@ -2540,6 +2568,20 @@ export default function TestarIA() {
   const [location] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
+  // ── Documentos longos: leitura completa em segundo plano (estado no servidor) ──
+  const [longJob, setLongJob] = useState<LongJobView | null>(null);
+  const [longRunning, setLongRunning] = useState(false);
+  const longJobActive = Boolean(longJob && ["pendente", "processando", "aguardando_cota"].includes(longJob.status));
+  const longLoop = useRef(0);
+  const [docLimits, setDocLimits] = useState<{ syncMax: number; syncHard: number; maxChars: number; background: boolean }>({ syncMax: 45_000, syncHard: 450_000, maxChars: 1_200_000, background: false });
+  useEffect(() => {
+    apiFetch<{ analise_direta_max_caracteres: number; analise_direta_limite_rigido?: number; documento_max_caracteres: number; processa_sem_pagina_aberta?: boolean }>("/edital/limits", { auth: false })
+      .then((l) => setDocLimits({ syncMax: l.analise_direta_max_caracteres, syncHard: l.analise_direta_limite_rigido ?? 450_000, maxChars: l.documento_max_caracteres, background: Boolean(l.processa_sem_pagina_aberta) }))
+      .catch(() => undefined);
+    return () => {
+      longLoop.current++; // sai da página: o laço para; o andamento continua salvo no servidor
+    };
+  }, []);
   const [showQuickView, setShowQuickView] = useState(false);
   const [showTimelinePopup, setShowTimelinePopup] = useState(false);
   const extractUrlMutation = useExtractEditalFromUrl();
@@ -2618,12 +2660,14 @@ export default function TestarIA() {
     setIsFavorite(false);
     setChecklistState([]);
     setAnalysisStage("idle");
+    // Tarefa longa ainda ativa continua visível (com Cancelar); terminada sai junto com o resultado
+    setLongJob((j) => (j && ["pendente", "processando", "aguardando_cota"].includes(j.status) ? j : null));
   };
 
   const realStage: RealStage =
     isPdfLoading || extractUrlMutation.isPending
       ? "extraindo"
-      : analyzeEditalMutation.isPending
+      : analyzeEditalMutation.isPending || (longJobActive && longRunning)
         ? "analisando"
         : analysisStage === "error"
           ? "falha"
@@ -2641,7 +2685,7 @@ export default function TestarIA() {
     textColor: currentAgentMeta.textColor,
     iconName: currentAgentMeta.iconName,
   };
-  const isAnalyzing = analyzeEditalMutation.isPending;
+  const isAnalyzing = analyzeEditalMutation.isPending || (longJobActive && longRunning);
   const analyzeButtonLabel = "Analisar Documento";
   
   /**
@@ -2834,6 +2878,191 @@ export default function TestarIA() {
     return saved ? { ok: true, where: "navegador", id: saved.id } : { ok: false, where: "navegador", id: null, error: "O navegador não permitiu guardar (armazenamento cheio ou bloqueado)." };
   };
 
+  // ── Documento longo ────────────────────────────────────────────────────────
+  const LONG_KEY = "lupa-analise-longa-v1";
+  const rememberJob = (id: string | null) => {
+    try {
+      if (id) localStorage.setItem(LONG_KEY, id);
+      else localStorage.removeItem(LONG_KEY);
+    } catch {
+      /* navegador sem armazenamento: a retomada usa a lista do servidor */
+    }
+  };
+
+  /** Avança a tarefa enquanto a página estiver aberta; para ao concluir, falhar, cancelar ou sair. */
+  const runLongJob = async (id: string, textAtStart: string) => {
+    const loop = ++longLoop.current;
+    setLongRunning(true);
+    try {
+      for (;;) {
+        if (loop !== longLoop.current) return;
+        let v: LongJobView;
+        try {
+          v = await apiFetch<LongJobView>(`/edital/jobs/${id}/advance`, { method: "POST" });
+        } catch (err) {
+          // Falha de rede/servidor: o andamento está salvo; espera e tenta de novo
+          if (loop !== longLoop.current) return;
+          const status = (err as unknown as { status?: number } | null)?.status;
+          if (status === 404 || status === 401) {
+            setAnalysisError(getFriendlyErrorMessage(err));
+            setAnalysisStage("error");
+            rememberJob(null);
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 15_000));
+          continue;
+        }
+        if (loop !== longLoop.current) return;
+        setLongJob(v);
+        if (v.status === "concluida" || v.status === "parcial") {
+          if (v.resultado) await acceptAnalysis(v.resultado, v.agentId as AgentId, textAtStart);
+          if (v.status === "concluida") rememberJob(null);
+          return;
+        }
+        if (v.status === "falhou" || v.status === "cancelada") {
+          setAnalysisStage(v.status === "falhou" ? "error" : "idle");
+          if (v.status === "falhou") setAnalysisError(v.erro ?? "A análise longa não pôde continuar.");
+          rememberJob(null);
+          return;
+        }
+        // Espera indicada pelo servidor (cota do provedor ou limite por minuto); senão, segue já
+        const waitMs = v.proxima_tentativa ? Math.max(0, new Date(v.proxima_tentativa).getTime() - Date.now()) : 0;
+        if (waitMs > 0) await new Promise((r) => setTimeout(r, Math.min(Math.max(waitMs, 5_000), 10 * 60_000)));
+      }
+    } finally {
+      if (loop === longLoop.current) setLongRunning(false);
+    }
+  };
+
+  const startLongJob = async (agentIdToUse: AgentId, textAtStart: string) => {
+    if (!user) {
+      setIsAnalyzePressed(false);
+      setAnalysisStage("error");
+      setAnalysisError(
+        `Este documento tem ${textAtStart.length.toLocaleString("pt-BR")} caracteres. Para lê-lo por inteiro, a análise roda em segundo plano e o andamento fica guardado na sua conta: entre para continuar. Você não precisa escolher trechos.`,
+      );
+      return;
+    }
+    try {
+      const v = await apiFetch<LongJobView>("/edital/jobs", {
+        method: "POST",
+        body: JSON.stringify({ agentId: agentIdToUse, text: textAtStart, ...(agentIdToUse === "elegibilidade" ? { profile } : {}) }),
+      });
+      setLongJob(v);
+      rememberJob(v.id);
+      void runLongJob(v.id, textAtStart);
+    } catch (err) {
+      setIsAnalyzePressed(false);
+      setAnalysisStage("error");
+      setAnalysisError(getFriendlyErrorMessage(err));
+    }
+  };
+
+  const cancelLongJob = async () => {
+    if (!longJob) return;
+    longLoop.current++;
+    try {
+      const v = await apiFetch<LongJobView>(`/edital/jobs/${longJob.id}/cancel`, { method: "POST" });
+      setLongJob(v);
+      setLongRunning(false);
+      setIsAnalyzePressed(false);
+      setAnalysisStage("idle");
+      rememberJob(null);
+      toast({ title: "Análise cancelada", description: "O documento enviado foi apagado do servidor." });
+    } catch (err) {
+      toast({ title: "Não foi possível cancelar", description: getFriendlyErrorMessage(err), variant: "destructive" });
+    }
+  };
+
+  const retryLongJob = async () => {
+    if (!longJob) return;
+    try {
+      const v = await apiFetch<LongJobView>(`/edital/jobs/${longJob.id}/retry-failed`, { method: "POST" });
+      setLongJob(v);
+      setCanonicalAnalysis(null);
+      setAgentResult(null);
+      rememberJob(v.id);
+      void runLongJob(v.id, analyzedText ?? text);
+    } catch (err) {
+      toast({ title: "Não foi possível reprocessar", description: getFriendlyErrorMessage(err), variant: "destructive" });
+    }
+  };
+
+  // Retomar depois de atualizar a página: tarefa lembrada neste navegador ou ativa na conta
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    (async () => {
+      let id: string | null = null;
+      try {
+        id = localStorage.getItem(LONG_KEY);
+      } catch {
+        id = null;
+      }
+      if (!id) {
+        const list = await apiFetch<{ jobs: Array<{ id: string; status: string }> }>("/edital/jobs").catch(() => ({ jobs: [] as Array<{ id: string; status: string }> }));
+        id = list.jobs.find((j) => ["pendente", "processando", "aguardando_cota"].includes(j.status))?.id ?? null;
+      }
+      if (!id || !alive) return;
+      const v = await apiFetch<LongJobView>(`/edital/jobs/${id}`).catch(() => null);
+      if (!v || !alive) {
+        rememberJob(null);
+        return;
+      }
+      setLongJob(v);
+      setSelectedAgent(v.agentId as AgentId);
+      if (["pendente", "processando", "aguardando_cota"].includes(v.status)) {
+        setIsAnalyzePressed(true);
+        void runLongJob(v.id, text);
+      } else if ((v.status === "parcial" || v.status === "concluida") && v.resultado) {
+        await acceptAnalysis(v.resultado, v.agentId as AgentId, text);
+        if (v.status === "concluida") rememberJob(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  /** Mostra e salva uma análise concluída — mesma rotina para a análise direta e a longa. */
+  const acceptAnalysis = async (data: unknown, agentIdToUse: AgentId, textAtStart: string) => {
+    const canonicalPayload = data as unknown as CanonicalAnalysisLike;
+    const result = canonicalToAgentResult(canonicalPayload) ?? (data as unknown as AgentResult);
+    setCanonicalAnalysis(canonicalPayload);
+    setAnalyzedText(textAtStart);
+    applyResult(result);
+    setAnalysisStage("completed");
+    const partial = isPartialResult(canonicalPayload as never);
+    if (partial) {
+      // Resultado de contingência/incompleto não é salvo automaticamente
+      // Motivo real (vindo do servidor) + quanto do edital foi lido
+      const proc = canonicalPayload.processing as { userMessage?: string; totalChunks?: number; processedChunks?: number } | undefined;
+      const partialReason = proc?.userMessage ?? "A IA não concluiu o processamento.";
+      const lidas = proc?.totalChunks && proc.totalChunks > 1 && !/partes não foram analisadas/.test(partialReason) ? ` Foram lidas ${proc.processedChunks ?? 0} de ${proc.totalChunks} partes do edital.` : "";
+      const convite = !user && textAtStart.length > docLimits.syncMax ? " Entre na sua conta para que o documento inteiro seja lido em segundo plano." : "";
+      toast({
+        title: "Análise parcialmente concluída",
+        description: `${partialReason}${lidas}${convite} O resultado é limitado e não foi salvo automaticamente; você pode tentar de novo ou salvar manualmente.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    const saved = await persistCurrentAnalysis(result, canonicalPayload, agentIdToUse, textAtStart);
+    toast(
+      saved.ok
+        ? {
+            title: "Interpretação concluída",
+            description: saved.where === "conta" ? "Salva no histórico da sua conta." : "Salva no histórico deste navegador (entre na conta para guardar no servidor).",
+          }
+        : {
+            title: "Interpretação concluída, mas não foi salva",
+            description: saved.error ?? "Não foi possível salvar no histórico. Use o botão Salvar para tentar de novo.",
+            variant: "destructive",
+          },
+    );
+  };
+
   const handleAnalyze = () => {
     if (!text.trim() || text.length < 20) {
       setIsAnalyzePressed(false);
@@ -2855,6 +3084,14 @@ export default function TestarIA() {
     setIsAnalyzePressed(true);
     setAnalysisStage("reading");
 
+    // Documento longo: lido por INTEIRO em segundo plano (nunca pede para escolher trechos)
+    // Visitante sem conta: até o limite da análise direta segue como antes (resultado parcial é
+    // identificado e convida a entrar para ler tudo); acima disso, precisa entrar.
+    if (text.length > docLimits.syncMax && (user || text.length > docLimits.syncHard)) {
+      void startLongJob(agentIdToUse, textAtStart);
+      return;
+    }
+
     analyzeEditalMutation.mutate(
       {
         data: {
@@ -2867,39 +3104,7 @@ export default function TestarIA() {
         onSuccess: async (data) => {
           // Outro documento entrou (ou a tela foi limpa) durante a análise: descarta este resultado
           if (seq !== analyzeSeq.current) return;
-          const canonicalPayload = data as unknown as CanonicalAnalysisLike;
-          const result = canonicalToAgentResult(canonicalPayload) ?? (data as unknown as AgentResult);
-          setCanonicalAnalysis(canonicalPayload);
-          setAnalyzedText(textAtStart);
-          applyResult(result);
-          setAnalysisStage("completed");
-          const partial = isPartialResult(canonicalPayload as never);
-          if (partial) {
-            // Resultado de contingência/incompleto não é salvo automaticamente
-            // Motivo real (vindo do servidor) + quanto do edital foi lido
-            const proc = canonicalPayload.processing as { userMessage?: string; totalChunks?: number; processedChunks?: number } | undefined;
-            const partialReason = proc?.userMessage ?? "A IA não concluiu o processamento.";
-            const lidas = proc?.totalChunks && proc.totalChunks > 1 ? ` Foram lidas ${proc.processedChunks ?? 0} de ${proc.totalChunks} partes do edital.` : "";
-            toast({
-              title: "Análise parcialmente concluída",
-              description: `${partialReason}${lidas} O resultado é limitado e não foi salvo automaticamente; você pode salvar manualmente, tentar de novo ou analisar só a parte que faltou.`,
-              variant: "destructive",
-            });
-            return;
-          }
-          const saved = await persistCurrentAnalysis(result, canonicalPayload, agentIdToUse, textAtStart);
-          toast(
-            saved.ok
-              ? {
-                  title: "Interpretação concluída",
-                  description: saved.where === "conta" ? "Salva no histórico da sua conta." : "Salva no histórico deste navegador (entre na conta para guardar no servidor).",
-                }
-              : {
-                  title: "Interpretação concluída, mas não foi salva",
-                  description: saved.error ?? "Não foi possível salvar no histórico. Use o botão Salvar para tentar de novo.",
-                  variant: "destructive",
-                },
-          );
+          await acceptAnalysis(data, agentIdToUse, textAtStart);
         },
         onError: (error) => {
           setIsAnalyzePressed(false);
@@ -2975,21 +3180,33 @@ export default function TestarIA() {
     setIsPdfLoading(true);
     setPdfError(null);
     setPdfStructuredData(null);
+    let PdfExtractError: (typeof import("@/lib/pdf"))["PdfExtractError"] | null = null;
     try {
-      const { text: extracted, structured } = await extractTextFromPdf(file);
+      const pdfLib = await import("@/lib/pdf");
+      PdfExtractError = pdfLib.PdfExtractError;
+      const { text: extracted, structured, ocrTruncated } = await pdfLib.extractTextFromPdf(file);
       if (!extracted?.trim())
         throw new PdfExtractError("empty", "Nenhum texto legível encontrado no PDF.");
       resetAnalysis();
       setText(extracted.trim());
       setPdfStructuredData(structured);
       setActiveTab("pdf");
-      toast({
-        title: "PDF processado com sucesso.",
-        description: "O texto legível foi extraído e está pronto para interpretação.",
-      });
+      toast(
+        ocrTruncated
+          ? {
+              title: "PDF escaneado lido em parte",
+              description: `O reconhecimento de texto leu ${ocrTruncated.lidas} de ${ocrTruncated.total} páginas. As páginas ${ocrTruncated.lidas + 1}–${ocrTruncated.total} não foram lidas; o aviso fica no texto e na análise. Se tiver o PDF com texto (não escaneado), envie-o para a leitura completa.`,
+              variant: "destructive",
+            }
+          : {
+              title: "PDF processado com sucesso.",
+              description: `O texto legível foi extraído (${extracted.trim().length.toLocaleString("pt-BR")} caracteres) e está pronto para interpretação.`,
+            },
+      );
     } catch (err) {
       setPdfStructuredData(null);
-      setAnalysisError(err instanceof PdfExtractError ? err.message : getFriendlyErrorMessage(err));
+      const isPdfError = Boolean(PdfExtractError && err instanceof PdfExtractError);
+      setAnalysisError(isPdfError ? (err as Error).message : getFriendlyErrorMessage(err));
       setPdfError(
         err instanceof Error
           ? err.message
@@ -2997,7 +3214,7 @@ export default function TestarIA() {
       );
       toast({
         title: "Não foi possível ler este PDF",
-        description: err instanceof PdfExtractError ? err.message : "Verifique se o arquivo contém texto legível e tente novamente.",
+        description: isPdfError ? (err as Error).message : "Verifique se o arquivo contém texto legível e tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -3157,7 +3374,15 @@ export default function TestarIA() {
     }
 
     try {
+      const facts = resolveAnalysisFacts(canonicalAnalysis as never);
+      const factLines = [
+        `Prazo de inscrição: ${describeDeadline(facts.deadline)}`,
+        facts.documents.length ? `Documentos: ${facts.documents.map(documentLine).join("; ")}` : "",
+        facts.unsupportedQualifiers.length ? `Não afirmar como exigência (o edital não menciona): ${facts.unsupportedQualifiers.join(", ")}` : "",
+        facts.missing.length ? `Não localizado automaticamente no texto: ${facts.missing.map((m) => m.label).join(", ")}` : "",
+      ].filter(Boolean);
       const ctx = [
+        `FATOS CONFERIDOS NO DOCUMENTO (prevalecem sobre a interpretação):\n${factLines.join("\n")}`,
         text ? `TEXTO DO EDITAL (trecho):\n${text.slice(0, 4000)}` : "",
         `INTERPRETAÇÃO CANÔNICA:\n${JSON.stringify(canonicalAnalysis, null, 2).slice(0, 3000)}`,
       ].filter(Boolean).join("\n\n");
@@ -3703,10 +3928,20 @@ export default function TestarIA() {
               </div>
             )}
 
-            {(isAnalyzing || isPdfLoading || extractUrlMutation.isPending || realStage === "falha" || realStage === "parcial" || realStage === "concluido") && (
+            {(isAnalyzing || longJob || isPdfLoading || extractUrlMutation.isPending || realStage === "falha" || realStage === "parcial" || realStage === "concluido") && (
               <div className="space-y-3">
                 <StageBanner stage={realStage} elapsedSeconds={elapsedSeconds} agentName={currentAgentMeta.name} />
-                {isAnalyzing && text.length > 8000 && (
+                {longJob && (
+                  <LongDocProgress
+                    job={longJob}
+                    runningHere={longRunning}
+                    backgroundAvailable={docLimits.background}
+                    onCancel={() => void cancelLongJob()}
+                    onRetryFailed={() => void retryLongJob()}
+                    onResume={() => void runLongJob(longJob.id, analyzedText ?? text)}
+                  />
+                )}
+                {isAnalyzing && !longJob && text.length > 8000 && (
                   <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                     Documento extenso ({text.length.toLocaleString("pt-BR")} caracteres): a análise é feita em partes e pode demorar mais.
                   </p>
@@ -3974,7 +4209,27 @@ export default function TestarIA() {
                           <div className={`mt-1 h-4 w-4 rounded-full ${item.done ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                           <div className="min-w-0">
                             <p className={`text-sm font-semibold ${item.done ? "text-emerald-800" : "text-slate-900"}`}>{item.label}</p>
+                            {item.origin && (
+                              <p className="mt-1 text-xs font-medium" data-testid="checklist-origem" data-origem={item.origin}>
+                                {item.origin === "edital" ? (
+                                  <span className="text-emerald-800">Consta no edital</span>
+                                ) : (
+                                  <span className="text-amber-800">Não localizado no edital — conferir</span>
+                                )}
+                              </p>
+                            )}
                             <p className="text-sm text-muted-foreground mt-2"><AutoTerms text={item.hint} /></p>
+                            {item.unconfirmed && item.unconfirmed.length > 0 && (
+                              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900" data-testid="checklist-nao-confirmado">
+                                Não confirmado no edital: {item.unconfirmed.join(", ")}.
+                              </p>
+                            )}
+                            {item.evidence && (
+                              <blockquote className="evidence mt-2 text-[0.8125rem] leading-relaxed">“{item.evidence.length > 260 ? `${item.evidence.slice(0, 260)}…` : item.evidence}”</blockquote>
+                            )}
+                            {item.guidance && item.origin && (
+                              <p className="mt-2 text-xs text-slate-600"><span className="font-semibold">Orientação (não é exigência do edital):</span> {item.guidance}</p>
+                            )}
                           </div>
                         </div>
                       )) : (

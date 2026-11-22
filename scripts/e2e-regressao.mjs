@@ -276,6 +276,91 @@ await step("LGPD: aviso no cadastro sem caixa de consentimento; encerrar a conta
   await ctx.close();
 });
 
+
+// ── R1–R3: exigência inventada, prazo contraditório, ausentes incoerentes ─────────────────
+// A resposta é a da ROTA REAL /api/edital/analyze com a IA simulada (gerada por
+// artifacts/api-server/src/routes/__tests__/analyzeFacts.test.ts com WRITE_E2E_FIXTURE=1):
+// o agente Documentação devolveu "com foto e assinatura" e nenhum prazo.
+const FATOS = JSON.parse(fs.readFileSync(new URL("./fixtures/analise-fatos-documentacao.json", import.meta.url), "utf8"));
+
+await step("R1–R3: checklist com origem, mesmo prazo no chat/visão rápida/PDF e ausentes coerentes; igual ao reabrir", async () => {
+  c = await newPage();
+  const { page: p, ctx } = c;
+  await p.route("**/api/edital/analyze", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(FATOS.response) }));
+  await p.goto(`${WEB}/testar`);
+  await p.getByRole("tab", { name: "Colar Texto" }).click();
+  await p.getByTestId("input-edital-text").fill(FATOS.text);
+  await p.getByRole("button", { name: /Lupa Documentação/ }).first().click();
+  await p.getByTestId("button-analyze").click();
+  await p.locator('[data-testid="testar-etapa"]:not([data-stage="analisando"])').waitFor({ timeout: 60000 });
+
+  const check = async (label) => {
+    // Checklist: nome do edital, origem, o que não foi confirmado e o trecho
+    await p.getByRole("tab", { name: /Checklist/ }).click();
+    const panel = p.getByRole("tabpanel").filter({ hasText: "Checklist" }).last();
+    const text = await panel.innerText();
+    assert(/Comprovante de matrícula/.test(text), `${label}: item do edital ausente`);
+    assert(!/matrícula com foto/i.test(text), `${label}: exigência inventada apareceu como nome do item`);
+    assert(/Não confirmado no edital: foto, assinatura/.test(text), `${label}: aviso de não confirmado ausente`);
+    assert(/Consta no edital/.test(text), `${label}: origem ausente`);
+    assert(text.includes("Documentos: comprovante de matrícula e proposta de até 3 páginas."), `${label}: trecho do edital ausente`);
+
+    // Visão rápida: mesmo prazo, ausentes conciliados
+    await p.getByRole("button", { name: "Abrir visão rápida" }).click();
+    const qv = await p.getByTestId("visao-rapida").innerText();
+    assert(/20\/12\/2026/.test(await p.getByTestId("visao-prazo").innerText()), `${label}: prazo da visão rápida`);
+    const aus = await p.getByTestId("visao-ausentes").innerText();
+    assert(!/documentos exigidos/.test(aus), `${label}: 'documentos exigidos' listado como ausente`);
+    assert(/áreas/.test(aus) && /critérios de avaliação/.test(aus), `${label}: ausentes reais sumiram`);
+    // A lista da IA trouxe detalhes sem respaldo: o campo aparece como parcial, com o motivo
+    assert(/documentos exigidos/.test(await p.getByTestId("visao-parciais").innerText()), `${label}: documentos deveriam aparecer como parciais`);
+    assert(!/Prazo não informado/i.test(qv), `${label}: placeholder na visão rápida`);
+    await p.waitForTimeout(400); // fim da animação do diálogo
+    await p.screenshot({ path: `${SHOTS}/r1-visao-rapida-${label}.png` });
+    await p.keyboard.press("Escape");
+
+    // Chat sem login (resposta automática): mesmo prazo e documentos com ressalva
+    await p.getByRole("tab", { name: /Chat/ }).click();
+    await p.getByPlaceholder("Ex: Qual é o prazo final?").fill("Qual é o prazo de inscrição?");
+    await p.getByRole("button", { name: "Perguntar" }).click();
+    await p.getByText(/Inscrições até 20\/12\/2026/).first().waitFor();
+    await p.getByPlaceholder("Ex: Qual é o prazo final?").fill("Quais documentos preciso enviar?");
+    await p.getByRole("button", { name: "Perguntar" }).click();
+    await p.getByText(/o edital não menciona foto, assinatura/).first().waitFor();
+    assert((await p.getByText(/Prazo não informado|Não foi possível localizar informações de prazo/).count()) === 0, `${label}: chat contradiz o prazo`);
+    assert((await p.getByText(/Local de inscrição não informado/).count()) === 0, `${label}: FAQ contradiz o canal de inscrição`);
+    await p.getByPlaceholder("Ex: Qual é o prazo final?").fill("Como faço a inscrição?");
+    await p.getByRole("button", { name: "Perguntar" }).click();
+    await p.getByText(/Conforme o edital: Inscrições: de 01\/12\/2026 até 20\/12\/2026, pelo sistema eletrônico/).first().waitFor();
+  };
+  await check("analise");
+  const chatCard = p.getByText("Chat contextual").locator("xpath=ancestor::div[contains(@class,'rounded-3xl')][1]");
+  await chatCard.scrollIntoViewIfNeeded();
+  await chatCard.screenshot({ path: `${SHOTS}/r1-chat.png` });
+  await p.getByRole("tab", { name: /Checklist/ }).click();
+  await p.getByRole("tabpanel").filter({ hasText: "Checklist" }).last().screenshot({ path: `${SHOTS}/r1-checklist.png` });
+
+  // Exportação: mesmo prazo e pendências
+  await p.getByRole("tab", { name: /Exportação/ }).click();
+  const [dl] = await Promise.all([p.waitForEvent("download"), p.getByRole("button", { name: "Exportar PDF" }).click()]);
+  const pdfPath = `${SHOTS}/r1-export.pdf`;
+  await dl.saveAs(pdfPath);
+  const raw = fs.readFileSync(pdfPath, "latin1");
+  assert(raw.includes("Prazo de inscri"), "PDF sem seção de prazo");
+  assert(raw.includes("20/12/2026"), "PDF sem o prazo do documento");
+  assert(raw.includes("localizado automaticamente"), "PDF sem pendências conciliadas");
+
+  // Reabrir do histórico do navegador: mesmos fatos
+  // Análise completa é salva automaticamente (neste navegador, sem login)
+  await p.getByRole("button", { name: "Salvo" }).first().waitFor();
+  await p.unroute("**/api/edital/analyze");
+  await p.reload();
+  await p.getByRole("button", { name: "Histórico", exact: true }).click();
+  await p.locator('[data-testid^="historico-local-"]').first().click();
+  await check("reaberta");
+  await ctx.close();
+});
+
 await browser.close();
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n${passed}/${results.length} jornadas de regressão passaram`);

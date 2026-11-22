@@ -23,6 +23,7 @@ import {
   emptyProfile,
   ProfileInputSchema,
   SourceUpdateSchema,
+  type CollectionRun,
   type FieldSource,
   type Opportunity,
   type ProfileInput,
@@ -254,6 +255,33 @@ export function filterCatalog(list: Opportunity[], query: z.infer<typeof Catalog
   return { items: items.slice(start, start + query.page_size), total };
 }
 
+export type CatalogCollectionState = {
+  situacao: "com_itens" | "nunca_coletado" | "coletando" | "coleta_falhou" | "coleta_sem_itens" | "desconhecida";
+  ultima: { status: CollectionRun["status"]; iniciada_em: string; concluida_em: string | null; erros: number; motivo: string | null } | null;
+  pendentes_revisao: number;
+};
+
+/** Por que o catálogo está como está: nunca coletado, coleta em andamento/falhou/sem itens. */
+export function catalogCollectionState(list: Opportunity[], runs: CollectionRun[]): CatalogCollectionState {
+  const last = [...runs].sort((a, b) => b.started_at.localeCompare(a.started_at))[0] ?? null;
+  const ultima = last
+    ? {
+        status: last.status,
+        iniciada_em: last.started_at,
+        concluida_em: last.finished_at,
+        erros: last.errors.length,
+        // Mensagem curta, sem URL (o detalhe fica na administração)
+        motivo: last.errors[0]?.message ? last.errors[0].message.replace(/https?:\/\/\S+/g, "[endereço]").slice(0, 160) : null,
+      }
+    : null;
+  const pendentes_revisao = list.filter((o) => o.review_status === "pendente").length;
+  if (list.length > 0) return { situacao: "com_itens", ultima, pendentes_revisao };
+  if (!last) return { situacao: "nunca_coletado", ultima, pendentes_revisao };
+  if (last.status === "running") return { situacao: "coletando", ultima, pendentes_revisao };
+  if (last.status === "failed") return { situacao: "coleta_falhou", ultima, pendentes_revisao };
+  return { situacao: "coleta_sem_itens", ultima, pendentes_revisao };
+}
+
 router.get("/opportunities", async (req, res) => {
   const parsed = CatalogQuerySchema.safeParse(req.query ?? {});
   if (!parsed.success) {
@@ -265,7 +293,15 @@ router.get("/opportunities", async (req, res) => {
     const { items, total } = filterCatalog(list, parsed.data);
     const sources = [...new Set(list.map((o) => o.source_id))];
     const areas = [...new Set(list.flatMap((o) => o.fields.areas?.value ?? []))].sort((a, b) => a.localeCompare(b, "pt-BR")).slice(0, 80);
+    // Estado da coleta, para o catálogo vazio dizer POR QUE está vazio (sem expor URLs internas)
+    let coleta: CatalogCollectionState;
+    try {
+      coleta = catalogCollectionState(list, await getStore().listRuns(5));
+    } catch {
+      coleta = { situacao: "desconhecida", ultima: null, pendentes_revisao: list.filter((o) => o.review_status === "pendente").length };
+    }
     res.json({
+      coleta,
       opportunities: items.map(publicOpportunity),
       total,
       page: parsed.data.page,

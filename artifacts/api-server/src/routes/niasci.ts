@@ -231,6 +231,24 @@ const ChatSchema = z.object({
 export function buildStructuredContext(resultJson: Record<string, unknown>): string {
   const sections: string[] = [];
 
+  // Fatos conferidos no texto do edital vêm primeiro e prevalecem sobre a interpretação da IA
+  const fatos = resultJson.fatos as
+    | { prazo_inscricao?: { texto?: string; evidencia?: string } | null; conflitos?: Array<{ mensagem?: string }>; exigencias?: Array<{ texto?: string; origem?: string; evidencia?: string | null; nao_confirmado?: string[] }>; campos?: Array<{ rotulo?: string; estado?: string }> }
+    | undefined;
+  if (fatos && typeof fatos === "object") {
+    const lines: string[] = [];
+    if (fatos.prazo_inscricao?.texto) lines.push(`Prazo de inscrição (do documento): ${fatos.prazo_inscricao.texto} — trecho: "${fatos.prazo_inscricao.evidencia ?? ""}"`);
+    else lines.push("Prazo de inscrição: não localizado no texto do documento.");
+    for (const c of fatos.conflitos ?? []) if (c.mensagem) lines.push(`Divergência: ${c.mensagem}`);
+    for (const e of fatos.exigencias ?? []) {
+      if (e.origem === "edital") lines.push(`Exigência do edital: ${e.texto} — trecho: "${e.evidencia}"${e.nao_confirmado?.length ? ` (NÃO confirmado no edital: ${e.nao_confirmado.join(", ")})` : ""}`);
+      else lines.push(`Sem trecho no edital (não afirmar como exigência): ${e.texto}`);
+    }
+    const missing = (fatos.campos ?? []).filter((c) => c.estado === "nao_localizado").map((c) => c.rotulo);
+    if (missing.length) lines.push(`Não localizado automaticamente no texto: ${missing.join(", ")}`);
+    sections.push(`## FATOS CONFERIDOS NO DOCUMENTO (prevalecem)\n${lines.join("\n")}`);
+  }
+
   const interp = resultJson.interpretation as Record<string, unknown> | undefined;
   if (interp) {
     const parts: string[] = [];

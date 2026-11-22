@@ -58,6 +58,29 @@ export interface CatalogResponse {
   page_size: number;
   facets: { sources: string[]; areas: string[] };
   updated_at: string | null;
+  /** Por que o catálogo está como está (ausente em servidores antigos) */
+  coleta?: {
+    situacao: "com_itens" | "nunca_coletado" | "coletando" | "coleta_falhou" | "coleta_sem_itens" | "desconhecida";
+    ultima: { status: "running" | "succeeded" | "partial" | "failed"; iniciada_em: string; concluida_em: string | null; erros: number; motivo: string | null } | null;
+    pendentes_revisao: number;
+  };
+}
+
+/** Texto do catálogo vazio conforme o estado real da coleta (nunca "vazio" sem motivo). */
+export function emptyCatalogMessage(c: CatalogResponse["coleta"]): { title: string; description: string } {
+  const when = c?.ultima ? formatDateTime(c.ultima.concluida_em ?? c.ultima.iniciada_em) : "";
+  switch (c?.situacao) {
+    case "nunca_coletado":
+      return { title: "Catálogo ainda não coletado", description: "Nenhuma coleta foi executada nas fontes oficiais até agora. Os editais aparecem aqui depois da primeira coleta." };
+    case "coletando":
+      return { title: "Coleta em andamento", description: `A coleta começou em ${when}. Volte em alguns minutos.` };
+    case "coleta_falhou":
+      return { title: "A última coleta falhou", description: `A coleta de ${when} não conseguiu ler a fonte oficial${c.ultima?.motivo ? ` (${c.ultima.motivo})` : ""}. O catálogo não tem editais confirmados por enquanto; a administração foi informada pelo registro da execução.` };
+    case "coleta_sem_itens":
+      return { title: "Nenhum edital encontrado na última coleta", description: `A coleta de ${when} terminou sem localizar editais na fonte oficial${c.ultima?.erros ? ` (${c.ultima.erros} página(s) com erro)` : ""}. Isso pode indicar mudança no site da fonte.` };
+    default:
+      return { title: "Catálogo vazio", description: "Ainda não há editais coletados. A administração executa a coleta das fontes oficiais." };
+  }
 }
 
 export interface NotificationItem {

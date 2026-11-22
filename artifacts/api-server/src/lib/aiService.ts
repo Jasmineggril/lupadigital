@@ -787,7 +787,7 @@ function buildChunkFactPrompt(agentId: AgentId, chunkText: string, profile?: z.i
   return { system, user };
 }
 
-async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null; chunkTimeoutMs?: number; chunkId?: string }) {
+async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: z.infer<typeof AgentUserProfileSchema>, opts?: { userId?: string | null; documentId?: string | null; chunkTimeoutMs?: number; chunkId?: string; usage?: { tokens: number } }) {
   const { system, user } = buildChunkFactPrompt(agentId, chunkText, profile);
   const chunkStart = Date.now();
   const timeoutMs = opts?.chunkTimeoutMs ?? 60_000;
@@ -830,6 +830,7 @@ async function analyzeChunkFacts(agentId: AgentId, chunkText: string, profile?: 
       ? (completionResult.usage.prompt_tokens ?? 0) + (completionResult.usage.completion_tokens ?? 0)
       : 0;
     recordTpmUsage(usageTokens || estimatedPromptTokens + requestedMaxOutputTokens);
+    if (opts?.usage) opts.usage.tokens = usageTokens || estimatedPromptTokens + requestedMaxOutputTokens;
   } catch (error) {
     const errMessage = error instanceof Error ? error.message : String(error);
     const httpMatch = errMessage.match(/status[_\s]*(\d{3})/i) ?? errMessage.match(/\b(4\d{2}|5\d{2})\b/);
@@ -2467,9 +2468,9 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "ondeInscrever": "Como e onde se inscrever exatamente como consta",
   "observacao": "Dica prática para o candidato — sem criar expectativas não previstas",
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [ambiguidade] exemplo — apenas se houver problemas reais"]
 }`,
   analista: `{
@@ -2482,9 +2483,9 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "documentos": ["Documento 1", "Documento 2"],
   "valor": "Valor EXATAMENTE como consta (ou 'Não especificado')",
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [inferência] exemplo — apenas se houver problemas reais"]
 }`,
   estrategica: `{
@@ -2496,9 +2497,9 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "riscos": ["Risco 1 — fundamentado no texto", "Risco 2"],
   "recomendacao": "Recomendação estratégica baseada exclusivamente nas condições reais",
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [ambiguidade] exemplo — apenas se houver problemas reais"]
 }`,
   acompanhamento: `{
@@ -2513,21 +2514,21 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   ],
   "observacao": "Observação sobre os prazos — se não constar no edital, indicar 'Verificar no edital'",
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [ausência] exemplo — apenas se houver datas não informadas ou ambíguas"]
 }`,
   documentacao: `{
   "type": "documentacao",
   "checklist": [
-    {"doc": "Nome exato do documento conforme o edital", "obrigatorio": true, "observacao": "Como obter ou preparar — sem adicionar exigências ausentes no edital", "checked": false}
+    {"doc": "Nome exato do documento conforme o edital", "obrigatorio": true, "observacao": "", "checked": false}
   ],
   "dica": "Dica prática baseada no que o edital efetivamente exige",
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [inferência] exemplo — apenas para documentos inferidos, não declarados"]
 }`,
   elegibilidade: `{
@@ -2543,9 +2544,9 @@ const SCHEMA_EXAMPLES: Record<AgentId, string> = {
   "recomendacao": "Recomendação baseada nos critérios reais — sem suavizar exigências não atendidas",
   "proximosPassos": ["Passo 1 — ação concreta baseada no edital", "Passo 2"],
   "numero": "Número/identificador do edital se disponível",
-  "anoPublicacao": 2024,
+  "anoPublicacao": null,
   "fonte": "Fonte oficial (ex: site do MEC, instituição responsável)",
-  "totalPaginas": 45,
+  "totalPaginas": null,
   "alertas": ["⚠ [ambiguidade] exemplo — apenas se critérios forem ambíguos ou imprecisos"]
 }`,
 };
@@ -2570,7 +2571,7 @@ const INSTRUCTIONS: Record<AgentId, string> = {
     "Você é o agente Lupa Acompanhamento, uma mediadora especializada em construir linhas do tempo de editais públicos. Use SOMENTE datas e períodos que constem explicitamente no documento. Para fases sem data informada, use 'Verificar no edital' — jamais invente ou estime datas. Classifique cada fase como 'passado', 'ativo' ou 'futuro' com base nas datas reais.",
 
   documentacao:
-    "Você é o agente Lupa Documentação, uma mediadora especializada em criar checklists de documentação para editais públicos. Liste todos os documentos explicitamente mencionados. Documentos inferidos do tipo de edital devem ser sinalizados com '(inferido)' na observação e registrados em alertas. Para cada item, informe se é obrigatório conforme o edital.",
+    "Você é o agente Lupa Documentação, uma mediadora especializada em criar checklists de documentação para editais públicos. Liste todos os documentos explicitamente mencionados. Documentos inferidos do tipo de edital devem ser sinalizados com '(inferido)' na observação e registrados em alertas. Para cada item, informe se é obrigatório conforme o edital. Em 'doc' use o nome exato do documento como está no edital, sem acrescentar formato, foto, assinatura, autenticação, cópia ou via original se o edital não pedir. Em 'observacao', escreva apenas o que o edital diz sobre o documento; se não disser nada, deixe vazio. Em 'anoPublicacao' e 'totalPaginas' use null quando o texto não informar.",
 
   elegibilidade:
     "Você é o agente Lupa Elegibilidade, uma mediadora especializada em análise de aderência de perfis a editais públicos. Compare cada requisito do edital com o perfil informado: true (atende), false (não atende) ou 'parcial' (atende parcialmente). Nas observações, use linguagem direta e objetiva. Quando a informação não estiver no perfil, escreva exatamente: 'O documento enviado não apresenta esse dado.' — nunca use 'considera-se que...', 'presume-se...' ou 'é possível inferir...'. Não suavize critérios não atendidos. Calcule o score proporcional aos critérios efetivamente atendidos.",
@@ -3799,4 +3800,76 @@ export async function chatNiasci(
     logger.warn({ reason: message }, "Chat provider failed; returning fallback reply");
     return fallbackReply;
   }
+}
+
+
+// ── Documentos longos (execução durável, lib/longdoc) ───────────────────────────────────────────
+
+/**
+ * Lê UMA parte de um documento longo com o mesmo prompt de extração de fatos das análises em
+ * partes. Devolve os fatos e os tokens efetivamente gastos (para o orçamento da tarefa).
+ */
+export async function analyzeLongDocChunk(
+  agentId: AgentId,
+  promptText: string,
+  profile: unknown,
+  opts: { userId: string | null; chunkId: string; timeoutMs: number },
+): Promise<{ facts: ChunkAnalysisFacts; tokens: number }> {
+  const parsedProfile = AgentUserProfileSchema.safeParse(profile ?? undefined);
+  const usage = { tokens: 0 };
+  const facts = await analyzeChunkFacts(agentId, promptText, parsedProfile.success ? parsedProfile.data : undefined, {
+    userId: opts.userId,
+    chunkId: opts.chunkId,
+    chunkTimeoutMs: opts.timeoutMs,
+    usage,
+  });
+  return { facts, tokens: usage.tokens };
+}
+
+/** Tokens previstos para ler uma parte (entrada com margem + saída máxima), para o ritmo por minuto. */
+export function longDocChunkReservation(promptText: string): number {
+  return Math.ceil(estimateTokens(promptText) * PROMPT_BUDGET_SAFETY) + CHUNK_FACT_MAX_OUTPUT + 400;
+}
+
+/** Espera prevista pelo limite de tokens por minuto do provedor antes da próxima parte. */
+export function longDocTpmWaitMs(promptText: string): number {
+  return estimateTpmWaitMs(longDocChunkReservation(promptText));
+}
+
+/**
+ * Consolida os fatos de TODAS as partes lidas na mesma estrutura das análises curtas (resumo,
+ * cronograma, checklist, elegibilidade…), para que todas as telas leiam uma análise só.
+ * O texto original NÃO vai dentro do resultado (o navegador já o tem; 1 milhão de caracteres).
+ */
+export function finalizeLongDocAnalysis(
+  agentId: AgentId,
+  chunkResults: Array<{ chunkId: string; facts: ChunkAnalysisFacts }>,
+  text: string,
+  profile: unknown,
+  processing: Record<string, unknown>,
+): Record<string, unknown> {
+  const parsedProfile = AgentUserProfileSchema.safeParse(profile ?? undefined);
+  const prof = parsedProfile.success ? parsedProfile.data : undefined;
+  const consolidated = buildConsolidatedAgentResult(agentId, chunkResults, text, prof) as Record<string, unknown>;
+  delete consolidated.originalText;
+  consolidated.processing = processing;
+  const canonical = buildCanonicalAnalysis(agentId, consolidated, text, prof) as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = {
+    ...canonical,
+    ...consolidated,
+    type: agentId,
+    agentResult: consolidated,
+    analysisId: canonical.analysisId,
+    schemaVersion: canonical.schemaVersion,
+    interpretation: canonical.interpretation,
+    cronograma: canonical.cronograma,
+    checklist: canonical.checklist,
+    elegibilidade: canonical.elegibilidade,
+    valores: canonical.valores,
+    documentosExigidos: canonical.documentosExigidos,
+    alertas: canonical.alertas,
+    processing,
+  };
+  delete out.originalText;
+  return out;
 }

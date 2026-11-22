@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { safeNext } from "@/lib/safe-redirect";
 import { Check, Circle, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -61,7 +62,8 @@ export function VerifyEmailNotice({ email }: { email: string }) {
   const resend = async () => {
     if (sending || left > 0) return;
     setSending(true);
-    const r = await resendConfirmation(email);
+    const nextParam = new URLSearchParams(window.location.search).get("next");
+    const r = await resendConfirmation(email, nextParam ? safeNext(nextParam) : undefined);
     setSending(false);
     if (r.ok) {
       setMsg({ kind: "success", text: "Enviamos um novo e-mail de confirmação." });
@@ -98,6 +100,9 @@ export function VerifyEmailNotice({ email }: { email: string }) {
 
 export default function Cadastro() {
   const [, navigate] = useLocation();
+  // ?next= (só caminhos internos): volta para onde a pessoa estava, ex. /testar com o documento guardado
+  const nextParam = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("next");
+  const next = nextParam ? safeNext(nextParam) : null;
   const { register } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -130,7 +135,7 @@ export default function Cadastro() {
     if (inFlight.current) return;
     inFlight.current = true;
     setSubmitting(true);
-    const r = await register({ name, email, password });
+    const r = await register({ name, email, password, ...(next ? { next } : {}) });
     inFlight.current = false;
     setSubmitting(false);
     if (!r.ok) {
@@ -138,7 +143,7 @@ export default function Cadastro() {
       return;
     }
     if (r.needsConfirmation) setPendingEmail(email.trim());
-    else navigate("/perfil?boas-vindas=1");
+    else navigate(next ?? "/perfil?boas-vindas=1");
   };
 
   const show = (k: keyof typeof errors) => (touched ? errors[k] : null);

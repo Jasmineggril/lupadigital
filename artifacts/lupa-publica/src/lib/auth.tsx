@@ -36,8 +36,9 @@ interface AuthContextValue {
   sessionExpired: boolean;
   dismissSessionExpired: () => void;
   login: (email: string, password: string) => Promise<Result>;
-  register: (data: { name: string; email: string; password: string }) => Promise<(Result & { needsConfirmation?: boolean })>;
-  resendConfirmation: (email: string) => Promise<Result>;
+  /** `next`: página interna para onde voltar depois de confirmar o e-mail (já validada com safeNext) */
+  register: (data: { name: string; email: string; password: string; next?: string }) => Promise<(Result & { needsConfirmation?: boolean })>;
+  resendConfirmation: (email: string, next?: string) => Promise<Result>;
   requestPasswordReset: (email: string) => Promise<Result>;
   updatePassword: (password: string) => Promise<Result>;
   logout: () => Promise<void>;
@@ -163,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: false, ...authErrorMessage(error) };
   };
 
-  const register: AuthContextValue["register"] = async ({ name, email, password }) => {
+  const register: AuthContextValue["register"] = async ({ name, email, password, next }) => {
     if (!supabase) return NOT_CONFIGURED;
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -171,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: {
         // user_metadata: dados de exibição apenas. Papel de admin NÃO é definido aqui.
         data: { name: name.trim(), profileType: "docente", plan: "gratuito" },
-        emailRedirectTo: siteUrl("/perfil?boas-vindas=1"),
+        emailRedirectTo: siteUrl(next ?? "/perfil?boas-vindas=1"),
       },
     });
     if (error) return { ok: false, ...authErrorMessage(error) };
@@ -180,12 +181,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: true, needsConfirmation: !data.session };
   };
 
-  const resendConfirmation: AuthContextValue["resendConfirmation"] = async (email) => {
+  const resendConfirmation: AuthContextValue["resendConfirmation"] = async (email, next) => {
     if (!supabase) return NOT_CONFIGURED;
     const { error } = await supabase.auth.resend({
       type: "signup",
       email: email.trim(),
-      options: { emailRedirectTo: siteUrl("/perfil?boas-vindas=1") },
+      options: { emailRedirectTo: siteUrl(next ?? "/perfil?boas-vindas=1") },
     });
     if (error) return { ok: false, ...authErrorMessage(error) };
     return { ok: true };

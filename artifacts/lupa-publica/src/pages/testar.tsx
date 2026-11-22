@@ -2571,6 +2571,9 @@ export default function TestarIA() {
   // ── Documentos longos: leitura completa em segundo plano (estado no servidor) ──
   const [longJob, setLongJob] = useState<LongJobView | null>(null);
   const [longRunning, setLongRunning] = useState(false);
+  // Documento grande sem login: convite ao cadastro (não é erro) e documento guardado neste navegador
+  const [needsAccount, setNeedsAccount] = useState<number | null>(null);
+  const pendingAutoStart = useRef(false);
   const longJobActive = Boolean(longJob && ["pendente", "processando", "aguardando_cota"].includes(longJob.status));
   const longLoop = useRef(0);
   const [docLimits, setDocLimits] = useState<{ syncMax: number; syncHard: number; maxChars: number; background: boolean }>({ syncMax: 45_000, syncHard: 450_000, maxChars: 1_200_000, background: false });
@@ -2660,6 +2663,7 @@ export default function TestarIA() {
     setIsFavorite(false);
     setChecklistState([]);
     setAnalysisStage("idle");
+    setNeedsAccount(null);
     // Tarefa longa ainda ativa continua visível (com Cancelar); terminada sai junto com o resultado
     setLongJob((j) => (j && ["pendente", "processando", "aguardando_cota"].includes(j.status) ? j : null));
   };
@@ -2880,6 +2884,38 @@ export default function TestarIA() {
 
   // ── Documento longo ────────────────────────────────────────────────────────
   const LONG_KEY = "lupa-analise-longa-v1";
+  const PENDING_KEY = "lupa-documento-pendente-v1";
+
+  // Voltou do cadastro/login: restaura o documento guardado e, já com conta, começa a leitura completa
+  useEffect(() => {
+    let pending: { text: string; agentId: AgentId; at: number } | null = null;
+    try {
+      const raw = localStorage.getItem(PENDING_KEY);
+      pending = raw ? JSON.parse(raw) : null;
+      if (pending && Date.now() - pending.at > 24 * 3600_000) {
+        localStorage.removeItem(PENDING_KEY);
+        pending = null;
+      }
+    } catch {
+      pending = null;
+    }
+    if (!pending) return;
+    if (!text) {
+      setText(pending.text);
+      setSelectedAgent(pending.agentId);
+      setManualAgentSelection(true);
+    }
+    if (user) {
+      try {
+        localStorage.removeItem(PENDING_KEY);
+      } catch {
+        /* nada */
+      }
+      setNeedsAccount(null);
+      pendingAutoStart.current = true;
+    } else setNeedsAccount(pending.text.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
   const rememberJob = (id: string | null) => {
     try {
       if (id) localStorage.setItem(LONG_KEY, id);
@@ -2937,10 +2973,14 @@ export default function TestarIA() {
   const startLongJob = async (agentIdToUse: AgentId, textAtStart: string) => {
     if (!user) {
       setIsAnalyzePressed(false);
-      setAnalysisStage("error");
-      setAnalysisError(
-        `Este documento tem ${textAtStart.length.toLocaleString("pt-BR")} caracteres. Para lê-lo por inteiro, a análise roda em segundo plano e o andamento fica guardado na sua conta: entre para continuar. Você não precisa escolher trechos.`,
-      );
+      setAnalysisStage("idle");
+      setNeedsAccount(textAtStart.length);
+      // Guarda o documento NESTE navegador para não se perder no cadastro/login (24 h; apagado ao usar)
+      try {
+        localStorage.setItem(PENDING_KEY, JSON.stringify({ text: textAtStart, agentId: agentIdToUse, at: Date.now() }));
+      } catch {
+        /* armazenamento cheio ou bloqueado: a pessoa cola de novo depois de entrar */
+      }
       return;
     }
     try {
@@ -3119,6 +3159,14 @@ export default function TestarIA() {
       },
     );
   };
+
+  useEffect(() => {
+    if (pendingAutoStart.current && user && text.length > docLimits.syncMax) {
+      pendingAutoStart.current = false;
+      handleAnalyze();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, text, docLimits.syncMax]);
 
   const handleToggleFavorite = async () => {
     if (!agentResult) {
@@ -3862,6 +3910,24 @@ export default function TestarIA() {
                 Você pode usar texto, URL pública ou PDF. A IA interpreta e organiza o conteúdo sem alterar o sentido original do documento, e salva a interpretação no histórico quando há sessão ativa.
               </div>
             )}
+            {needsAccount !== null && !user && (
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950" role="region" aria-labelledby="precisa-conta" data-testid="documento-grande-cadastro">
+                <p id="precisa-conta" className="font-semibold">Documento muito grande: faça o cadastro para ler por inteiro</p>
+                <p className="mt-1">
+                  Este documento tem {needsAccount.toLocaleString("pt-BR")} caracteres. Documentos assim são lidos inteiros, parte por parte, e o
+                  andamento fica guardado na sua conta. O cadastro é gratuito e você não precisa escolher trechos.
+                </p>
+                <p className="mt-1 text-xs text-sky-900">Guardamos o texto neste navegador enquanto você se cadastra; ao voltar, a leitura começa sozinha.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button asChild size="sm" className="rounded-xl">
+                    <Link href="/cadastro?next=%2Ftestar" data-testid="cadastro-documento-grande">Criar conta grátis</Link>
+                  </Button>
+                  <Button asChild size="sm" variant="outline" className="rounded-xl bg-white">
+                    <Link href="/login?next=%2Ftestar">Já tenho conta — entrar</Link>
+                  </Button>
+                </div>
+              </div>
+            )}
             {analysisError && !isAnalyzing && (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                 <div className="flex items-start gap-2">
@@ -4464,6 +4530,11 @@ export default function TestarIA() {
                       resetAnalysis();
                       setText("");
                       setUrlInput("");
+                      try {
+                        localStorage.removeItem("lupa-documento-pendente-v1"); // documento guardado para depois do cadastro
+                      } catch {
+                        /* nada */
+                      }
                       setPdfStructuredData(null);
                       setPdfError(null);
                       toast({ title: "Entrada limpa", description: "Texto, link e resultado da tela foram limpos. O histórico salvo continua disponível." });

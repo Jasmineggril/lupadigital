@@ -345,7 +345,7 @@ router.post("/resources/:table", async (req: Request, res: Response): Promise<vo
   }
   const idem = String(req.headers["idempotency-key"] ?? "");
   const clientId = VERSIONED.has(table) && UUID_RE.test(idem) ? idem : null;
-  const values = { ...(built.data as Record<string, unknown>), ...(clientId ? { client_id: clientId } : {}) };
+  const values: Record<string, unknown> = { ...(built.data as Record<string, unknown>), ...(clientId ? { client_id: clientId } : {}) };
   try {
     if (memoryMode()) {
       const t = memTable(table);
@@ -357,6 +357,10 @@ router.post("/resources/:table", async (req: Request, res: Response): Promise<vo
       const now = nowIso();
       const row = { ...values, id: table === "conversations" ? t.length + 1 + Math.floor(Math.random() * 1e6) : crypto.randomUUID(), user_id: String(userId), created_at: now, updated_at: now, ...(VERSIONED.has(table) ? { version: 1, favorito: false } : {}) } as unknown as MemRow;
       t.push(row);
+      if (table === "chat_messages") {
+        const conv = memTable("conversations").find((c) => String(c.id) === String(values.conversation_id) && c.user_id === String(userId));
+        if (conv) conv.updated_at = now;
+      }
       res.status(201).json(row);
       return;
     }
@@ -368,6 +372,10 @@ router.post("/resources/:table", async (req: Request, res: Response): Promise<vo
       }
     }
     const { data, error } = await getSupabaseAdmin().from(table).insert([values]).select().single();
+    if (!error && table === "chat_messages" && /^\d+$/.test(String(values.conversation_id ?? ""))) {
+      // Última atividade da conversa (ordenação em "Meu histórico"); só da própria conversa
+      await getSupabaseAdmin().from("conversations").update({ updated_at: nowIso() }).eq("id", Number(values.conversation_id)).eq("user_id", userId);
+    }
     if (error) {
       // Duas tentativas simultâneas com a mesma chave: a segunda devolve a primeira
       if ((error as { code?: string }).code === "23505" && clientId) {

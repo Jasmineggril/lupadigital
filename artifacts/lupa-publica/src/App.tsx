@@ -54,6 +54,7 @@ function ScrollToTop() {
 // Importações por rota para reduzir o bundle inicial.
 const NotFound = React.lazy(() => import("@/pages/not-found"));
 const Home = React.lazy(() => import("@/pages/home"));
+const Historico = React.lazy(() => import("@/pages/historico"));
 const Glossario = React.lazy(() => import("@/pages/glossario"));
 const Aprender = React.lazy(() => import("@/pages/aprender"));
 const NiasciHub = React.lazy(() => import("@/pages/niasci"));
@@ -122,7 +123,7 @@ function Router() {
             {/* ── Páginas públicas ──────────────────────────────────────── */}
             <Route path="/" component={Home} />
             <Route path="/testar" component={TestarIA} />
-            <Route path="/historico" component={TestarIA} />
+            <Route path="/historico" component={Historico} />
 
             {/* ── Hub NIASci (público) + módulos (protegidos) ───────────── */}
             <Route path="/niasci/editais">

@@ -10,6 +10,7 @@
  * Nenhuma senha é armazenada ou manipulada fora do Supabase.
  */
 
+import { purgeDrafts, purgeOtherUsersDrafts } from "./persistence";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { AuthError, User } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured, hadStoredSessionAtLoad } from "./supabase";
@@ -211,8 +212,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   };
 
+  useEffect(() => {
+    if (user?.id) purgeOtherUsersDrafts(user.id);
+  }, [user?.id]);
+
   const logout = async () => {
     explicitLogout.current = true;
+    // Cópias de recuperação desta pessoa não ficam para a próxima conta neste aparelho
+    purgeDrafts(user?.id ?? null);
     setSessionExpired(false);
     if (supabase) await supabase.auth.signOut().catch(() => {});
     setUser(null);

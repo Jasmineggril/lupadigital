@@ -9,6 +9,7 @@ import { CalendarClock, ClipboardList, Lightbulb, Sparkles } from "lucide-react"
 import { buttonVariants } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { ContinueWhereLeft } from "@/components/lupa/ContinueWhereLeft";
 import { confirmedDeadline, formatDate, type Recommendation, type TeacherProfile } from "@/lib/lupa-types";
 import { EmptyState, ErrorState, LoadingState, PageHeader, useAsync } from "@/components/lupa/ui";
 import { EligibilityBadge, ThematicBadge } from "@/components/lupa/opportunity";
@@ -49,6 +50,9 @@ export default function Inicio() {
   return (
     <div className="min-h-[100dvh] bg-slate-50">
       <PageHeader eyebrow="Início" title={`Olá, ${user?.name.split(" ")[0] ?? "docente"}`} description="Suas oportunidades, prazos e o que falta no perfil para melhorar as recomendações." />
+      <div className="container mx-auto max-w-6xl px-4 pt-6">
+        <ContinueWhereLeft />
+      </div>
       <div className="container mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[1.6fr_1fr]">
         {loading ? (
           <LoadingState />

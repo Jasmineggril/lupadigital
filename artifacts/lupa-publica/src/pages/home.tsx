@@ -11,6 +11,7 @@
 import { Term } from "@/components/edu/Term";
 import { buttonVariants } from "@/components/ui/button";
 import { AlertTriangle, ArrowRight, BookOpen, Check, CircleHelp, FileText, GraduationCap, Search, X } from "lucide-react";
+import { ContinueWhereLeft } from "@/components/lupa/ContinueWhereLeft";
 import { Link } from "wouter";
 import { GoalPicker } from "@/components/lupa/GoalPicker";
 
@@ -44,7 +45,7 @@ const tools = [
 ];
 
 const more = [
-  { title: "Histórico de análises", href: "/historico" },
+  { title: "Meu histórico", href: "/historico" },
   { title: "e-Lattes (leitura guiada)", href: "/niasci/elattes" },
   { title: "Artigos científicos", href: "/niasci/artigos" },
   { title: "Projetos de pesquisa", href: "/niasci/projetos" },
@@ -134,6 +135,9 @@ export default function Home() {
           <AnnotatedEdital />
         </div>
       </section>
+      <div className="container mx-auto max-w-[75rem] px-4 pt-6 sm:px-6 lg:px-8 empty:hidden">
+        <ContinueWhereLeft />
+      </div>
 
       {/* 2 · Como a LUPA lê um edital (é uma sequência real) */}
       <div className="container mx-auto max-w-[75rem] px-4 pt-12 sm:px-6 lg:px-8">

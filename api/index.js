@@ -5682,11 +5682,11 @@ var require_dist = __commonJS({
       }
       let result = type;
       if (parameters) {
-        for (const param of Object.keys(parameters)) {
-          if (!TOKEN_REGEXP.test(param)) {
-            throw new TypeError(`Invalid parameter name: ${param}`);
+        for (const param2 of Object.keys(parameters)) {
+          if (!TOKEN_REGEXP.test(param2)) {
+            throw new TypeError(`Invalid parameter name: ${param2}`);
           }
-          result += `; ${param}=${qstring(parameters[param])}`;
+          result += `; ${param2}=${qstring(parameters[param2])}`;
         }
       }
       return result;
@@ -21236,27 +21236,27 @@ var require_router = __commonJS({
     var slice2 = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router9;
+    module.exports = Router10;
     module.exports.Route = Route;
-    function Router9(options) {
-      if (!(this instanceof Router9)) {
-        return new Router9(options);
+    function Router10(options) {
+      if (!(this instanceof Router10)) {
+        return new Router10(options);
       }
       const opts = options || {};
-      function router9(req, res, next2) {
-        router9.handle(req, res, next2);
+      function router10(req, res, next2) {
+        router10.handle(req, res, next2);
       }
-      Object.setPrototypeOf(router9, this);
-      router9.caseSensitive = opts.caseSensitive;
-      router9.mergeParams = opts.mergeParams;
-      router9.params = {};
-      router9.strict = opts.strict;
-      router9.stack = [];
-      return router9;
+      Object.setPrototypeOf(router10, this);
+      router10.caseSensitive = opts.caseSensitive;
+      router10.mergeParams = opts.mergeParams;
+      router10.params = {};
+      router10.strict = opts.strict;
+      router10.stack = [];
+      return router10;
     }
-    Router9.prototype = function() {
+    Router10.prototype = function() {
     };
-    Router9.prototype.param = function param(name, fn) {
+    Router10.prototype.param = function param2(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -21276,7 +21276,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router9.prototype.handle = function handle(req, res, callback) {
+    Router10.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -21403,7 +21403,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router9.prototype.use = function use(handler) {
+    Router10.prototype.use = function use(handler) {
       let offset = 0;
       let path3 = "/";
       if (typeof handler !== "function") {
@@ -21436,7 +21436,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router9.prototype.route = function route(path3) {
+    Router10.prototype.route = function route(path3) {
       const route2 = new Route(path3);
       const layer = new Layer(path3, {
         sensitive: this.caseSensitive,
@@ -21451,7 +21451,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router9.prototype[method] = function(path3) {
+      Router10.prototype[method] = function(path3) {
         const route = this.route(path3);
         route[method].apply(route, slice2.call(arguments, 1));
         return this;
@@ -21523,7 +21523,7 @@ var require_router = __commonJS({
       let paramVal;
       let paramCallbacks;
       let paramCalled;
-      function param(err) {
+      function param2(err) {
         if (err) {
           return done(err);
         }
@@ -21536,11 +21536,11 @@ var require_router = __commonJS({
         paramCallbacks = params[key];
         paramCalled = called[key];
         if (paramVal === void 0 || !paramCallbacks) {
-          return param();
+          return param2();
         }
         if (paramCalled && (paramCalled.match === paramVal || paramCalled.error && paramCalled.error !== "route")) {
           req.params[key] = paramCalled.value;
-          return param(paramCalled.error);
+          return param2(paramCalled.error);
         }
         called[key] = paramCalled = {
           error: null,
@@ -21554,10 +21554,10 @@ var require_router = __commonJS({
         paramCalled.value = req.params[key];
         if (err) {
           paramCalled.error = err;
-          param(err);
+          param2(err);
           return;
         }
-        if (!fn) return param();
+        if (!fn) return param2();
         try {
           const ret = fn(req, res, paramCallback, paramVal, key);
           if (isPromise(ret)) {
@@ -21572,7 +21572,7 @@ var require_router = __commonJS({
           paramCallback(e);
         }
       }
-      param();
+      param2();
     }
     function restore(fn, obj) {
       const props = new Array(arguments.length - 2);
@@ -21634,13 +21634,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once2 = require_once();
-    var Router9 = require_router();
+    var Router10 = require_router();
     var slice2 = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router9 = null;
+      var router10 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21649,13 +21649,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router9 === null) {
-            router9 = new Router9({
+          if (router10 === null) {
+            router10 = new Router10({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router9;
+          return router10;
         }
       });
     };
@@ -21726,15 +21726,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router9 = this.router;
+      var router10 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router9.use(path3, fn2);
+          return router10.use(path3, fn2);
         }
         debug2(".use app under %s", path3);
         fn2.mountpath = path3;
         fn2.parent = this;
-        router9.use(path3, function mounted_app(req, res, next2) {
+        router10.use(path3, function mounted_app(req, res, next2) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -21757,7 +21757,7 @@ var require_application = __commonJS({
       this.engines[extension] = fn;
       return this;
     };
-    app2.param = function param(name, fn) {
+    app2.param = function param2(name, fn) {
       if (Array.isArray(name)) {
         for (var i = 0; i < name.length; i++) {
           this.param(name[i], fn);
@@ -23005,27 +23005,27 @@ var require_dist3 = __commonJS({
       }
       let result = type;
       if (parameters) {
-        for (const param of Object.keys(parameters)) {
-          const value = parameters[param];
-          if (!TOKEN_REGEXP.test(param)) {
-            throw new TypeError("Invalid parameter name: " + param);
+        for (const param2 of Object.keys(parameters)) {
+          const value = parameters[param2];
+          if (!TOKEN_REGEXP.test(param2)) {
+            throw new TypeError("Invalid parameter name: " + param2);
           }
           if (multipart) {
-            result += "; " + param + "=" + qmultipart(value);
+            result += "; " + param2 + "=" + qmultipart(value);
             continue;
           }
           if (TOKEN_REGEXP.test(value)) {
-            result += "; " + param + "=" + value;
+            result += "; " + param2 + "=" + value;
             continue;
           }
           if (TEXT_REGEXP.test(value)) {
-            result += "; " + param + "=" + qstring(value);
+            result += "; " + param2 + "=" + qstring(value);
             continue;
           }
           if (!extended2) {
             throw new TypeError("Invalid parameter value: " + value);
           }
-          result += "; " + param + "*=" + encodeExtended(value);
+          result += "; " + param2 + "*=" + encodeExtended(value);
         }
       }
       return result;
@@ -24399,7 +24399,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router9 = require_router();
+    var Router10 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -24421,8 +24421,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router9.Route;
-    exports.Router = Router9;
+    exports.Route = Router10.Route;
+    exports.Router = Router10;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -31100,7 +31100,7 @@ function __addDisposableResource(env, value, async) {
   return value;
 }
 function __disposeResources(env) {
-  function fail3(e) {
+  function fail4(e) {
     env.error = env.hasError ? new _SuppressedError(e, env.error, "An error was suppressed during disposal.") : e;
     env.hasError = true;
   }
@@ -31112,12 +31112,12 @@ function __disposeResources(env) {
         if (r.dispose) {
           var result = r.dispose.call(r.value);
           if (r.async) return s |= 2, Promise.resolve(result).then(next2, function(e) {
-            fail3(e);
+            fail4(e);
             return next2();
           });
         } else s |= 1;
       } catch (e) {
-        fail3(e);
+        fail4(e);
       }
     }
     if (s === 1) return env.hasError ? Promise.reject(env.error) : Promise.resolve();
@@ -38296,7 +38296,7 @@ var require_webauthn_errors = __commonJS({
           cause: error63
         });
       } else if (error63.name === "NotSupportedError") {
-        const validPubKeyCredParams = publicKey.pubKeyCredParams.filter((param) => param.type === "public-key");
+        const validPubKeyCredParams = publicKey.pubKeyCredParams.filter((param2) => param2.type === "public-key");
         if (validPubKeyCredParams.length === 0) {
           return new WebAuthnError({
             message: 'No entry in pubKeyCredParams was of type "public-key"',
@@ -47626,8 +47626,8 @@ var require_safe_stable_stringify = __commonJS({
     }
     function configure(options) {
       options = { ...options };
-      const fail3 = getStrictOption(options);
-      if (fail3) {
+      const fail4 = getStrictOption(options);
+      if (fail4) {
         if (options.bigint === void 0) {
           options.bigint = false;
         }
@@ -47738,7 +47738,7 @@ ${originalIndentation}`;
             return `{${res}}`;
           }
           case "number":
-            return isFinite(value) ? String(value) : fail3 ? fail3(value) : "null";
+            return isFinite(value) ? String(value) : fail4 ? fail4(value) : "null";
           case "boolean":
             return value === true ? "true" : "false";
           case "undefined":
@@ -47749,7 +47749,7 @@ ${originalIndentation}`;
             }
           // fallthrough
           default:
-            return fail3 ? fail3(value) : void 0;
+            return fail4 ? fail4(value) : void 0;
         }
       }
       function stringifyArrayReplacer(key, value, stack, replacer, spacer, indentation) {
@@ -47829,7 +47829,7 @@ ${originalIndentation}`;
             return `{${res}}`;
           }
           case "number":
-            return isFinite(value) ? String(value) : fail3 ? fail3(value) : "null";
+            return isFinite(value) ? String(value) : fail4 ? fail4(value) : "null";
           case "boolean":
             return value === true ? "true" : "false";
           case "undefined":
@@ -47840,7 +47840,7 @@ ${originalIndentation}`;
             }
           // fallthrough
           default:
-            return fail3 ? fail3(value) : void 0;
+            return fail4 ? fail4(value) : void 0;
         }
       }
       function stringifyIndent(key, value, stack, spacer, indentation) {
@@ -47941,7 +47941,7 @@ ${originalIndentation}`;
             return `{${res}}`;
           }
           case "number":
-            return isFinite(value) ? String(value) : fail3 ? fail3(value) : "null";
+            return isFinite(value) ? String(value) : fail4 ? fail4(value) : "null";
           case "boolean":
             return value === true ? "true" : "false";
           case "undefined":
@@ -47952,7 +47952,7 @@ ${originalIndentation}`;
             }
           // fallthrough
           default:
-            return fail3 ? fail3(value) : void 0;
+            return fail4 ? fail4(value) : void 0;
         }
       }
       function stringifySimple(key, value, stack) {
@@ -48037,7 +48037,7 @@ ${originalIndentation}`;
             return `{${res}}`;
           }
           case "number":
-            return isFinite(value) ? String(value) : fail3 ? fail3(value) : "null";
+            return isFinite(value) ? String(value) : fail4 ? fail4(value) : "null";
           case "boolean":
             return value === true ? "true" : "false";
           case "undefined":
@@ -48048,7 +48048,7 @@ ${originalIndentation}`;
             }
           // fallthrough
           default:
-            return fail3 ? fail3(value) : void 0;
+            return fail4 ? fail4(value) : void 0;
         }
       }
       function stringify4(value, replacer, space) {
@@ -80164,14 +80164,14 @@ var require_media_typer2 = __commonJS({
         string4 += "+" + suffix;
       }
       if (parameters && typeof parameters === "object") {
-        var param;
+        var param2;
         var params = Object.keys(parameters).sort();
         for (var i = 0; i < params.length; i++) {
-          param = params[i];
-          if (!tokenRegExp.test(param)) {
+          param2 = params[i];
+          if (!tokenRegExp.test(param2)) {
             throw new TypeError("invalid parameter name");
           }
-          string4 += "; " + param + "=" + qstring(parameters[param]);
+          string4 += "; " + param2 + "=" + qstring(parameters[param2]);
         }
       }
       return string4;
@@ -96094,7 +96094,7 @@ try {
 }
 
 // src/app.ts
-var import_express11 = __toESM(require_express2(), 1);
+var import_express12 = __toESM(require_express2(), 1);
 
 // ../../node_modules/.pnpm/@sentry+core@10.70.0/node_modules/@sentry/core/build/esm/debug-build.js
 var DEBUG_BUILD = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG__;
@@ -99028,9 +99028,9 @@ function patchExpressModule(optionsOrExports, maybeGetOptions) {
       "use",
       function appUseTrace(...args) {
         const route = originalApplicationUse.apply(this, args);
-        const router9 = isExpressWithRouterPrototype(express2) ? this.router : this._router;
-        if (router9) {
-          const layer = router9.stack[router9.stack.length - 1];
+        const router10 = isExpressWithRouterPrototype(express2) ? this.router : this._router;
+        if (router10) {
+          const layer = router10.stack[router10.stack.length - 1];
           if (layer) {
             patchLayer(getOptions, layer, getLayerPath(args));
           }
@@ -110473,7 +110473,7 @@ var supabase_default = getSupabaseAdmin;
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express10 = __toESM(require_express2(), 1);
+var import_express11 = __toESM(require_express2(), 1);
 
 // src/lib/aiKeyCheck.ts
 var PROVIDERS = [
@@ -144928,7 +144928,8 @@ function unmapKeys(obj) {
 }
 async function httpInsert(table, values) {
   if (memoryMode()) {
-    const row = { id: ++memorySeq, created_at: (/* @__PURE__ */ new Date()).toISOString(), favorito: false, ...structuredClone(unmapKeys(values)) };
+    const at = (/* @__PURE__ */ new Date()).toISOString();
+    const row = { id: ++memorySeq, created_at: at, updated_at: at, favorito: false, ...table === "agent_results" ? { version: 1, estado: {} } : {}, ...structuredClone(unmapKeys(values)) };
     memTable(table).push(row);
     return mapKeys(structuredClone(row));
   }
@@ -144975,6 +144976,18 @@ async function httpUpdate(table, values, col1, val1, col2, val2) {
   const { data: data2, error: error63 } = await supabase.from(table).update(unmapKeys(values)).eq(col1, val1).eq(col2, val2).select();
   if (error63) throw new Error(error63.message);
   return data2 && data2.length ? mapKeys(data2[0]) : null;
+}
+async function httpUpdateVersioned(table, values, id, userId, expectedVersion) {
+  const snake = unmapKeys(values);
+  if (memoryMode()) {
+    const row = memTable(table).find((r) => memMatch(r, { id, user_id: userId }) && Number(r.version ?? 1) === expectedVersion);
+    if (!row) return null;
+    Object.assign(row, structuredClone(snake));
+    return mapKeys(structuredClone(row));
+  }
+  const { data: data2, error: error63 } = await supabase_default().from(table).update(snake).eq("id", id).eq("user_id", userId).eq("version", expectedVersion).select().maybeSingle();
+  if (error63) throw new Error(error63.message);
+  return data2 ? mapKeys(data2) : null;
 }
 async function httpDeleteAllForUser(table, userId) {
   if (memoryMode()) {
@@ -161505,7 +161518,9 @@ var SaveAgentResultBodySchema = external_exports.object({
   agentId: external_exports.string().min(1),
   title: external_exports.string().min(1).max(200),
   originalText: external_exports.string().min(1),
-  resultJson: external_exports.record(external_exports.string(), external_exports.unknown())
+  resultJson: external_exports.record(external_exports.string(), external_exports.unknown()),
+  /** concluida | parcial — análise parcial também é guardada (identificada como parcial) */
+  status: external_exports.enum(["concluida", "parcial"]).optional()
 });
 var DeleteAgentResultParamsSchema = external_exports.object({ id: external_exports.coerce.number().int().positive() });
 router2.get("/edital/agent-history", async (req, res) => {
@@ -161515,7 +161530,7 @@ router2.get("/edital/agent-history", async (req, res) => {
     return;
   }
   try {
-    const rows = await httpSelect("agent_results", { user_id: userId }, { order: "created_at", ascending: false, limit: 200 });
+    const rows = await httpSelect("agent_results", { user_id: userId }, { order: "updated_at", ascending: false, limit: 200 });
     res.json(rows);
   } catch (err) {
     req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:list");
@@ -161566,7 +161581,18 @@ router2.post("/edital/agent-history", async (req, res) => {
   } catch (e) {
     req.log?.warn({ e }, "Erro n\xE3o cr\xEDtico preparando payload de agent-history");
   }
+  const idem = String(req.headers["idempotency-key"] ?? "");
+  const clientId = /^[0-9a-f-]{36}$/i.test(idem) ? idem : null;
+  if (clientId) payload.clientId = clientId;
+  if (!payload.status) payload.status = payload.resultJson?.processing?.complete === false ? "parcial" : "concluida";
   try {
+    if (clientId) {
+      const [existing] = await httpSelectTwoFilters("agent_results", "user_id", userId, "client_id", clientId, { limit: 1 });
+      if (existing) {
+        res.status(200).json(existing);
+        return;
+      }
+    }
     const saved = await httpInsert("agent_results", payload);
     res.status(201).json(saved);
   } catch (err) {
@@ -161574,12 +161600,16 @@ router2.post("/edital/agent-history", async (req, res) => {
     res.status(503).json({ error: "N\xE3o foi poss\xEDvel salvar no hist\xF3rico. Nada foi gravado; tente novamente." });
   }
 });
-var FavoriteBodySchema = external_exports.object({ favorito: external_exports.boolean() }).strict();
-router2.patch("/edital/agent-history/:id", async (req, res) => {
+var PatchAgentResultSchema = external_exports.object({
+  favorito: external_exports.boolean().optional(),
+  titulo: external_exports.string().trim().min(1).max(200).optional(),
+  /** Estado de trabalho: checklist marcado, anotações, perguntas e respostas do chat deste edital */
+  estado: external_exports.record(external_exports.string(), external_exports.unknown()).optional()
+}).strict().refine((b) => b.favorito !== void 0 || b.titulo !== void 0 || b.estado !== void 0, "Nada a alterar.");
+router2.get("/edital/agent-history/:id", async (req, res) => {
   const params = DeleteAgentResultParamsSchema.safeParse(req.params);
-  const body = FavoriteBodySchema.safeParse(req.body ?? {});
-  if (!params.success || !body.success) {
-    res.status(400).json({ error: "Requisi\xE7\xE3o inv\xE1lida." });
+  if (!params.success) {
+    res.status(404).json({ error: "An\xE1lise n\xE3o encontrada." });
     return;
   }
   const userId = req.user?.id ?? null;
@@ -161588,15 +161618,56 @@ router2.patch("/edital/agent-history/:id", async (req, res) => {
     return;
   }
   try {
-    const updated = await httpUpdate("agent_results", { favorito: body.data.favorito }, "id", params.data.id, "user_id", userId);
-    if (!updated) {
+    const [row] = await httpSelectTwoFilters("agent_results", "id", params.data.id, "user_id", userId, { limit: 1 });
+    if (!row) res.status(404).json({ error: "An\xE1lise n\xE3o encontrada." });
+    else res.json(row);
+  } catch (err) {
+    req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:get");
+    res.status(503).json({ error: "N\xE3o foi poss\xEDvel abrir a an\xE1lise agora. Tente novamente." });
+  }
+});
+router2.patch("/edital/agent-history/:id", async (req, res) => {
+  const params = DeleteAgentResultParamsSchema.safeParse(req.params);
+  const body = PatchAgentResultSchema.safeParse(req.body ?? {});
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "Requisi\xE7\xE3o inv\xE1lida." });
+    return;
+  }
+  if (body.data.estado && JSON.stringify(body.data.estado).length > 3e5) {
+    res.status(413).json({ error: "As anota\xE7\xF5es desta an\xE1lise passaram do limite de tamanho." });
+    return;
+  }
+  const userId = req.user?.id ?? null;
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const expected = Number(String(req.headers["if-match"] ?? "").replace(/"/g, ""));
+  try {
+    const [current2] = await httpSelectTwoFilters("agent_results", "id", params.data.id, "user_id", userId, { limit: 1 });
+    if (!current2) {
       res.status(404).json({ error: "An\xE1lise n\xE3o encontrada." });
+      return;
+    }
+    const have = Number(current2.version ?? 1);
+    if (Number.isInteger(expected) && expected > 0 && expected !== have) {
+      res.status(409).json({ error: "Esta an\xE1lise foi alterada em outra aba ou aparelho. Nada foi sobrescrito.", code: "CONFLITO", atual: current2 });
+      return;
+    }
+    const patch = { version: have + 1, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+    if (body.data.favorito !== void 0) patch.favorito = body.data.favorito;
+    if (body.data.titulo !== void 0) patch.title = body.data.titulo;
+    if (body.data.estado !== void 0) patch.estado = body.data.estado;
+    const updated = await httpUpdateVersioned("agent_results", patch, params.data.id, userId, have);
+    if (!updated) {
+      const [now2] = await httpSelectTwoFilters("agent_results", "id", params.data.id, "user_id", userId, { limit: 1 });
+      res.status(409).json({ error: "Esta an\xE1lise foi alterada em outra aba ou aparelho. Nada foi sobrescrito.", code: "CONFLITO", atual: now2 });
       return;
     }
     res.json(updated);
   } catch (err) {
-    req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:favorite");
-    res.status(503).json({ error: "N\xE3o foi poss\xEDvel atualizar o favorito. Tente novamente." });
+    req.log?.error({ error: err instanceof Error ? err.message : String(err) }, "agent-history:patch");
+    res.status(503).json({ error: "N\xE3o foi poss\xEDvel salvar a altera\xE7\xE3o. Nada foi alterado; tente novamente." });
   }
 });
 router2.delete("/edital/agent-history/:id", async (req, res) => {
@@ -161974,7 +162045,18 @@ var ManualProjectSchema = external_exports.object({
   startDate: str3(20).default(""),
   endDate: str3(20).default(""),
   stages: external_exports.array(external_exports.object({ id: str3(80), name: str3(300), description: str3(2e3).default(""), deadline: str3(20).default(""), status: external_exports.enum(["pendente", "em andamento", "conclu\xEDda"]) })).max(100).default([]),
-  createdAt: str3(40).optional()
+  createdAt: str3(40).optional(),
+  /** "Salvar versão": marcos guardados pela pessoa (até 10) */
+  versoes: external_exports.array(
+    external_exports.object({
+      em: str3(40),
+      title: str3(300),
+      objective: str3(4e3).default(""),
+      description: str3(8e3).default(""),
+      status: external_exports.enum(["planejamento", "em andamento", "conclu\xEDdo", "pausado"]),
+      stages: external_exports.array(external_exports.object({ id: str3(80), name: str3(300), description: str3(2e3).default(""), deadline: str3(20).default(""), status: external_exports.enum(["pendente", "em andamento", "conclu\xEDda"]) })).max(100).default([])
+    })
+  ).max(10).optional()
 });
 var ResearchProjectWriteSchema = external_exports.object({
   title: str3(300).optional(),
@@ -162001,8 +162083,18 @@ var ALLOWED_TABLES = /* @__PURE__ */ new Set([
   "planetarium_contents",
   "chat_messages",
   "documents",
-  "ai_analyses"
+  "ai_analyses",
+  "conversations"
 ]);
+var VERSIONED = /* @__PURE__ */ new Set(["lattes_profiles", "article_analyses", "research_projects", "planetarium_contents", "conversations", "chat_messages"]);
+var TITLE_COLUMN = {
+  lattes_profiles: "name",
+  article_analyses: "title",
+  research_projects: "title",
+  planetarium_contents: "title",
+  conversations: "title",
+  edital_analyses: "titulo"
+};
 function tableNameIsAllowed(name) {
   return ALLOWED_TABLES.has(name);
 }
@@ -162067,6 +162159,9 @@ var ArticleAnalysisSchema = external_exports.object({
   metadata: external_exports.record(external_exports.string(), external_exports.unknown()).nullable().optional()
 });
 var ResearchProjectSchema = ResearchProjectWriteSchema.strict();
+var ConversationSchema = external_exports.object({
+  title: external_exports.string().trim().min(1).max(200).optional()
+});
 var PlanetariumContentSchema = external_exports.object({
   title: external_exports.string().optional(),
   content: external_exports.string().nullable().optional(),
@@ -162081,7 +162176,8 @@ var SCHEMAS = {
   planetarium_contents: PlanetariumContentSchema,
   chat_messages: ChatMessageSchema,
   documents: DocumentSchema,
-  ai_analyses: AIAnalysisSchema
+  ai_analyses: AIAnalysisSchema,
+  conversations: ConversationSchema
 };
 var SERVER_CONTROLLED_FIELDS = ["id", "user_id", "created_at", "updated_at"];
 function buildWritePayload(table, body, mode, userId) {
@@ -162123,72 +162219,112 @@ function buildWritePayload(table, body, mode, userId) {
   return { ok: true, data: data2 };
 }
 router3.use(requireAuth());
+var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+var param = (v) => String(Array.isArray(v) ? v[0] : v);
+var nowIso = () => (/* @__PURE__ */ new Date()).toISOString();
+function byUpdatedDesc(a, b) {
+  return String(b.updated_at ?? b.created_at).localeCompare(String(a.updated_at ?? a.created_at));
+}
 router3.get("/resources/:table", async (req, res) => {
-  const rawTable = req.params.table;
-  const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  if (!tableNameIsAllowed(String(table))) {
+  const table = param(req.params.table);
+  if (!tableNameIsAllowed(table)) {
     res.status(404).json({ error: "Tabela n\xE3o permitida" });
     return;
   }
-  const userId = req.user?.id;
+  const userId = getReqUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
+  const limit2 = Math.min(500, Math.max(1, Number(req.query.limit) || 200));
+  const offset = Math.max(0, Number(req.query.offset) || 0);
+  const conversationId = table === "chat_messages" && typeof req.query.conversation_id === "string" ? req.query.conversation_id.slice(0, 100) : null;
   try {
     if (memoryMode2()) {
-      res.json(memTable2(String(table)).filter((r) => r.user_id === String(userId)).sort((a, b) => b.created_at.localeCompare(a.created_at)));
+      let rows = memTable2(table).filter((r) => r.user_id === String(userId) && (!conversationId || r.conversation_id === conversationId));
+      rows = conversationId ? rows.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at))) : rows.sort(byUpdatedDesc);
+      res.json(rows.slice(offset, offset + limit2));
       return;
     }
-    const { data: data2, error: error63 } = await supabase_default().from(String(table)).select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    let q = supabase_default().from(table).select("*").eq("user_id", userId);
+    if (conversationId) q = q.eq("conversation_id", conversationId).order("created_at", { ascending: true });
+    else q = q.order(VERSIONED.has(table) ? "updated_at" : "created_at", { ascending: false });
+    const { data: data2, error: error63 } = await q.range(offset, offset + limit2 - 1);
     if (error63) throw error63;
     res.json(data2);
   } catch (err) {
-    const message2 = errMessage(err);
-    req.log?.error({ error: message2, table, userId }, "resource:list:error");
+    req.log?.error({ error: errMessage(err), table }, "resource:list:error");
     unavailable(res, "carregar o hist\xF3rico");
   }
 });
 router3.post("/resources/:table", async (req, res) => {
-  const rawTable = req.params.table;
-  const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  if (!tableNameIsAllowed(String(table))) {
+  const table = param(req.params.table);
+  if (!tableNameIsAllowed(table)) {
     res.status(404).json({ error: "Tabela n\xE3o permitida" });
     return;
   }
-  const userId = req.user?.id;
+  const userId = getReqUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
+  const built = buildWritePayload(table, req.body, "create", String(userId));
+  if (!built.ok) {
+    res.status(built.status).json(built.body);
+    return;
+  }
+  const idem = String(req.headers["idempotency-key"] ?? "");
+  const clientId = VERSIONED.has(table) && UUID_RE.test(idem) ? idem : null;
+  const values = { ...built.data, ...clientId ? { client_id: clientId } : {} };
   try {
-    const built = buildWritePayload(String(table), req.body, "create", String(userId));
-    if (!built.ok) {
-      res.status(built.status).json(built.body);
-      return;
-    }
     if (memoryMode2()) {
-      const now2 = (/* @__PURE__ */ new Date()).toISOString();
-      const row = { ...built.data, id: crypto5.randomUUID(), user_id: String(userId), created_at: now2, updated_at: now2 };
-      memTable2(String(table)).push(row);
+      const t = memTable2(table);
+      const dup = clientId ? t.find((r) => r.user_id === String(userId) && r.client_id === clientId) : null;
+      if (dup) {
+        res.status(200).json(dup);
+        return;
+      }
+      const now2 = nowIso();
+      const row = { ...values, id: table === "conversations" ? t.length + 1 + Math.floor(Math.random() * 1e6) : crypto5.randomUUID(), user_id: String(userId), created_at: now2, updated_at: now2, ...VERSIONED.has(table) ? { version: 1, favorito: false } : {} };
+      t.push(row);
+      if (table === "chat_messages") {
+        const conv = memTable2("conversations").find((c) => String(c.id) === String(values.conversation_id) && c.user_id === String(userId));
+        if (conv) conv.updated_at = now2;
+      }
       res.status(201).json(row);
       return;
     }
-    const { data: data2, error: error63 } = await supabase_default().from(String(table)).insert([built.data]).select().single();
-    if (error63) throw error63;
+    if (clientId) {
+      const { data: existing } = await supabase_default().from(table).select("*").eq("user_id", userId).eq("client_id", clientId).maybeSingle();
+      if (existing) {
+        res.status(200).json(existing);
+        return;
+      }
+    }
+    const { data: data2, error: error63 } = await supabase_default().from(table).insert([values]).select().single();
+    if (!error63 && table === "chat_messages" && /^\d+$/.test(String(values.conversation_id ?? ""))) {
+      await supabase_default().from("conversations").update({ updated_at: nowIso() }).eq("id", Number(values.conversation_id)).eq("user_id", userId);
+    }
+    if (error63) {
+      if (error63.code === "23505" && clientId) {
+        const { data: existing } = await supabase_default().from(table).select("*").eq("user_id", userId).eq("client_id", clientId).maybeSingle();
+        if (existing) {
+          res.status(200).json(existing);
+          return;
+        }
+      }
+      throw error63;
+    }
     res.status(201).json(data2);
   } catch (err) {
-    const message2 = errMessage(err);
-    req.log?.error({ error: message2, table, userId }, "resource:create:error");
+    req.log?.error({ error: errMessage(err), table }, "resource:create:error");
     unavailable(res, "salvar");
   }
 });
 router3.get("/resources/:table/:id", async (req, res) => {
-  const rawTable = req.params.table;
-  const rawId = req.params.id;
-  const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  const id = Array.isArray(rawId) ? rawId[0] : rawId;
-  if (!tableNameIsAllowed(String(table))) {
+  const table = param(req.params.table);
+  const id = param(req.params.id);
+  if (!tableNameIsAllowed(table)) {
     res.status(404).json({ error: "Tabela n\xE3o permitida" });
     return;
   }
@@ -162198,83 +162334,119 @@ router3.get("/resources/:table/:id", async (req, res) => {
     return;
   }
   try {
-    if (memoryMode2()) {
-      const row = memTable2(String(table)).find((r) => r.id === String(id) && r.user_id === String(userId));
-      if (!row) res.status(404).json({ error: "N\xE3o encontrado" });
-      else res.json(row);
-      return;
-    }
-    const { data: data2, error: error63 } = await supabase_default().from(String(table)).select("*").eq("id", id).eq("user_id", userId).single();
-    if (error63) {
-      if (error63.code === "PGRST116") {
-        res.status(404).json({ error: "N\xE3o encontrado" });
-        return;
-      }
-      throw error63;
-    }
-    res.json(data2);
+    const row = await findOwned(table, id, String(userId));
+    if (!row) res.status(404).json({ error: "N\xE3o encontrado" });
+    else res.json(row);
   } catch (err) {
-    const message2 = errMessage(err);
-    req.log?.error({ error: message2, table, id, userId }, "resource:get:error");
+    req.log?.error({ error: errMessage(err), table }, "resource:get:error");
     unavailable(res, "abrir este item");
   }
 });
+async function findOwned(table, id, userId) {
+  if (memoryMode2()) return memTable2(table).find((r) => String(r.id) === id && r.user_id === userId) ?? null;
+  const { data: data2, error: error63 } = await supabase_default().from(table).select("*").eq("id", id).eq("user_id", userId).maybeSingle();
+  if (error63) {
+    if (error63.code === "22P02") return null;
+    throw error63;
+  }
+  return data2 ?? null;
+}
+async function versionedUpdate(table, id, userId, values, expected) {
+  const current2 = await findOwned(table, id, userId);
+  if (!current2) return { status: 404 };
+  if (!VERSIONED.has(table)) {
+    const patch2 = { ...values, ...table === "edital_analyses" ? { updated_at: nowIso() } : {} };
+    if (memoryMode2()) {
+      Object.assign(current2, patch2, { updated_at: nowIso() });
+      return { status: 200, row: current2 };
+    }
+    const { data: data3, error: error64 } = await supabase_default().from(table).update(patch2).match({ id, user_id: userId }).select().maybeSingle();
+    if (error64) throw error64;
+    return data3 ? { status: 200, row: data3 } : { status: 404 };
+  }
+  const have = Number(current2.version ?? 1);
+  if (expected !== null && expected !== have) return { status: 409, row: current2 };
+  const patch = { ...values, version: have + 1, updated_at: nowIso() };
+  if (memoryMode2()) {
+    Object.assign(current2, patch);
+    return { status: 200, row: current2 };
+  }
+  const { data: data2, error: error63 } = await supabase_default().from(table).update(patch).eq("id", id).eq("user_id", userId).eq("version", have).select().maybeSingle();
+  if (error63) throw error63;
+  if (!data2) return { status: 409, row: await findOwned(table, id, userId) ?? current2 };
+  return { status: 200, row: data2 };
+}
+function ifMatch(req) {
+  const h = req.headers["if-match"];
+  const n2 = Number(String(h ?? "").replace(/"/g, ""));
+  return h !== void 0 && Number.isInteger(n2) && n2 > 0 ? n2 : null;
+}
+function sendUpdate(res, r) {
+  if (r.status === 404) res.status(404).json({ error: "N\xE3o encontrado ou sem permiss\xE3o" });
+  else if (r.status === 409)
+    res.status(409).json({ error: "Este item foi alterado em outra aba ou aparelho. Nada foi sobrescrito.", code: "CONFLITO", atual: r.row });
+  else res.json(r.row);
+}
 router3.put("/resources/:table/:id", async (req, res) => {
-  const rawTable = req.params.table;
-  const rawId = req.params.id;
-  const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  const id = Array.isArray(rawId) ? rawId[0] : rawId;
-  if (!tableNameIsAllowed(String(table))) {
+  const table = param(req.params.table);
+  const id = param(req.params.id);
+  if (!tableNameIsAllowed(table)) {
     res.status(404).json({ error: "Tabela n\xE3o permitida" });
     return;
   }
-  const userId = req.user?.id;
+  const userId = getReqUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
+  const built = buildWritePayload(table, req.body, "update", String(userId));
+  if (!built.ok) {
+    res.status(built.status).json(built.body);
+    return;
+  }
   try {
-    const built = buildWritePayload(String(table), req.body, "update", String(userId));
-    if (!built.ok) {
-      res.status(built.status).json(built.body);
-      return;
-    }
-    if (memoryMode2()) {
-      const row = memTable2(String(table)).find((r) => r.id === String(id) && r.user_id === String(userId));
-      if (!row) {
-        res.status(404).json({ error: "N\xE3o encontrado ou sem permiss\xE3o" });
-        return;
-      }
-      Object.assign(row, built.data, { updated_at: (/* @__PURE__ */ new Date()).toISOString() });
-      res.json(row);
-      return;
-    }
-    const values = String(table) === "research_projects" ? { ...built.data, updated_at: (/* @__PURE__ */ new Date()).toISOString() } : built.data;
-    const { data: data2, error: error63 } = await supabase_default().from(String(table)).update(values).match({ id, user_id: userId }).select().single();
-    if (error63) {
-      if (error63.code === "PGRST116") {
-        res.status(404).json({ error: "N\xE3o encontrado ou sem permiss\xE3o" });
-        return;
-      }
-      throw error63;
-    }
-    if (!data2) {
-      res.status(404).json({ error: "N\xE3o encontrado ou sem permiss\xE3o" });
-      return;
-    }
-    res.json(data2);
+    sendUpdate(res, await versionedUpdate(table, id, String(userId), built.data, ifMatch(req)));
   } catch (err) {
-    const message2 = errMessage(err);
-    req.log?.error({ error: message2, table, id, userId }, "resource:update:error");
+    req.log?.error({ error: errMessage(err), table }, "resource:update:error");
+    unavailable(res, "salvar a altera\xE7\xE3o");
+  }
+});
+var MetaSchema = external_exports.object({ favorito: external_exports.boolean().optional(), titulo: external_exports.string().trim().min(1).max(200).optional() }).strict();
+router3.patch("/resources/:table/:id/meta", async (req, res) => {
+  const table = param(req.params.table);
+  const id = param(req.params.id);
+  if (!tableNameIsAllowed(table) || !(VERSIONED.has(table) || table === "edital_analyses")) {
+    res.status(404).json({ error: "Tabela n\xE3o permitida" });
+    return;
+  }
+  const userId = getReqUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const parsed = MetaSchema.safeParse(req.body ?? {});
+  if (!parsed.success || parsed.data.favorito === void 0 && parsed.data.titulo === void 0) {
+    res.status(400).json({ code: "VALIDATION_ERROR", message: "Informe favorito e/ou titulo." });
+    return;
+  }
+  const values = {};
+  if (parsed.data.favorito !== void 0 && table !== "chat_messages") values.favorito = parsed.data.favorito;
+  if (parsed.data.titulo !== void 0 && TITLE_COLUMN[table]) values[TITLE_COLUMN[table]] = parsed.data.titulo;
+  if (!Object.keys(values).length) {
+    res.status(400).json({ code: "VALIDATION_ERROR", message: "Nada a alterar nesta ferramenta." });
+    return;
+  }
+  try {
+    sendUpdate(res, await versionedUpdate(table, id, String(userId), values, ifMatch(req)));
+  } catch (err) {
+    req.log?.error({ error: errMessage(err), table }, "resource:meta:error");
     unavailable(res, "salvar a altera\xE7\xE3o");
   }
 });
 router3.delete("/resources/:table/:id", async (req, res) => {
-  const rawTable = req.params.table;
-  const rawId = req.params.id;
-  const table = Array.isArray(rawTable) ? rawTable[0] : rawTable;
-  const id = Array.isArray(rawId) ? rawId[0] : rawId;
-  if (!tableNameIsAllowed(String(table))) {
+  const table = param(req.params.table);
+  const id = param(req.params.id);
+  if (!tableNameIsAllowed(table)) {
     res.status(404).json({ error: "Tabela n\xE3o permitida" });
     return;
   }
@@ -162285,18 +162457,28 @@ router3.delete("/resources/:table/:id", async (req, res) => {
   }
   try {
     if (memoryMode2()) {
-      const t = memTable2(String(table));
-      const i = t.findIndex((r) => r.id === String(id) && r.user_id === String(userId));
+      const t = memTable2(table);
+      const i = t.findIndex((r) => String(r.id) === id && r.user_id === String(userId));
       if (i >= 0) t.splice(i, 1);
+      if (table === "conversations" && i >= 0) {
+        const m = memTable2("chat_messages");
+        for (let k = m.length - 1; k >= 0; k -= 1) if (m[k].user_id === String(userId) && m[k].conversation_id === id) m.splice(k, 1);
+      }
       res.sendStatus(204);
       return;
     }
-    const { error: error63 } = await supabase_default().from(String(table)).delete().match({ id, user_id: userId });
-    if (error63) throw error63;
+    if (table === "conversations") {
+      const owned = await findOwned(table, id, String(userId));
+      if (owned) {
+        const { error: e2 } = await supabase_default().from("chat_messages").delete().eq("user_id", userId).eq("conversation_id", id);
+        if (e2) throw e2;
+      }
+    }
+    const { error: error63 } = await supabase_default().from(table).delete().match({ id, user_id: userId });
+    if (error63 && error63.code !== "22P02") throw error63;
     res.sendStatus(204);
   } catch (err) {
-    const message2 = errMessage(err);
-    req.log?.error({ error: message2, table, id, userId }, "resource:delete:error");
+    req.log?.error({ error: errMessage(err), table }, "resource:delete:error");
     unavailable(res, "excluir");
   }
 });
@@ -163465,7 +163647,10 @@ var USER_TABLES = [
   { table: "planetarium_contents", rotulo: "Conte\xFAdos do Planet\xE1rio" },
   { table: "chat_messages", rotulo: "Mensagens do Assistente" },
   { table: "documents", rotulo: "Documentos" },
-  { table: "ai_analyses", rotulo: "An\xE1lises de documentos" }
+  { table: "ai_analyses", rotulo: "An\xE1lises de documentos" },
+  { table: "user_items", rotulo: "Progresso do Aprender, favoritos e consultas do gloss\xE1rio" },
+  // Partes (analysis_job_chunks) são apagadas junto (ON DELETE CASCADE)
+  { table: "analysis_jobs", rotulo: "An\xE1lises de documentos longos (tarefas em segundo plano)" }
 ];
 var DETACH_TABLES = [{ table: "ai_usage_logs", rotulo: "Registros de consumo de IA (sem conte\xFAdo)" }];
 var missingTable = (msg) => /relation .* does not exist|could not find the table|schema cache/i.test(msg);
@@ -164773,8 +164958,8 @@ var MemoryJobStore = class {
   async countJobsSince(userId, sinceIso) {
     return [...this.jobs.values()].filter((j) => j.user_id === userId && j.created_at >= sinceIso).length;
   }
-  async listRunnable(nowIso2, limit2) {
-    return [...this.jobs.values()].filter((j) => ACTIVE_STATUSES.includes(j.status) && (!j.next_attempt_at || j.next_attempt_at <= nowIso2) && (!j.lease_until || j.lease_until < nowIso2)).sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(0, limit2).map((j) => structuredClone(j));
+  async listRunnable(nowIso3, limit2) {
+    return [...this.jobs.values()].filter((j) => ACTIVE_STATUSES.includes(j.status) && (!j.next_attempt_at || j.next_attempt_at <= nowIso3) && (!j.lease_until || j.lease_until < nowIso3)).sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(0, limit2).map((j) => structuredClone(j));
   }
   async claim(id, owner, leaseSeconds) {
     const j = this.jobs.get(id);
@@ -164798,10 +164983,10 @@ var MemoryJobStore = class {
     const c = this.chunks.get(jobId)?.find((x) => x.idx === idx);
     if (c) Object.assign(c, structuredClone(patch), { updated_at: now() });
   }
-  async purgeExpired(nowIso2) {
+  async purgeExpired(nowIso3) {
     let n2 = 0;
     for (const j of this.jobs.values()) {
-      if (j.expires_at < nowIso2 && j.document_text !== null) {
+      if (j.expires_at < nowIso3 && j.document_text !== null) {
         j.document_text = null;
         if (ACTIVE_STATUSES.includes(j.status)) j.status = "falhou";
         j.error = j.error ?? "Prazo de reten\xE7\xE3o do documento vencido.";
@@ -164836,9 +165021,9 @@ var SupabaseJobStore = class {
     if (r.error) throw new Error(r.error.message);
     return r.count ?? 0;
   }
-  async listRunnable(nowIso2, limit2) {
+  async listRunnable(nowIso3, limit2) {
     return check3(
-      await this.db.from("analysis_jobs").select("id,user_id,status,next_attempt_at,lease_until,created_at").in("status", ACTIVE_STATUSES).or(`next_attempt_at.is.null,next_attempt_at.lte.${nowIso2}`).or(`lease_until.is.null,lease_until.lt.${nowIso2}`).order("created_at", { ascending: true }).limit(limit2)
+      await this.db.from("analysis_jobs").select("id,user_id,status,next_attempt_at,lease_until,created_at").in("status", ACTIVE_STATUSES).or(`next_attempt_at.is.null,next_attempt_at.lte.${nowIso3}`).or(`lease_until.is.null,lease_until.lt.${nowIso3}`).order("created_at", { ascending: true }).limit(limit2)
     ) ?? [];
   }
   async claim(id, owner, leaseSeconds) {
@@ -164854,11 +165039,11 @@ var SupabaseJobStore = class {
   async updateChunk(jobId, idx, patch) {
     check3(await this.db.from("analysis_job_chunks").update({ ...patch, updated_at: now() }).eq("job_id", jobId).eq("idx", idx));
   }
-  async purgeExpired(nowIso2) {
+  async purgeExpired(nowIso3) {
     const rows = check3(
-      await this.db.from("analysis_jobs").update({ document_text: null, updated_at: now() }).lt("expires_at", nowIso2).not("document_text", "is", null).select("id")
+      await this.db.from("analysis_jobs").update({ document_text: null, updated_at: now() }).lt("expires_at", nowIso3).not("document_text", "is", null).select("id")
     );
-    check3(await this.db.from("analysis_jobs").update({ status: "falhou", error: "Prazo de reten\xE7\xE3o do documento vencido." }).lt("expires_at", nowIso2).in("status", ACTIVE_STATUSES));
+    check3(await this.db.from("analysis_jobs").update({ status: "falhou", error: "Prazo de reten\xE7\xE3o do documento vencido." }).lt("expires_at", nowIso3).in("status", ACTIVE_STATUSES));
     return rows?.length ?? 0;
   }
 };
@@ -164909,7 +165094,7 @@ var LongDocError = class extends Error {
   code;
 };
 var AGENTS = ["simples", "analista", "estrategica", "acompanhamento", "documentacao", "elegibilidade"];
-var nowIso = () => (/* @__PURE__ */ new Date()).toISOString();
+var nowIso2 = () => (/* @__PURE__ */ new Date()).toISOString();
 async function createLongDocJob(input2) {
   const lim = longDocLimits();
   if (!AGENTS.includes(input2.agentId)) throw new LongDocError(400, "AGENTE_INVALIDO", "Agente desconhecido.");
@@ -164927,7 +165112,7 @@ async function createLongDocJob(input2) {
     throw new LongDocError(413, "ORCAMENTO_DA_TAREFA", `O documento exigiria cerca de ${estimated.toLocaleString("pt-BR")} tokens; o limite por an\xE1lise \xE9 ${lim.maxJobTokens.toLocaleString("pt-BR")}.`);
   }
   const store = getJobStore();
-  await store.purgeExpired(nowIso()).catch(() => 0);
+  await store.purgeExpired(nowIso2()).catch(() => 0);
   const recent = await store.listJobs(input2.userId, 50);
   if (recent.filter((j) => ACTIVE_STATUSES.includes(j.status)).length >= lim.maxActivePerUser) {
     throw new LongDocError(409, "TAREFA_EM_ANDAMENTO", "Voc\xEA j\xE1 tem uma an\xE1lise longa em andamento. Aguarde terminar ou cancele-a.");
@@ -164939,7 +165124,7 @@ async function createLongDocJob(input2) {
   const plan = planChunks(text4, { targetChars: lim.chunkChars, overlapChars: lim.overlapChars });
   const pages = new Set(documentLandmarks(text4).pages.map((p) => p.page)).size || null;
   const id = randomUUID7();
-  const t = nowIso();
+  const t = nowIso2();
   const job = {
     id,
     user_id: input2.userId,
@@ -165060,7 +165245,7 @@ async function advanceLongDocJob(id, actor, opts = {}) {
   let job = await store.getJob(id);
   if (!job || !actor.system && job.user_id !== actor.userId) throw new LongDocError(404, "NAO_ENCONTRADA", "An\xE1lise n\xE3o encontrada.");
   if (!ACTIVE_STATUSES.includes(job.status)) return jobView(job, await store.listChunks(id), true);
-  if (job.next_attempt_at && job.next_attempt_at > nowIso()) return jobView(job, await store.listChunks(id));
+  if (job.next_attempt_at && job.next_attempt_at > nowIso2()) return jobView(job, await store.listChunks(id));
   const owner = randomUUID7();
   const claimed = await store.claim(id, owner, lim.leaseSeconds);
   if (!claimed) return jobView(job, await store.listChunks(id));
@@ -165090,7 +165275,7 @@ async function advanceLongDocJob(id, actor, opts = {}) {
   for (; ; ) {
     const fresh = await store.getJob(id);
     if (!fresh || fresh.status === "cancelada") return jobView(fresh ?? job, await store.listChunks(id));
-    const t = nowIso();
+    const t = nowIso2();
     const ready = chunks.filter((c) => (c.status === "pendente" || c.status === "processando") && (!c.next_attempt_at || c.next_attempt_at <= t)).slice(0, lim.concurrency);
     if (!ready.length) break;
     const prompts = ready.map((c) => chunkPromptText(text4, plan[c.idx], plan.length));
@@ -165159,7 +165344,7 @@ async function advanceLongDocJob(id, actor, opts = {}) {
       status: complete ? "concluida" : "parcial",
       result,
       error: complete ? null : `${counters.failed_chunks} de ${chunks.length} partes n\xE3o foram analisadas.`,
-      finished_at: nowIso(),
+      finished_at: nowIso2(),
       next_attempt_at: null,
       lease_owner: null,
       lease_until: null,
@@ -165168,13 +165353,13 @@ async function advanceLongDocJob(id, actor, opts = {}) {
     });
   } else {
     const nextAt = remainingChunks.map((c) => c.next_attempt_at).filter((x) => Boolean(x)).sort()[0] ?? null;
-    const readyNow = remainingChunks.some((c) => !c.next_attempt_at || c.next_attempt_at <= nowIso());
+    const readyNow = remainingChunks.some((c) => !c.next_attempt_at || c.next_attempt_at <= nowIso2());
     const current2 = (await store.getJob(id))?.next_attempt_at ?? null;
     await store.updateJob(id, {
       ...counters,
       status: waitingQuota ? "aguardando_cota" : "processando",
       error: waitingQuota ? `${waitingQuota}. A an\xE1lise continua sozinha quando a cota liberar; nada do que j\xE1 foi lido se perde.` : null,
-      next_attempt_at: waitingQuota ? quotaUntil : readyNow ? current2 && current2 > nowIso() ? current2 : null : nextAt,
+      next_attempt_at: waitingQuota ? quotaUntil : readyNow ? current2 && current2 > nowIso2() ? current2 : null : nextAt,
       lease_owner: null,
       lease_until: null
     });
@@ -165227,7 +165412,7 @@ async function cancelLongDocJob(id, userId) {
   const { job } = await getJobForUser(id, userId);
   if (!ACTIVE_STATUSES.includes(job.status) && job.status !== "parcial") throw new LongDocError(409, "NAO_CANCELAVEL", "Esta an\xE1lise j\xE1 terminou.");
   const store = getJobStore();
-  await store.updateJob(id, { status: "cancelada", document_text: null, finished_at: nowIso(), lease_owner: null, lease_until: null, error: "Cancelada pela pessoa." });
+  await store.updateJob(id, { status: "cancelada", document_text: null, finished_at: nowIso2(), lease_owner: null, lease_until: null, error: "Cancelada pela pessoa." });
   return jobView(await store.getJob(id), await store.listChunks(id));
 }
 async function retryFailedChunks(id, userId) {
@@ -165243,9 +165428,9 @@ async function retryFailedChunks(id, userId) {
 async function tickLongDocJobs(budgetMs) {
   const store = getJobStore();
   const started = Date.now();
-  await store.purgeExpired(nowIso()).catch(() => 0);
+  await store.purgeExpired(nowIso2()).catch(() => 0);
   const out = [];
-  for (const j of await store.listRunnable(nowIso(), 5)) {
+  for (const j of await store.listRunnable(nowIso2(), 5)) {
     const left = budgetMs - (Date.now() - started);
     if (left < 3e4) break;
     try {
@@ -165362,16 +165547,307 @@ router7.post("/cron/analysis-jobs", async (req, res) => {
 });
 var analysisJobs_default = router7;
 
-// src/routes/index.ts
+// src/routes/continuidade.ts
+var import_express10 = __toESM(require_express2(), 1);
 var router8 = (0, import_express10.Router)();
-router8.use(health_default);
-router8.use(diag_default);
-router8.use(analysisJobs_default);
-router8.use(edital_default);
-router8.use(niasci_default);
-router8.use(lupa_default);
-router8.use(resources_default);
-var routes_default = router8;
+var ITEM_KINDS = ["aprendizagem", "glossario_favorito", "glossario_recente", "preferencia"];
+var RECENT_MAX = 20;
+var RECENT_DAYS = 30;
+var KindSchema = external_exports.enum(ITEM_KINDS);
+var KeySchema = external_exports.string().trim().min(1).max(200);
+function fail3(req, res, err, action) {
+  req.log?.error({ module: "continuidade", error: err instanceof Error ? err.message : String(err) }, `continuidade:${action}`);
+  res.status(503).json({ error: `N\xE3o foi poss\xEDvel ${action} agora. Nada foi alterado; tente novamente.` });
+}
+var mem = (t) => memoryTableForTests(t);
+async function listItems(userId, kind) {
+  if (memoryMode()) return mem("user_items").filter((r) => r.user_id === userId && r.kind === kind).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  const { data: data2, error: error63 } = await supabase_default().from("user_items").select("key,data,version,created_at,updated_at").eq("user_id", userId).eq("kind", kind).order("updated_at", { ascending: false }).limit(500);
+  if (error63) throw error63;
+  return data2 ?? [];
+}
+async function getItem(userId, kind, key) {
+  if (memoryMode()) return mem("user_items").find((r) => r.user_id === userId && r.kind === kind && r.key === key) ?? null;
+  const { data: data2, error: error63 } = await supabase_default().from("user_items").select("*").eq("user_id", userId).eq("kind", kind).eq("key", key).maybeSingle();
+  if (error63) throw error63;
+  return data2 ?? null;
+}
+async function deleteItems(userId, kind, key) {
+  if (memoryMode()) {
+    const t = mem("user_items");
+    for (let i = t.length - 1; i >= 0; i -= 1) if (t[i].user_id === userId && t[i].kind === kind && (!key || t[i].key === key)) t.splice(i, 1);
+    return;
+  }
+  let q = supabase_default().from("user_items").delete().eq("user_id", userId).eq("kind", kind);
+  if (key) q = q.eq("key", key);
+  const { error: error63 } = await q;
+  if (error63) throw error63;
+}
+async function putItem(userId, kind, key, data2, expected) {
+  const current2 = await getItem(userId, kind, key);
+  const now2 = (/* @__PURE__ */ new Date()).toISOString();
+  if (current2 && expected !== null && Number(current2.version) !== expected) return { status: 409, row: current2 };
+  if (memoryMode()) {
+    if (current2) {
+      Object.assign(current2, { data: data2, version: Number(current2.version) + 1, updated_at: now2 });
+      return { status: 200, row: current2 };
+    }
+    const row = { id: crypto.randomUUID(), user_id: userId, kind, key, data: data2, version: 1, created_at: now2, updated_at: now2 };
+    mem("user_items").push(row);
+    return { status: 200, row };
+  }
+  const db = supabase_default();
+  if (current2) {
+    const { data: upd, error: error64 } = await db.from("user_items").update({ data: data2, version: Number(current2.version) + 1, updated_at: now2 }).eq("user_id", userId).eq("kind", kind).eq("key", key).eq("version", Number(current2.version)).select().maybeSingle();
+    if (error64) throw error64;
+    if (!upd) return { status: 409, row: await getItem(userId, kind, key) ?? current2 };
+    return { status: 200, row: upd };
+  }
+  const { data: ins, error: error63 } = await db.from("user_items").insert({ user_id: userId, kind, key, data: data2 }).select().single();
+  if (error63) {
+    if (error63.code === "23505") return { status: 409, row: await getItem(userId, kind, key) };
+    throw error63;
+  }
+  return { status: 200, row: ins };
+}
+var publicItem = (r) => ({ key: r.key, data: r.data, version: r.version, criado_em: r.created_at, atualizado_em: r.updated_at });
+router8.get("/me/items", requireAuth(), async (req, res) => {
+  const kind = KindSchema.safeParse(req.query.kind);
+  if (!kind.success) {
+    res.status(400).json({ error: "Tipo inv\xE1lido." });
+    return;
+  }
+  try {
+    const userId = getReqUserId(req);
+    let rows = await listItems(userId, kind.data);
+    if (kind.data === "glossario_recente") rows = rows.filter((r) => Date.now() - new Date(String(r.updated_at)).getTime() < RECENT_DAYS * 864e5).slice(0, RECENT_MAX);
+    res.json({ items: rows.map(publicItem) });
+  } catch (err) {
+    fail3(req, res, err, "carregar");
+  }
+});
+router8.put("/me/items/:kind/:key", requireAuth(), async (req, res) => {
+  const kind = KindSchema.safeParse(req.params.kind);
+  const key = KeySchema.safeParse(req.params.key);
+  const body = external_exports.object({ data: external_exports.unknown() }).strict().safeParse(req.body ?? {});
+  if (!kind.success || !key.success || !body.success) {
+    res.status(400).json({ error: "Dados inv\xE1lidos." });
+    return;
+  }
+  if (JSON.stringify(body.data.data ?? null).length > 2e4) {
+    res.status(413).json({ error: "Item grande demais." });
+    return;
+  }
+  const userId = getReqUserId(req);
+  try {
+    if (kind.data === "glossario_recente") {
+      const pref = await getItem(userId, "preferencia", "glossario_recentes");
+      if (!pref?.data?.ativo) {
+        res.status(409).json({ error: "Consultas recentes est\xE3o desativadas.", code: "RECENTES_DESATIVADAS" });
+        return;
+      }
+    }
+    const h = req.headers["if-match"];
+    const expected = h !== void 0 && /^\d+$/.test(String(h)) ? Number(h) : null;
+    const r = await putItem(userId, kind.data, key.data, body.data.data ?? null, expected);
+    if (r.status === 409) {
+      res.status(409).json({ error: "Alterado em outra aba ou aparelho. Nada foi sobrescrito.", code: "CONFLITO", atual: publicItem(r.row) });
+      return;
+    }
+    if (kind.data === "glossario_recente") {
+      const all = await listItems(userId, "glossario_recente");
+      for (const old of all.filter((x, i) => i >= RECENT_MAX || Date.now() - new Date(String(x.updated_at)).getTime() >= RECENT_DAYS * 864e5)) await deleteItems(userId, "glossario_recente", String(old.key));
+    }
+    if (kind.data === "preferencia" && key.data === "glossario_recentes" && !body.data.data?.ativo) {
+      await deleteItems(userId, "glossario_recente");
+    }
+    res.json(publicItem(r.row));
+  } catch (err) {
+    fail3(req, res, err, "salvar");
+  }
+});
+router8.delete("/me/items/:kind/:key", requireAuth(), async (req, res) => {
+  const kind = KindSchema.safeParse(req.params.kind);
+  const key = KeySchema.safeParse(req.params.key);
+  if (!kind.success || !key.success) {
+    res.status(400).json({ error: "Dados inv\xE1lidos." });
+    return;
+  }
+  try {
+    await deleteItems(getReqUserId(req), kind.data, key.data);
+    res.sendStatus(204);
+  } catch (err) {
+    fail3(req, res, err, "excluir");
+  }
+});
+router8.delete("/me/items", requireAuth(), async (req, res) => {
+  const kind = KindSchema.safeParse(req.query.kind);
+  if (!kind.success) {
+    res.status(400).json({ error: "Tipo inv\xE1lido." });
+    return;
+  }
+  try {
+    await deleteItems(getReqUserId(req), kind.data);
+    res.sendStatus(204);
+  } catch (err) {
+    fail3(req, res, err, "limpar");
+  }
+});
+var SOURCES = {
+  agent_results: { table: "agent_results", cols: "id,title,agent_id,status,favorito,created_at,updated_at,processing:result_json->processing", ferramenta: "editais", titleCol: "title" },
+  lattes_profiles: { table: "lattes_profiles", cols: "id,name,favorito,created_at,updated_at", ferramenta: "elattes", titleCol: "name" },
+  article_analyses: { table: "article_analyses", cols: "id,title,favorito,created_at,updated_at,leitura:metadata->leitura", ferramenta: "artigos", titleCol: "title" },
+  research_projects: { table: "research_projects", cols: "id,title,favorito,manual,created_at,updated_at", ferramenta: "projetos", titleCol: "title" },
+  planetarium_contents: { table: "planetarium_contents", cols: "id,title,favorito,created_at,updated_at", ferramenta: "planetario", titleCol: "title" },
+  conversations: { table: "conversations", cols: "id,title,favorito,created_at,updated_at", ferramenta: "assistente", titleCol: "title" }
+};
+async function lightRows(src, userId) {
+  if (memoryMode()) {
+    return mem(src.table).filter((r) => String(r.user_id) === userId).map((r) => ({
+      ...r,
+      processing: r.result_json?.processing,
+      leitura: r.metadata?.leitura
+    }));
+  }
+  const { data: data2, error: error63 } = await supabase_default().from(src.table).select(src.cols).eq("user_id", userId).order("updated_at", { ascending: false }).limit(500);
+  if (error63) throw error63;
+  return data2 ?? [];
+}
+var LINKS = {
+  editais: (id) => `/testar?analise=${id}`,
+  analise_longa: (id) => `/testar?tarefa=${id}`,
+  elattes: (id) => `/niasci/elattes?item=${id}`,
+  artigos: (id) => `/niasci/artigos?item=${id}`,
+  projetos: (id) => `/niasci/projetos?projeto=${id}`,
+  planetario: (id) => `/niasci/planetario?item=${id}`,
+  assistente: (id) => `/niasci/assistente?c=${id}`,
+  participacoes: (id) => `/participar/${id}`
+};
+var fold3 = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+async function collectHistory(userId) {
+  const items = [];
+  const falhas = [];
+  const at = (r) => String(r.updated_at ?? r.created_at);
+  await Promise.all(
+    Object.values(SOURCES).map(async (src) => {
+      try {
+        for (const r of await lightRows(src, userId)) {
+          const id = String(r.id);
+          let situacao = "concluido";
+          if (src.ferramenta === "editais") situacao = r.status === "parcial" || r.processing?.complete === false ? "parcial" : "concluido";
+          if (src.ferramenta === "artigos" && r.leitura?.integral === false) situacao = "parcial";
+          if (src.ferramenta === "projetos" && r.manual) situacao = "rascunho";
+          items.push({
+            ferramenta: src.ferramenta,
+            id,
+            titulo: String(r[src.titleCol] ?? "").trim() || "Sem t\xEDtulo",
+            situacao,
+            criado_em: String(r.created_at),
+            atualizado_em: at(r),
+            favorito: Boolean(r.favorito),
+            link: LINKS[src.ferramenta](id)
+          });
+        }
+      } catch {
+        falhas.push(src.ferramenta);
+      }
+    })
+  );
+  try {
+    for (const p of await getStore().listParticipations(userId)) {
+      items.push({
+        ferramenta: "participacoes",
+        id: p.id,
+        titulo: p.titulo,
+        situacao: p.situacao === "enviada" || p.situacao === "desisti" ? "concluido" : "em_andamento",
+        criado_em: p.created_at,
+        atualizado_em: p.updated_at,
+        favorito: false,
+        link: LINKS.participacoes(p.id),
+        vinculos: { projeto_id: p.project_id ?? null, analise_id: p.agent_result_id != null ? String(p.agent_result_id) : null }
+      });
+    }
+  } catch {
+    falhas.push("participacoes");
+  }
+  try {
+    for (const j of await getJobStore().listJobs(userId, 50)) {
+      if (j.status === "concluida" || j.status === "cancelada") continue;
+      items.push({
+        ferramenta: "analise_longa",
+        id: j.id,
+        titulo: `Documento longo (${j.chars.toLocaleString("pt-BR")} caracteres) \u2014 ${j.done_chunks} de ${j.total_chunks} partes`,
+        situacao: j.status === "parcial" ? "parcial" : j.status === "falhou" ? "falha" : "em_andamento",
+        criado_em: j.created_at,
+        atualizado_em: j.updated_at,
+        favorito: false,
+        link: LINKS.analise_longa(j.id)
+      });
+    }
+  } catch {
+    falhas.push("analise_longa");
+  }
+  const partByProject = new Map(items.filter((i) => i.ferramenta === "participacoes" && i.vinculos?.projeto_id).map((i) => [String(i.vinculos.projeto_id), i.id]));
+  for (const i of items) if (i.ferramenta === "projetos" && partByProject.has(i.id)) i.vinculos = { participacao_id: partByProject.get(i.id) };
+  return { items, falhas };
+}
+var HistoryQuery = external_exports.object({
+  ferramenta: external_exports.enum(["editais", "analise_longa", "elattes", "artigos", "projetos", "planetario", "assistente", "participacoes"]).optional(),
+  situacao: external_exports.enum(["concluido", "parcial", "rascunho", "em_andamento", "falha"]).optional(),
+  q: external_exports.string().max(100).optional(),
+  favoritos: external_exports.enum(["1"]).optional(),
+  ordem: external_exports.enum(["atualizacao", "criacao", "titulo"]).default("atualizacao"),
+  pagina: external_exports.coerce.number().int().min(1).default(1),
+  por_pagina: external_exports.coerce.number().int().min(1).max(50).default(20)
+});
+router8.get("/me/history", requireAuth(), async (req, res) => {
+  const p = HistoryQuery.safeParse(req.query ?? {});
+  if (!p.success) {
+    res.status(400).json({ error: "Filtro inv\xE1lido." });
+    return;
+  }
+  const userId = getReqUserId(req);
+  try {
+    const { items, falhas } = await collectHistory(userId);
+    const q = p.data.q ? fold3(p.data.q.trim()) : "";
+    let list = items.filter(
+      (i) => (!p.data.ferramenta || i.ferramenta === p.data.ferramenta) && (!p.data.situacao || i.situacao === p.data.situacao) && (!p.data.favoritos || i.favorito) && (!q || fold3(i.titulo).includes(q))
+    );
+    const key = p.data.ordem === "criacao" ? "criado_em" : "atualizado_em";
+    list = list.sort((a, b) => p.data.ordem === "titulo" ? a.titulo.localeCompare(b.titulo, "pt-BR") : b[key].localeCompare(a[key]));
+    list = [...list.filter((i) => i.favorito), ...list.filter((i) => !i.favorito)];
+    const total = list.length;
+    const start = (p.data.pagina - 1) * p.data.por_pagina;
+    const contagem = {};
+    for (const i of items) contagem[i.ferramenta] = (contagem[i.ferramenta] ?? 0) + 1;
+    let aprendizagem = null;
+    let glossario = null;
+    try {
+      aprendizagem = (await getItem(userId, "aprendizagem", "ler-edital"))?.data ?? null;
+      const favs = await listItems(userId, "glossario_favorito");
+      const pref = await getItem(userId, "preferencia", "glossario_recentes");
+      glossario = { favoritos: favs.length, recentes_ativos: Boolean(pref?.data?.ativo) };
+    } catch {
+      falhas.push("aprendizagem");
+    }
+    res.json({ itens: list.slice(start, start + p.data.por_pagina), total, pagina: p.data.pagina, por_pagina: p.data.por_pagina, contagem, falhas, resumos: { aprendizagem, glossario } });
+  } catch (err) {
+    fail3(req, res, err, "carregar o hist\xF3rico");
+  }
+});
+var continuidade_default = router8;
+
+// src/routes/index.ts
+var router9 = (0, import_express11.Router)();
+router9.use(health_default);
+router9.use(diag_default);
+router9.use(continuidade_default);
+router9.use(analysisJobs_default);
+router9.use(edital_default);
+router9.use(niasci_default);
+router9.use(lupa_default);
+router9.use(resources_default);
+var routes_default = router9;
 
 // src/lib/runtimeConfig.ts
 function getRateLimitConfig() {
@@ -165433,7 +165909,7 @@ function createAnonHourlyLimiter(max, message2) {
 }
 
 // src/app.ts
-var app = (0, import_express11.default)();
+var app = (0, import_express12.default)();
 app.set("trust proxy", Math.max(0, Math.min(5, Number(process.env.LUPA_TRUST_PROXY_HOPS ?? 1) || 0)));
 var ALLOWED_ORIGINS = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
 var corsDelegate = (req, callback) => {
@@ -165537,8 +166013,8 @@ if (process.env.LUPA_STORE !== "memory" && process.env.SUPABASE_URL && (process.
 }
 app.use((0, import_cors.default)(corsDelegate));
 app.use(defaultLimiter);
-app.use(import_express11.default.json({ limit: "10mb" }));
-app.use(import_express11.default.urlencoded({ extended: true, limit: "10mb" }));
+app.use(import_express12.default.json({ limit: "10mb" }));
+app.use(import_express12.default.urlencoded({ extended: true, limit: "10mb" }));
 app.use(supabaseAuthMiddleware());
 var aiCost = costGuard("ai");
 var ocrCost = costGuard("ocr");

@@ -146,6 +146,24 @@ export default function Privacidade() {
           </p>
         </section>
 
+        <section aria-labelledby="continuidade">
+          <h2 id="continuidade" className="text-xl font-semibold text-ink">
+            Salvamento automático e “Meu histórico”
+          </h2>
+          <p className="mt-2">
+            Com login, o que você faz nas ferramentas é salvo automaticamente na sua conta para você continuar depois, em qualquer aparelho: análises de
+            edital (com checklist, anotações e perguntas), conversas do Assistente, versões do e-Lattes (inclui o currículo colado, até 60 mil caracteres),
+            resultados de artigos (o texto do artigo <strong>não</strong> é guardado) e suas anotações, projetos e suas versões, progresso do “Aprender” e
+            favoritos do glossário. A tela mostra “Salvo na sua conta” só depois que o servidor confirma. Não registramos cliques nem cada tecla.
+          </p>
+          <p className="mt-2">
+            Consultas recentes do glossário ficam <strong>desligadas</strong> até você ligar (no máximo 20, por 30 dias; desligar apaga). Se a internet cair,
+            uma cópia de recuperação do que ainda não foi enviado fica só neste navegador — é apagada quando o salvamento se confirma, quando você sai da conta
+            ou em 7 dias. Sem login, tudo fica só no navegador; ao entrar, você escolhe se quer importar. Tudo isso entra em “Baixar meus dados” e
+            “Excluir meus dados”, e cada item pode ser apagado na própria ferramenta. Salvar nunca torna nada público.
+          </p>
+        </section>
+
         <section aria-labelledby="termos" id="termos-de-uso">
           <h2 id="termos" className="text-xl font-semibold text-ink">
             Termos de uso

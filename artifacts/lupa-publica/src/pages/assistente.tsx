@@ -1,65 +1,47 @@
 /**
- * @file assistente.tsx
- * @description Módulo Assistente IA do NIASci — chat científico contextual.
+ * @file pages/assistente.tsx
+ * @description Assistente IA (NIASci) com conversas PERSISTENTES e separadas.
  *
- * Objetivo do componente:
- *   Chat científico interativo que permite ao usuário ter conversas
- *   contextuais sobre ciência, pesquisa, editais e metodologias.
- *   Mantém histórico da conversa por sessão e persiste no Supabase/localStorage.
- *   Permite anexar contexto adicional (ex: currículo Lattes, trecho de artigo)
- *   para respostas mais personalizadas.
- *
- * Fluxo de execução:
- *   1. Usuário digita uma mensagem e pressiona Enviar
- *   2. Histórico local da conversa é atualizado com a mensagem do usuário
- *   3. POST /api/niasci/chat envia histórico + contexto opcional ao backend
- *   4. Backend chama chatNiasci() do AIService com os 4 mandatos científicos
- *   5. Resposta do assistente é exibida e persistida via saveChatMessage()
- *   6. Conversas anteriores são carregadas via listChatMessages()
- *
- * Integração com AIService:
- *   - chatNiasci() processa a conversa com linguagem científica acessível
- *
- * Integração com Supabase:
- *   - saveChatMessage(): persiste cada mensagem (role, content, conversation_id)
- *   - listChatMessages(): carrega histórico de conversas por sessão
+ * Correções (22/11/2026) — antes:
+ *   - o id da conversa ficava só na aba (sessionStorage): outra aba/aparelho começava do zero e não
+ *     havia como achar conversas antigas;
+ *   - a leitura pedia TODAS as mensagens da conta, sem filtrar pela conversa e da mais nova para a
+ *     mais antiga: ao reabrir, as conversas apareciam misturadas e invertidas;
+ *   - a pergunta só era gravada DEPOIS da resposta: se a IA falhava, ela se perdia.
+ * Agora:
+ *   - conversas em `conversations`, mensagens em `chat_messages` (por conversation_id, em ordem);
+ *   - a conversa aberta fica no endereço (?c=ID): reabre igual em outra aba ou aparelho;
+ *   - a pergunta é gravada ANTES de chamar a IA (com chave de idempotência: reenviar não duplica);
+ *     se a IA falhar, a pergunta fica salva e aparece "Sem resposta — tentar de novo";
+ *   - lista com busca, nova conversa, renomear, favoritar e excluir (exclui as mensagens dela).
  */
-
 import { apiFetch } from "@/lib/api";
-import { useState, useRef, useEffect } from "react";
-import { Link } from "wouter";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useSearch } from "wouter";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { saveChatMessage, listChatMessages } from "@/services/analisesService";
-import {
-  API_BASE,
-  NiasciHeader,
-  getFriendlyErrorMessage,
-} from "@/lib/niasci-utils";
-import {
-  Send, Bot, User, Loader2, Trash2, Plus, Paperclip,
-  Sparkles, MessageSquare,
-} from "lucide-react";
+import { NiasciHeader, getFriendlyErrorMessage } from "@/lib/niasci-utils";
+import { newKey, saveRequest } from "@/lib/persistence";
+import { Send, Bot, User, Loader2, Trash2, Plus, Paperclip, Star, Pencil, Search, RotateCcw, MessageSquare } from "lucide-react";
 
-// ── Tipos locais ─────────────────────────────────────────────────────────────
-
-/**
- * Mensagem de chat com role e conteúdo.
- * "user" = mensagem do usuário; "assistant" = resposta da IA.
- */
+interface Conversation {
+  id: number;
+  title: string | null;
+  favorito: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
 interface ChatMsg {
+  id: string;
   role: "user" | "assistant";
   content: string;
-  id: string;
+  /** salvo = confirmado pelo servidor; local = só na tela (falha ao gravar); sem_resposta = a IA não respondeu */
+  estado: "salvo" | "salvando" | "local" | "sem_resposta";
+  idemKey?: string;
 }
 
-// ── Sugestões de perguntas iniciais ───────────────────────────────────────────
-/**
- * Perguntas sugeridas para o usuário começar a conversa rapidamente.
- * Representam as dúvidas mais comuns de pesquisadores e estudantes.
- */
 const SUGGESTIONS = [
   "Como escrever um bom objetivo de pesquisa?",
   "Qual a diferença entre pesquisa qualitativa e quantitativa?",
@@ -67,337 +49,354 @@ const SUGGESTIONS = [
   "Como saber se um edital do CNPq serve para o meu perfil?",
   "Como citar corretamente no formato ABNT?",
   "O que é revisão sistemática de literatura?",
-  "Como estruturar um projeto de TCC?",
-  "Dicas para apresentar resultados em artigos científicos",
 ];
 
-// ── Componente principal ──────────────────────────────────────────────────────
+const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "");
+
 export default function Assistente() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const search = useSearch();
+  const currentId = new URLSearchParams(search).get("c");
 
-  // ID único da conversa atual, persistido na sessão do navegador para restaurar histórico
-  const [conversationId] = useState(() => {
-    if (typeof window !== "undefined") {
-      const existing = window.sessionStorage.getItem("niasci-assistente-conversation-id");
-      if (existing) return existing;
-      const newId = crypto.randomUUID();
-      window.sessionStorage.setItem("niasci-assistente-conversation-id", newId);
-      return newId;
-    }
-    return crypto.randomUUID();
-  });
-
-  // Mensagens da conversa atual
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [listState, setListState] = useState<"carregando" | "ok" | "erro">("carregando");
+  const [filter, setFilter] = useState("");
   const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadChatHistory = async () => {
-      try {
-        const savedMessages = await listChatMessages(conversationId);
-        if (cancelled) return;
-        setMessages(
-          savedMessages.map((item) => ({
-            role: item.role === "assistant" ? "assistant" : "user",
-            content: item.content ?? "",
-            id: item.id ?? crypto.randomUUID(),
-          })),
-        );
-      } catch {
-        if (!cancelled) setMessages([]);
-      } finally {
-        if (!cancelled) setHistoryLoading(false);
-      }
-    };
-
-    void loadChatHistory();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [conversationId]);
-
-  // Campo de texto de entrada
+  const [msgState, setMsgState] = useState<"carregando" | "ok" | "erro">("ok");
   const [input, setInput] = useState("");
-
-  // Contexto adicional (opcional) — ex: trecho de artigo ou currículo
   const [context, setContext] = useState("");
   const [showContext, setShowContext] = useState(false);
-
-  // Estado de carregamento durante a chamada à IA
   const [isLoading, setIsLoading] = useState(false);
-
-  // Referência para scroll automático para a última mensagem
+  const [renaming, setRenaming] = useState<number | null>(null);
+  const [renameText, setRenameText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  /**
-   * Rola automaticamente para a última mensagem quando o chat é atualizado.
-   */
+  const loadConversations = useCallback(async () => {
+    setListState("carregando");
+    try {
+      const rows = await apiFetch<Conversation[]>("/resources/conversations?limit=200");
+      setConversations(rows ?? []);
+      setListState("ok");
+    } catch {
+      setListState("erro");
+    }
+  }, []);
+  useEffect(() => {
+    void loadConversations();
+  }, [loadConversations]);
+
+  const loadMessages = useCallback(async (id: string) => {
+    setMsgState("carregando");
+    try {
+      const rows = await apiFetch<Array<{ id: string; role: string; content: string | null; metadata: { estado?: string } | null }>>(`/resources/chat_messages?conversation_id=${encodeURIComponent(id)}&limit=500`);
+      setMessages(
+        (rows ?? []).map((m, i, all) => ({
+          id: m.id,
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: m.content ?? "",
+          // pergunta do usuário sem resposta depois dela (falha da IA): oferece tentar de novo
+          estado: m.role === "user" && (i === all.length - 1 || all[i + 1]?.role === "user") ? "sem_resposta" : "salvo",
+        })),
+      );
+      setMsgState("ok");
+    } catch {
+      setMsgState("erro");
+    }
+  }, []);
+  useEffect(() => {
+    if (currentId) void loadMessages(currentId);
+    else setMessages([]);
+  }, [currentId, loadMessages]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  /**
-   * Foca no campo de texto ao montar o componente.
-   */
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  /**
-   * Envia uma mensagem ao Assistente IA.
-   *
-   * Fluxo:
-   * 1. Valida que há texto
-   * 2. Adiciona mensagem do usuário ao estado local imediatamente (UX responsivo)
-   * 3. Chama POST /api/niasci/chat com histórico + contexto opcional
-   * 4. Adiciona resposta da IA ao estado local
-   * 5. Persiste ambas as mensagens via saveChatMessage()
-   *
-   * @param messageText - Texto da mensagem (padrão: valor do input)
-   */
-  const sendMessage = async (messageText = input) => {
-    const text = messageText.trim();
-    if (!text || isLoading) return;
-
-    const userMsg: ChatMsg = { role: "user", content: text, id: crypto.randomUUID() };
-
-    // Adiciona mensagem do usuário imediatamente para UX responsivo
-    setMessages((prev) => [...prev, userMsg]);
+  const openConversation = (id: number | null) => {
+    navigate(id ? `/niasci/assistente?c=${id}` : "/niasci/assistente");
     setInput("");
+  };
+
+  /** Grava uma mensagem (idempotente). Devolve true se o servidor confirmou. */
+  const persistMessage = async (convId: string, m: ChatMsg) => {
+    const r = await saveRequest<{ id: string }>("/resources/chat_messages", {
+      method: "POST",
+      idempotencyKey: m.idemKey,
+      body: { conversation_id: convId, role: m.role, content: m.content, metadata: context.trim() && m.role === "user" ? { contexto: context.trim().slice(0, 4000) } : null },
+    });
+    setMessages((prev) => prev.map((x): ChatMsg => (x.id === m.id ? { ...x, estado: r.ok ? (x.estado === "sem_resposta" ? "sem_resposta" : "salvo") : "local" } : x)));
+    return r.ok;
+  };
+
+  /** Pede a resposta à IA para o histórico atual; a pergunta já está gravada. */
+  const askAI = async (convId: string, history: ChatMsg[], question: ChatMsg) => {
     setIsLoading(true);
-
     try {
-      // Monta o histórico para enviar ao backend (exclui IDs locais)
-      const history = [...messages, userMsg].map(({ role, content }) => ({ role, content }));
-
-      // Chamada autenticada: a sessão vai junto (limite de uso da conta, não de visitante)
-      const data = await apiFetch<{ reply?: string }>("/niasci/chat", { method: "POST", body: JSON.stringify({
-          messages: history,
-          context: context.trim() || undefined,
-        }) });
-      const assistantMsg: ChatMsg = {
-        role: "assistant",
-        content: data.reply ?? "Não consegui gerar uma resposta. Tente novamente.",
-        id: crypto.randomUUID(),
-      };
-
-      setMessages((prev) => [...prev, assistantMsg]);
-
-      // Persiste as mensagens no Supabase ou localStorage
-      const persisted = await Promise.allSettled([
-        saveChatMessage({ conversation_id: conversationId, role: "user", content: text }),
-        saveChatMessage({ conversation_id: conversationId, role: "assistant", content: assistantMsg.content }),
-      ]);
-      if (persisted.some((r) => r.status === "rejected")) {
-        toast({ title: "Conversa não foi salva", description: "A resposta está na tela, mas não foi gravada no histórico. Ela some ao sair da página.", variant: "destructive" });
-      }
+      const data = await apiFetch<{ reply?: string }>("/niasci/chat", {
+        method: "POST",
+        body: JSON.stringify({ messages: history.map(({ role, content }) => ({ role, content })), context: context.trim() || undefined }),
+      });
+      const reply: ChatMsg = { id: newKey(), role: "assistant", content: data.reply ?? "Não consegui gerar uma resposta.", estado: "salvando", idemKey: newKey() };
+      setMessages((prev) => [...prev.map((x): ChatMsg => (x.id === question.id ? { ...x, estado: x.estado === "local" ? "local" : "salvo" } : x)), reply]);
+      const ok = await persistMessage(convId, reply);
+      if (!ok) toast({ title: "Resposta não foi salva", description: "Ela está na tela, mas não foi gravada na sua conta. Use “Tentar de novo” ao lado da mensagem.", variant: "destructive" });
     } catch (err) {
-      const msg = getFriendlyErrorMessage(err);
-      // Adiciona mensagem de erro como resposta do assistente
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `❌ ${msg}`, id: crypto.randomUUID() },
-      ]);
-      toast({ title: "Erro no chat", description: msg, variant: "destructive" });
+      setMessages((prev) => prev.map((x) => (x.id === question.id ? { ...x, estado: "sem_resposta" } : x)));
+      toast({ title: "A IA não respondeu", description: `${getFriendlyErrorMessage(err)} Sua pergunta ficou salva; tente de novo quando quiser.`, variant: "destructive" });
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
     }
   };
 
-  /**
-   * Permite enviar mensagem com Enter (Shift+Enter para nova linha).
-   */
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+  const sendMessage = async (messageText = input) => {
+    const text = messageText.trim();
+    if (!text || isLoading) return;
+    let convId = currentId;
+    if (!convId) {
+      // Nova conversa: título inicial = começo da pergunta (pode renomear depois)
+      const r = await saveRequest<Conversation>("/resources/conversations", { method: "POST", idempotencyKey: newKey(), body: { title: text.slice(0, 60) } });
+      if (!r.ok) {
+        toast({ title: "Não foi possível começar a conversa", description: `${r.error} Sua pergunta continua no campo.`, variant: "destructive" });
+        return;
+      }
+      convId = String(r.data.id);
+      setConversations((prev) => [r.data, ...prev]);
+      navigate(`/niasci/assistente?c=${convId}`, { replace: true });
     }
-  };
-
-  /**
-   * Limpa todas as mensagens da conversa atual e reinicia.
-   */
-  const clearChat = () => {
-    setMessages([]);
+    const userMsg: ChatMsg = { id: newKey(), role: "user", content: text, estado: "salvando", idemKey: newKey() };
+    const history = [...messages.filter((m) => m.estado !== "local" || m.role === "user"), userMsg];
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
-    toast({ title: "Conversa limpa", description: "Iniciando nova conversa." });
+    // Grava a pergunta ANTES de chamar a IA: não se perde se a IA falhar
+    const saved = await persistMessage(convId, userMsg);
+    if (!saved) toast({ title: "Pergunta não foi salva", description: "Ela está na tela. Use “Tentar de novo” ao lado dela.", variant: "destructive" });
+    await askAI(convId, history, userMsg);
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  /** Mensagem que não chegou ao servidor: reenvia (mesma chave de idempotência = sem duplicar). */
+  const retrySave = async (m: ChatMsg) => {
+    if (!currentId) return;
+    setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, estado: "salvando" } : x)));
+    await persistMessage(currentId, m);
+  };
+  const retryAnswer = async (m: ChatMsg) => {
+    if (!currentId || isLoading) return;
+    const idx = messages.findIndex((x) => x.id === m.id);
+    await askAI(currentId, messages.slice(0, idx + 1), m);
+  };
+
+  const toggleFavorite = async (c: Conversation) => {
+    const r = await saveRequest<Conversation>(`/resources/conversations/${c.id}/meta`, { method: "PATCH", body: { favorito: !c.favorito } });
+    if (r.ok) setConversations((prev) => prev.map((x) => (x.id === c.id ? r.data : x)));
+    else toast({ title: "Não foi possível favoritar", description: r.error, variant: "destructive" });
+  };
+  const saveRename = async (c: Conversation) => {
+    const t = renameText.trim();
+    if (!t) return;
+    const r = await saveRequest<Conversation>(`/resources/conversations/${c.id}/meta`, { method: "PATCH", body: { titulo: t } });
+    if (r.ok) {
+      setConversations((prev) => prev.map((x) => (x.id === c.id ? r.data : x)));
+      setRenaming(null);
+    } else toast({ title: "Não foi possível renomear", description: r.error, variant: "destructive" });
+  };
+  const remove = async (c: Conversation) => {
+    if (!window.confirm(`Excluir a conversa "${c.title ?? "Sem título"}" e todas as mensagens dela? Isso não pode ser desfeito.`)) return;
+    const r = await saveRequest(`/resources/conversations/${c.id}`, { method: "DELETE" });
+    if (!r.ok) {
+      toast({ title: "Não foi possível excluir", description: r.error, variant: "destructive" });
+      return;
+    }
+    setConversations((prev) => prev.filter((x) => x.id !== c.id));
+    if (String(c.id) === currentId) openConversation(null);
+    toast({ title: "Conversa excluída", description: "A conversa e as mensagens dela foram apagadas da sua conta." });
+  };
+
+  const visible = useMemo(() => {
+    const f = filter.trim().toLowerCase();
+    const list = conversations.filter((c) => !f || (c.title ?? "").toLowerCase().includes(f));
+    return [...list.filter((c) => c.favorito), ...list.filter((c) => !c.favorito)];
+  }, [conversations, filter]);
+  const current = conversations.find((c) => String(c.id) === currentId) ?? null;
+
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10 flex flex-col" style={{ minHeight: "calc(100vh - 120px)" }}>
+    <div className="mx-auto max-w-6xl px-4 py-10">
       <NiasciHeader
         module="Assistente IA"
         moduleColor="text-lens dark:text-cyan-400"
         title="Assistente IA"
-        description="Chat científico contextual. Tire dúvidas sobre metodologia de pesquisa, editais, currículos, artigos e muito mais. Você também pode anexar um trecho de texto para respostas personalizadas."
+        description="Chat científico contextual. As conversas ficam salvas na sua conta: você pode sair, voltar ou abrir em outro aparelho e continuar."
       />
-
-      {/* Controles do chat */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-lens border-lens/30 text-xs">
-            {messages.length > 0 ? `${messages.length} mensagens` : "Nova conversa"}
-          </Badge>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowContext(!showContext)}
-            className={`gap-1.5 text-xs ${showContext ? "text-lens" : "text-muted-foreground"}`}
-          >
-            <Paperclip className="w-3.5 h-3.5" />
-            Contexto
-          </Button>
-          {messages.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1.5 text-xs text-muted-foreground">
-              <Trash2 className="w-3.5 h-3.5" />
-              Limpar
+      <div className="grid gap-6 lg:grid-cols-[18rem_1fr]">
+        {/* Minhas conversas */}
+        <nav aria-labelledby="conversas-titulo" className="rounded-2xl border border-border/60 bg-card p-3" data-testid="conversas">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 id="conversas-titulo" className="text-sm font-semibold">Minhas conversas</h2>
+            <Button size="sm" variant="outline" onClick={() => openConversation(null)} data-testid="nova-conversa">
+              <Plus className="mr-1 h-3.5 w-3.5" aria-hidden /> Nova
             </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Área de contexto adicional (colapsável) */}
-      {showContext && (
-        <Card className="mb-4 border-lens/30">
-          <CardContent className="pt-4">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
-              Contexto adicional (opcional)
-            </label>
-            <textarea
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              placeholder="Cole aqui um trecho do seu currículo Lattes, um artigo, descrição de projeto ou qualquer texto que queira usar como referência na conversa…"
-              rows={4}
-              className="w-full px-3 py-2 rounded-lg border border-field bg-card text-sm resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-lens/30 focus:border-lens/50"
-            />
-            {context && (
-              <p className="text-xs text-muted-foreground/40 mt-1">{context.length} / 4000 caracteres</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Área de mensagens */}
-      <div className="flex-1 space-y-4 mb-4 overflow-y-auto max-h-[55vh] min-h-[300px] pr-1">
-        {/* Estado inicial — sugestões de perguntas */}
-        {messages.length === 0 && (
-          <div className="py-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-lens-tint flex items-center justify-center">
-                <Bot className="w-5 h-5 text-lens" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold">Assistente IA NIASci</p>
-                <p className="text-xs text-muted-foreground">Pronto para responder suas perguntas científicas.</p>
-                <p className="mt-1 text-xs text-slate-600">
-                  Respostas geradas por IA, sem acesso à internet: podem conter erros e não substituem orientação acadêmica. Use o campo de contexto
-                  para enviar o trecho sobre o qual quer perguntar. Para editais, prefira Analisar um edital, que mostra o trecho de origem.
-                </p>
-              </div>
-            </div>
-
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Sugestões para começar
+          </div>
+          <label className="relative mb-2 block">
+            <span className="sr-only">Buscar conversas</span>
+            <Search className="pointer-events-none absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+            <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Buscar pelo título" className="w-full rounded-lg border border-field bg-card py-1.5 pl-7 pr-2 text-sm" />
+          </label>
+          {listState === "carregando" && <p className="text-xs text-muted-foreground">Carregando…</p>}
+          {listState === "erro" && (
+            <p className="text-xs text-red-800" role="alert">
+              Não foi possível carregar suas conversas (elas continuam salvas).{" "}
+              <button type="button" className="font-semibold underline" onClick={() => void loadConversations()}>
+                Tentar de novo
+              </button>
             </p>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {SUGGESTIONS.map((s, i) => (
-                <button
-                  key={i}
-                  onClick={() => sendMessage(s)}
-                  className="text-left text-sm px-3 py-2.5 rounded-xl border border-border/60 hover:border-lens/40 hover:bg-lens-tint transition"
-                >
-                  {s}
+          )}
+          {listState === "ok" && visible.length === 0 && <p className="text-xs text-muted-foreground">{filter ? "Nenhuma conversa com esse título." : "Nenhuma conversa ainda."}</p>}
+          <ul className="max-h-[50vh] space-y-1 overflow-y-auto">
+            {visible.map((c) => (
+              <li key={c.id} className={`rounded-lg ${String(c.id) === currentId ? "bg-lens-tint" : ""}`}>
+                {renaming === c.id ? (
+                  <form
+                    className="flex gap-1 p-1"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void saveRename(c);
+                    }}
+                  >
+                    <label className="sr-only" htmlFor={`ren-${c.id}`}>Novo nome da conversa</label>
+                    <input id={`ren-${c.id}`} autoFocus value={renameText} onChange={(e) => setRenameText(e.target.value)} onKeyDown={(e) => e.key === "Escape" && setRenaming(null)} className="min-w-0 flex-1 rounded border border-field px-2 text-sm" />
+                    <Button size="sm" type="submit">OK</Button>
+                  </form>
+                ) : (
+                  <div className="flex items-center gap-1 p-1">
+                    <button type="button" onClick={() => openConversation(c.id)} className="min-w-0 flex-1 rounded px-1 py-1 text-left" aria-current={String(c.id) === currentId ? "page" : undefined} data-testid="conversa-item">
+                      <span className="block truncate text-sm">{c.title ?? "Sem título"}</span>
+                      <span className="block text-[11px] text-muted-foreground">{fmt(c.updated_at ?? c.created_at)}</span>
+                    </button>
+                    <button type="button" onClick={() => void toggleFavorite(c)} aria-label={c.favorito ? `Desfavoritar ${c.title ?? "conversa"}` : `Favoritar ${c.title ?? "conversa"}`} aria-pressed={c.favorito} className="rounded p-1">
+                      <Star className={`h-3.5 w-3.5 ${c.favorito ? "fill-amber-400 text-amber-500" : "text-muted-foreground"}`} aria-hidden />
+                    </button>
+                    <button type="button" onClick={() => { setRenaming(c.id); setRenameText(c.title ?? ""); }} aria-label={`Renomear ${c.title ?? "conversa"}`} className="rounded p-1">
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    </button>
+                    <button type="button" onClick={() => void remove(c)} aria-label={`Excluir ${c.title ?? "conversa"}`} className="rounded p-1">
+                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* Conversa aberta */}
+        <section aria-labelledby="conversa-atual" className="flex flex-col">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 id="conversa-atual" className="flex items-center gap-2 text-sm font-semibold">
+              <MessageSquare className="h-4 w-4 text-lens" aria-hidden />
+              {current ? current.title ?? "Sem título" : "Nova conversa"}
+              {messages.length > 0 && <Badge variant="outline" className="text-xs">{messages.length} mensagens</Badge>}
+            </h2>
+            <Button variant="ghost" size="sm" onClick={() => setShowContext(!showContext)} className="gap-1.5 text-xs" aria-expanded={showContext}>
+              <Paperclip className="h-3.5 w-3.5" aria-hidden /> Contexto
+            </Button>
+          </div>
+          {showContext && (
+            <Card className="mb-3 border-lens/30">
+              <CardContent className="pt-4">
+                <label htmlFor="contexto" className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contexto adicional (opcional)</label>
+                <textarea id="contexto" value={context} onChange={(e) => setContext(e.target.value)} rows={4} maxLength={4000} placeholder="Trecho de artigo, currículo ou edital para a IA considerar. Fica salvo junto da pergunta." className="w-full resize-none rounded-lg border border-field bg-card px-3 py-2 text-sm" />
+              </CardContent>
+            </Card>
+          )}
+          <div className="mb-3 max-h-[55vh] min-h-[300px] flex-1 space-y-4 overflow-y-auto pr-1" data-testid="mensagens">
+            {msgState === "carregando" && <p className="text-sm text-muted-foreground">Carregando a conversa…</p>}
+            {msgState === "erro" && (
+              <p role="alert" className="text-sm text-red-800">
+                Não foi possível carregar esta conversa agora (ela continua salva).{" "}
+                <button type="button" className="font-semibold underline" onClick={() => currentId && void loadMessages(currentId)}>
+                  Tentar de novo
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Lista de mensagens */}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            {/* Avatar do assistente */}
-            {msg.role === "assistant" && (
-              <div className="w-8 h-8 rounded-xl bg-lens-tint flex items-center justify-center shrink-0 mt-0.5">
-                <Bot className="w-4 h-4 text-lens" />
+              </p>
+            )}
+            {msgState === "ok" && messages.length === 0 && (
+              <div className="py-4">
+                <p className="mb-3 text-xs text-slate-600">Respostas geradas por IA, sem acesso à internet: podem conter erros. Para editais, prefira “Analisar um edital”, que mostra o trecho de origem.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {SUGGESTIONS.map((s) => (
+                    <button key={s} type="button" onClick={() => void sendMessage(s)} className="rounded-xl border border-border/60 px-3 py-2.5 text-left text-sm hover:bg-lens-tint">
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-
-            {/* Balão de mensagem */}
-            <div
-              className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-7 whitespace-pre-wrap
-                ${msg.role === "user"
-                  ? "bg-lens text-white rounded-tr-sm"
-                  : "bg-card border border-border/60 rounded-tl-sm"}`}
-            >
-              {msg.content}
-            </div>
-
-            {/* Avatar do usuário */}
-            {msg.role === "user" && (
-              <div className="w-8 h-8 rounded-xl bg-muted/30 flex items-center justify-center shrink-0 mt-0.5">
-                <User className="w-4 h-4 text-muted-foreground" />
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`} data-testid="mensagem" data-role={msg.role} data-estado={msg.estado}>
+                {msg.role === "assistant" && (
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-lens-tint">
+                    <Bot className="h-4 w-4 text-lens" aria-hidden />
+                  </div>
+                )}
+                <div className="max-w-[80%]">
+                  <div className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-7 ${msg.role === "user" ? "rounded-tr-sm bg-lens text-white" : "rounded-tl-sm border border-border/60 bg-card"}`}>{msg.content}</div>
+                  {msg.estado === "local" && (
+                    <p className="mt-1 text-xs text-red-800">
+                      Não salva na sua conta.{" "}
+                      <button type="button" className="font-semibold underline" onClick={() => void retrySave(msg)}>
+                        Tentar de novo
+                      </button>
+                    </p>
+                  )}
+                  {msg.estado === "sem_resposta" && msg.role === "user" && !isLoading && (
+                    <p className="mt-1 text-right text-xs text-amber-900">
+                      Sem resposta da IA.{" "}
+                      <button type="button" className="inline-flex items-center gap-1 font-semibold underline" onClick={() => void retryAnswer(msg)}>
+                        <RotateCcw className="h-3 w-3" aria-hidden /> Tentar de novo
+                      </button>
+                    </p>
+                  )}
+                </div>
+                {msg.role === "user" && (
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-muted/30">
+                    <User className="h-4 w-4 text-muted-foreground" aria-hidden />
+                  </div>
+                )}
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden /> Gerando resposta…
               </div>
             )}
+            <div ref={bottomRef} />
           </div>
-        ))}
-
-        {/* Indicador de carregamento */}
-        {isLoading && (
-          <div className="flex gap-3 justify-start">
-            <div className="w-8 h-8 rounded-xl bg-lens-tint flex items-center justify-center shrink-0">
-              <Bot className="w-4 h-4 text-lens" />
-            </div>
-            <div className="bg-card border border-border/60 rounded-2xl rounded-tl-sm px-4 py-3">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Gerando resposta…</span>
-              </div>
-            </div>
+          <div className="relative">
+            <label htmlFor="pergunta" className="sr-only">Sua pergunta</label>
+            <textarea
+              id="pergunta"
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void sendMessage();
+                }
+              }}
+              placeholder="Digite sua pergunta… (Enter envia, Shift+Enter nova linha)"
+              rows={3}
+              disabled={isLoading}
+              className="w-full resize-none rounded-2xl border border-field bg-card px-4 py-3 pr-14 text-sm disabled:opacity-50"
+            />
+            <Button onClick={() => void sendMessage()} disabled={isLoading || !input.trim()} aria-label={isLoading ? "Enviando pergunta" : "Enviar pergunta"} className="absolute bottom-3 right-3 h-9 w-9 rounded-xl bg-lens p-0 text-white hover:bg-lens-deep" data-testid="enviar-pergunta">
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+            </Button>
           </div>
-        )}
-
-        {/* Âncora para scroll automático */}
-        <div ref={bottomRef} />
+          <p className="mt-2 text-center text-xs text-muted-foreground">Cada pergunta e resposta é salva na sua conta assim que chega ao servidor. Você pode excluir uma conversa a qualquer momento.</p>
+        </section>
       </div>
-
-      {/* Campo de entrada de mensagem */}
-      <div className="relative">
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Digite sua pergunta científica… (Enter para enviar, Shift+Enter para nova linha)"
-          rows={3}
-          disabled={isLoading}
-          className="w-full px-4 py-3 pr-14 rounded-2xl border border-field bg-card text-sm resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-lens focus-visible:ring-offset-1 focus:ring-2 focus:ring-lens/30 focus:border-lens/50 transition disabled:opacity-50"
-        />
-        <Button
-          onClick={() => sendMessage()}
-          disabled={isLoading || !input.trim()}
-          aria-label={isLoading ? "Enviando pergunta" : "Enviar pergunta"}
-          className="absolute right-3 bottom-3 h-9 w-9 p-0 rounded-xl bg-lens hover:bg-lens-deep text-white"
-        >
-          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <Send className="w-4 h-4" aria-hidden />}
-        </Button>
-      </div>
-
-      <p className="text-xs text-muted-foreground/50 text-center mt-2">
-        O Assistente IA pode cometer erros. Verifique informações importantes em fontes primárias.
-      </p>
-
       <div className="mt-6">
         <Link href="/niasci" className={buttonVariants({ variant: "ghost", size: "sm" })}>← Voltar ao NIASci</Link>
       </div>

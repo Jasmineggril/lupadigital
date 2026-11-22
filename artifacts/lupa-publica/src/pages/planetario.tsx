@@ -26,6 +26,7 @@
 import { apiFetch } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
+import { newKey } from "@/lib/persistence";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -120,12 +121,33 @@ export default function Planetario() {
 
   const stageTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
+  // Trabalhos anteriores: falha ao carregar aparece como falha (antes virava lista vazia, parecendo perda)
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const loadHistory = () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
     listPlanetariumContents()
       .then((items) => setHistory(items))
-      .catch(() => setHistory([]))
+      .catch(() => setHistoryError("Não foi possível carregar seus trabalhos anteriores agora. Eles continuam salvos na sua conta."))
       .finally(() => setHistoryLoading(false));
-  }, []);
+  };
+  useEffect(loadHistory, []);
+  // Chave de idempotência da análise atual (clique repetido ou nova tentativa não duplica)
+  const saveKeyRef = useRef(newKey());
+  // Aberto pelo Meu histórico (?item=ID): o MESMO resultado salvo, sem rodar a IA de novo
+  const openedFromUrl = useRef(false);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("item");
+    if (!id || openedFromUrl.current || historyLoading) return;
+    openedFromUrl.current = true;
+    const found = history.find((h) => String(h.id) === id);
+    if (found) handleHistorySelect(found);
+    else
+      apiFetch<PlanetariumContent>(`/resources/planetarium_contents/${encodeURIComponent(id)}`)
+        .then((item) => handleHistorySelect(item))
+        .catch(() => toast({ title: "Item não encontrado", description: "Este trabalho não está na sua conta (ou foi excluído).", variant: "destructive" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyLoading]);
 
   useEffect(() => {
     return () => { if (stageTimerRef.current) clearInterval(stageTimerRef.current); };
@@ -159,6 +181,7 @@ export default function Planetario() {
     }
 
     setResult(null);
+    saveKeyRef.current = newKey(); // nova análise = novo registro (nunca sobrescreve outra)
     setQuizAnswers({});
     setQuizRevealed({});
     setErrorMessage("");
@@ -178,7 +201,7 @@ export default function Planetario() {
         content: data.introducao ?? "",
         audience,
         metadata: { result: data } as any,
-      }).catch((e: unknown) => {
+      }, { idempotencyKey: saveKeyRef.current }).catch((e: unknown) => {
         // A análise está pronta; só a gravação falhou — dizer isso, sem marcar a análise como erro
         toast({ title: "Resultado pronto, mas não foi salvo", description: e instanceof Error ? e.message : "Não foi possível salvar no histórico.", variant: "destructive" });
         return null;
@@ -244,6 +267,8 @@ export default function Planetario() {
 
       <HistoryPanel
         items={history}
+        error={historyError}
+        onRetry={loadHistory}
         onSelect={handleHistorySelect}
         onDelete={handleHistoryDelete}
         getLabel={(p) => p.title ?? (p.metadata as any)?.result?.titulo ?? "Conteúdo sem título"}

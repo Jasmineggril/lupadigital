@@ -64,7 +64,11 @@ describe("análise heurística (fallback)", () => {
     vi.spyOn(openai.chat.completions, "create" as any).mockRejectedValue(Object.assign(new Error("401 Invalid API Key"), { status: 401 }));
     const r = (await analyzeAgent("simples", "EDITAL Nº 01/2026. Objeto: bolsas de iniciação científica. Inscrições até 20/12/2026.")) as any;
     expect(r.processing.mode).toBe("fallback");
-    const text = JSON.stringify(r);
+    // Datas, ids e hashes são aleatórios e podem conter "401" por acaso (ex.: "…T21:14:32.401Z"): ficam de fora
+    const text = JSON.stringify(r)
+      .replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, "<data>")
+      .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<id>")
+      .replace(/\b[0-9a-f]{40,}\b/gi, "<hash>");
     expect(text).not.toMatch(/Invalid API Key/);
     expect(text).not.toMatch(/401/);
   }, 30_000);

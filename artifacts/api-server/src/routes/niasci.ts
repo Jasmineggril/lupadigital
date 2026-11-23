@@ -21,7 +21,7 @@
 
 import { Router, type IRouter } from "express";
 import { getStore } from "../lib/lupa/store";
-import { projectContext, projectContextPrompt } from "../lib/lupa/participations";
+import { participationAssistantContext, projectContext, projectContextPrompt } from "../lib/lupa/participations";
 import { z } from "zod";
 import {
   analyzeLattes,
@@ -221,6 +221,9 @@ const ChatSchema = z.object({
   ).min(1).max(30),
   context: z.string().max(8000).optional(),
   historyId: z.coerce.number().int().positive().optional(),
+  /** Participação ou projeto escolhidos pela pessoa como contexto (o servidor confere o dono) */
+  participationId: z.string().uuid().optional(),
+  projectId: z.string().min(1).max(80).optional(),
 });
 
 /**
@@ -378,6 +381,35 @@ router.post("/niasci/chat", async (req, res): Promise<void> => {
       req.log?.warn({ requestId: (req as any).requestId, historyId: parsed.data.historyId }, "Falha ao carregar contexto do histórico");
     }
   }
+
+  // Participação/projeto escolhidos: só os da própria conta (404 genérico, sem revelar se existe)
+  const extra: string[] = [];
+  if (userId && parsed.data.participationId) {
+    const part = await getStore().getParticipation(userId, parsed.data.participationId).catch(() => null);
+    if (!part) {
+      res.status(404).json({ error: "Participação não encontrada." });
+      return;
+    }
+    extra.push(participationAssistantContext(part));
+  }
+  if (userId && parsed.data.projectId) {
+    const rows = await httpSelectTwoFilters("research_projects", "id", parsed.data.projectId, "user_id", userId, { limit: 1 }).catch(() => []);
+    const prj = rows[0] as Record<string, unknown> | undefined;
+    if (!prj) {
+      res.status(404).json({ error: "Projeto não encontrado." });
+      return;
+    }
+    const manual = prj.manual as { objective?: string; stages?: Array<{ name: string; status: string }> } | null;
+    const plan = prj.plan as Record<string, unknown> | null;
+    const lines = [`PROJETO SELECIONADO PELA PESSOA: "${String(prj.title ?? "Sem título")}"`];
+    if (prj.description) lines.push(`DESCRIÇÃO: ${String(prj.description).slice(0, 1500)}`);
+    if (manual?.objective) lines.push(`OBJETIVO: ${manual.objective.slice(0, 800)}`);
+    if (manual?.stages?.length) lines.push(`ETAPAS: ${manual.stages.slice(0, 20).map((s) => `${s.name} (${s.status})`).join("; ")}`);
+    if (plan) lines.push(`PLANO (resumo): ${JSON.stringify(plan).slice(0, 2500)}`);
+    lines.push(`ONDE CONTINUAR: /niasci/projetos?projeto=${String(prj.id)}`);
+    extra.push(lines.join("\n"));
+  }
+  if (extra.length) finalContext = [finalContext, ...extra].filter(Boolean).join("\n\n");
 
   try {
     const reply = await chatNiasci(

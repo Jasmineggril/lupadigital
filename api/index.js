@@ -156305,12 +156305,12 @@ var FEATURES = [
   },
   {
     id: "historico",
-    titulo: "Hist\xF3rico de an\xE1lises",
+    titulo: "Meu hist\xF3rico",
     rota: "/historico",
     acesso: "publico",
-    serve: "Reabrir an\xE1lises salvas (na conta, se voc\xEA entrou; neste navegador, se n\xE3o).",
+    serve: "Reabrir e continuar qualquer trabalho salvo: an\xE1lises, conversas do Assistente, curr\xEDculos, artigos, projetos e participa\xE7\xF5es.",
     entrada: "Nenhuma.",
-    resultado: "Lista das an\xE1lises salvas, com favoritos.",
+    resultado: "Todos os seus trabalhos (an\xE1lises, conversas, projetos, participa\xE7\xF5es) para continuar de onde parou.",
     proximos: ["analisar", "participar"]
   },
   {
@@ -160406,6 +160406,8 @@ function buildDocumentBase(text4, teacher) {
     requisitos: items(requirementTexts),
     restricoes: items(fields.restricoes),
     criterios: extractClauses(text4, /crit[ée]rios?\s+(de\s+)?(avalia|julgamento|sele|classifica)|crit[ée]rios?:|\bpeso\s+\d|\bpontua[çc][ãa]o\b|\bnota\s+m[íi]nima/i, lim.clauses),
+    obrigacoes: extractClauses(text4, /\bobriga[çc](?:[ãa]o|[õo]es)\b|\bcompromete-se\b|\bpresta[çc][ãa]o de contas\b|\brelat[óo]rio (?:final|t[ée]cnico|parcial)\b|\bcontrapartida\b|\bdever[áa]o?\s+(?:apresentar|entregar|manter|prestar|comprovar)\b/i, lim.clauses),
+    desclassificacao: extractClauses(text4, /desclassifica|inabilita|ser[áa]o?\s+eliminad|\bindeferid|n[ãa]o ser[ãa]o? aceit|implicar[áa]\s+(?:a\s+)?(?:exclus|elimina|desclass)|\bvedad[ao]s?\b/i, lim.clauses),
     canal_inscricao: items(fields.canal_inscricao),
     ausentes: missing.map((k) => FIELD_LABEL[k] ?? k),
     elegibilidade_perfil
@@ -162502,6 +162504,7 @@ import { randomUUID as randomUUID5 } from "node:crypto";
 var PARTICIPATION_STATUS = ["interesse", "preparando", "pronta_para_enviar", "enviada", "desisti"];
 var PARTICIPATION_KIND = ["edital_pesquisa", "hackathon", "bolsa", "concurso", "evento", "outro"];
 var PROPOSAL_SECTIONS = ["problema", "objetivos", "metodologia", "resultados", "orcamento", "cronograma", "equipe"];
+var RESULT_STATUS = ["aguardando", "aprovada", "nao_aprovada", "lista_espera"];
 var MAX_PROPOSAL_VERSIONS = 20;
 var MAX_PARTICIPATIONS_PER_USER = 100;
 var text3 = (max) => external_exports.string().trim().max(max);
@@ -162525,6 +162528,20 @@ var DeadlineInput = external_exports.object({
   origem: external_exports.enum(["edital", "analise", "usuario"]).optional(),
   evidencia: text3(1e3).nullable().optional()
 });
+var TaskInput = external_exports.object({
+  id: text3(64).optional(),
+  titulo: text3(300).min(1),
+  responsavel: text3(120).nullable().optional(),
+  prazo: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  feito: external_exports.boolean()
+});
+var SubmissionInput = external_exports.object({
+  enviada_em: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  protocolo: text3(200).nullable().optional(),
+  resultado: external_exports.enum(RESULT_STATUS).nullable().optional(),
+  resultado_em: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  observacao: text3(2e3).nullable().optional()
+}).strict();
 var UpdateParticipationSchema = external_exports.object({
   expected_version: external_exports.number().int().min(0),
   titulo: text3(300).min(3).optional(),
@@ -162536,8 +162553,13 @@ var UpdateParticipationSchema = external_exports.object({
   proposta: external_exports.object(Object.fromEntries(PROPOSAL_SECTIONS.map((k) => [k, text3(2e4).optional()]))).strict().optional(),
   /** Guarda a proposta atual como nova versão (rascunho nomeado). */
   salvar_versao: external_exports.object({ nota: text3(200).nullable().optional() }).optional(),
-  notas: text3(1e4).nullable().optional()
+  notas: text3(1e4).nullable().optional(),
+  tarefas: external_exports.array(TaskInput).max(200).optional(),
+  /** null apaga o registro de envio */
+  submissao: SubmissionInput.nullable().optional()
 }).strict();
+var ParticipationRuleError = class extends Error {
+};
 function guessKind(o) {
   const t = `${o.title} ${o.fields?.objeto?.value ?? ""}`.toLowerCase();
   if (/hackathon|maratona/.test(t)) return "hackathon";
@@ -162563,6 +162585,8 @@ function base(userId, now2) {
     prazos: [],
     proposta: {},
     versoes: [],
+    tarefas: [],
+    submissao: null,
     notas: null,
     version: 1,
     created_at: now2,
@@ -162621,6 +162645,37 @@ function applyUpdate(current2, input2, now2 = (/* @__PURE__ */ new Date()).toISO
   }
   if (input2.proposta) {
     next2.proposta = Object.fromEntries(Object.entries({ ...current2.proposta, ...input2.proposta }).filter(([, v]) => typeof v === "string" && v.length > 0));
+  }
+  if (input2.tarefas) {
+    next2.tarefas = input2.tarefas.map((t) => ({
+      id: t.id ?? randomUUID5(),
+      titulo: t.titulo,
+      responsavel: t.responsavel?.trim() || null,
+      prazo: t.prazo ?? null,
+      feito: t.feito
+    }));
+  }
+  if (input2.submissao !== void 0) {
+    if (input2.submissao === null) next2.submissao = null;
+    else {
+      const prev2 = current2.submissao ?? null;
+      const merged = {
+        enviada_em: input2.submissao.enviada_em !== void 0 ? input2.submissao.enviada_em : prev2?.enviada_em ?? null,
+        protocolo: input2.submissao.protocolo !== void 0 ? input2.submissao.protocolo?.trim() || null : prev2?.protocolo ?? null,
+        resultado: input2.submissao.resultado !== void 0 ? input2.submissao.resultado : prev2?.resultado ?? null,
+        resultado_em: input2.submissao.resultado_em !== void 0 ? input2.submissao.resultado_em : prev2?.resultado_em ?? null,
+        observacao: input2.submissao.observacao !== void 0 ? input2.submissao.observacao?.trim() || null : prev2?.observacao ?? null,
+        informado_em: now2
+      };
+      if (merged.resultado && merged.resultado !== "aguardando" && !merged.enviada_em) {
+        throw new ParticipationRuleError("Para registrar o resultado, informe primeiro a data em que a proposta foi enviada.");
+      }
+      next2.submissao = merged;
+      if (merged.enviada_em && input2.situacao === void 0 && next2.situacao !== "desisti") next2.situacao = "enviada";
+    }
+  }
+  if (next2.situacao === "enviada" && current2.situacao !== "enviada" && !next2.submissao?.enviada_em) {
+    throw new ParticipationRuleError("Para marcar como enviada, informe a data em que voc\xEA enviou a proposta (e o protocolo, se tiver).");
   }
   if (input2.salvar_versao) {
     const n2 = (current2.versoes.at(-1)?.n ?? 0) + 1;
@@ -162754,6 +162809,29 @@ function projectContextPrompt(c) {
   );
   return lines.join("\n");
 }
+function participationAssistantContext(p, today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
+  const L = [];
+  L.push(`PARTICIPA\xC7\xC3O SELECIONADA PELA PESSOA: "${p.titulo}" (tipo: ${p.tipo}; situa\xE7\xE3o: ${p.situacao}).`);
+  const oficial = officialSubmissionDeadline(p.prazos, today);
+  if (oficial) L.push(`PRAZO OFICIAL DE INSCRI\xC7\xC3O: ${formatDeadline(oficial)}${oficial.evidencia ? ` \u2014 trecho: "${oficial.evidencia.slice(0, 200)}"` : ""}`);
+  else L.push("PRAZO OFICIAL DE INSCRI\xC7\xC3O: n\xE3o identificado no edital (diga que precisa ser conferido).");
+  const prazosOficiais = p.prazos.filter((d) => d.origem !== "usuario");
+  if (prazosOficiais.length) L.push(`OUTRAS DATAS DO EDITAL: ${prazosOficiais.slice(0, 15).map((d) => `${d.rotulo}: ${d.data ?? "sem data"}`).join("; ")}`);
+  const metas = [...p.prazos.filter((d) => d.origem === "usuario").map((d) => `${d.rotulo} (${d.data ?? "sem data"})`), ...(p.tarefas ?? []).filter((t) => t.prazo).map((t) => `${t.titulo} (${t.prazo})`)];
+  if (metas.length) L.push(`METAS PESSOAIS (n\xE3o s\xE3o prazos do edital): ${metas.slice(0, 15).join("; ")}`);
+  const faltam = p.checklist.filter((c) => !c.feito);
+  const prontos = p.checklist.filter((c) => c.feito);
+  L.push(`DOCUMENTOS: ${prontos.length} prontos, ${faltam.length} faltando.`);
+  if (faltam.length) L.push(`DOCUMENTOS QUE FALTAM: ${faltam.slice(0, 25).map((c) => `${c.item}${c.origem === "usuario" ? " (acrescentado pela pessoa)" : ""}`).join("; ")}`);
+  const tarefas = (p.tarefas ?? []).filter((t) => !t.feito);
+  if (tarefas.length) L.push(`TAREFAS EM ABERTO: ${tarefas.slice(0, 20).map((t) => `${t.titulo}${t.responsavel ? ` \u2014 ${t.responsavel}` : ""}`).join("; ")}`);
+  const secoes = Object.entries(p.proposta).filter(([, v]) => v && v.trim()).map(([k]) => k);
+  if (p.exige_projeto) L.push(`PROPOSTA: se\xE7\xF5es j\xE1 escritas: ${secoes.length ? secoes.join(", ") : "nenhuma"}.`);
+  if (p.submissao?.enviada_em) L.push(`ENVIO INFORMADO PELA PESSOA: ${p.submissao.enviada_em}${p.submissao.resultado ? `; resultado informado: ${p.submissao.resultado}` : ""}.`);
+  L.push(`ONDE CONTINUAR: /participar/${p.id} (documentos, prazos, tarefas, proposta e envio)${p.exige_projeto ? `; projeto: /niasci/projetos?participacao=${p.id}` : ""}.`);
+  L.push("REGRAS: use s\xF3 estes dados; n\xE3o confirme envio ou aprova\xE7\xE3o que a pessoa n\xE3o informou; se algo n\xE3o est\xE1 aqui, diga que n\xE3o sabe e onde conferir.");
+  return L.join("\n");
+}
 
 // src/routes/niasci.ts
 var router4 = (0, import_express6.Router)();
@@ -162870,7 +162948,10 @@ var ChatSchema = external_exports.object({
     })
   ).min(1).max(30),
   context: external_exports.string().max(8e3).optional(),
-  historyId: external_exports.coerce.number().int().positive().optional()
+  historyId: external_exports.coerce.number().int().positive().optional(),
+  /** Participação ou projeto escolhidos pela pessoa como contexto (o servidor confere o dono) */
+  participationId: external_exports.string().uuid().optional(),
+  projectId: external_exports.string().min(1).max(80).optional()
 });
 function buildStructuredContext(resultJson) {
   const sections = [];
@@ -163003,6 +163084,33 @@ ${structuredCtx}`;
       req.log?.warn({ requestId: req.requestId, historyId: parsed.data.historyId }, "Falha ao carregar contexto do hist\xF3rico");
     }
   }
+  const extra = [];
+  if (userId && parsed.data.participationId) {
+    const part = await getStore().getParticipation(userId, parsed.data.participationId).catch(() => null);
+    if (!part) {
+      res.status(404).json({ error: "Participa\xE7\xE3o n\xE3o encontrada." });
+      return;
+    }
+    extra.push(participationAssistantContext(part));
+  }
+  if (userId && parsed.data.projectId) {
+    const rows = await httpSelectTwoFilters("research_projects", "id", parsed.data.projectId, "user_id", userId, { limit: 1 }).catch(() => []);
+    const prj = rows[0];
+    if (!prj) {
+      res.status(404).json({ error: "Projeto n\xE3o encontrado." });
+      return;
+    }
+    const manual = prj.manual;
+    const plan = prj.plan;
+    const lines = [`PROJETO SELECIONADO PELA PESSOA: "${String(prj.title ?? "Sem t\xEDtulo")}"`];
+    if (prj.description) lines.push(`DESCRI\xC7\xC3O: ${String(prj.description).slice(0, 1500)}`);
+    if (manual?.objective) lines.push(`OBJETIVO: ${manual.objective.slice(0, 800)}`);
+    if (manual?.stages?.length) lines.push(`ETAPAS: ${manual.stages.slice(0, 20).map((s) => `${s.name} (${s.status})`).join("; ")}`);
+    if (plan) lines.push(`PLANO (resumo): ${JSON.stringify(plan).slice(0, 2500)}`);
+    lines.push(`ONDE CONTINUAR: /niasci/projetos?projeto=${String(prj.id)}`);
+    extra.push(lines.join("\n"));
+  }
+  if (extra.length) finalContext = [finalContext, ...extra].filter(Boolean).join("\n\n");
   try {
     const reply = await chatNiasci(
       parsed.data.messages,
@@ -164272,7 +164380,16 @@ router6.patch("/participations/:id", requireAuth(), async (req, res) => {
       res.status(409).json({ error: "Esta participa\xE7\xE3o foi alterada em outra aba ou dispositivo. Recarregue para ver a vers\xE3o mais recente; seu texto continua na tela.", atual: current2 });
       return;
     }
-    const next2 = applyUpdate(current2, parsed.data);
+    let next2;
+    try {
+      next2 = applyUpdate(current2, parsed.data);
+    } catch (e) {
+      if (e instanceof ParticipationRuleError) {
+        res.status(422).json({ error: e.message, code: "REGRA_PARTICIPACAO" });
+        return;
+      }
+      throw e;
+    }
     const saved = await store.updateParticipation(userId, next2, parsed.data.expected_version);
     if (!saved) {
       res.status(409).json({ error: "Esta participa\xE7\xE3o foi alterada ao mesmo tempo em outro lugar. Recarregue; seu texto continua na tela." });

@@ -87,12 +87,12 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "historico",
-    titulo: "Histórico de análises",
+    titulo: "Meu histórico",
     rota: "/historico",
     acesso: "publico",
-    serve: "Reabrir análises salvas (na conta, se você entrou; neste navegador, se não).",
+    serve: "Reabrir e continuar qualquer trabalho salvo: análises, conversas do Assistente, currículos, artigos, projetos e participações.",
     entrada: "Nenhuma.",
-    resultado: "Lista das análises salvas, com favoritos.",
+    resultado: "Todos os seus trabalhos (análises, conversas, projetos, participações) para continuar de onde parou.",
     proximos: ["analisar", "participar"],
   },
   {
@@ -213,6 +213,7 @@ export const GOALS: Goal[] = [
   { id: "projeto", rotulo: "Preparar um projeto", explicacao: "Estruture problema, objetivos, método e cronograma, reaproveitando o que o edital exige.", feature: "projetos" },
   { id: "lattes", rotulo: "Entender meu Lattes", explicacao: "Leia o currículo de forma organizada e revise o que levar para o perfil.", feature: "elattes" },
   { id: "artigo", rotulo: "Analisar um artigo", explicacao: "Veja objetivo, método, resultados e limitações de um artigo científico.", feature: "artigos" },
+  { id: "continuar", rotulo: "Continuar um trabalho anterior", explicacao: "Reabra análises, conversas, projetos e participações salvos na sua conta.", feature: "historico" },
   { id: "aprender", rotulo: "Aprender a ler editais", explicacao: "Trilha curta com exemplo comentado e glossário.", feature: "aprender" },
 ];
 

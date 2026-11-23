@@ -51,13 +51,27 @@ const SUGGESTIONS = [
   "O que é revisão sistemática de literatura?",
 ];
 
+/** Trabalho da conta usado como contexto (o servidor confere o dono e lê os dados de lá). */
+type CtxRef = { tipo: "analise" | "participacao" | "projeto"; id: string; titulo: string };
+const CTX_LABEL: Record<CtxRef["tipo"], string> = { analise: "Análise de edital", participacao: "Participação", projeto: "Projeto" };
+const CTX_FROM_HISTORY: Record<string, CtxRef["tipo"]> = { editais: "analise", participacoes: "participacao", projetos: "projeto" };
+
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "");
 
 export default function Assistente() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const search = useSearch();
-  const currentId = new URLSearchParams(search).get("c");
+  const params = new URLSearchParams(search);
+  const currentId = params.get("c");
+  // Vindo de outra ferramenta: ?analise=ID, ?participacao=ID ou ?projeto=ID já escolhe o contexto
+  const linkedRef: CtxRef | null = params.get("analise")
+    ? { tipo: "analise", id: params.get("analise")!, titulo: "" }
+    : params.get("participacao")
+      ? { tipo: "participacao", id: params.get("participacao")!, titulo: "" }
+      : params.get("projeto")
+        ? { tipo: "projeto", id: params.get("projeto")!, titulo: "" }
+        : null;
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [listState, setListState] = useState<"carregando" | "ok" | "erro">("carregando");
@@ -67,6 +81,8 @@ export default function Assistente() {
   const [input, setInput] = useState("");
   const [context, setContext] = useState("");
   const [showContext, setShowContext] = useState(false);
+  const [ctxRef, setCtxRef] = useState<CtxRef | null>(linkedRef);
+  const [ctxOptions, setCtxOptions] = useState<CtxRef[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [renaming, setRenaming] = useState<number | null>(null);
   const [renameText, setRenameText] = useState("");
@@ -87,10 +103,25 @@ export default function Assistente() {
     void loadConversations();
   }, [loadConversations]);
 
+  // Trabalhos que podem servir de contexto (análises, participações, projetos da própria conta)
+  useEffect(() => {
+    apiFetch<{ itens: Array<{ ferramenta: string; id: string; titulo: string }> }>("/me/history?por_pagina=50&ordem=atualizacao")
+      .then((r) => {
+        const opts = r.itens.filter((i) => CTX_FROM_HISTORY[i.ferramenta]).map((i) => ({ tipo: CTX_FROM_HISTORY[i.ferramenta], id: String(i.id), titulo: i.titulo }));
+        setCtxOptions(opts);
+        // Completa o título do contexto vindo pelo link
+        setCtxRef((c) => (c && !c.titulo ? (opts.find((o) => o.tipo === c.tipo && o.id === c.id) ?? { ...c, titulo: CTX_LABEL[c.tipo] }) : c));
+      })
+      .catch(() => setCtxOptions([]));
+  }, []);
+
   const loadMessages = useCallback(async (id: string) => {
     setMsgState("carregando");
     try {
-      const rows = await apiFetch<Array<{ id: string; role: string; content: string | null; metadata: { estado?: string } | null }>>(`/resources/chat_messages?conversation_id=${encodeURIComponent(id)}&limit=500`);
+      const rows = await apiFetch<Array<{ id: string; role: string; content: string | null; metadata: { estado?: string; contexto_ref?: CtxRef } | null }>>(`/resources/chat_messages?conversation_id=${encodeURIComponent(id)}&limit=500`);
+      // Cada conversa guarda o trabalho que usou como contexto: reabrir não mistura com outro
+      const lastRef = [...(rows ?? [])].reverse().find((m) => m.role === "user" && m.metadata?.contexto_ref)?.metadata?.contexto_ref ?? null;
+      if (lastRef) setCtxRef(lastRef);
       setMessages(
         (rows ?? []).map((m, i, all) => ({
           id: m.id,
@@ -117,6 +148,7 @@ export default function Assistente() {
   const openConversation = (id: number | null) => {
     navigate(id ? `/niasci/assistente?c=${id}` : "/niasci/assistente");
     setInput("");
+    setCtxRef(null); // trocar de conversa não herda o contexto da anterior (a conversa aberta traz o dela)
   };
 
   /** Grava uma mensagem (idempotente). Devolve true se o servidor confirmou. */
@@ -124,7 +156,15 @@ export default function Assistente() {
     const r = await saveRequest<{ id: string }>("/resources/chat_messages", {
       method: "POST",
       idempotencyKey: m.idemKey,
-      body: { conversation_id: convId, role: m.role, content: m.content, metadata: context.trim() && m.role === "user" ? { contexto: context.trim().slice(0, 4000) } : null },
+      body: {
+        conversation_id: convId,
+        role: m.role,
+        content: m.content,
+        metadata:
+          m.role === "user" && (context.trim() || ctxRef)
+            ? { ...(context.trim() ? { contexto: context.trim().slice(0, 4000) } : {}), ...(ctxRef ? { contexto_ref: ctxRef } : {}) }
+            : null,
+      },
     });
     setMessages((prev) => prev.map((x): ChatMsg => (x.id === m.id ? { ...x, estado: r.ok ? (x.estado === "sem_resposta" ? "sem_resposta" : "salvo") : "local" } : x)));
     return r.ok;
@@ -136,7 +176,13 @@ export default function Assistente() {
     try {
       const data = await apiFetch<{ reply?: string }>("/niasci/chat", {
         method: "POST",
-        body: JSON.stringify({ messages: history.map(({ role, content }) => ({ role, content })), context: context.trim() || undefined }),
+        body: JSON.stringify({
+          messages: history.map(({ role, content }) => ({ role, content })),
+          context: context.trim() || undefined,
+          ...(ctxRef?.tipo === "analise" ? { historyId: Number(ctxRef.id) } : {}),
+          ...(ctxRef?.tipo === "participacao" ? { participationId: ctxRef.id } : {}),
+          ...(ctxRef?.tipo === "projeto" ? { projectId: ctxRef.id } : {}),
+        }),
       });
       const reply: ChatMsg = { id: newKey(), role: "assistant", content: data.reply ?? "Não consegui gerar uma resposta.", estado: "salvando", idemKey: newKey() };
       setMessages((prev) => [...prev.map((x): ChatMsg => (x.id === question.id ? { ...x, estado: x.estado === "local" ? "local" : "salvo" } : x)), reply]);
@@ -301,6 +347,46 @@ export default function Assistente() {
             <Button variant="ghost" size="sm" onClick={() => setShowContext(!showContext)} className="gap-1.5 text-xs" aria-expanded={showContext}>
               <Paperclip className="h-3.5 w-3.5" aria-hidden /> Contexto
             </Button>
+          </div>
+          <div className="mb-3 rounded-lg border border-hairline bg-slate-50 p-3 text-sm" data-testid="assistente-contexto">
+            <label htmlFor="ctx-ref" className="block text-xs font-semibold text-ink">
+              Usar um trabalho seu como contexto
+            </label>
+            <select
+              id="ctx-ref"
+              className="mt-1 w-full rounded-md border border-field bg-white px-2 py-1.5 text-sm"
+              value={ctxRef ? `${ctxRef.tipo}:${ctxRef.id}` : ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCtxRef(v ? (ctxOptions.find((o) => `${o.tipo}:${o.id}` === v) ?? null) : null);
+              }}
+              data-testid="assistente-contexto-select"
+            >
+              <option value="">Nenhum — pergunta geral</option>
+              {ctxRef && !ctxOptions.some((o) => o.tipo === ctxRef.tipo && o.id === ctxRef.id) && (
+                <option value={`${ctxRef.tipo}:${ctxRef.id}`}>
+                  {CTX_LABEL[ctxRef.tipo]}: {ctxRef.titulo || ctxRef.id}
+                </option>
+              )}
+              {(["participacao", "analise", "projeto"] as const).map((tipo) =>
+                ctxOptions.some((o) => o.tipo === tipo) ? (
+                  <optgroup key={tipo} label={CTX_LABEL[tipo]}>
+                    {ctxOptions
+                      .filter((o) => o.tipo === tipo)
+                      .map((o) => (
+                        <option key={`${o.tipo}:${o.id}`} value={`${o.tipo}:${o.id}`}>
+                          {o.titulo}
+                        </option>
+                      ))}
+                  </optgroup>
+                ) : null,
+              )}
+            </select>
+            <p className="mt-1 text-xs text-slate-600" data-testid="assistente-contexto-atual">
+              {ctxRef
+                ? `Considerando: ${CTX_LABEL[ctxRef.tipo]} “${ctxRef.titulo || ctxRef.id}” (dados da sua conta). Fica salvo nesta conversa.`
+                : "Sem trabalho selecionado: o Assistente responde de forma geral e indica onde fazer cada coisa no LUPA."}
+            </p>
           </div>
           {showContext && (
             <Card className="mb-3 border-lens/30">

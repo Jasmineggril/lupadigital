@@ -110,14 +110,14 @@ export function findNext(from: DOMRect, dir: Dir, items: HTMLElement[], current?
       if (t.x <= c.x + 1) continue;
       overlap = r.top < from.bottom && r.bottom > from.top;
       // ←/→ ficam na mesma faixa: não pulam para o menu ou para outra linha distante
-      if (!overlap && Math.abs(t.y - c.y) > Math.max(from.height, r.height)) continue;
+      if (!overlap && Math.abs(t.y - c.y) > Math.max(from.height, r.height) / 2) continue;
       side = overlap ? 0 : Math.min(Math.abs(r.top - from.bottom), Math.abs(r.bottom - from.top), Math.abs(t.y - c.y));
     } else {
       main = from.left - r.right;
       if (t.x >= c.x - 1) continue;
       overlap = r.top < from.bottom && r.bottom > from.top;
       // ←/→ ficam na mesma faixa: não pulam para o menu ou para outra linha distante
-      if (!overlap && Math.abs(t.y - c.y) > Math.max(from.height, r.height)) continue;
+      if (!overlap && Math.abs(t.y - c.y) > Math.max(from.height, r.height) / 2) continue;
       side = overlap ? 0 : Math.min(Math.abs(r.top - from.bottom), Math.abs(r.bottom - from.top), Math.abs(t.y - c.y));
     }
     const score = Math.max(main, -8) + side * 3;

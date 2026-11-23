@@ -222,7 +222,7 @@ export default function Perfil() {
                 <legend className="text-sm font-semibold text-slate-900">O que você quer fazer agora?</legend>
                 <p className="text-xs text-slate-600">Por que perguntamos: a página inicial passa a sugerir o caminho certo para isso.</p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {GOALS.map((g) => (
+                  {GOALS.filter((g) => g.id !== "continuar").map((g) => (
                     <label key={g.id} className="flex min-h-11 items-start gap-2 rounded-lg border border-hairline p-2.5 text-sm">
                       <input type="radio" name="objetivo_atual" className="mt-0.5 h-4 w-4" checked={form!.objetivo_atual === g.id} onChange={() => set("objetivo_atual", g.id)} />
                       {g.rotulo}

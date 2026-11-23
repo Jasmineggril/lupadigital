@@ -77,7 +77,7 @@ const focused = (p) =>
     if (!el || el === document.body) return null;
     const r = el.getBoundingClientRect();
     const s = getComputedStyle(el);
-    return { text: (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 50), x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top, bottom: r.bottom, outline: parseFloat(s.outlineWidth) || 0, inView: r.bottom > 0 && r.top < innerHeight };
+    return { text: (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 50), x: r.left + r.width / 2, y: r.top + r.height / 2, py: r.top + r.height / 2 + scrollY, top: r.top, bottom: r.bottom, outline: parseFloat(s.outlineWidth) || 0, inView: r.bottom > 0 && r.top < innerHeight };
   });
 /** Aperta um botão do controle simulado por alguns quadros e solta. */
 async function padPress(p, button, ms = 120) {
@@ -112,7 +112,7 @@ await step("TV (Tizen, Full HD): modo TV liga sozinho; setas andam na direção 
   const right = await focused(p);
   if (right.text !== before.text) {
     assert(right.x > before.x, "seta para a direita foi para a esquerda");
-    assert(Math.abs(right.y - before.y) < 120, "seta para a direita pulou para outra faixa da tela");
+    assert(Math.abs(right.py - before.py) < 120, `seta para a direita pulou para outra faixa da tela (${before.text} → ${right.text}, ${Math.round(before.py)} → ${Math.round(right.py)})`);
   }
   // Nos cartões "O que você quer fazer?": → anda pela mesma linha
   const card = p.locator("main a, main button").filter({ hasText: "Encontrar oportunidades" }).first();
@@ -121,7 +121,8 @@ await step("TV (Tizen, Full HD): modo TV liga sozinho; setas andam na direção 
   await p.keyboard.press("ArrowRight");
   await p.waitForTimeout(400);
   const c1 = await focused(p);
-  assert(c1.x > c0.x && Math.abs(c1.y - c0.y) < 40, `→ no cartão não foi para o vizinho da mesma linha (${c1.text})`);
+  // Posição na PÁGINA (não na tela): a rolagem suave até o item não altera a comparação
+  assert(c1.x > c0.x && Math.abs(c1.py - c0.py) < 40, `→ no cartão não foi para o vizinho da mesma linha (${c1.text})`);
   await p.screenshot({ path: `${SHOTS}/tv-fullhd-foco.png` });
 });
 

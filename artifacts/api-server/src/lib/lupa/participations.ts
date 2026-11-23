@@ -42,6 +42,27 @@ export interface DeadlineItem {
   evidencia: string | null;
 }
 
+/** Tarefa da equipe (meta PESSOAL: o prazo aqui nunca substitui o prazo oficial do edital). */
+export interface TaskItem {
+  id: string;
+  titulo: string;
+  responsavel: string | null;
+  prazo: string | null; // yyyy-mm-dd, meta pessoal
+  feito: boolean;
+}
+
+export const RESULT_STATUS = ["aguardando", "aprovada", "nao_aprovada", "lista_espera"] as const;
+
+/** Registro de envio e resultado — SEMPRE informado pela pessoa (o LUPA não confirma sozinho). */
+export interface SubmissionRecord {
+  enviada_em: string | null; // yyyy-mm-dd informado pela pessoa
+  protocolo: string | null;
+  resultado: (typeof RESULT_STATUS)[number] | null;
+  resultado_em: string | null;
+  observacao: string | null;
+  informado_em: string; // quando a pessoa registrou (servidor)
+}
+
 export type Proposal = Partial<Record<(typeof PROPOSAL_SECTIONS)[number], string>>;
 
 export interface ProposalVersion {
@@ -69,6 +90,10 @@ export interface Participation {
   prazos: DeadlineItem[];
   proposta: Proposal;
   versoes: ProposalVersion[];
+  /** Tarefas e responsáveis (registros antigos podem não ter o campo) */
+  tarefas?: TaskItem[];
+  /** Envio e resultado informados pela pessoa */
+  submissao?: SubmissionRecord | null;
   notas: string | null;
   version: number;
   created_at: string;
@@ -106,6 +131,24 @@ const DeadlineInput = z.object({
   evidencia: text(1000).nullable().optional(),
 });
 
+const TaskInput = z.object({
+  id: text(64).optional(),
+  titulo: text(300).min(1),
+  responsavel: text(120).nullable().optional(),
+  prazo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  feito: z.boolean(),
+});
+
+const SubmissionInput = z
+  .object({
+    enviada_em: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    protocolo: text(200).nullable().optional(),
+    resultado: z.enum(RESULT_STATUS).nullable().optional(),
+    resultado_em: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    observacao: text(2000).nullable().optional(),
+  })
+  .strict();
+
 /** Campos que a pessoa pode alterar. id, user_id, origem do edital e versões são do servidor. */
 export const UpdateParticipationSchema = z
   .object({
@@ -120,8 +163,14 @@ export const UpdateParticipationSchema = z
     /** Guarda a proposta atual como nova versão (rascunho nomeado). */
     salvar_versao: z.object({ nota: text(200).nullable().optional() }).optional(),
     notas: text(10_000).nullable().optional(),
+    tarefas: z.array(TaskInput).max(200).optional(),
+    /** null apaga o registro de envio */
+    submissao: SubmissionInput.nullable().optional(),
   })
   .strict();
+
+/** Envio/resultado só valem com informação da pessoa: "enviada" exige a data do envio. */
+export class ParticipationRuleError extends Error {}
 
 export type UpdateParticipationInput = z.infer<typeof UpdateParticipationSchema>;
 
@@ -154,6 +203,8 @@ function base(userId: string, now: string): Omit<Participation, "titulo" | "tipo
     prazos: [],
     proposta: {},
     versoes: [],
+    tarefas: [],
+    submissao: null,
     notas: null,
     version: 1,
     created_at: now,
@@ -234,6 +285,39 @@ export function applyUpdate(current: Participation, input: UpdateParticipationIn
   }
   if (input.proposta) {
     next.proposta = Object.fromEntries(Object.entries({ ...current.proposta, ...input.proposta }).filter(([, v]) => typeof v === "string" && v.length > 0));
+  }
+  if (input.tarefas) {
+    next.tarefas = input.tarefas.map((t) => ({
+      id: t.id ?? randomUUID(),
+      titulo: t.titulo,
+      responsavel: t.responsavel?.trim() || null,
+      prazo: t.prazo ?? null,
+      feito: t.feito,
+    }));
+  }
+  if (input.submissao !== undefined) {
+    if (input.submissao === null) next.submissao = null;
+    else {
+      const prev = current.submissao ?? null;
+      const merged = {
+        enviada_em: input.submissao.enviada_em !== undefined ? input.submissao.enviada_em : (prev?.enviada_em ?? null),
+        protocolo: input.submissao.protocolo !== undefined ? input.submissao.protocolo?.trim() || null : (prev?.protocolo ?? null),
+        resultado: input.submissao.resultado !== undefined ? input.submissao.resultado : (prev?.resultado ?? null),
+        resultado_em: input.submissao.resultado_em !== undefined ? input.submissao.resultado_em : (prev?.resultado_em ?? null),
+        observacao: input.submissao.observacao !== undefined ? input.submissao.observacao?.trim() || null : (prev?.observacao ?? null),
+        informado_em: now,
+      };
+      if (merged.resultado && merged.resultado !== "aguardando" && !merged.enviada_em) {
+        throw new ParticipationRuleError("Para registrar o resultado, informe primeiro a data em que a proposta foi enviada.");
+      }
+      next.submissao = merged;
+      // Registrou a data de envio agora: a situação passa a "enviada" (informado pela pessoa)
+      if (merged.enviada_em && input.situacao === undefined && next.situacao !== "desisti") next.situacao = "enviada";
+    }
+  }
+  // "Enviada" só com a data de envio informada pela pessoa (o LUPA não confirma envio sozinho)
+  if (next.situacao === "enviada" && current.situacao !== "enviada" && !next.submissao?.enviada_em) {
+    throw new ParticipationRuleError("Para marcar como enviada, informe a data em que você enviou a proposta (e o protocolo, se tiver).");
   }
   if (input.salvar_versao) {
     const n = (current.versoes.at(-1)?.n ?? 0) + 1;
@@ -438,4 +522,32 @@ export function projectContextPrompt(c: ProjectContext): string {
     "REGRAS: não invente integrantes, experiências, resultados, referências ou valores. Na equipe, descreva PAPÉIS necessários, não pessoas. Estimativas devem ser marcadas como estimativas. Em 'alertas', diga o que é exigência do edital e o que é sugestão sua, e o que falta confirmar.",
   );
   return lines.join("\n");
+}
+
+/**
+ * Contexto de uma participação para o Assistente: o que a pessoa organizou e o que falta.
+ * Prazos OFICIAIS (edital/análise) separados das metas pessoais; nada é inventado.
+ */
+export function participationAssistantContext(p: Participation, today = new Date().toISOString().slice(0, 10)): string {
+  const L: string[] = [];
+  L.push(`PARTICIPAÇÃO SELECIONADA PELA PESSOA: "${p.titulo}" (tipo: ${p.tipo}; situação: ${p.situacao}).`);
+  const oficial = officialSubmissionDeadline(p.prazos, today);
+  if (oficial) L.push(`PRAZO OFICIAL DE INSCRIÇÃO: ${formatDeadline(oficial)}${oficial.evidencia ? ` — trecho: "${oficial.evidencia.slice(0, 200)}"` : ""}`);
+  else L.push("PRAZO OFICIAL DE INSCRIÇÃO: não identificado no edital (diga que precisa ser conferido).");
+  const prazosOficiais = p.prazos.filter((d) => d.origem !== "usuario");
+  if (prazosOficiais.length) L.push(`OUTRAS DATAS DO EDITAL: ${prazosOficiais.slice(0, 15).map((d) => `${d.rotulo}: ${d.data ?? "sem data"}`).join("; ")}`);
+  const metas = [...p.prazos.filter((d) => d.origem === "usuario").map((d) => `${d.rotulo} (${d.data ?? "sem data"})`), ...(p.tarefas ?? []).filter((t) => t.prazo).map((t) => `${t.titulo} (${t.prazo})`)];
+  if (metas.length) L.push(`METAS PESSOAIS (não são prazos do edital): ${metas.slice(0, 15).join("; ")}`);
+  const faltam = p.checklist.filter((c) => !c.feito);
+  const prontos = p.checklist.filter((c) => c.feito);
+  L.push(`DOCUMENTOS: ${prontos.length} prontos, ${faltam.length} faltando.`);
+  if (faltam.length) L.push(`DOCUMENTOS QUE FALTAM: ${faltam.slice(0, 25).map((c) => `${c.item}${c.origem === "usuario" ? " (acrescentado pela pessoa)" : ""}`).join("; ")}`);
+  const tarefas = (p.tarefas ?? []).filter((t) => !t.feito);
+  if (tarefas.length) L.push(`TAREFAS EM ABERTO: ${tarefas.slice(0, 20).map((t) => `${t.titulo}${t.responsavel ? ` — ${t.responsavel}` : ""}`).join("; ")}`);
+  const secoes = Object.entries(p.proposta).filter(([, v]) => v && v.trim()).map(([k]) => k);
+  if (p.exige_projeto) L.push(`PROPOSTA: seções já escritas: ${secoes.length ? secoes.join(", ") : "nenhuma"}.`);
+  if (p.submissao?.enviada_em) L.push(`ENVIO INFORMADO PELA PESSOA: ${p.submissao.enviada_em}${p.submissao.resultado ? `; resultado informado: ${p.submissao.resultado}` : ""}.`);
+  L.push(`ONDE CONTINUAR: /participar/${p.id} (documentos, prazos, tarefas, proposta e envio)${p.exige_projeto ? `; projeto: /niasci/projetos?participacao=${p.id}` : ""}.`);
+  L.push("REGRAS: use só estes dados; não confirme envio ou aprovação que a pessoa não informou; se algo não está aqui, diga que não sabe e onde conferir.");
+  return L.join("\n");
 }

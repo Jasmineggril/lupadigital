@@ -26,6 +26,8 @@ import {
   type Participation,
   type ParticipationDetail,
   type Proposal,
+  type ResultStatus,
+  RESULT_LABEL,
 } from "@/lib/participacao";
 
 type Msg = { kind: "success" | "error" | "info"; text: string } | null;
@@ -59,12 +61,35 @@ export default function ParticipacaoDetalhe() {
   const [newItem, setNewItem] = useState("");
   const [newDate, setNewDate] = useState({ rotulo: "", data: "" });
   const [versionNote, setVersionNote] = useState("");
+  const [newTask, setNewTask] = useState({ titulo: "", responsavel: "", prazo: "" });
+  const [envio, setEnvio] = useState({ enviada_em: "", protocolo: "", resultado: "", resultado_em: "", observacao: "" });
 
   useEffect(() => {
     if (data) {
       setDraft(data.participation);
       setDirty(false);
+      const s0 = data.participation.submissao;
+      setEnvio({
+        enviada_em: s0?.enviada_em ?? "",
+        protocolo: s0?.protocolo ?? "",
+        resultado: s0?.resultado ?? "",
+        resultado_em: s0?.resultado_em ?? "",
+        observacao: s0?.observacao ?? "",
+      });
     }
+  }, [data]);
+
+  // Vindo de "Organizar documentos" / "Acompanhar prazos": rola até a seção pedida (#docs, #prazos)
+  useEffect(() => {
+    if (!data) return;
+    const h = window.location.hash.slice(1);
+    if (!h) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById(h);
+      el?.scrollIntoView({ block: "start" });
+      (el?.closest("section") as HTMLElement | null)?.setAttribute("data-destaque", "1");
+    }, 100);
+    return () => clearTimeout(t);
   }, [data]);
 
   // Aviso ao sair com alterações não salvas
@@ -100,12 +125,26 @@ export default function ParticipacaoDetalhe() {
         prazos: draft.prazos.map(({ id: did, rotulo, data: dt }) => ({ id: did, rotulo, data: dt })),
         proposta: draft.proposta,
         notas: draft.notas,
+        tarefas: (draft.tarefas ?? []).map(({ id: tid, titulo, responsavel, prazo, feito }) => ({
+          ...(tid.startsWith("novo-") ? {} : { id: tid }),
+          titulo,
+          responsavel,
+          prazo,
+          feito,
+        })),
         ...extra,
       };
       const r = await apiFetch<{ participation: Participation }>(`/participations/${draft.id}`, { method: "PATCH", body: JSON.stringify(body) });
       setDraft(r.participation);
       setDirty(false);
-      setMsg({ kind: "success", text: extra.salvar_versao ? `Versão ${r.participation.versoes.at(-1)?.n} da proposta salva.` : "Alterações salvas." });
+      setMsg({
+        kind: "success",
+        text: extra.salvar_versao
+          ? `Versão ${r.participation.versoes.at(-1)?.n} da proposta salva.`
+          : extra.submissao !== undefined
+            ? "Envio registrado (informado por você)."
+            : "Alterações salvas.",
+      });
       setVersionNote("");
     } catch (err) {
       const text = err instanceof Error ? err.message : "Não foi possível salvar.";
@@ -333,6 +372,70 @@ export default function ParticipacaoDetalhe() {
             </form>
           </section>
 
+          <section className="rounded-xl border border-hairline bg-white p-5" aria-labelledby="tarefas" data-testid="participar-tarefas">
+            <h2 id="tarefas" className="text-lg font-semibold text-slate-900">
+              Tarefas e responsáveis
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Divida o trabalho da equipe. As datas aqui são <strong>metas suas</strong>: o prazo que vale é o oficial, em “Prazos”.
+            </p>
+            {(draft.tarefas ?? []).length === 0 ? (
+              <p className="mt-3 text-sm text-slate-600">Nenhuma tarefa ainda.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {(draft.tarefas ?? []).map((t) => (
+                  <li key={t.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-hairline p-3 text-sm" data-testid="tarefa">
+                    <input
+                      type="checkbox"
+                      id={`tarefa-${t.id}`}
+                      checked={t.feito}
+                      onChange={(e) => edit({ tarefas: (draft.tarefas ?? []).map((x) => (x.id === t.id ? { ...x, feito: e.target.checked } : x)) })}
+                      className="h-4 w-4"
+                    />
+                    <label htmlFor={`tarefa-${t.id}`} className={`min-w-0 flex-1 font-medium ${t.feito ? "text-slate-500 line-through" : "text-ink"}`}>
+                      {t.titulo}
+                    </label>
+                    <span className="text-xs text-slate-700">{t.responsavel ? `Responsável: ${t.responsavel}` : "Sem responsável"}</span>
+                    {t.prazo && <span className="font-mono text-xs text-slate-700">meta {formatDate(t.prazo)}</span>}
+                    <button type="button" className="text-xs text-red-700 underline" onClick={() => edit({ tarefas: (draft.tarefas ?? []).filter((x) => x.id !== t.id) })}>
+                      Remover
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form
+              className="mt-3 grid gap-2 sm:grid-cols-[2fr_1fr_auto_auto]"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newTask.titulo.trim()) return;
+                edit({
+                  tarefas: [
+                    ...(draft.tarefas ?? []),
+                    { id: `novo-${Date.now()}`, titulo: newTask.titulo.trim(), responsavel: newTask.responsavel.trim() || null, prazo: newTask.prazo || null, feito: false },
+                  ],
+                });
+                setNewTask({ titulo: "", responsavel: "", prazo: "" });
+              }}
+            >
+              <label className="sr-only" htmlFor="nova-tarefa">
+                Tarefa
+              </label>
+              <input id="nova-tarefa" className={inputClass} placeholder="Tarefa (ex.: gravar o vídeo do pitch)" value={newTask.titulo} onChange={(e) => setNewTask({ ...newTask, titulo: e.target.value })} />
+              <label className="sr-only" htmlFor="nova-tarefa-resp">
+                Responsável
+              </label>
+              <input id="nova-tarefa-resp" className={inputClass} placeholder="Responsável" value={newTask.responsavel} onChange={(e) => setNewTask({ ...newTask, responsavel: e.target.value })} />
+              <label className="sr-only" htmlFor="nova-tarefa-prazo">
+                Meta (data)
+              </label>
+              <input id="nova-tarefa-prazo" type="date" className={inputClass} value={newTask.prazo} onChange={(e) => setNewTask({ ...newTask, prazo: e.target.value })} />
+              <Button type="submit" variant="outline" disabled={!newTask.titulo.trim()}>
+                Acrescentar tarefa
+              </Button>
+            </form>
+          </section>
+
           <section className="rounded-xl border border-hairline bg-white p-5" aria-labelledby="proposta">
             <h2 id="proposta" className="text-lg font-semibold text-slate-900">
               Proposta
@@ -445,6 +548,63 @@ export default function ParticipacaoDetalhe() {
             {dirty && <p className="mt-2 text-xs text-amber-800">Há alterações ainda não salvas.</p>}
           </section>
 
+          <section className="rounded-xl border border-hairline bg-white p-5" aria-labelledby="envio" data-testid="participar-envio">
+            <h2 id="envio" className="text-base font-semibold text-slate-900">
+              Envio e resultado
+            </h2>
+            <p className="mt-1 text-xs text-slate-600">
+              O LUPA não confirma envio nem aprovação sozinho: registre aqui o que aconteceu (data, protocolo, resultado). Fica marcado como informado por você.
+            </p>
+            {draft.submissao?.informado_em && (
+              <p className="mt-2 rounded bg-slate-50 px-2 py-1 text-xs text-slate-700" data-testid="envio-registrado">
+                {draft.submissao.enviada_em ? `Enviada em ${formatDate(draft.submissao.enviada_em)}` : "Envio ainda não informado"}
+                {draft.submissao.protocolo ? ` · protocolo ${draft.submissao.protocolo}` : ""}
+                {draft.submissao.resultado ? ` · ${RESULT_LABEL[draft.submissao.resultado]}` : ""} — informado por você em{" "}
+                {new Date(draft.submissao.informado_em).toLocaleDateString("pt-BR")}
+              </p>
+            )}
+            <div className="mt-3 space-y-2 text-sm">
+              <label className="block">
+                <span className="text-xs font-medium text-slate-800">Data do envio</span>
+                <input type="date" className={inputClass} value={envio.enviada_em} onChange={(e) => setEnvio({ ...envio, enviada_em: e.target.value })} data-testid="envio-data" />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-slate-800">Protocolo ou comprovante (opcional)</span>
+                <input className={inputClass} value={envio.protocolo} onChange={(e) => setEnvio({ ...envio, protocolo: e.target.value })} data-testid="envio-protocolo" />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-slate-800">Resultado</span>
+                <select className={inputClass} value={envio.resultado} onChange={(e) => setEnvio({ ...envio, resultado: e.target.value })} data-testid="envio-resultado">
+                  <option value="">Ainda não informado</option>
+                  {Object.entries(RESULT_LABEL).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={busy || (!envio.enviada_em && !envio.resultado && !envio.protocolo)}
+                data-testid="envio-registrar"
+                onClick={() =>
+                  void save({
+                    submissao: {
+                      enviada_em: envio.enviada_em || null,
+                      protocolo: envio.protocolo || null,
+                      resultado: (envio.resultado || null) as ResultStatus | null,
+                      resultado_em: envio.resultado_em || null,
+                      observacao: envio.observacao || null,
+                    },
+                  })
+                }
+              >
+                Registrar envio/resultado
+              </Button>
+            </div>
+          </section>
+
           <section className="rounded-xl border border-hairline bg-white p-5" aria-labelledby="conf" data-testid="participar-conferencia">
             <h2 id="conf" className="text-base font-semibold text-slate-900">
               Conferência
@@ -472,10 +632,22 @@ export default function ParticipacaoDetalhe() {
             </h2>
             <ul className="mt-2 space-y-2 text-sm">
               <li>
-                <Link href="/testar" className="font-medium text-lens underline">
-                  Analisar o edital
+                {draft.agent_result_id ? (
+                  <Link href={`/testar?analise=${draft.agent_result_id}`} className="font-medium text-lens underline">
+                    Reabrir a análise do edital
+                  </Link>
+                ) : (
+                  <Link href="/testar" className="font-medium text-lens underline">
+                    Analisar o edital
+                  </Link>
+                )}{" "}
+                — requisitos e elegibilidade, sem reenviar o documento.
+              </li>
+              <li>
+                <Link href={`/niasci/assistente?participacao=${draft.id}`} className="font-medium text-lens underline" data-testid="participar-assistente">
+                  Perguntar ao Assistente sobre esta participação
                 </Link>{" "}
-                — para entender requisitos e elegibilidade.
+                — ele considera os prazos, documentos e tarefas daqui.
               </li>
               {draft.exige_projeto && (
                 <li>

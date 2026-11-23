@@ -40,6 +40,7 @@ import { STALE_RUN_MS, cronConfigured, dueSources, verifyCronSecret } from "../l
 import {
   CreateParticipationSchema,
   MAX_PARTICIPATIONS_PER_USER,
+  ParticipationRuleError,
   UpdateParticipationSchema,
   applyUpdate,
   blankParticipation,
@@ -670,7 +671,16 @@ router.patch("/participations/:id", requireAuth(), async (req, res) => {
       res.status(409).json({ error: "Esta participação foi alterada em outra aba ou dispositivo. Recarregue para ver a versão mais recente; seu texto continua na tela.", atual: current });
       return;
     }
-    const next = applyUpdate(current, parsed.data);
+    let next;
+    try {
+      next = applyUpdate(current, parsed.data);
+    } catch (e) {
+      if (e instanceof ParticipationRuleError) {
+        res.status(422).json({ error: e.message, code: "REGRA_PARTICIPACAO" });
+        return;
+      }
+      throw e;
+    }
     const saved = await store.updateParticipation(userId, next, parsed.data.expected_version);
     if (!saved) {
       res.status(409).json({ error: "Esta participação foi alterada ao mesmo tempo em outro lugar. Recarregue; seu texto continua na tela." });

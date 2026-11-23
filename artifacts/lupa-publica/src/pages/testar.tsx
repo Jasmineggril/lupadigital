@@ -107,11 +107,11 @@ import {
 // Leitor de PDF (pdf.js + OCR) só é baixado quando a pessoa envia um PDF (~515 KB a menos no /testar)
 import type { PdfStructuredData } from "@/lib/pdf";
 import { apiFetch, ApiError } from "@/lib/api";
-import { QueroParticipar } from "@/components/lupa/QueroParticipar";
 import { deleteLocalHistory, listLocalHistory, saveLocalHistory, setLocalFavorite, type LocalAgentRecord } from "@/lib/localHistory";
 import { DocumentTimeline, QuickViewContent, ResultValidity, StageBanner, isPartialResult, type RealStage } from "@/components/testar/AnalysisPanels";
 import { LongDocProgress, type LongJobView } from "@/components/testar/LongDocProgress";
 import { SaveStatus } from "@/components/lupa/SaveStatus";
+import { ProximosPassos } from "@/components/lupa/ProximosPassos";
 import { newKey, saveRequest, useAutosave, type SaveResult } from "@/lib/persistence";
 import { checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
 import {
@@ -123,6 +123,7 @@ import {
   documentLine,
   resolveAnalysisFacts,
   type ChecklistItemSummary,
+  type DocumentBase,
   type TimelineStep,
 } from "@/lib/analysisViewModel";
 import {
@@ -2515,6 +2516,45 @@ function HistoryPanel({
 }
 
 // ── Main Page ────────────────────────────────────────────────────
+
+/** Critérios de avaliação, obrigações e causas de desclassificação — só o que está no texto, com o trecho. */
+function RegrasDoEdital({ base }: { base: DocumentBase | null }) {
+  if (!base) return null;
+  const grupos: Array<{ id: string; titulo: string; itens: Array<{ texto: string; evidencia: string }> | undefined }> = [
+    { id: "criterios", titulo: "Critérios de avaliação", itens: base.criterios },
+    { id: "obrigacoes", titulo: "Obrigações de quem participa", itens: base.obrigacoes },
+    { id: "desclassificacao", titulo: "O que desclassifica ou impede", itens: base.desclassificacao },
+  ];
+  return (
+    <section aria-labelledby="regras-edital" className="mt-6 rounded-2xl border border-hairline bg-slate-50 p-4" data-testid="regras-edital">
+      <h3 id="regras-edital" className="text-sm font-semibold text-ink">
+        Regras do edital (trechos do documento)
+      </h3>
+      <p className="mt-1 text-xs text-slate-600">Copiadas do texto enviado — não são interpretação da IA. Confira sempre no edital oficial.</p>
+      <div className="mt-3 grid gap-3 md:grid-cols-3">
+        {grupos.map((g) => (
+          <div key={g.id} data-testid={`regras-${g.id}`}>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">{g.titulo}</h4>
+            {g.itens === undefined ? (
+              <p className="mt-1 text-xs text-slate-600">Disponível em análises novas.</p>
+            ) : g.itens.length === 0 ? (
+              <p className="mt-1 text-xs text-slate-600">Não encontrado no documento.</p>
+            ) : (
+              <ul className="mt-1 space-y-1.5">
+                {g.itens.slice(0, 6).map((x, i) => (
+                  <li key={i} className="text-xs leading-relaxed text-ink">
+                    “{x.evidencia.slice(0, 280)}”
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function TestarIA() {
   const [text, setText] = useState("");
   const [urlInput, setUrlInput] = useState("");
@@ -2525,6 +2565,8 @@ export default function TestarIA() {
   const [canonicalAnalysis, setCanonicalAnalysis] = useState<CanonicalAnalysisLike | null>(null);
   const [checklistState, setChecklistState] = useState<ChecklistItem[]>([]);
   // Sem valores presumidos: vazio = "não informado" (a IA trata como pendente)
+  // Aba do resultado (controlada: "Conferir minha elegibilidade" abre a aba certa)
+  const [resultTab, setResultTab] = useState("resumo");
   const [profile, setProfile] = useState<UserProfile>({
     escolaridade: "",
     atuacao: "",
@@ -4238,40 +4280,19 @@ export default function TestarIA() {
               </div>
             )}
             {agentResult && !isAnalyzing && (
-              <section aria-labelledby="proximos-passos" className="rounded-2xl border border-hairline bg-white p-4" data-testid="testar-proximos-passos">
-                <h2 id="proximos-passos" className="text-sm font-semibold text-ink">
-                  E agora?
-                </h2>
-                <div className="mt-2 flex flex-wrap items-start gap-3">
-                  {user && currentSavedId && !currentSavedId.startsWith("local-") ? (
-                    <QueroParticipar agentResultId={Number(currentSavedId)} titulo={text.trim().slice(0, 120).replace(/\n/g, " ")} size="sm" />
-                  ) : user ? (
-                    <p className="max-w-xs text-xs text-slate-600">
-                      Para organizar documentos e prazos em <strong>Quero participar</strong>, salve a interpretação primeiro.
-                    </p>
-                  ) : (
-                    <QueroParticipar size="sm" />
-                  )}
-                  <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                    <li>
-                      <span className="text-slate-600">Documentos e elegibilidade: </span>abas <strong>Checklist</strong> e <strong>Elegibilidade</strong> abaixo
-                    </li>
-                    <li>
-                      <Link href="/glossario" className="font-medium text-lens underline">
-                        Entender um termo
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/oportunidades" className="font-medium text-lens underline">
-                        Ver editais parecidos
-                      </Link>
-                    </li>
-                  </ul>
-                </div>
-              </section>
+              <ProximosPassos
+                logged={Boolean(user)}
+                agentResultId={user && currentSavedId && !currentSavedId.startsWith("local-") ? Number(currentSavedId) : null}
+                titulo={text.trim().slice(0, 120).replace(/\n/g, " ")}
+                perfilUsado={Boolean(profile.escolaridade || profile.atuacao || profile.municipio || profile.rendaFamiliar)}
+                onEligibility={() => {
+                  setResultTab("elegibilidade");
+                  setTimeout(() => document.getElementById("resultado-abas")?.scrollIntoView({ block: "start", behavior: "smooth" }), 50);
+                }}
+              />
             )}
             {agentResult && !isAnalyzing && (
-              <Tabs defaultValue="resumo" className="w-full">
+              <Tabs value={resultTab} onValueChange={setResultTab} className="w-full" id="resultado-abas">
                 <TabsList className="mb-4 grid h-auto grid-cols-3 gap-2 rounded-[32px] border border-slate-200 bg-slate-100 p-2 shadow-sm shadow-slate-200/20 sm:grid-cols-4">
                   <TabsTrigger value="resumo" className="flex min-w-0 flex-col gap-1 whitespace-normal rounded-2xl px-2 py-3 text-[12px] font-semibold leading-tight text-slate-700">
                     <BarChart2 className="w-4 h-4" />
@@ -4311,6 +4332,7 @@ export default function TestarIA() {
                     <CardContent className="p-4">
                       <LearnBox section="resumo" />
                       <AgentResultPanel result={agentResult} onCheckToggle={handleCheckToggle} printRef={printRef} />
+                      <RegrasDoEdital base={(canonicalAnalysis as { base?: DocumentBase } | null)?.base ?? null} />
                     </CardContent>
                   </Card>
                 </TabsContent>

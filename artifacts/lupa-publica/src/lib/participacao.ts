@@ -37,6 +37,31 @@ export const PROPOSAL_SECTIONS = [
 export type SectionId = (typeof PROPOSAL_SECTIONS)[number]["id"];
 export type Proposal = Partial<Record<SectionId, string>>;
 
+export interface TaskItem {
+  id: string;
+  titulo: string;
+  responsavel: string | null;
+  prazo: string | null;
+  feito: boolean;
+}
+
+export type ResultStatus = "aguardando" | "aprovada" | "nao_aprovada" | "lista_espera";
+export const RESULT_LABEL: Record<ResultStatus, string> = {
+  aguardando: "Aguardando resultado",
+  aprovada: "Aprovada",
+  nao_aprovada: "Não aprovada",
+  lista_espera: "Lista de espera",
+};
+
+export interface SubmissionRecord {
+  enviada_em: string | null;
+  protocolo: string | null;
+  resultado: ResultStatus | null;
+  resultado_em: string | null;
+  observacao: string | null;
+  informado_em: string;
+}
+
 export interface Participation {
   id: string;
   titulo: string;
@@ -51,6 +76,10 @@ export interface Participation {
   prazos: DeadlineItem[];
   proposta: Proposal;
   versoes: Array<{ n: number; salvo_em: string; nota: string | null; proposta: Proposal }>;
+  /** Tarefas e responsáveis (meta pessoal; não muda o prazo oficial) */
+  tarefas?: TaskItem[];
+  /** Envio e resultado — sempre informados pela pessoa */
+  submissao?: SubmissionRecord | null;
   notas: string | null;
   version: number;
   created_at: string;

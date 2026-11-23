@@ -71,6 +71,8 @@ export interface DocumentBase {
   requisitos: Array<{ texto: string; evidencia: string }>;
   restricoes: Array<{ texto: string; evidencia: string }>;
   criterios: Array<{ texto: string; evidencia: string }>;
+  obrigacoes?: Array<{ texto: string; evidencia: string }>;
+  desclassificacao?: Array<{ texto: string; evidencia: string }>;
   canal_inscricao: Array<{ texto: string; evidencia: string }>;
   ausentes: string[];
   elegibilidade_perfil: Array<{ requisito: string; evidencia: string; estado: "atendido" | "nao_atendido" | "pendente"; motivo: string; base_perfil: string | null }> | null;

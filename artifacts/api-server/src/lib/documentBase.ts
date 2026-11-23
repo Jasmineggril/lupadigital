@@ -60,6 +60,10 @@ export interface DocumentBase {
   requisitos: BaseItem[];
   restricoes: BaseItem[];
   criterios: BaseItem[];
+  /** Obrigações de quem participa (prestação de contas, relatórios, contrapartidas…) — trecho literal */
+  obrigacoes?: BaseItem[];
+  /** Causas de desclassificação/inabilitação ditas no edital — trecho literal */
+  desclassificacao?: BaseItem[];
   canal_inscricao: BaseItem[];
   ausentes: string[];
   /** Comparação com o perfil docente (null = usuário sem perfil docente) */
@@ -151,6 +155,8 @@ export function buildDocumentBase(text: string, teacher?: TeacherProfile | null)
     requisitos: items(requirementTexts),
     restricoes: items(fields.restricoes),
     criterios: extractClauses(text, /crit[ée]rios?\s+(de\s+)?(avalia|julgamento|sele|classifica)|crit[ée]rios?:|\bpeso\s+\d|\bpontua[çc][ãa]o\b|\bnota\s+m[íi]nima/i, lim.clauses),
+    obrigacoes: extractClauses(text, /\bobriga[çc](?:[ãa]o|[õo]es)\b|\bcompromete-se\b|\bpresta[çc][ãa]o de contas\b|\brelat[óo]rio (?:final|t[ée]cnico|parcial)\b|\bcontrapartida\b|\bdever[áa]o?\s+(?:apresentar|entregar|manter|prestar|comprovar)\b/i, lim.clauses),
+    desclassificacao: extractClauses(text, /desclassifica|inabilita|ser[áa]o?\s+eliminad|\bindeferid|n[ãa]o ser[ãa]o? aceit|implicar[áa]\s+(?:a\s+)?(?:exclus|elimina|desclass)|\bvedad[ao]s?\b/i, lim.clauses),
     canal_inscricao: items(fields.canal_inscricao),
     ausentes: missing.map((k) => FIELD_LABEL[k] ?? k),
     elegibilidade_perfil,

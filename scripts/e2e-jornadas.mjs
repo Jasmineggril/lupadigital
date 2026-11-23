@@ -224,7 +224,9 @@ await step("analisar → salvar na conta → Quero participar a partir da análi
   // Logado: a análise parcial (contingência, sem IA) é salva na conta automaticamente, identificada como parcial
   await p.getByText(/Análise parcial salva na sua conta/).first().waitFor();
   await p.getByRole("button", { name: "Salvo" }).first().waitFor();
-  await p.getByTestId("testar-proximos-passos").getByRole("button", { name: "Quero participar" }).waitFor();
+  // "E agora?": os quatro próximos passos partem da análise salva (sem reenviar o documento)
+  for (const id of ["proximo-elegibilidade", "proximo-documentos", "proximo-prazos", "proximo-projeto"]) await p.getByTestId(id).waitFor();
+  await p.waitForFunction(() => !document.querySelector('[data-testid="proximo-documentos"]')?.hasAttribute("disabled"));
   await p.screenshot({ path: `${SHOTS}/03-testar-proximos-passos.png`, fullPage: true });
 
   const created = p.waitForResponse((r) => r.url().endsWith("/api/edital/share") && r.request().method() === "POST");
@@ -239,7 +241,7 @@ await step("analisar → salvar na conta → Quero participar a partir da análi
   assert(!JSON.stringify(pub).includes("pesq.a"), "resposta pública expõe o dono");
 
   // Quero participar a partir da análise salva: itens vêm da base documental, com origem "da análise"
-  await Promise.all([p.waitForURL(/\/participar\/.+/), p.getByTestId("testar-proximos-passos").getByRole("button", { name: "Quero participar" }).click()]);
+  await Promise.all([p.waitForURL(/\/participar\/.+/), p.getByTestId("proximo-documentos").click()]);
   await p.getByTestId("participar-checklist").waitFor();
   assert(/da análise/.test(await p.getByTestId("participar-checklist").innerText()), "itens da análise sem origem");
   assert(/30\/04\/2027|28\/02\/2027/.test(await p.locator("#prazos").locator("..").innerText()), "prazos da análise ausentes");
